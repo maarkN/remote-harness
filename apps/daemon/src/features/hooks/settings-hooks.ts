@@ -26,12 +26,17 @@ export type HookInstallOptions = { port: number; secret: string; permissionTimeo
 /** Where the hooks are written: Claude Code's `settings.json` or Codex's `hooks.json` (same shape). */
 export type HookStyle = 'claude-settings' | 'codex-hooks'
 
-/** Codex has no Notification or SubagentStop for us; the rest match Claude Code's names and stdin. */
+/**
+ * Codex has no Notification or SubagentStop for us; the rest match Claude Code's names and stdin.
+ * `Interrupt` is the other direction: a Codex-only event (a turn paused instead of finishing, e.g.
+ * to ask the user a question) that Claude Code has no equivalent of.
+ */
 export const CODEX_HOOK_EVENTS: readonly HookEventName[] = [
   'SessionStart',
   'UserPromptSubmit',
   'PermissionRequest',
   'Stop',
+  'Interrupt',
   'SessionEnd',
 ]
 

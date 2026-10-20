@@ -39,6 +39,7 @@ describe('handover rules', () => {
     expect(hookMovesOn('Stop')).toBe(true)
     expect(hookMovesOn('UserPromptSubmit')).toBe(true)
     expect(hookMovesOn('SessionEnd')).toBe(true)
+    expect(hookMovesOn('Interrupt')).toBe(true)
     expect(hookMovesOn('Notification')).toBe(false)
   })
 
