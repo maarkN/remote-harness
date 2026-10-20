@@ -369,4 +369,32 @@ describe('codex sessions', () => {
       store.dispose()
     }
   })
+
+  test('Interrupt turns a running session idle without a Stop (#291)', async () => {
+    const store = new SessionStore(
+      { broadcast: () => {} },
+      join(home.dir(), 'state-interrupt.json'),
+      silentLogger,
+      60_000,
+    )
+    const profiles: Profile[] = [{ id: 'cdx', name: 'Codex', configDir: '/cfg', color: '', agent: 'codex' }]
+    const service = new SessionService(store, new TmuxClient(fakeExecutor()), profiles, silentLogger, {
+      recentDays: 7,
+      scanCacheMs: 0,
+    })
+    try {
+      await service.handleHook(
+        hookEvent('SessionStart', { session_id: 'abc', cwd: '/w' }, { paneId: '%4', profileId: 'cdx' }),
+      )
+      await service.handleHook(
+        hookEvent('UserPromptSubmit', { session_id: 'abc', prompt: 'go' }, { profileId: 'cdx' }),
+      )
+      expect(store.get('abc')?.state).toBe('running')
+      // Codex paused mid-turn (e.g. to ask a clarifying question) instead of firing Stop.
+      await service.handleHook(hookEvent('Interrupt', { session_id: 'abc' }, { profileId: 'cdx' }))
+      expect(store.get('abc')).toMatchObject({ state: 'idle', controllable: true, paneId: '%4' })
+    } finally {
+      store.dispose()
+    }
+  })
 })

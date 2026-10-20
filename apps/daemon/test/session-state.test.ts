@@ -17,6 +17,8 @@ describe('session state rules', () => {
     expect(hookState('Notification', 'auth_success')).toBeUndefined()
     expect(hookState('SessionEnd')).toBe('ended')
     expect(hookState('PreToolUse')).toBeUndefined()
+    // Codex: a turn paused instead of finishing (e.g. to ask a question) is still ready for input.
+    expect(hookState('Interrupt')).toBe('idle')
   })
 
   test('an ended session only accepts a new start or a prompt from a pane', () => {
