@@ -9,10 +9,22 @@ export const HOOK_EVENTS = [
   'Notification',
   'PermissionRequest',
 ] as const
-export type HookEventName = (typeof HOOK_EVENTS)[number]
+
+/**
+ * Hook events with no Claude Code equivalent: the mirror image of `Notification`/`SubagentStop`,
+ * which Codex's own hooks.json has no use for either. `Interrupt` fires when a Codex turn pauses
+ * instead of finishing cleanly (e.g. to ask the user a question), so the daemon needs it even
+ * though Claude Code's `settings.json` installer never offers it.
+ */
+export const CODEX_ONLY_HOOK_EVENTS = ['Interrupt'] as const
+
+export type HookEventName = (typeof HOOK_EVENTS)[number] | (typeof CODEX_ONLY_HOOK_EVENTS)[number]
 
 export function isHookEventName(value: string): value is HookEventName {
-  return (HOOK_EVENTS as readonly string[]).includes(value)
+  return (
+    (HOOK_EVENTS as readonly string[]).includes(value) ||
+    (CODEX_ONLY_HOOK_EVENTS as readonly string[]).includes(value)
+  )
 }
 
 /** Fields shared by every hook payload. Unknown fields are kept (`loose`) for feature-specific use. */

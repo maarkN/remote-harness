@@ -36,7 +36,13 @@ export function entryMovesOn(entry: Pick<TranscriptEntry, 'kind'>): boolean {
   return entry.kind === 'tool_result' || entry.kind === 'user'
 }
 
-const MOVING_HOOKS: ReadonlySet<HookEventName> = new Set(['UserPromptSubmit', 'Stop', 'SessionEnd'])
+const MOVING_HOOKS: ReadonlySet<HookEventName> = new Set([
+  'UserPromptSubmit',
+  'Stop',
+  // Codex: the turn paused instead of finishing, which also means it moved past the dialog.
+  'Interrupt',
+  'SessionEnd',
+])
 
 /** Session hooks that only arrive once the dialog is gone (new requests are handled by the broker). */
 export function hookMovesOn(event: HookEventName): boolean {

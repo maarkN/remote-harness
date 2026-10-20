@@ -6,7 +6,7 @@ Provides the foundation of the mobile app: terminal visual identity, navigation 
 ## Requirements
 
 ### Requirement: App icon
-The app SHALL have an icon with the Remote Harness mark (the Tether: three reins from three terminals meeting in one ring) in the amber accent over a dark gradient with a soft amber glow, generated from code by `apps/mobile/scripts/icons.mts` together with the splash image, the Android adaptive, themed and notification icons, the favicon and the Live Activity icon. Sizes under 24 px (notification, favicon, Live Activity, menu bar) SHALL use the bold weight of the mark. No asset MAY show the Claude spark or any other agent's symbol.
+The app SHALL have an icon with the Remote Harness mark (the Tether: three reins from three terminals meeting in one ring) in the amber accent over a dark gradient with a soft amber glow, generated from code by `apps/mobile/scripts/icons.mts` together with the splash image, the Android adaptive, themed and notification icons, the favicon and the Live Activity icon. Sizes under 24 px (notification, favicon, Live Activity, menu bar) SHALL use the bold weight of the mark. No asset MAY show the Claude spark or any other agent's symbol. The same script SHALL also generate one flat (no glow) alternate app icon per theme — background and mark in that theme's colors — for "App icon follows the theme" below.
 
 #### Scenario: iPhone home screen
 - **WHEN** the app is installed
@@ -18,7 +18,7 @@ The app SHALL have an icon with the Remote Harness mark (the Tether: three reins
 
 #### Scenario: Regenerating
 - **WHEN** a developer runs `pnpm --filter @remote-harness/mobile icons`
-- **THEN** every asset in `apps/mobile/assets` and the brand banner in `docs/brand` are rewritten from the same mark source
+- **THEN** every asset in `apps/mobile/assets` (including the per-theme alternate icons) and the brand banner in `docs/brand` are rewritten from the same mark source
 
 ### Requirement: Authenticated connection
 When starting with paired credentials, the app SHALL connect to the daemon and send `auth` as the first message; without credentials, it MUST open the pairing screen.
@@ -65,7 +65,7 @@ The app SHALL define its colors as semantic tokens with the same names in every 
 - **THEN** the color guard test fails
 
 ### Requirement: Theme preference
-The app SHALL keep a theme preference on the device (`system` or one of `dark`, `light`, `dracula`, `mocha`, `latte`; `system` by default) and resolve it with the system color scheme: `system` gives `light` when the phone is in light mode and `dark` otherwise. Settings SHALL offer the choice as swatches (System, Dark, Light, Dracula, Catppuccin Mocha, Catppuccin Latte), each previewing its background, accent, text and border, with the current one marked. Changing the preference or the system scheme SHALL re-render every screen without restarting the app. The status bar style, the action sheet appearance, the markdown color scheme and the terminal theme SHALL follow the resolved theme, and with an explicit theme the app SHALL set the native color scheme to the theme's so alerts and the keyboard match; with `system` it MUST leave the native scheme to the phone. Theme names SHALL be translated (pt-BR, en-US, es-ES).
+The app SHALL keep a theme preference on the device (`system` or one of `dark`, `light`, `dracula`, `mocha`, `latte`; `system` by default) and resolve it with the system color scheme: `system` gives `light` when the phone is in light mode and `dark` otherwise. Settings SHALL offer the choice as a single row naming the resolved theme ("Theme · Dracula") that opens a modal with a scrollable list of every choice (System first), each row showing a fixed-size preview swatch, the theme's name, a light/dark tag and a check mark on the selected choice; the System row's subtitle SHALL name which theme it currently resolves to. Tapping a row SHALL apply that theme immediately while the modal stays open, so the live preview can be compared against other choices, and a "Done" action SHALL close it. Changing the preference or the system scheme SHALL re-render every screen without restarting the app. The status bar style, the action sheet appearance, the markdown color scheme and the terminal theme SHALL follow the resolved theme, and with an explicit theme the app SHALL set the native color scheme to the theme's so alerts and the keyboard match; with `system` it MUST leave the native scheme to the phone. Theme names and the light/dark tag SHALL be translated (pt-BR, en-US, es-ES).
 
 #### Scenario: System follows the phone
 - **WHEN** the preference is `system` and the phone switches to light mode
@@ -76,19 +76,39 @@ The app SHALL keep a theme preference on the device (`system` or one of `dark`, 
 - **THEN** the app keeps the dark theme (an explicit choice ignores the system scheme)
 
 #### Scenario: Picking Dracula
-- **WHEN** the user taps the Dracula swatch in Settings
+- **WHEN** the user opens the Theme row and taps the Dracula row in the list
 - **THEN** every open screen, the terminal and the sheets switch to the Dracula palette, the choice is restored on the next launch, and system alerts come up dark
 
 #### Scenario: Live switch
 - **WHEN** the resolved theme changes while a conversation and its terminal are open
 - **THEN** both re-render with the new palette, including the xterm.js colors, without reopening them
 
+#### Scenario: Comparing themes before closing
+- **WHEN** the user taps Light and then Dracula inside the open theme list without tapping Done
+- **THEN** the app renders Light and then Dracula in turn, and the check mark follows the last tapped row
+
+#### Scenario: Theme row label
+- **WHEN** the resolved theme is Catppuccin Mocha
+- **THEN** the Appearance card's Theme row reads "Theme · Catppuccin Mocha"
+
 ### Requirement: Agent colors
-The app SHALL define fixed colors for the agents, independent of the theme: Claude Code `#D97757`, Codex `#2FBF8F`, Kimi `#5B9BF5`, Qwen `#8C6CF5`. Model providers (OpenRouter) SHALL be shown with a neutral outline and MUST NOT get a color of their own.
+The app SHALL define fixed colors for the agents, independent of the theme: Claude Code `#D97757`, Codex `#2FBF8F`, Kimi `#5B9BF5`, Qwen `#8C6CF5`. Model providers (OpenRouter) SHALL be shown with a neutral outline and MUST NOT get a color of their own. Agents and providers with an icon registered (`src/ui/agent-icons/`) SHALL show that icon in the agent badge (drawn in the agent's color) or the provider chip (drawn in the chip's neutral color) instead of the agent badge's two-letter code; an agent or provider without a registered icon MUST keep the two-letter code / text-only chip, so a future agent id never goes unrepresented.
 
 #### Scenario: Agent color across themes
 - **WHEN** the theme changes
 - **THEN** the color that identifies Claude Code stays `#D97757`
+
+#### Scenario: Agent badge shows its icon
+- **WHEN** a session's profile uses Claude Code
+- **THEN** its agent badge shows the Claude Code icon drawn in `#D97757`, not the `cl` code
+
+#### Scenario: Provider chip shows its icon
+- **WHEN** a profile routes through OpenRouter
+- **THEN** its `via OpenRouter` chip shows the OpenRouter icon next to the text
+
+#### Scenario: Unregistered agent falls back to the letter code
+- **WHEN** an agent id has no icon registered in `src/ui/agent-icons/`
+- **THEN** its badge keeps showing the two-letter code, exactly as before this change
 
 ### Requirement: Theme palettes
 The app SHALL ship five palettes, each defining every semantic token and the 16 ANSI colors: Dark (default; background `#0D0D0D`, accent `#E8A33D`), Light (background `#F3F3F1`, accent `#E8A33D`, `accentText #A0640A`), Dracula (background `#282A36`, accent `#BD93F9`, official terminal colors), Catppuccin Mocha (background `#1E1E2E`, accent `#FAB387`, official terminal colors) and Catppuccin Latte (background `#E6E9EF`, accent `#FE640B`, `accentText #D14F00`, official terminal colors). In every palette `text` MUST reach a 4.5:1 contrast ratio over `background`, `surface` and `surfaceRaised`, and `textMuted` and `accentText` MUST reach 3:1 over `background` and `surface`. Agent colors MUST NOT change with the theme.
@@ -102,7 +122,7 @@ The app SHALL ship five palettes, each defining every semantic token and the 16 
 - **THEN** it uses `#D14F00`, not the `#FE640B` fill, and reads at 3:1 or better
 
 ### Requirement: Settings screen
-The settings screen SHALL be organized as: **Machine** (the connection pill; the machine name, the alias when set else the daemon's hostname, with an Edit action that saves or clears the alias; one line `host:port · remote-harness <daemon version> · protocol <n>` leaving unknown parts out; `Forget this machine`), **Appearance** (theme swatches), **Profiles** (one row per profile with the agent badge, the name in the profile color, the dashed `via <provider>` chip when the profile has a provider, and `<agent> · <config dir> · alias <id>`; tapping opens a details sheet with the agent, the alias, the config dir, the profile's notifications toggle and, for a profile with a provider, the provider, its default model and the credits left, or the hint to run `remote-harness provider key <id>` when no key is stored), **New session** (`Open the session after creating it` toggle, on by default, per device), **Keyboard** (`Return key sends` toggle, off by default, per device, with the hint that the on-screen keyboard then has no new line), **Notifications** (`Push notifications` toggle for this phone with the hint "Only this phone · never the conversation", showing the push status and test while on; `Live status` toggle; a `Muted` row with `N profiles · M sessions` that opens a sheet with the per-profile switches and the muted sessions, each unmutable), **Permissions** (opens the Permissions screen, which lists every system permission the app and the computer rely on, its status, why it's needed, and how to fix it), **Daemon** (the daemon version and update channel with a `main` / `development` selector, `Check for updates`, the available version, `Update the computer` after a confirmation that warns about a downgrade and about busy sessions, the run progress and its outcome; for a daemon without remote updates, the `remote-harness update` command), **Voice** (transcription language) and **App** (version, update and channel, `Check for updates`, `Documentation`, `Report a problem`). All texts MUST be translated.
+The settings screen SHALL be organized as: **Machine** (the connection pill; the machine name, the alias when set else the daemon's hostname, with an Edit action that saves or clears the alias; one line `host:port · remote-harness <daemon version> · protocol <n>` leaving unknown parts out; `Forget this machine`), **Appearance** (a Theme row naming the resolved theme that opens the theme picker modal), **App icon** (an App icon row naming the current choice that opens the icon picker modal — Match theme, Original, and one per theme; see "App icon follows the theme"), **Profiles** (one row per profile with the agent badge, the name in the profile color, the dashed `via <provider>` chip when the profile has a provider, and `<agent> · <config dir> · alias <id>`; tapping opens a details sheet with the agent, the alias, the config dir, the profile's notifications toggle and, for a profile with a provider, the provider, its default model and the credits left, or the hint to run `remote-harness provider key <id>` when no key is stored), **New session** (`Open the session after creating it` toggle, on by default, per device), **Keyboard** (`Return key sends` toggle, off by default, per device, with the hint that the on-screen keyboard then has no new line), **Notifications** (`Push notifications` toggle for this phone with the hint "Only this phone · never the conversation", showing the push status and test while on; `Live status` toggle; a `Muted` row with `N profiles · M sessions` that opens a sheet with the per-profile switches and the muted sessions, each unmutable), **Permissions** (opens the Permissions screen, which lists every system permission the app and the computer rely on, its status, why it's needed, and how to fix it), **Daemon** (the daemon version and update channel with a `main` / `development` selector, `Check for updates`, the available version, `Update the computer` after a confirmation that warns about a downgrade and about busy sessions, the run progress and its outcome; for a daemon without remote updates, the `remote-harness update` command), **Voice** (transcription language) and **App** (version, update and channel, `Check for updates`, `Documentation`, `Report a problem`). All texts MUST be translated.
 
 #### Scenario: Rename the machine
 - **WHEN** the user taps Edit on the Machine card, types "MacBook Pro" and saves
@@ -261,3 +281,26 @@ The session list SHALL always be the first screen of the app's main stack, inclu
 #### Scenario: Terminal on a portrait tablet
 - **WHEN** an iPad in portrait opens a session's terminal
 - **THEN** the terminal shows the back button, not ☰
+
+### Requirement: App icon follows the theme
+The app SHALL offer one alternate app icon per theme (Dark, Light, Dracula, Catppuccin Mocha, Catppuccin Latte — the same flat, glow-free artwork as "App icon"), selectable independently of the in-app theme through a device-only preference: **Match theme** (default; the home-screen icon follows the resolved theme and switches when it changes), **Original** (the default icon, whatever the theme), or one specific theme's icon (**Custom**). Settings → App icon SHALL show an App icon row naming the current choice, opening a modal with a scrollable list of every choice (Match theme first, then Original and one per theme), each row showing a preview of the icon it applies and a check mark on the selected one; "Match theme"'s row previews the icon the resolved theme currently gives it. On iOS the icon SHALL change as soon as the preference or the resolved theme changes (the OS shows its own confirmation alert on every change, so the app MUST NOT change it on a timer or any other repeated trigger). On Android the change SHALL be deferred until the app goes to the background, since switching the active launcher activity can take a moment and may close the app on some launchers. Devices that do not support alternate icons SHALL keep the default icon regardless of the preference.
+
+#### Scenario: Default behavior
+- **WHEN** the app is installed and the user has not changed Settings → App icon
+- **THEN** the preference is "Match theme" and the home-screen icon matches the resolved theme
+
+#### Scenario: Switching theme with Match theme
+- **WHEN** the preference is "Match theme" and the user switches the app's theme to Catppuccin Mocha
+- **THEN** the home-screen icon becomes the Catppuccin Mocha icon (on iOS right away with the system confirmation; on Android once the app is backgrounded)
+
+#### Scenario: Original regardless of theme
+- **WHEN** the preference is "Original" and the user switches themes
+- **THEN** the home-screen icon stays the default Tether mark on the dark gradient
+
+#### Scenario: Picking a specific icon
+- **WHEN** the user opens the App icon row and taps the Dracula row in the list
+- **THEN** the home-screen icon becomes the Dracula icon and stays that way even if the app's theme later changes
+
+#### Scenario: Unsupported device
+- **WHEN** the device does not support alternate app icons
+- **THEN** Settings → App icon has no effect and the default icon keeps showing

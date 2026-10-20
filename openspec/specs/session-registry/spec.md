@@ -17,7 +17,7 @@ The daemon SHALL answer `sessions.list` with all active sessions (linked to a li
 - **THEN** the session appears with `controllable: false` and state `ended`
 
 ### Requirement: Event-driven state
-The daemon SHALL update the session state from the hooks: `SessionStart` → `idle`; `UserPromptSubmit` → `running`; `Stop` → `idle`; `Notification`/`PermissionRequest` → `waiting`; `SessionEnd` → `ended`. Once a session is `ended` (by `SessionEnd`, a dead pane, a close, being replaced in its pane or a resume whose pane closed), only `SessionStart` or a `UserPromptSubmit` from a tmux pane MAY change its state, pane or controllability; later hooks MUST NOT move it back to `waiting`, `running` or `idle`. A resolved permission request SHALL set `running` only on a session that is not `ended`. When a session becomes `ended`, its pending permission requests MUST be cancelled, its live status MUST end, and hooks that arrive later MUST NOT send pushes or live status updates. Each change MUST be sent to clients as `session.updated`.
+The daemon SHALL update the session state from the hooks: `SessionStart` → `idle`; `UserPromptSubmit` → `running`; `Stop` → `idle`; `Notification`/`PermissionRequest` → `waiting`; `SessionEnd` → `ended`; `Interrupt` (Codex only, no Claude Code equivalent) → `idle`. Once a session is `ended` (by `SessionEnd`, a dead pane, a close, being replaced in its pane or a resume whose pane closed), only `SessionStart` or a `UserPromptSubmit` from a tmux pane MAY change its state, pane or controllability; later hooks MUST NOT move it back to `waiting`, `running` or `idle`. A resolved permission request SHALL set `running` only on a session that is not `ended`. When a session becomes `ended`, its pending permission requests MUST be cancelled, its live status MUST end, and hooks that arrive later MUST NOT send pushes or live status updates. Each change MUST be sent to clients as `session.updated`.
 
 #### Scenario: Permission request
 - **WHEN** a `Notification` of type `permission_prompt` arrives
@@ -38,6 +38,10 @@ The daemon SHALL update the session state from the hooks: `SessionStart` → `id
 #### Scenario: Resumed
 - **WHEN** an ended session is resumed and its `SessionStart` arrives from the new pane
 - **THEN** the session becomes `idle` and controllable again
+
+#### Scenario: Codex turn interrupted
+- **WHEN** a Codex session is `running` and its `Interrupt` hook arrives (the turn paused instead of finishing, e.g. to ask the user a question)
+- **THEN** the session becomes `idle`, so a prompt sent with `mode: auto` or already queued is delivered right away instead of waiting on a `Stop` that never comes
 
 ### Requirement: Dead pane
 The daemon SHALL periodically check (every 5 s) whether the linked panes exist and MUST mark sessions whose pane is gone as `ended` and `controllable: false`.

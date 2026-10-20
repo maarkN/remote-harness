@@ -8,6 +8,9 @@ export function hookState(event: string, notificationType?: unknown): SessionSta
   switch (event) {
     case 'SessionStart':
     case 'Stop':
+    // Codex: the turn paused instead of finishing cleanly (e.g. to ask the user a question); the
+    // session is just as ready for the next prompt as it is after a Stop.
+    case 'Interrupt':
       return 'idle'
     case 'UserPromptSubmit':
       return 'running'
