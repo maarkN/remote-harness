@@ -1,5 +1,14 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 import { hasRegisteredIcon, REGISTERED_ICON_IDS } from './ids'
+import { CLAUDE_PATH } from './paths'
+
+describe('Claude mark', () => {
+  test('draws the same path as the landing', () => {
+    const landing = readFileSync(new URL('../../../../web/src/agent-marks.ts', import.meta.url), 'utf8')
+    expect(landing).toContain(`<path d="${CLAUDE_PATH}">`)
+  })
+})
 
 describe('hasRegisteredIcon', () => {
   test('true for every known agent and provider id', () => {
