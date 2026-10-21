@@ -88,7 +88,7 @@ Finishing a recording SHALL transcribe it on-device, with automatic punctuation 
 - **THEN** no `session.input` or other daemon request is made for the audio or the transcript, and no request reaches a third-party service
 
 ### Requirement: Polish dictation rewrite
-Settings SHALL offer a "Polish dictation" toggle (off by default, noted as Claude Code sessions only). When on and the session's profile is a Claude Code profile without a model provider, finishing a recording SHALL send only the finalized transcript (never audio) to the daemon, which runs that profile's `claude` CLI once, non-interactively, with tool use disabled, outside any project directory, to rewrite the text: remove filler words, hesitations and repetitions, fix punctuation and grammar, and keep technical terms, file names and code exactly as said. When the rewrite differs from the original, the app SHALL show both for the user to choose from (Use original / Use polished) before anything is inserted into the prompt field. When the setting is off, the profile does not support it, the rewrite fails or times out, or the rewrite is identical to the original, the original transcript SHALL be inserted directly, with no extra step and no error shown to the user.
+Settings SHALL offer a "Polish dictation" toggle (off by default, noted as Claude Code sessions only). When on and the session's profile is a Claude Code profile without a model provider, finishing a recording SHALL send only the finalized transcript (never audio) to the daemon, which runs that profile's `claude` CLI once, non-interactively, with tool use disabled, outside any project directory, to rewrite the text: remove filler words, hesitations and repetitions, fix punctuation and grammar, and keep technical terms, file names and code exactly as said. When the rewrite differs from the original, the app SHALL show both for the user to choose from (Use original / Use polished) before anything is inserted into the prompt field. When the setting is off, the profile does not support it, the rewrite fails or times out, or the rewrite is identical to the original, the original transcript SHALL be inserted directly, with no extra step and no error shown to the user. When the daemon does not recognize the `voice.polish` request at all (an older daemon that predates it), the app SHALL tell the user Polish dictation needs a newer daemon before inserting the original transcript, instead of failing silently like the other cases.
 
 #### Scenario: Rewrite accepted
 - **WHEN** "Polish dictation" is on, the session uses a Claude Code profile, and the rewrite differs from "so, um, let's, let's continue the tests okay"
@@ -105,6 +105,10 @@ Settings SHALL offer a "Polish dictation" toggle (off by default, noted as Claud
 #### Scenario: No audio or recording ever leaves the phone
 - **WHEN** "Polish dictation" is on
 - **THEN** only the finalized transcript text is sent to the daemon, never the recorded audio
+
+#### Scenario: Daemon too old for Polish dictation
+- **WHEN** "Polish dictation" is on and the daemon rejects `voice.polish` as an unknown message type
+- **THEN** the app tells the user Polish dictation needs a newer daemon and then inserts the original transcript
 
 ### Requirement: Transcription language setting
 Settings SHALL offer a transcription language choice, independent of the app's UI language: "same as the app" (default) or one of the catalog's languages (pt-BR/en-US/es-ES). The choice SHALL persist across restarts and SHALL be used for every recording until changed.
@@ -131,3 +135,10 @@ Before the first recording, the app SHALL request microphone and speech-recognit
 #### Scenario: Permission denied
 - **WHEN** the user has denied microphone permission
 - **THEN** tapping the microphone button shows a message explaining recording is unavailable, instead of starting a recording
+
+### Requirement: Voice settings applied from launch
+The transcription language, Polish dictation and push-to-talk choices SHALL be restored from the device's persisted storage at app startup, before any recording can start, so the first recording after launching the app already uses the saved choices, whether or not Settings has ever been opened.
+
+#### Scenario: First recording after a cold start
+- **WHEN** the user relaunches the app after choosing pt-BR as the transcription language and turning Polish dictation on, and records a message without opening Settings
+- **THEN** the recording is transcribed in pt-BR and the transcript goes through Polish dictation

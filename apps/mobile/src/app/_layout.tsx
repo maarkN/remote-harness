@@ -36,6 +36,9 @@ import { restoreSessionPrefs } from '@/features/sessions/prefs-store'
 import { restoreSessionSort } from '@/features/sessions/sort-store'
 import { restoreAppIconPreference, useApplyAppIcon } from '@/features/settings/app-icon-store'
 import { restoreMachineAlias, useMachineNameSync } from '@/features/settings/machine-store'
+import { restoreVoiceInteraction } from '@/features/voice/voice-interaction-store'
+import { restoreVoiceLanguage } from '@/features/voice/voice-language-store'
+import { restoreVoicePolish } from '@/features/voice/voice-polish-store'
 import { stackScreenOptions } from '@/ui'
 
 void SplashScreen.preventAutoHideAsync()
@@ -80,6 +83,9 @@ export default function RootLayout() {
     void restoreToolTabs()
     void restoreLiveStatusSetting()
     void restoreCommandRecents()
+    void restoreVoiceLanguage()
+    void restoreVoicePolish()
+    void restoreVoiceInteraction()
   }, [])
 
   // Restores the unsent prompts saved on this device and keeps saving them.

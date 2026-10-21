@@ -664,6 +664,9 @@ const enUS = {
     polishHint: 'Rewrites the transcript into a clean prompt before inserting it. Claude Code sessions only.',
     pushToTalkTitle: 'Press and hold to record',
     pushToTalkHint: 'Hold the microphone button to record, release to stop, instead of tapping to toggle.',
+    polishUnsupportedTitle: 'Polish dictation unavailable',
+    polishUnsupported:
+      "{{Machine}} can't polish dictation yet. On the computer, run `remote-harness update`. Using the original transcript.",
   },
   newSession: {
     profile: 'Agent & profile',

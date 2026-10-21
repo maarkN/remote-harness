@@ -665,6 +665,9 @@ const esES = {
     pushToTalkTitle: 'Mantener pulsado para grabar',
     pushToTalkHint:
       'Mantén pulsado el micrófono para grabar y suéltalo para detener, en vez de tocar para alternar.',
+    polishUnsupportedTitle: 'Mejorar dictado no disponible',
+    polishUnsupported:
+      '{{Machine}} aún no mejora el dictado. En el ordenador, ejecuta `remote-harness update`. Usando la transcripción original.',
   },
   newSession: {
     profile: 'Agente y perfil',
