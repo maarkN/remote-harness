@@ -36,6 +36,10 @@ The **mode** chip switches the permission mode: default, accept edits, plan and 
 
 **View terminal** (menu, or the terminal button in the header) shows the tmux pane itself, for menus and anything the structured view does not cover, with the same key bar. Read-only sessions (no tmux pane) cannot be typed into.
 
+## Running a command
+
+**Run command…** (session menu) runs a shell command in the session's folder on the computer, like Claude Code's `!`, and streams its output: `git status`, `ls`, `pnpm test`. The app asks before every command; **Stop** kills it, **Copy output** copies it and **Add to prompt** puts the command and its output in the composer as a code block for the agent, without sending it. It is off until you run `remote-harness commands on` on the computer; commands have a time limit and an output limit, and nothing interactive works (there is no keyboard input).
+
 ## Subagents
 
 While the agent delegates work, the header's menu shows **Subagents (N · M running)**; the sheet lists each one with its description, state, tool count and start time, plus the background tasks.

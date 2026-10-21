@@ -607,9 +607,23 @@ export const ErrorCodeSchema = z.enum([
   'mode_unreachable',
   'session_busy',
   'invalid_cwd',
+  /** Shell commands are off in the daemon config (`remote-harness commands on`). */
+  'commands_disabled',
   'internal',
 ])
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>
+
+/** Longest shell command `command.run` accepts. */
+export const MAX_COMMAND_LENGTH = 4000
+/** Where a chunk of a shell command's output came from. */
+export const CommandStreamSchema = z.enum(['stdout', 'stderr'])
+export type CommandStream = z.infer<typeof CommandStreamSchema>
+/**
+ * Why a shell command ended: it exited by itself, was cancelled, ran past the timeout, passed the
+ * output cap, or the shell could not start.
+ */
+export const CommandEndReasonSchema = z.enum(['exited', 'cancelled', 'timeout', 'output_limit', 'failed'])
+export type CommandEndReason = z.infer<typeof CommandEndReasonSchema>
 
 /** A request the daemon rejected, for `diagnostics.result`: never its payload or message. */
 export const RejectedRequestSchema = z.object({

@@ -26,6 +26,10 @@ O daemon pode digitar nas suas sessões do Claude Code e aprovar chamadas de fer
 - O daemon não envia telemetria. A verificação de atualização fala com o remoto git do código instalado.
 - Os pedidos de catálogo e créditos do OpenRouter vão do computador para o OpenRouter, e para mais ninguém.
 
+## Comandos de shell
+
+Rodar comandos pelo app (**Rodar comando…**) vem desligado e só pode ser ligado no computador (`remote-harness commands on`). Ligado, um celular pareado pode rodar qualquer comando com o seu usuário na pasta de uma sessão, por isso o app confirma cada comando antes. Cada execução tem limite de tempo e de saída, é encerrada com todo o grupo de processos ao cancelar, e a saída vai só para o celular que a iniciou: comandos e saídas nunca são registrados em log, guardados, enviados a outros celulares nem colocados numa notificação push.
+
 ## Permissões
 
 O app nunca oferece o modo "bypass permissions" do agente. O "permitir sempre" grava uma regra nas configurações do próprio Claude Code, para o projeto ou para o seu usuário, e `remote-harness rules undo` a desfaz. Um pedido sem resposta volta para o diálogo do terminal depois de alguns minutos.

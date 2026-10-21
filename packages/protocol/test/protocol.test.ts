@@ -24,6 +24,8 @@ const clientSamples: ClientMessage[] = [
   { type: 'transcript.image', id: '1', sessionId: 's', agentId: 'a', imageId: '12.0' },
   { type: 'session.key', id: '1', sessionId: 's', key: 'Escape' },
   { type: 'session.setMode', id: '1', sessionId: 's', mode: 'plan' },
+  { type: 'command.run', id: '1', sessionId: 's', command: 'git status' },
+  { type: 'command.cancel', id: '1', runId: 'r1' },
   {
     type: 'permission.respond',
     id: '1',
@@ -164,6 +166,17 @@ const session: Session = {
 }
 
 const serverSamples: ServerMessage[] = [
+  { type: 'command.started', replyTo: '1', runId: 'r1', cwd: '/w' },
+  { type: 'command.output', runId: 'r1', stream: 'stderr', text: 'warn\n' },
+  {
+    type: 'command.exit',
+    runId: 'r1',
+    exitCode: null,
+    signal: 'SIGTERM',
+    reason: 'timeout',
+    durationMs: 300_000,
+    truncated: false,
+  },
   {
     type: 'auth.ok',
     protocolVersion: 1,
@@ -447,6 +460,26 @@ describe('client messages', () => {
     expect(start('   ').ok).toBe(false)
     expect(start('x'.repeat(80)).ok).toBe(true)
     expect(start('x'.repeat(81)).ok).toBe(false)
+  })
+
+  test('shell commands: trimmed, bounded, never empty', () => {
+    const run = (command: string) =>
+      parseClientMessage({ type: 'command.run', id: '1', sessionId: 's', command })
+    expect(run('  ls -la  ')).toMatchObject({ ok: true, value: { command: 'ls -la' } })
+    expect(run('   ').ok).toBe(false)
+    expect(run('x'.repeat(4000)).ok).toBe(true)
+    expect(run('x'.repeat(4001)).ok).toBe(false)
+    expect(
+      parseServerMessage({
+        type: 'command.exit',
+        runId: 'r',
+        exitCode: 0,
+        signal: null,
+        reason: 'killed',
+        durationMs: 1,
+        truncated: false,
+      }).ok,
+    ).toBe(false)
   })
 
   test('strips unknown fields', () => {

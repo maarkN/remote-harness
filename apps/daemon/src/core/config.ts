@@ -21,6 +21,16 @@ export type KeepAwakeMode = z.infer<typeof KeepAwakeModeSchema>
 export const isKeepAwakeMode = (value: string): value is KeepAwakeMode =>
   (KEEP_AWAKE_MODES as readonly string[]).includes(value)
 
+export const SHELL_COMMANDS_DEFAULTS = { enabled: false, timeoutSec: 300, maxOutputKb: 1024 }
+export const ShellCommandsConfigSchema = z.object({
+  enabled: z.boolean().default(SHELL_COMMANDS_DEFAULTS.enabled),
+  /** A run is killed past this. */
+  timeoutSec: z.number().int().positive().max(3600).default(SHELL_COMMANDS_DEFAULTS.timeoutSec),
+  /** stdout + stderr of a run; past it the rest is dropped and the run is killed. */
+  maxOutputKb: z.number().int().positive().max(10_240).default(SHELL_COMMANDS_DEFAULTS.maxOutputKb),
+})
+export type ShellCommandsConfig = z.infer<typeof ShellCommandsConfigSchema>
+
 export const ConfigSchema = z.object({
   profiles: z.array(ProfileSchema).min(1),
   wsPort: z.number().int().positive().default(7337),
@@ -55,6 +65,11 @@ export const ConfigSchema = z.object({
   keepAwake: KeepAwakeModeSchema.default('sessions'),
   /** Overrides the OS host name shown in the app and the live status; unset = the host name. */
   machineName: z.string().trim().min(1).max(60).optional(),
+  /**
+   * Shell commands run from the app in a session's folder. Off by default: only `remote-harness
+   * commands on` (on the computer) turns them on.
+   */
+  shellCommands: ShellCommandsConfigSchema.default(SHELL_COMMANDS_DEFAULTS),
 })
 export type Config = z.infer<typeof ConfigSchema>
 

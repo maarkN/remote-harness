@@ -23,6 +23,7 @@ O daemon roda no computador: acompanha os transcripts das sessões, controla o t
 | `remote-harness push off` / `on` | Para (ou volta a enviar) todos os pushes e o status ao vivo deste computador, sem reiniciar o daemon. |
 | `remote-harness provider key <perfil>` | Guarda a chave do provedor (OpenRouter) de um perfil no cofre do sistema. `--stdin` lê de um pipe. |
 | `remote-harness rules list` / `undo <id>` | As regras "permitir sempre" criadas pelo celular. |
+| `remote-harness commands [on|off]` | Mostra, permite ou proíbe rodar comandos de shell pelo app na pasta de uma sessão (desligado por padrão), aplicado ao daemon em execução. |
 
 O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam funcionando em instalações feitas antes da mudança de nome.
 
@@ -63,6 +64,7 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
 - `update`: o canal que `update` e a verificação seguem, e se as atualizações se aplicam sozinhas.
 - `tray`: o ícone na barra de menus / bandeja.
 - `trayPermissions`: se a bandeja oferece Permitir / Sempre permitir / Negar para uma permissão pendente (ligado por padrão; também nas Preferências da bandeja).
+- `shellCommands`: `enabled` (desligado por padrão; mude com `remote-harness commands on|off`), `timeoutSec` (300) e `maxOutputKb` (1024) para os comandos rodados pelo app.
 
 Mudanças no arquivo valem quando o daemon reinicia (`remote-harness service install` de novo, ou reiniciar pela bandeja).
 

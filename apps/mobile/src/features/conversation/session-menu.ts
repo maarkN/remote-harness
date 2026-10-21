@@ -2,6 +2,7 @@ import type { TFunction } from '../../core/i18n/create'
 
 export type SessionMenuAction =
   | 'terminal'
+  | 'runCommand'
   | 'model'
   | 'subagents'
   | 'toggleKeyBar'
@@ -20,7 +21,8 @@ export type SubagentCounts = { count: number; running: number }
  * history and the follow toggle only affect the app. "Change model…" appears only for sessions whose
  * profile has a model provider (it sends `/model <id>`); subagents only when the session has some,
  * with their counts in the label. "Follow live status" appears when the daemon can follow sessions
- * (`liveFollow` is the current state), labeled by the action it takes.
+ * (`liveFollow` is the current state), labeled by the action it takes. "Run command…" appears when
+ * the daemon accepts shell commands (`commands`); it runs in the session's folder, pane or not.
  */
 export function sessionMenu(
   {
@@ -30,6 +32,7 @@ export function sessionMenu(
     subagents = { count: 0, running: 0 },
     provider = false,
     liveFollow = null,
+    commands = false,
   }: {
     controllable: boolean
     keyBarVisible: boolean
@@ -39,6 +42,8 @@ export function sessionMenu(
     provider?: boolean
     /** This phone follows the session's live status; `null` when the daemon cannot follow. */
     liveFollow?: boolean | null
+    /** The daemon accepts `command.run` (its `auth.ok` has `commands`). */
+    commands?: boolean
   },
   t: TFunction,
 ): { items: SessionMenuItem[]; disabledReason?: string } {
@@ -61,6 +66,9 @@ export function sessionMenu(
   return {
     items: [
       { key: 'terminal', label: t('sessionMenu.terminal'), disabled: !controllable },
+      ...(commands
+        ? [{ key: 'runCommand' as const, label: t('sessionMenu.runCommand'), disabled: false }]
+        : []),
       ...modelItems,
       ...subagentItems,
       {
