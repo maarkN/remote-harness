@@ -85,6 +85,47 @@ describe('renderLanding', () => {
     expect(foreign).toEqual([])
   })
 
+  test.each(WEB_LOCALES)('%s: the hero carousel', (locale) => {
+    const html = renderLanding(locale)
+    const m = CATALOGS[locale]
+    expect(m.hero.slides).toHaveLength(3)
+    expect(html).toContain(
+      `role="region" aria-roledescription="${esc(m.hero.carousel.role)}" aria-label="${esc(m.hero.carousel.label)}" data-carousel`,
+    )
+    // One labelled slide per screen, in order, inside a single frame that scrolls without the script.
+    const labels = [...html.matchAll(/<div class="slide[^"]*" role="img" aria-label="([^"]+)">/g)].map(
+      (x) => x[1],
+    )
+    expect(labels).toEqual(m.hero.slides.map((s) => esc(s.label)))
+    expect(html.match(/class="phone"/g)).toHaveLength(1)
+    expect(html).toContain('<div class="track" tabindex="0" data-track>')
+    // The controls exist only for the script to reveal; the first dot is current.
+    expect(html).toContain('<div class="cnav" hidden>')
+    expect(html).toContain(
+      `data-go="0" aria-label="${esc(m.hero.slides[0]?.name ?? '')}" aria-current="true"`,
+    )
+    expect(html.match(/data-go="\d"/g)).toHaveLength(3)
+    expect(html).toContain(`aria-label="${esc(m.hero.carousel.previous)}"`)
+    expect(html).toContain(`aria-label="${esc(m.hero.carousel.next)}"`)
+    // The three screens' demo text comes from the catalog.
+    const c = m.mock.conversation
+    for (const text of [c.prompt, c.intro, c.placeholder, c.tools[2]?.result ?? '', m.mock.live.date])
+      expect(html).toContain(esc(text))
+    expect(html).toContain(inline(c.reply))
+    expect(html).toContain(`<span class="st">${esc(m.mock.live.waiting.state)}</span>`)
+    expect(html).toContain('class="la working"')
+    expect(html).toContain('class="la waiting"')
+  })
+
+  test('the carousel script respects reduced motion and pauses on hover and focus', () => {
+    const html = renderLanding('en-US')
+    expect(html).toContain("matchMedia('(prefers-reduced-motion: reduce)')")
+    expect(html).toContain('nav.hidden=false')
+    for (const event of ['mouseenter', 'mouseleave', 'focusin', 'focusout'])
+      expect(html).toContain(`addEventListener('${event}'`)
+    expect(html).toContain('scroll-snap-type: x mandatory')
+  })
+
   test('the root page keeps its own canonical; the language switcher marks the current one', () => {
     const root = renderLanding('es-ES', '/')
     expect(root).toContain('<link rel="canonical" href="https://remoteharness.app/">')
