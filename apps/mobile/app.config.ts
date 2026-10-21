@@ -385,6 +385,10 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   name: 'Remote Harness',
   slug: 'claude-remote',
   version: '0.19.0',
+  // Fixed, not detected: Expo adds `web` when `react-dom` resolves, which pnpm's bin shims allow
+  // (their NODE_PATH) but Xcode's build phase does not, so the update runtime (fingerprint) of
+  // `ota:publish` would differ from the one built into the app.
+  platforms: ['ios', 'android'],
   // `remoteharness://` first; `claude-remote://` stays for the pairing QR codes already printed (and
   // printed by daemons until app builds without the new scheme are gone).
   scheme: ['remoteharness', 'claude-remote'],
