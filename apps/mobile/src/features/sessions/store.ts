@@ -6,6 +6,8 @@ type SessionsState = {
   sessions: Record<string, Session>
   loaded: boolean
   refreshing: boolean
+  /** When the last snapshot arrived; shown next to a stale list while the computer is unreachable (#326). */
+  lastFetchedAt: string | null
   applySnapshot(sessions: Session[]): void
   upsert(session: Session): void
   patch(id: string, patch: Partial<Session>): void
@@ -16,8 +18,13 @@ export const useSessionsStore = create<SessionsState>((set) => ({
   sessions: {},
   loaded: false,
   refreshing: false,
+  lastFetchedAt: null,
   applySnapshot: (sessions) =>
-    set({ sessions: Object.fromEntries(sessions.map((s) => [s.id, s])), loaded: true }),
+    set({
+      sessions: Object.fromEntries(sessions.map((s) => [s.id, s])),
+      loaded: true,
+      lastFetchedAt: new Date().toISOString(),
+    }),
   upsert: (session) => set((state) => ({ sessions: { ...state.sessions, [session.id]: session } })),
   patch: (id, patch) =>
     set((state) => {

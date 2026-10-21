@@ -796,6 +796,22 @@ const esES = {
     emptyHint: 'Las sesiones abiertas con `claude` a secas aparecen como solo lectura.',
     detailEmptyTitle: 'Selecciona una sesión',
     detailEmptyBody: 'Elige una sesión de la lista para ver la conversación aquí.',
+    offlineList: 'lista sin conexión de {{time}}',
+    unreachable: {
+      title: '{{Machine}} no responde',
+      body: 'Qué revisar:',
+      checklist: {
+        computerAwake:
+          'El ordenador está encendido y despierto — sin suspenderse, con la tapa abierta o configurado para no suspenderse.',
+        tailscaleComputer: 'Tailscale está en ejecución y con la sesión iniciada en el ordenador.',
+        tailscalePhone: 'Tailscale está en ejecución y conectado en este móvil, con la misma cuenta.',
+        daemonRunning:
+          'El daemon de Remote Harness está en ejecución en el ordenador (`remote-harness status`).',
+      },
+      tryAgain: 'Reintentar',
+      openTailscale: 'Abrir Tailscale',
+      troubleshooting: 'Guía de solución de problemas',
+    },
     background: 'segundo plano {{count}}',
     sharedCheckout: 'mismo checkout ({{count}})',
     branch: 'Rama {{branch}}',
