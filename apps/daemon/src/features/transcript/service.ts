@@ -7,7 +7,7 @@ import { type FSWatcher, watch } from 'chokidar'
 import { DaemonError } from '../../core/errors.ts'
 import type { Logger } from '../../core/logger.ts'
 import type { Connection } from '../../transport/connection.ts'
-import type { TranscriptFormat, TranscriptMetaUpdate } from './format.ts'
+import { latestStatus, type TranscriptFormat, type TranscriptMetaUpdate } from './format.ts'
 import { claudeTranscript, parseImageId } from './parser.ts'
 import { TranscriptFile } from './transcript-file.ts'
 
@@ -110,7 +110,12 @@ export class TranscriptService {
     let stream = this.streams.get(key)
     if (!stream) {
       const file = this.fileFor(target.path, target.format)
-      await file.sync()
+      const backlog = await file.sync()
+      if (!target.agentId) {
+        // The backlog is indexed, not streamed: only the latest status it carries is applied.
+        const status = latestStatus(backlog.map((line) => file.format.parseMeta(line.text)))
+        if (status) this.onMeta(target.sessionId, status)
+      }
       const watcher = watch(target.path, { ignoreInitial: true })
       const created: Stream = {
         key,

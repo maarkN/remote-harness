@@ -12,6 +12,7 @@
 #   REMOTE_HARNESS_UPDATES_TOKEN (or the older CLAUDE_REMOTE_UPDATES_TOKEN) must be in the environment for publish-ota (never stored here).
 #   REMOTE_HARNESS_WEB_SSH=<user@host> server of remoteharness.app for deploy-web and the web install links
 #   REMOTE_HARNESS_WEB_DIR=<path>      its folder on that server (default /srv/remote-harness-web)
+#   APP_INSTALL_URL=/app/<token>/      deploy-web writes it to the server's .env: the landing's iPhone & iPad card opens it
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help

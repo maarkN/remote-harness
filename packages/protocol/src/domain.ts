@@ -323,8 +323,9 @@ export type LivePalette = z.infer<typeof LivePaletteSchema>
 /**
  * Props of the live status, rendered as they are by the widget (it cannot translate): texts arrive
  * already translated. Besides the session title and folder, never session content: names, state,
- * step categories with tool names, tool count, times. Fields after `startedAt` have defaults because
- * older daemons do not send them.
+ * step categories with tool names, the current tool's target sanitized by the daemon (a file's base
+ * name, a command's program), counts, times. Fields after `startedAt` have defaults because older
+ * daemons do not send them.
  */
 /** The tool permission a live status waits for, answerable from the lock screen; labels already translated. */
 export const LivePendingSchema = z.object({
@@ -334,6 +335,18 @@ export const LivePendingSchema = z.object({
   deny: z.string(),
 })
 export type LivePending = z.infer<typeof LivePendingSchema>
+
+/** Items of the session's todo list completed so far, out of `total` (at least 1). */
+export const LiveProgressSchema = z.object({
+  done: z.number().int().nonnegative(),
+  total: z.number().int().positive(),
+})
+export type LiveProgress = z.infer<typeof LiveProgressSchema>
+
+/** The progress as the live status shows it: `☑ 3/7`. */
+export function liveProgressText(progress: LiveProgress | null): string {
+  return progress ? `☑ ${progress.done}/${progress.total}` : ''
+}
 
 export const LiveStatusPropsSchema = z.object({
   /** Profile name. */
@@ -366,8 +379,12 @@ export const LiveStatusPropsSchema = z.object({
   pending: LivePendingSchema.nullable().default(null),
   /** Short translated line: "total" when done, "transcript kept · resume from the app" when closed. */
   hint: z.string().default(''),
-  /** Translated count of tasks running in parallel (background tasks and running subagents), empty when none. */
+  /** Translated counts of the running subagents and background tasks ("2 subagents · 1 background task"), empty when none. */
   tasks: z.string().default(''),
+  /** The step running now: tool and sanitized short target ("Bash · pnpm test", "Edit · app.ts"), empty when none. */
+  current: z.string().default(''),
+  /** Progress of the session's todo list, `null` without one. */
+  progress: LiveProgressSchema.nullable().default(null),
   /** Theme colors of the app that registered; absent from older daemons (the widget uses dark). */
   palette: LivePaletteSchema.optional(),
 })
@@ -402,12 +419,21 @@ export const LiveDataMessageSchema = z.object({
 export type LiveDataMessage = z.infer<typeof LiveDataMessageSchema>
 
 /**
- * Title and body of the Android live status notification: "<session> · <state>" and the state line
- * with the glyph row (oldest → newest). The same text whether the system or the app draws it.
+ * Title and body of the Android live status notification: "<session> · <state>" and the current
+ * step (else the step category), the progress, the counts and the glyph row (oldest → newest). The
+ * same text whether the system or the app draws it.
  */
 export function liveNotificationText(props: LiveStatusProps): { title: string; body: string } {
   const glyphs = [...props.glyphs].reverse().join(' ')
-  const details = [props.step, props.tools, props.tasks, glyphs].filter(Boolean).join(' · ')
+  const details = [
+    props.current || props.step,
+    liveProgressText(props.progress),
+    props.tasks,
+    props.tools,
+    glyphs,
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return { title: `${props.session || props.title} · ${props.status}`, body: details || props.status }
 }
 
@@ -581,9 +607,23 @@ export const ErrorCodeSchema = z.enum([
   'mode_unreachable',
   'session_busy',
   'invalid_cwd',
+  /** Shell commands are off in the daemon config (`remote-harness commands on`). */
+  'commands_disabled',
   'internal',
 ])
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>
+
+/** Longest shell command `command.run` accepts. */
+export const MAX_COMMAND_LENGTH = 4000
+/** Where a chunk of a shell command's output came from. */
+export const CommandStreamSchema = z.enum(['stdout', 'stderr'])
+export type CommandStream = z.infer<typeof CommandStreamSchema>
+/**
+ * Why a shell command ended: it exited by itself, was cancelled, ran past the timeout, passed the
+ * output cap, or the shell could not start.
+ */
+export const CommandEndReasonSchema = z.enum(['exited', 'cancelled', 'timeout', 'output_limit', 'failed'])
+export type CommandEndReason = z.infer<typeof CommandEndReasonSchema>
 
 /** A request the daemon rejected, for `diagnostics.result`: never its payload or message. */
 export const RejectedRequestSchema = z.object({

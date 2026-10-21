@@ -60,46 +60,52 @@ export function QueueCard({ sessionId }: { sessionId: string }) {
       </View>
       {items.map((item, index) => (
         <View key={item.id} style={styles.row}>
-          <Text size="xs" color="textDim" style={styles.index}>
-            {index + 1}
-          </Text>
-          <View style={styles.text}>
-            <Text size="sm" numberOfLines={2}>
-              {item.text || t('queue.withPhotos', { count: item.attachmentIds.length })}
+          {/* Remove sits apart from Send now, on its own line, so a mis-tap cannot turn a tap on
+              Send now into Remove (#324) — the two buttons never share an edge. */}
+          <View style={styles.rowTop}>
+            <Text size="xs" color="textDim" style={styles.index}>
+              {index + 1}
             </Text>
-            {item.text && item.attachmentIds.length > 0 ? (
-              <Text size="xs" color="textDim">
-                {t('queue.withPhotos', { count: item.attachmentIds.length })}
+            <View style={styles.text}>
+              <Text size="sm" numberOfLines={2}>
+                {item.text || t('queue.withPhotos', { count: item.attachmentIds.length })}
               </Text>
-            ) : null}
-            {item.error ? (
-              <Text size="xs" color="danger" numberOfLines={2}>
-                {t('queue.failed')}: {item.error}
-              </Text>
-            ) : null}
+              {item.text && item.attachmentIds.length > 0 ? (
+                <Text size="xs" color="textDim">
+                  {t('queue.withPhotos', { count: item.attachmentIds.length })}
+                </Text>
+              ) : null}
+              {item.error ? (
+                <Text size="xs" color="danger" numberOfLines={2}>
+                  {t('queue.failed')}: {item.error}
+                </Text>
+              ) : null}
+            </View>
+            <IconButton
+              icon={X}
+              size={16}
+              label={t('queue.remove')}
+              disabled={busy}
+              onPress={() => void remove(item.id)}
+            />
           </View>
-          <IconButton
-            icon={Pencil}
-            size={16}
-            label={t('queue.edit')}
-            disabled={busy}
-            onPress={() => setEditing(item)}
-          />
-          <IconButton
-            icon={ArrowUp}
-            size={16}
-            color="accentText"
-            label={t('queue.sendNow')}
-            disabled={busy}
-            onPress={() => void sendNow(item.id)}
-          />
-          <IconButton
-            icon={X}
-            size={16}
-            label={t('queue.remove')}
-            disabled={busy}
-            onPress={() => void remove(item.id)}
-          />
+          <View style={styles.rowBottom}>
+            <IconButton
+              icon={Pencil}
+              size={16}
+              label={t('queue.edit')}
+              disabled={busy}
+              onPress={() => setEditing(item)}
+            />
+            <IconButton
+              icon={ArrowUp}
+              size={16}
+              filled
+              label={t('queue.sendNow')}
+              disabled={busy}
+              onPress={() => void sendNow(item.id)}
+            />
+          </View>
         </View>
       ))}
       <EditSheet
@@ -184,8 +190,10 @@ const useStyles = makeStyles((theme) => ({
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   title: { flex: 1, letterSpacing: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  index: { width: 16, textAlign: 'right' },
+  row: { gap: space.xs },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xs },
+  rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.xs },
+  index: { width: 16, textAlign: 'right', marginTop: 2 },
   text: { flex: 1, gap: 2 },
   veil: { ...StyleSheetAbsoluteFill, borderRadius: radius.lg, opacity: 0.4 },
   backdrop: { flex: 1, backgroundColor: theme.colors.backdrop, justifyContent: 'flex-end' },

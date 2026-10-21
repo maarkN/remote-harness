@@ -8,7 +8,7 @@ type VoiceLanguageState = { language: VoiceLanguage }
 
 export const useVoiceLanguageStore = create<VoiceLanguageState>(() => ({ language: 'app' }))
 
-/** Loads the persisted choice; call once before Settings renders the picker. */
+/** Loads the persisted choice; called once at app startup (`app/_layout.tsx`), before any recording can start. */
 export async function restoreVoiceLanguage(): Promise<void> {
   const saved = await SecureStore.getItemAsync(VOICE_LANGUAGE_KEY).catch(() => null)
   useVoiceLanguageStore.setState({ language: isVoiceLanguage(saved) ? saved : 'app' })

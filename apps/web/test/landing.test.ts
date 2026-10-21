@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'vitest'
+import { agentMark } from '../src/agent-marks.ts'
+import { renderDoc } from '../src/docs/page.ts'
 import { esc, inline } from '../src/html.ts'
-import { CATALOGS, WEB_LOCALES } from '../src/i18n/index.ts'
+import { CATALOGS, LOCALE_PATHS, WEB_LOCALES } from '../src/i18n/index.ts'
+import { renderInstallPage } from '../src/install-page.ts'
 import { INSTALL_COMMANDS, renderLanding, renderNotFound } from '../src/landing.ts'
-import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, sitemapXml } from '../src/site.ts'
+import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, siteConfig, sitemapXml } from '../src/site.ts'
 
 /** Dotted paths of every leaf, with array lengths, so the three catalogs can be compared. */
 function shape(value: unknown, prefix = ''): string[] {
@@ -85,6 +88,117 @@ describe('renderLanding', () => {
     expect(foreign).toEqual([])
   })
 
+  test.each(WEB_LOCALES)('%s: the hero carousel', (locale) => {
+    const html = renderLanding(locale)
+    const m = CATALOGS[locale]
+    expect(m.hero.slides).toHaveLength(3)
+    expect(html).toContain(
+      `role="region" aria-roledescription="${esc(m.hero.carousel.role)}" aria-label="${esc(m.hero.carousel.label)}" data-carousel`,
+    )
+    // One labelled slide per screen, in order, inside a single frame that scrolls without the script.
+    const labels = [...html.matchAll(/<div class="slide[^"]*" role="img" aria-label="([^"]+)">/g)].map(
+      (x) => x[1],
+    )
+    expect(labels).toEqual(m.hero.slides.map((s) => esc(s.label)))
+    expect(html.match(/class="phone"/g)).toHaveLength(1)
+    expect(html).toContain('<div class="track" tabindex="0" data-track>')
+    // The controls exist only for the script to reveal; the first dot is current.
+    expect(html).toContain('<div class="cnav" hidden>')
+    expect(html).toContain(
+      `data-go="0" aria-label="${esc(m.hero.slides[0]?.name ?? '')}" aria-current="true"`,
+    )
+    expect(html.match(/data-go="\d"/g)).toHaveLength(3)
+    expect(html).toContain(`aria-label="${esc(m.hero.carousel.previous)}"`)
+    expect(html).toContain(`aria-label="${esc(m.hero.carousel.next)}"`)
+    // The three screens' demo text comes from the catalog.
+    const c = m.mock.conversation
+    for (const text of [c.prompt, c.intro, c.placeholder, c.tools[2]?.result ?? '', m.mock.live.date])
+      expect(html).toContain(esc(text))
+    expect(html).toContain(inline(c.reply))
+    expect(html).toContain(`<span class="st">${esc(m.mock.live.waiting.state)}</span>`)
+    expect(html).toContain('class="la working"')
+    expect(html).toContain('class="la waiting"')
+  })
+
+  test('the carousel script respects reduced motion and pauses on hover and focus', () => {
+    const html = renderLanding('en-US')
+    expect(html).toContain("matchMedia('(prefers-reduced-motion: reduce)')")
+    expect(html).toContain('nav.hidden=false')
+    for (const event of ['mouseenter', 'mouseleave', 'focusin', 'focusout'])
+      expect(html).toContain(`addEventListener('${event}'`)
+    expect(html).toContain('scroll-snap-type: x mandatory')
+  })
+
+  test.each(WEB_LOCALES)('%s: agent chips in product order, Codex supported', (locale) => {
+    const html = renderLanding(locale)
+    const a = CATALOGS[locale].agents
+    const strip = html.slice(
+      html.indexOf('<div class="agents"'),
+      html.indexOf('</div>', html.indexOf('<div class="agents"')),
+    )
+    const chips = [...strip.matchAll(/<span class="agchip( soon)?"><svg class="mk (\w+)"/g)].map((x) => [
+      x[2],
+      Boolean(x[1]),
+    ])
+    expect(chips).toEqual([
+      ['claude', false],
+      ['codex', false],
+      ['kimi', true],
+      ['qwen', true],
+      ['openrouter', false],
+    ])
+    expect(strip).toContain(`${esc(a.codex)}</span>`)
+    // The agents node of "How it works" shows a Codex alias with its mark.
+    expect(html).toContain(`<span>${agentMark('codex', 14)}codex → ~/.codex</span>`)
+    expect(CATALOGS[locale].faq.items[1]?.a).toContain('Codex CLI')
+  })
+
+  test.each(WEB_LOCALES)('%s: the iPhone & iPad card opens the install link when configured', (locale) => {
+    const ios = CATALOGS[locale].install.ios
+    const docs = `${LOCALE_PATHS[locale]}docs/getting-started/`
+    const withLink = renderLanding(locale, undefined, { appInstallUrl: '/app/abc123/' })
+    expect(withLink).toContain(`<a class="store" href="/app/abc123/">`)
+    expect(withLink).toContain(`<small>${esc(ios.detail)}</small>`)
+    // The note explains the device registration and links the docs section.
+    expect(withLink).toContain(inline(ios.note))
+    expect(ios.note).toContain(`](${docs}#`)
+    const without = renderLanding(locale)
+    expect(without).toContain(`<a class="store" href="${docs}">`)
+    expect(without).toContain(`<small>${esc(ios.source)}</small>`)
+    expect(without).not.toContain(inline(ios.note))
+  })
+
+  test.each(WEB_LOCALES)(
+    '%s: footer order, the trademark notice full width under the contributors',
+    (locale) => {
+      const f = CATALOGS[locale].footer
+      const pages = {
+        landing: renderLanding(locale),
+        docs: renderDoc(locale, 'getting-started') ?? '',
+        install: renderInstallPage(locale, 'macos'),
+      }
+      for (const [name, html] of Object.entries(pages)) {
+        const footer = html.slice(html.indexOf('<footer>'), html.indexOf('</footer>'))
+        const order = [
+          '<div class="row">',
+          '<div class="contrib">',
+          `<small class="legal">${esc(f.legal)}</small>`,
+          '<div class="by">',
+        ]
+        const positions = order.map((part) => footer.indexOf(part))
+        expect(
+          positions.every((p) => p >= 0),
+          name,
+        ).toBe(true)
+        expect(
+          [...positions].sort((a, b) => a - b),
+          name,
+        ).toEqual(positions)
+        expect(footer, name).not.toContain('class="fine"')
+      }
+    },
+  )
+
   test('the root page keeps its own canonical; the language switcher marks the current one', () => {
     const root = renderLanding('es-ES', '/')
     expect(root).toContain('<link rel="canonical" href="https://remoteharness.app/">')
@@ -111,5 +225,26 @@ describe('site files', () => {
     expect(robotsTxt()).toContain('Sitemap: https://remoteharness.app/sitemap.xml')
     expect(robotsTxt()).toContain('Disallow: /ios/')
     expect(faviconSvg().startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
+  })
+})
+
+describe('siteConfig', () => {
+  test('takes the install link as a path on the site or an https URL, nothing else', () => {
+    expect(siteConfig({})).toEqual({})
+    expect(siteConfig({ APP_INSTALL_URL: ' /app/abc/ ' })).toEqual({ appInstallUrl: '/app/abc/' })
+    expect(siteConfig({ APP_INSTALL_URL: 'https://remoteharness.app/app/abc/' })).toEqual({
+      appInstallUrl: 'https://remoteharness.app/app/abc/',
+    })
+    for (const bad of ['http://example.com/', '//evil.example/', 'javascript:alert(1)', 'app/abc/', ''])
+      expect(siteConfig({ APP_INSTALL_URL: bad }), bad).toEqual({})
+  })
+
+  test.each(WEB_LOCALES)('%s: the docs section the install texts link to exists', (locale) => {
+    const html = renderDoc(locale, 'getting-started') ?? ''
+    for (const text of [CATALOGS[locale].install.ios.note, CATALOGS[locale].appLink.ios.registered]) {
+      const anchor = text.match(/getting-started\/#([a-z0-9-]+)\)/)?.[1]
+      expect(anchor, text).toBeTruthy()
+      expect(html).toContain(`id="${anchor}"`)
+    }
   })
 })

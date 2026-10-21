@@ -5,15 +5,20 @@ import { silentLogger } from '../src/core/logger.ts'
 import { hostName, shortenHome } from '../src/core/paths.ts'
 import { LiveStatusService } from '../src/features/live-status/service.ts'
 import {
+  applyTodo,
   DONE_DISMISS_MS,
+  eventsForEntry,
   initialLiveStatus,
   type LiveEvent,
   liveProps,
-  parallelTasks,
   planSend,
   reduceLiveStatus,
   STEP_INTERVAL_MS,
   stepForEntry,
+  stepTarget,
+  taskCounts,
+  todoChange,
+  todoProgress,
   toolStep,
 } from '../src/features/live-status/status.ts'
 import { buildLiveMessage, type LiveMessage, type PushSender } from '../src/features/push/sender.ts'
@@ -39,7 +44,8 @@ describe('live status reducer', () => {
       name: 'Bash',
       input: { command: 'rm -rf x' },
     }
-    expect(stepForEntry(use)).toEqual({ type: 'step', step: 'command', tool: 'Bash' })
+    // Only the program leaves the daemon, never its arguments.
+    expect(stepForEntry(use)).toEqual({ type: 'step', step: 'command', tool: 'Bash', target: 'rm' })
     expect(stepForEntry({ ...base, kind: 'thinking', text: 'secret' })).toEqual({
       type: 'step',
       step: 'thinking',
@@ -131,9 +137,16 @@ describe('live status reducer', () => {
       pending: null,
       hint: '',
       tasks: '',
+      current: '',
+      progress: null,
     })
-    expect(liveProps({ ...status, tasks: 1 }, info, en).tasks).toBe('1 task running')
-    expect(liveProps({ ...status, tasks: 2 }, info, pt).tasks).toBe('2 tarefas rodando')
+    const tasks = (subagents: number, background: number) => ({ ...status, tasks: { subagents, background } })
+    expect(liveProps(tasks(1, 0), info, en).tasks).toBe('1 subagent')
+    expect(liveProps(tasks(2, 1), info, en).tasks).toBe('2 subagents · 1 background task')
+    expect(liveProps(tasks(0, 2), info, pt).tasks).toBe('2 tarefas em segundo plano')
+    expect(liveProps(tasks(1, 1), info, messagesFor('es-ES').live).tasks).toBe(
+      '1 subagente · 1 tarea en segundo plano',
+    )
     expect(liveProps({ ...status, toolCount: 3 }, info, pt)).toMatchObject({
       status: 'Trabalhando',
       step: 'pensando',
@@ -143,24 +156,33 @@ describe('live status reducer', () => {
     })
   })
 
-  test('tasks in parallel: background tasks plus running subagents, kept across turns', () => {
+  test('tasks in parallel: running subagents and background tasks apart, kept across turns', () => {
     const subagent = (state: 'running' | 'done') => ({ state }) as never
-    expect(parallelTasks({ backgroundTasks: 1, subagents: [subagent('running'), subagent('done')] })).toBe(2)
-    expect(parallelTasks({ backgroundTasks: 0, subagents: [] })).toBe(0)
-    let status = reduceLiveStatus(initialLiveStatus(1), { type: 'tasks', count: 2 }, 2)
-    expect(status.tasks).toBe(2)
+    expect(taskCounts({ backgroundTasks: 1, subagents: [subagent('running'), subagent('done')] })).toEqual({
+      subagents: 1,
+      background: 1,
+    })
+    expect(taskCounts({ backgroundTasks: 0, subagents: [] })).toEqual({ subagents: 0, background: 0 })
+    const counts = (subagents: number, background: number) => ({ subagents, background })
+    let status = reduceLiveStatus(initialLiveStatus(1), { type: 'tasks', counts: counts(1, 1) }, 2)
+    expect(status.tasks).toEqual(counts(1, 1))
+    // The same counts again change nothing.
+    expect(reduceLiveStatus(status, { type: 'tasks', counts: counts(1, 1) }, 2)).toBe(status)
     status = reduceLiveStatus(status, { type: 'stop' }, 3)
     // Background tasks outlive the turn: the done status still follows the count.
-    status = reduceLiveStatus(status, { type: 'tasks', count: 1 }, 4)
-    expect(status).toMatchObject({ state: 'done', tasks: 1 })
-    expect(reduceLiveStatus(status, { type: 'prompt' }, 5)).toMatchObject({ state: 'working', tasks: 1 })
+    status = reduceLiveStatus(status, { type: 'tasks', counts: counts(0, 1) }, 4)
+    expect(status).toMatchObject({ state: 'done', tasks: counts(0, 1) })
+    expect(reduceLiveStatus(status, { type: 'prompt' }, 5)).toMatchObject({
+      state: 'working',
+      tasks: counts(0, 1),
+    })
     // The session closing during the done window closes it (and ends the activity at once).
     const closed = reduceLiveStatus(status, { type: 'end' }, 6)
     expect(closed).toMatchObject({ state: 'closed', endedAt: 6 })
-    expect(reduceLiveStatus(closed, { type: 'tasks', count: 3 }, 7)).toBe(closed)
+    expect(reduceLiveStatus(closed, { type: 'tasks', counts: counts(3, 0) }, 7)).toBe(closed)
     // A count change is throttled like a step.
     const sent = initialLiveStatus(1)
-    expect(planSend(sent, { ...sent, tasks: 1 }, 1, 2)).toMatchObject({ when: 'later' })
+    expect(planSend(sent, { ...sent, tasks: counts(1, 0) }, 1, 2)).toMatchObject({ when: 'later' })
   })
 
   test('folder and host names', () => {
@@ -172,6 +194,130 @@ describe('live status reducer', () => {
     expect(hostName('devbox')).toBe('devbox')
     expect(hostName('MacBook-Pro.local', { REMOTE_HARNESS_HOST_NAME: 'studio' })).toBe('studio')
     expect(hostName('MacBook-Pro.local', { REMOTE_HARNESS_HOST_NAME: '' })).toBe('MacBook-Pro')
+  })
+})
+
+describe('current step target', () => {
+  test('commands give only their program, with the subcommand for a few programs', () => {
+    const bash = (command: string) => stepTarget('Bash', { command })
+    expect(bash('pnpm test --filter daemon')).toBe('pnpm test')
+    expect(bash('git push origin secret-branch')).toBe('git push')
+    expect(bash('cd apps/daemon && FOO=1 sudo npm run build')).toBe('npm run')
+    expect(bash('/usr/local/bin/python3 script.py --token abc')).toBe('python3')
+    expect(bash('curl -H "Authorization: Bearer x" https://api')).toBe('curl')
+    expect(bash('echo hunter2')).toBe('echo')
+    // The subcommand must be a plain word: no flags, paths or values.
+    expect(bash('git -C /secret/path status')).toBe('git')
+    expect(bash('npm Secret')).toBe('npm')
+    expect(bash('"./my script.sh" arg')).toBeNull()
+    expect(bash('   ')).toBeNull()
+  })
+
+  test('files give their base name, web fetches their host, subagents their type', () => {
+    expect(stepTarget('Edit', { file_path: '/Users/me/project/src/app.ts' })).toBe('app.ts')
+    expect(stepTarget('Read', { file_path: 'C:\\Users\\me\\notes.md' })).toBe('notes.md')
+    expect(stepTarget('NotebookEdit', { notebook_path: '/x/analysis.ipynb' })).toBe('analysis.ipynb')
+    expect(stepTarget('WebFetch', { url: 'https://github.com/org/private-repo?token=1' })).toBe('github.com')
+    expect(stepTarget('WebFetch', { url: 'not a url' })).toBeNull()
+    expect(stepTarget('Agent', { subagent_type: 'Explore', prompt: 'secret' })).toBe('Explore')
+    expect(stepTarget('Task', { subagent_type: 'has spaces in it' })).toBeNull()
+    expect(stepTarget('Write', { file_path: `/x/${'a'.repeat(60)}.ts` })?.length).toBe(40)
+  })
+
+  test('tools with free text give no target', () => {
+    expect(stepTarget('Grep', { pattern: 'password', path: '/secret' })).toBeNull()
+    expect(stepTarget('Glob', { pattern: '**/*.env' })).toBeNull()
+    expect(stepTarget('WebSearch', { query: 'private question' })).toBeNull()
+    expect(stepTarget('mcp__github__create_issue', { title: 'x' })).toBeNull()
+    expect(stepTarget('Edit', {})).toBeNull()
+  })
+
+  test('the current step shows in the props, and clears when the turn ends', () => {
+    const info = { title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' }
+    let status = reduceLiveStatus(
+      initialLiveStatus(0),
+      { type: 'step', step: 'command', tool: 'Bash', target: 'pnpm test' },
+      1,
+    )
+    expect(liveProps(status, info, en).current).toBe('Bash · pnpm test')
+    status = reduceLiveStatus(status, { type: 'step', step: 'tool', tool: 'mcp__github__create_issue' }, 2)
+    expect(liveProps(status, info, en).current).toBe('create_issue')
+    status = reduceLiveStatus(status, { type: 'step', step: 'thinking', tool: null }, 3)
+    expect(liveProps(status, info, en).current).toBe('')
+    status = reduceLiveStatus(status, { type: 'step', step: 'editing', tool: 'Edit', target: 'app.ts' }, 4)
+    expect(liveProps(reduceLiveStatus(status, { type: 'stop' }, 5), info, en).current).toBe('')
+    // A new current step is throttled like any step.
+    const next = reduceLiveStatus(status, { type: 'step', step: 'editing', tool: 'Edit', target: 'b.ts' }, 6)
+    expect(planSend(status, next, 4, 6)).toMatchObject({ when: 'later' })
+  })
+})
+
+describe('todo progress', () => {
+  const tool = (name: string, input: Record<string, unknown>): TranscriptEntry => ({
+    ...base,
+    kind: 'tool_use',
+    toolUseId: 't',
+    name,
+    input,
+  })
+
+  test('TodoWrite gives a snapshot of the list', () => {
+    const todos = [
+      { content: 'secret plan a', status: 'completed' },
+      { content: 'b', status: 'in_progress' },
+      { content: 'c', status: 'pending' },
+    ]
+    expect(todoChange('TodoWrite', { todos })).toEqual({ kind: 'snapshot', done: 1, total: 3 })
+    expect(todoChange('TodoWrite', { todos: 'nope' })).toBeNull()
+    expect(todoChange('Bash', { command: 'ls' })).toBeNull()
+    expect(eventsForEntry(tool('TodoWrite', { todos }))).toEqual([
+      { type: 'step', step: 'planning', tool: 'TodoWrite', target: null },
+      { type: 'todo', change: { kind: 'snapshot', done: 1, total: 3 } },
+    ])
+    expect(eventsForEntry({ ...tool('TodoWrite', { todos }), isSidechain: true })).toEqual([])
+    expect(applyTodo(null, { kind: 'snapshot', done: 0, total: 0 })).toBeNull()
+  })
+
+  test('TaskCreate and TaskUpdate build the counts, each task done once', () => {
+    let todo = applyTodo(null, { kind: 'created' })
+    todo = applyTodo(todo, { kind: 'created' })
+    todo = applyTodo(todo, { kind: 'created' })
+    expect(todoProgress(todo)).toEqual({ done: 0, total: 3 })
+    const update = (taskId: string, status: string) => {
+      const change = todoChange('TaskUpdate', { taskId, status })
+      if (change) todo = applyTodo(todo, change)
+    }
+    update('1', 'completed')
+    update('1', 'completed')
+    update('2', 'in_progress')
+    expect(todoProgress(todo)).toEqual({ done: 1, total: 3 })
+    update('1', 'pending')
+    expect(todoProgress(todo)).toEqual({ done: 0, total: 3 })
+    update('2', 'completed')
+    update('3', 'deleted')
+    expect(todoProgress(todo)).toEqual({ done: 1, total: 2 })
+    expect(todoChange('TaskUpdate', { taskId: '1' })).toBeNull()
+    // An update with no known list (the list came before the daemon followed) changes nothing.
+    expect(applyTodo(null, { kind: 'updated', taskId: '9', status: 'completed' })).toBeNull()
+  })
+
+  test('the props carry the progress; an unfinished list carries over to the next turn', () => {
+    const info = { title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' }
+    const snapshot = (done: number, total: number): LiveEvent => ({
+      type: 'todo',
+      change: { kind: 'snapshot', done, total },
+    })
+    let status = reduceLiveStatus(initialLiveStatus(0), snapshot(3, 7), 1)
+    expect(liveProps(status, info, en).progress).toEqual({ done: 3, total: 7 })
+    status = reduceLiveStatus(status, { type: 'stop' }, 2)
+    status = reduceLiveStatus(status, { type: 'prompt' }, 3)
+    expect(liveProps(status, info, en).progress).toEqual({ done: 3, total: 7 })
+    status = reduceLiveStatus(status, snapshot(7, 7), 4)
+    status = reduceLiveStatus(status, { type: 'prompt' }, 5)
+    expect(liveProps(status, info, en).progress).toBeNull()
+    // A progress change is throttled like a step.
+    const next = reduceLiveStatus(status, snapshot(1, 2), 6)
+    expect(planSend(status, next, 5, 6)).toMatchObject({ when: 'later' })
   })
 })
 
@@ -299,8 +445,15 @@ describe('buildLiveMessage', () => {
     // The finished turn can be swiped away while it waits; the body names the tasks in parallel.
     const done = { ...message, platform: 'android' as const, props: { ...props, state: 'done' as const } }
     expect(notification(done)?.sticky).toBe(false)
-    const tasks = { ...message, platform: 'android' as const, props: { ...props, tasks: '2 tasks running' } }
-    expect(notification(tasks)?.body).toBe('2 tasks running')
+    const tasks = { ...message, platform: 'android' as const, props: { ...props, tasks: '2 subagents' } }
+    expect(notification(tasks)?.body).toBe('2 subagents')
+    // The current step and the progress come first.
+    const step = {
+      ...message,
+      platform: 'android' as const,
+      props: { ...props, current: 'Edit · app.ts', progress: { done: 3, total: 7 } },
+    }
+    expect(notification(step)?.body).toBe('Edit · app.ts · ☑ 3/7')
   })
 
   test('Android with androidDataMessages: a data message the app draws, collapsed per session', () => {
@@ -344,8 +497,9 @@ describe('buildLiveMessage', () => {
     expect(buildLiveMessage({ ...android, event: 'end' }).android).toMatchObject({ priority: 'high' })
   })
 
-  test('Android data messages stay well under the FCM data limit', () => {
-    const busy = liveProps(
+  /** A busy status with every field at its longest. */
+  const busyProps = () =>
+    liveProps(
       {
         ...initialLiveStatus(1_000_000),
         recent: [
@@ -355,7 +509,9 @@ describe('buildLiveMessage', () => {
         ],
         glyphs: ['command', 'editing', 'searching', 'reading', 'web'],
         toolCount: 99,
-        tasks: 3,
+        tasks: { subagents: 12, background: 12 },
+        current: { tool: 'mcp__some_server__some_long_tool_name', target: 'x'.repeat(40) },
+        todo: { done: 999, total: 999, completed: [] },
         pending: { requestId: 'a'.repeat(36), tool: 'mcp__some_server__some_long_tool_name' },
       },
       {
@@ -366,14 +522,22 @@ describe('buildLiveMessage', () => {
       },
       pt,
     )
-    const palette = {
-      background: '#0D0D0D',
-      text: '#E8E6E3',
-      textMuted: '#8A8784',
-      accent: '#E8A33D',
-      success: '#7FB069',
-      warning: '#F3DC7A',
-    }
+  const palette = {
+    background: '#0D0D0D',
+    text: '#E8E6E3',
+    textMuted: '#8A8784',
+    accent: '#E8A33D',
+    success: '#7FB069',
+    warning: '#F3DC7A',
+  }
+
+  test('iOS: a busy update stays under the APNs 4 KB payload limit', () => {
+    const built = buildLiveMessage({ ...message, props: { ...busyProps(), palette } })
+    expect(Buffer.byteLength(JSON.stringify(built.apns?.payload), 'utf8')).toBeLessThan(4_096)
+  })
+
+  test('Android data messages stay well under the FCM data limit', () => {
+    const busy = busyProps()
     const built = buildLiveMessage({
       ...message,
       platform: 'android',
@@ -389,7 +553,9 @@ describe('LiveStatusService', () => {
     vi.useRealTimers()
   })
 
-  function setup(opts: { muted?: boolean; invalid?: boolean; tasks?: { count: number } } = {}) {
+  function setup(
+    opts: { muted?: boolean; invalid?: boolean; tasks?: { subagents: number; background: number } } = {},
+  ) {
     let now = 1_000
     let onEvent: ((event: LiveEvent) => void) | null = null
     const unfollow = vi.fn()
@@ -408,7 +574,7 @@ describe('LiveStatusService', () => {
       profileOf: () => 'p1',
       info: () => ({ title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' }),
       isMuted: () => opts.muted ?? false,
-      ...(opts.tasks ? { tasksOf: () => opts.tasks?.count ?? 0 } : {}),
+      ...(opts.tasks ? { tasksOf: () => opts.tasks ?? { subagents: 0, background: 0 } } : {}),
       follow: async (_sessionId, listener) => {
         onEvent = listener
         return unfollow
@@ -517,11 +683,11 @@ describe('LiveStatusService', () => {
 
   test('the task count comes with the registration and follows the session', async () => {
     vi.useFakeTimers()
-    const tasks = { count: 2 }
+    const tasks = { subagents: 1, background: 1 }
     const { service, sent, advance } = setup({ tasks })
     await service.register(register)
-    expect(sent.at(-1)?.props.tasks).toBe('2 tasks running')
-    service.handle('s1', { type: 'tasks', count: 0 })
+    expect(sent.at(-1)?.props.tasks).toBe('1 subagent · 1 background task')
+    service.handle('s1', { type: 'tasks', counts: { subagents: 0, background: 0 } })
     advance(STEP_INTERVAL_MS)
     expect(sent.at(-1)?.props.tasks).toBe('')
   })

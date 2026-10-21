@@ -6,7 +6,7 @@ applies: 0.7+
 
 ## Requirements
 
-- A computer running macOS, Linux (systemd recommended) or Windows 10 2004+ / 11 through WSL2, with `tmux`, `git`, `rg` (ripgrep), `zsh` and `claude` on the `PATH`. The installer adds the missing tools.
+- A computer running macOS, Linux (systemd recommended) or Windows 10 2004+ / 11 through WSL2, with `tmux`, `git`, `rg` (ripgrep), `zsh` and `claude` (or `codex`) on the `PATH`. The installer adds the missing tools.
 - Node 24+. The installer downloads a private Node into `~/.remote-harness/node` when it is missing, without touching your system Node.
 - [Tailscale](https://tailscale.com) on the computer and on the phone, signed in to the same tailnet.
 - An iPhone or iPad (iOS 17+) or an Android phone (Android 10+).
@@ -55,10 +55,20 @@ node apps/daemon/dist/cli.js setup
 
 ## Install the app
 
-- **iPhone and iPad**: a development build for now (TestFlight is coming). With Xcode on a Mac, `cd apps/mobile && pnpm ios` runs it on the simulator or a connected device; `make install-ios` makes a release build for a connected iPhone or iPad. [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) has the signing details.
+- **iPhone and iPad**: install it over the air from the **Get the app** card on [remoteharness.app](/en/#app) (open it in Safari; iOS 17+). It is an ad-hoc build, so it installs only on devices registered in the developer team: see [Registering an iPhone or iPad](#registering-an-iphone-or-ipad). Or build it from source: with Xcode on a Mac, `cd apps/mobile && pnpm ios` runs it on the simulator or a connected device; `make install-ios` makes a release build for a connected iPhone or iPad. [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) has the signing details.
 - **Android**: the APK from [GitHub Releases](https://github.com/maarkN/remote-harness/releases) (allow installs from your browser when asked), or `pnpm android` and `pnpm build:android` from the repository.
 
 Install Tailscale on the phone as well and sign in to the same tailnet as the computer.
+
+### Registering an iPhone or iPad
+
+Until the app is on TestFlight, Apple lets the over-the-air build install only on devices whose identifier (UDID) is in the developer team's provisioning profile. On any other device the installation fails. To have yours added:
+
+1. Find the UDID: connect the iPhone or iPad to a Mac, select it in Finder and click the line under its name until the UDID shows (Control-click to copy it). Xcode shows it too, in Window → Devices and Simulators.
+2. Send it privately to the maintainer, through the contact on [maarkn.dev](https://maarkn.dev), not in a public issue.
+3. Once it is added, the next build published on the install link installs on that device.
+
+Building from source with your own Apple developer account has no such list: Xcode registers your own devices.
 
 ## Pair the phone
 

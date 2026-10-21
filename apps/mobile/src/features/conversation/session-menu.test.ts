@@ -118,6 +118,13 @@ describe('sessionMenu', () => {
     expect(readOnly.items.find((i) => i.key === 'subagents')?.disabled).toBe(false)
   })
 
+  test('"Run command…" after the terminal when the daemon accepts commands, even without a pane', () => {
+    const base = { controllable: false, keyBarVisible: false, following: false }
+    expect(sessionMenu(base, en).items.map((i) => i.key)).not.toContain('runCommand')
+    const items = sessionMenu({ ...base, commands: true }, en).items
+    expect(items[1]).toEqual({ key: 'runCommand', label: 'Run command…', disabled: false })
+  })
+
   test('close is the last item and reads "Close session"', () => {
     const menu = sessionMenu({ controllable: true, keyBarVisible: false, following: false }, en)
     expect(menu.items.at(-1)).toEqual({ key: 'close', label: 'Close session', disabled: false })

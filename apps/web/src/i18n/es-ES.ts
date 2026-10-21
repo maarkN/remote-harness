@@ -4,7 +4,7 @@ export const esES: WebMessages = {
   meta: {
     title: 'Remote Harness: sigue y dirige tus agentes de código desde el móvil',
     description:
-      'Autoalojado: Claude Code se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil por tu red Tailscale. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
+      'Autoalojado: Claude Code o Codex se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil por tu red Tailscale. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
   },
   nav: {
     skip: 'Ir al contenido',
@@ -20,13 +20,31 @@ export const esES: WebMessages = {
   hero: {
     eyebrow: 'Autoalojado · Tailscale · tmux',
     title: 'Sigue y dirige tus agentes de código desde el móvil.',
-    lead: 'Claude Code se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil por tu red Tailscale: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas desde donde estés.',
+    lead: 'Claude Code o Codex se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil por tu red Tailscale: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas desde donde estés.',
     install: 'Instalar en la máquina',
     app: 'Descargar la app',
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
     terms: 'MIT, sin cuenta, sin relay en la nube',
-    mockLabel: 'La lista de sesiones en la app, con una petición de permiso esperando',
+    carousel: {
+      label: 'Pantallas de la app',
+      role: 'carrusel',
+      previous: 'Pantalla anterior',
+      next: 'Pantalla siguiente',
+    },
+    slides: [
+      { name: 'Sesiones', label: 'La lista de sesiones en la app, con una petición de permiso esperando' },
+      {
+        name: 'Conversación',
+        label:
+          'Una sesión en la app: el prompt, la respuesta del agente, sus llamadas a herramientas y el cuadro de mensaje',
+      },
+      {
+        name: 'Estado en vivo',
+        label:
+          'La pantalla de bloqueo con dos actividades en vivo: una sesión trabajando y otra esperando un permiso',
+      },
+    ],
   },
   mock: {
     title: 'Sesiones',
@@ -87,6 +105,48 @@ export const esES: WebMessages = {
         ago: '2 h',
       },
     ],
+    conversation: {
+      title: 'Arreglar el crash del onboarding',
+      folder: '~/projects/acme-mobile',
+      branch: 'fix/onboarding',
+      mode: 'aceptar ediciones',
+      model: 'sonnet',
+      context: '38% del contexto',
+      prompt:
+        'La app se cierra en el segundo paso del onboarding cuando el usuario se salta la foto. Averigua por qué y arréglalo',
+      intro: 'Voy a ver cómo leen la foto los pasos del onboarding.',
+      tools: [
+        { name: 'Grep("photo" in src/onboarding)', result: 'src/onboarding/Profile.tsx:31: photo.uri' },
+        { name: 'Edit(src/onboarding/Profile.tsx)', result: 'ok · +3 −1' },
+        { name: 'Bash(pnpm test onboarding)', result: '✓ 12 tests · 1,4 s' },
+      ],
+      reply: 'Arreglado. `Profile.tsx` leía `photo.uri` antes de comprobar que se había elegido una foto:',
+      points: ['el paso ahora usa el avatar con las iniciales', 'un test nuevo cubre saltarse la foto'],
+      placeholder: 'Mensaje para Claude Code…',
+    },
+    live: {
+      date: 'martes, 21 de octubre',
+      working: {
+        who: 'Personal · MacBook Pro',
+        title: 'Migrar la landing a Tailwind 4',
+        folder: '~/projects/landing',
+        timer: '4:36',
+        sub: 'trabajando',
+        state: 'Trabajando',
+        step: 'Bash · pnpm',
+        tools: '6 herramientas',
+      },
+      waiting: {
+        who: 'Trabajo · MacBook Pro',
+        title: 'Añadir rate limit en el login',
+        folder: '~/projects/acme-api',
+        timer: '0:52',
+        sub: 'esperando',
+        state: 'Esperándote',
+        step: 'permiso · Bash',
+        tools: '9 herramientas',
+      },
+    },
   },
   agents: {
     label: 'Funciona con',
@@ -114,8 +174,13 @@ export const esES: WebMessages = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Tus agentes, en tmux',
-      body: 'Una ventana por sesión, un alias por perfil.',
-      aliases: ['personal → ~/.claude', 'trabajo → ~/.claude-work', 'openrouter → ~/.claude-openrouter'],
+      body: 'Una ventana por sesión, un alias por perfil, para Claude Code o Codex.',
+      aliases: [
+        { mark: 'claude', text: 'personal → ~/.claude' },
+        { mark: 'claude', text: 'trabajo → ~/.claude-work' },
+        { mark: 'codex', text: 'codex → ~/.codex' },
+        { mark: 'claude', text: 'openrouter → ~/.claude-openrouter' },
+      ],
     },
     steps: [
       {
@@ -226,12 +291,14 @@ export const esES: WebMessages = {
       'git',
       'ripgrep',
       'Tailscale',
-      'claude en el PATH',
+      'claude o codex en el PATH',
     ],
     appTitle: 'Descargar la app',
     ios: {
       title: 'iPhone y iPad',
-      detail: 'Compílala desde el código por ahora · TestFlight pronto · iOS 17+',
+      detail: 'Instalación inalámbrica · dispositivos registrados · iOS 17+',
+      source: 'Compílala desde el código por ahora · TestFlight pronto · iOS 17+',
+      note: 'El build de iPhone y iPad solo se instala en dispositivos registrados: [cómo añadir el tuyo](/es/docs/getting-started/#registrar-un-iphone-o-ipad), o compílala desde el código.',
     },
     android: { title: 'Android', detail: 'APK en los Releases de GitHub · Android 10+' },
     appNote:
@@ -248,7 +315,7 @@ export const esES: WebMessages = {
       },
       {
         q: '¿Qué agentes están soportados?',
-        a: 'Claude Code hoy, con todos los perfiles (`CLAUDE_CONFIG_DIR`) en una sola lista, incluidos los perfiles enrutados por OpenRouter. Codex CLI, Kimi y Qwen Code están en la hoja de ruta.',
+        a: 'Claude Code y Codex CLI, con todos los perfiles (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) en una sola lista, incluidos los perfiles de Claude Code enrutados por OpenRouter. Kimi y Qwen Code están en la hoja de ruta.',
       },
       {
         q: '¿Puede ejecutar mi agente sin supervisión?',
@@ -318,7 +385,7 @@ export const esES: WebMessages = {
       title: 'iPhone y iPad',
       install: 'Instalar',
       registered:
-        'Solo los iPhone y iPad registrados en el equipo de desarrollador pueden instalar este build. Abre esta página en Safari.',
+        'Solo los iPhone y iPad registrados en el equipo de desarrollador pueden instalar este build ([cómo añadir el tuyo](/es/docs/getting-started/#registrar-un-iphone-o-ipad)). Abre esta página en Safari.',
       developerMode:
         'La primera vez, iOS pide activar el Modo de desarrollador: Ajustes → Privacidad y seguridad → Modo de desarrollador, y reiniciar.',
     },

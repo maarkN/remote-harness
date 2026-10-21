@@ -153,7 +153,39 @@ const esES = {
       tooLarge: 'Prompt demasiado grande (máx. 100 KB).',
     },
   },
+  commands: {
+    title: 'Ejecutar comando',
+    folder: 'En {{folder}} en el ordenador',
+    placeholder: 'git status',
+    inputLabel: 'Comando de shell',
+    run: 'Ejecutar',
+    cancel: 'Detener',
+    copy: 'Copiar salida',
+    copied: 'Copiado',
+    addToPrompt: 'Añadir al prompt',
+    running: 'Ejecutando… {{elapsed}}',
+    clipped: '… salida anterior oculta',
+    confirm: {
+      title: '¿Ejecutar este comando?',
+      body: '{{command}}\n\nSe ejecuta en el ordenador, en {{folder}}, con tu usuario.',
+    },
+    exit: {
+      exited: 'Terminó con código {{code}}',
+      cancelled: 'Detenido',
+      timeout: 'Detenido: superó el tiempo límite',
+      outputLimit: 'Detenido: la salida superó el tamaño límite',
+      failed: 'El shell no pudo iniciarse',
+    },
+    off: {
+      body: 'Ejecutar comandos desde la app está desactivado en el ordenador. Para permitirlo, ejecuta esto allí:',
+    },
+    errors: {
+      disabled: 'Ejecutar comandos está desactivado en el ordenador (remote-harness commands on).',
+      busy: 'Ya hay un comando en ejecución en esta sesión.',
+    },
+  },
   sessionMenu: {
+    runCommand: 'Ejecutar comando…',
     model: 'Cambiar modelo…',
     moreOptions: 'Más opciones',
     terminal: 'Ver terminal',
@@ -350,10 +382,12 @@ const esES = {
   liveStatus: {
     states: { working: 'Trabajando', waiting: 'Esperándote', done: 'Terminada', closed: 'Sesión cerrada' },
     title: 'Estado en vivo',
-    hint: 'Mientras una sesión trabaja, síguela en la pantalla de bloqueo y en la Dynamic Island (iPhone) o en una notificación silenciosa (Android). Muestra el ordenador, el nombre y la carpeta de la sesión, el estado, los últimos tipos de paso y el tiempo, nunca la conversación en sí.',
+    hint: 'Mientras una sesión trabaja, síguela en la pantalla de bloqueo y en la Dynamic Island (iPhone) o en una notificación silenciosa (Android). Muestra el ordenador, el nombre y la carpeta de la sesión, el estado, la herramienta actual con el nombre del archivo o programa en el que está, el progreso de las tareas y el tiempo, nunca la conversación en sí.',
     ago: 'hace {time}',
-    tasks_one: '{{count}} tarea en curso',
-    tasks_other: '{{count}} tareas en curso',
+    subagents_one: '{{count}} subagente',
+    subagents_other: '{{count}} subagentes',
+    background_one: '{{count}} tarea en segundo plano',
+    background_other: '{{count}} tareas en segundo plano',
     enabled: 'Mostrar estado en vivo',
     channelName: 'Estado en vivo',
     channelDescription: 'Progreso de las sesiones mientras trabajan (silencioso).',
@@ -631,6 +665,9 @@ const esES = {
     pushToTalkTitle: 'Mantener pulsado para grabar',
     pushToTalkHint:
       'Mantén pulsado el micrófono para grabar y suéltalo para detener, en vez de tocar para alternar.',
+    polishUnsupportedTitle: 'Mejorar dictado no disponible',
+    polishUnsupported:
+      '{{Machine}} aún no mejora el dictado. En el ordenador, ejecuta `remote-harness update`. Usando la transcripción original.',
   },
   newSession: {
     profile: 'Agente y perfil',
@@ -759,6 +796,22 @@ const esES = {
     emptyHint: 'Las sesiones abiertas con `claude` a secas aparecen como solo lectura.',
     detailEmptyTitle: 'Selecciona una sesión',
     detailEmptyBody: 'Elige una sesión de la lista para ver la conversación aquí.',
+    offlineList: 'lista sin conexión de {{time}}',
+    unreachable: {
+      title: '{{Machine}} no responde',
+      body: 'Qué revisar:',
+      checklist: {
+        computerAwake:
+          'El ordenador está encendido y despierto — sin suspenderse, con la tapa abierta o configurado para no suspenderse.',
+        tailscaleComputer: 'Tailscale está en ejecución y con la sesión iniciada en el ordenador.',
+        tailscalePhone: 'Tailscale está en ejecución y conectado en este móvil, con la misma cuenta.',
+        daemonRunning:
+          'El daemon de Remote Harness está en ejecución en el ordenador (`remote-harness status`).',
+      },
+      tryAgain: 'Reintentar',
+      openTailscale: 'Abrir Tailscale',
+      troubleshooting: 'Guía de solución de problemas',
+    },
     background: 'segundo plano {{count}}',
     sharedCheckout: 'mismo checkout ({{count}})',
     branch: 'Rama {{branch}}',

@@ -2,7 +2,15 @@ import { agentMark } from './agent-marks.ts'
 import { esc, inline } from './html.ts'
 import { LOCALE_PATHS, type Locale, messagesFor, WEB_LOCALES, type WebMessages } from './i18n/index.ts'
 import { INSTALL_COMMANDS } from './install.ts'
-import { AUTHOR, CONTRIBUTORS, MARK_REGULAR, OG_IMAGE_URL, REPO_URL, SITE_URL } from './site.ts'
+import {
+  AUTHOR,
+  CONTRIBUTORS,
+  MARK_REGULAR,
+  OG_IMAGE_URL,
+  REPO_URL,
+  SITE_URL,
+  type SiteConfig,
+} from './site.ts'
 import { STYLES } from './styles.ts'
 
 const OG_LOCALES: Record<Locale, string> = { 'en-US': 'en_US', 'pt-BR': 'pt_BR', 'es-ES': 'es_ES' }
@@ -16,9 +24,8 @@ export function docsPath(locale: Locale): string {
   return `${LOCALE_PATHS[locale]}docs/`
 }
 
-/** Where the app links go until the stores exist (#161). */
+/** Where the links go until the stores exist (#161); the iPhone & iPad card comes from `SiteConfig`. */
 export const LINKS = {
-  ios: `${REPO_URL}#readme`,
   android: `${REPO_URL}/releases`,
   releases: `${REPO_URL}/releases`,
   security: `${REPO_URL}/blob/main/SECURITY.md`,
@@ -112,10 +119,8 @@ export function siteFooter(locale: Locale, m: WebMessages): string {
   ).join('')
   return `<footer>
   <div class="row"><span class="brand">${mark(20)}Remote Harness</span><a href="${docsPath(locale)}">${esc(f.docs)}</a><a href="${REPO_URL}">${esc(f.github)}</a><a href="${LINKS.releases}">${esc(f.releases)}</a><a href="${LINKS.security}">${esc(f.security)}</a><a href="${docsPath(locale)}privacy/">${esc(f.privacy)}</a><a href="${LINKS.license}">${esc(f.license)}</a><span class="langs">${languages}</span></div>
-  <div class="fine">
-    <small>${esc(f.legal)}</small>
-    <div class="contrib"><span>${esc(f.contributors)}</span>${contributors}</div>
-  </div>
+  <div class="contrib"><span>${esc(f.contributors)}</span>${contributors}</div>
+  <small class="legal">${esc(f.legal)}</small>
   <div class="by">${esc(f.madeBy)} <a href="${AUTHOR.url}">${AUTHOR.name}</a></div>
 </footer>`
 }
@@ -130,7 +135,9 @@ function landingNav(locale: Locale, m: WebMessages): NavLink[] {
   ]
 }
 
-function phoneMock(m: WebMessages): string {
+const STATUS_BAR = '<div class="sb"><span>9:41</span><span class="ic">▮▮▮ ⌔ ▭</span></div>'
+
+function sessionsSlide(m: WebMessages): string {
   const mock = m.mock
   const states = mock.states as Record<string, string>
   const profiles = mock.profiles as Record<string, string>
@@ -143,9 +150,8 @@ function phoneMock(m: WebMessages): string {
       return `<div class="srow${s.state === 'waiting' ? ' waiting' : ''}"><div class="t">${agentMark('claude', 14)}<span class="title">${esc(s.title)}</span><span class="ago">${esc(s.ago)}</span></div><div class="p"><span>${esc(s.folder)}</span>${branch}</div><div class="m"><span class="pill ${esc(s.state)}">${esc(states[s.state] ?? s.state)}</span><span class="ptag ${esc(s.profile)}">${esc(profiles[s.profile] ?? s.profile)}</span></div></div>`
     })
     .join('')
-  return `<div class="phone" role="img" aria-label="${esc(m.hero.mockLabel)}">
-  <div class="sb"><span>9:41</span><span class="ic">▮▮▮ ⌔ ▭</span></div>
-  <div class="app" aria-hidden="true">
+  return `${STATUS_BAR}
+  <div class="app">
     <div class="ah"><div class="title">${mark(20)}${esc(mock.title)}</div><div class="ib accent">+</div><div class="ib">⚙</div></div>
     <div class="mline"><span class="dot"></span><span class="host">${esc(mock.host)}</span><span>${esc(mock.count)}</span></div>
     <div class="chips">${chips}</div>
@@ -153,8 +159,82 @@ function phoneMock(m: WebMessages): string {
       <div class="attn"><div class="h">⚠ ${esc(mock.waiting)} <span>${esc(mock.timer)}</span></div><div class="who">${agentMark('claude', 14)}<span>${esc(mock.permission.title)}</span></div><div class="tool">${esc(mock.permission.tool)} · <b>${esc(mock.permission.command)}</b></div><div class="ans"><span class="no">${esc(mock.deny)}</span><span>${esc(mock.always)}</span><span class="ok">${esc(mock.allow)}</span></div></div>
       ${rows}
     </div>
+  </div>`
+}
+
+function conversationSlide(m: WebMessages): string {
+  const c = m.mock.conversation
+  const tools = c.tools
+    .map(
+      (t) =>
+        `<div class="tcall"><div class="n">${esc(t.name)}</div><div class="r">└ ${esc(t.result)}</div></div>`,
+    )
+    .join('')
+  const points = c.points.map((p) => `<li>${inline(p)}</li>`).join('')
+  return `${STATUS_BAR}
+  <div class="app conv">
+    <div class="ah"><div class="ib back">‹</div><div class="title"><span>${esc(c.title)}</span></div><div class="ib">⋯</div></div>
+    <div class="mline">${agentMark('claude', 14)}<span class="ptag work">${esc(m.mock.profiles.work)}</span><span class="fold">${esc(c.folder)}</span><span class="sp"></span><span class="pill idle">${esc(m.mock.states.idle)}</span></div>
+    <div class="mline"><span class="pill mode">${esc(c.mode)}</span><span class="sp"></span><span>⎇ ${esc(c.branch)}</span></div>
+    <div class="scroll">
+      <div class="umsg">${esc(c.prompt)}</div>
+      <div class="amsg">${esc(c.intro)}</div>
+      ${tools}
+      <div class="amsg">${inline(c.reply)}<ul>${points}</ul></div>
+    </div>
+    <div class="ctx">${esc(c.model)} · ${esc(c.context)}</div>
+    <div class="composer"><span class="gt">&gt;</span><div class="in">${esc(c.placeholder)}</div><div class="send">↑</div></div>
+  </div>`
+}
+
+type LiveActivity = WebMessages['mock']['live']['working']
+
+function liveActivity(a: LiveActivity, kind: 'working' | 'waiting', m: WebMessages): string {
+  const bottom =
+    kind === 'working'
+      ? '<div class="bar"><i></i></div>'
+      : `<div class="ans"><span class="no">${esc(m.mock.deny)}</span><span class="ok">${esc(m.mock.allow)}</span></div>`
+  return `<div class="la ${kind}"><div class="top"><div class="ic">${mark(24)}</div><div class="tx"><span class="who">${esc(a.who)}</span><span class="ttl">${esc(a.title)}</span><span class="path">${esc(a.folder)}</span></div><div class="tm"><b>${esc(a.timer)}</b><small>${esc(a.sub)}</small></div></div><div class="row"><span class="st">${esc(a.state)}</span><span class="cur">${esc(a.step)}</span><span class="tools">${esc(a.tools)}</span></div>${bottom}</div>`
+}
+
+function liveSlide(m: WebMessages): string {
+  const live = m.mock.live
+  return `${STATUS_BAR}
+  <div class="lockscr">
+    <div class="date">${esc(live.date)}</div>
+    <div class="time">9:41</div>
+    ${liveActivity(live.working, 'working', m)}
+    ${liveActivity(live.waiting, 'waiting', m)}
+    <div class="lbtm"><span>🔦</span><span>📷</span></div>
+  </div>`
+}
+
+const SLIDES = [sessionsSlide, conversationSlide, liveSlide]
+
+/**
+ * The hero phone: the slides scroll and snap inside one frame, so they swipe and stay reachable
+ * without the script; the arrows and dots stay hidden until `SCRIPT` wires them up.
+ */
+function carousel(m: WebMessages): string {
+  const c = m.hero.carousel
+  const slides = m.hero.slides
+    .map(
+      (slide, i) =>
+        `<div class="slide${i === 2 ? ' lockscreen' : ''}" role="img" aria-label="${esc(slide.label)}">${SLIDES[i]?.(m) ?? ''}</div>`,
+    )
+    .join('')
+  const dots = m.hero.slides
+    .map(
+      (slide, i) =>
+        `<button type="button" data-go="${i}" aria-label="${esc(slide.name)}"${i === 0 ? ' aria-current="true"' : ''}></button>`,
+    )
+    .join('')
+  return `<div class="carousel" role="region" aria-roledescription="${esc(c.role)}" aria-label="${esc(c.label)}" data-carousel>
+  <div class="phone">
+    <div class="track" tabindex="0" data-track>${slides}</div>
+    <div class="home"></div>
   </div>
-  <div class="home"></div>
+  <div class="cnav" hidden><button type="button" class="arr" data-step="-1" aria-label="${esc(c.previous)}">‹</button><div class="dots">${dots}</div><button type="button" class="arr" data-step="1" aria-label="${esc(c.next)}">›</button></div>
 </div>`
 }
 
@@ -167,7 +247,7 @@ function hero(m: WebMessages): string {
     <div class="ctas"><a class="btn primary" href="#install">${esc(m.hero.install)}</a><a class="btn" href="#app">${esc(m.hero.app)}</a></div>
     <div class="meta"><span>${esc(m.hero.platforms)}</span><span aria-hidden="true">→</span><span>${esc(m.hero.phones)}</span><span aria-hidden="true">·</span><span>${esc(m.hero.terms)}</span></div>
   </div>
-  <div class="shot">${phoneMock(m)}</div>
+  <div class="shot">${carousel(m)}</div>
 </section>`
 }
 
@@ -176,17 +256,17 @@ function agents(m: WebMessages): string {
   return `<div class="agents" aria-label="${esc(a.label)}">
   <span class="lbl">${esc(a.label)}</span>
   <span class="agchip">${agentMark('claude')}${esc(a.claude)}</span>
-  <span class="agchip">${agentMark('openrouter')}${esc(a.openrouter)} <small>${esc(a.openrouterNote)}</small></span>
-  <span class="agchip soon">${agentMark('codex')}${esc(a.codex)} <small>${esc(a.soon)}</small></span>
+  <span class="agchip">${agentMark('codex')}${esc(a.codex)}</span>
   <span class="agchip soon">${agentMark('kimi')}${esc(a.kimi)} <small>${esc(a.soon)}</small></span>
   <span class="agchip soon">${agentMark('qwen')}${esc(a.qwen)} <small>${esc(a.soon)}</small></span>
+  <span class="agchip">${agentMark('openrouter')}${esc(a.openrouter)} <small>${esc(a.openrouterNote)}</small></span>
 </div>`
 }
 
 function how(m: WebMessages): string {
   const h = m.how
   const aliases = h.agents.aliases
-    .map((alias) => `<span>${agentMark('claude', 14)}${esc(alias)}</span>`)
+    .map((alias) => `<span>${agentMark(alias.mark, 14)}${esc(alias.text)}</span>`)
     .join('')
   const steps = h.steps
     .map((s) => `<li class="step"><div><b>${esc(s.title)}</b><p>${inline(s.body)}</p></div></li>`)
@@ -240,8 +320,21 @@ export function command(text: string, m: WebMessages): string {
   return `<div class="cmd"><code>${highlighted}</code><button type="button" data-copy="${esc(text)}" data-copied="${esc(m.install.copied)}" aria-label="${esc(m.install.copyLabel)}">${esc(m.install.copy)}</button></div>`
 }
 
-function install(m: WebMessages): string {
+/** The iPhone & iPad card: the install link when the server has one, else how to build from source. */
+function iosCard(
+  locale: Locale,
+  m: WebMessages,
+  site: SiteConfig,
+): { href: string; detail: string; note: string } {
+  const ios = m.install.ios
+  if (site.appInstallUrl) return { href: site.appInstallUrl, detail: ios.detail, note: ios.note }
+  return { href: `${docsPath(locale)}getting-started/`, detail: ios.source, note: '' }
+}
+
+function install(locale: Locale, m: WebMessages, site: SiteConfig): string {
   const i = m.install
+  const ios = iosCard(locale, m, site)
+  const iosNote = ios.note ? `<p class="note">${inline(ios.note)}</p>` : ''
   const reqs = i.requirements.map((r) => `<li><span>${esc(r)}</span></li>`).join('')
   return `<section class="s" id="install">
   <div class="head"><span class="eyebrow">${esc(i.eyebrow)}</span><h2>${esc(i.title)}</h2></div>
@@ -255,8 +348,9 @@ function install(m: WebMessages): string {
     </div>
     <div class="stores" id="app">
       <h3>${esc(i.appTitle)}</h3>
-      <a class="store" href="${LINKS.ios}"><span class="ic" aria-hidden="true"></span><span><b>${esc(i.ios.title)}</b><small>${esc(i.ios.detail)}</small></span></a>
+      <a class="store" href="${esc(ios.href)}"><span class="ic" aria-hidden="true"></span><span><b>${esc(i.ios.title)}</b><small>${esc(ios.detail)}</small></span></a>
       <a class="store" href="${LINKS.android}"><span class="ic" aria-hidden="true">▲</span><span><b>${esc(i.android.title)}</b><small>${esc(i.android.detail)}</small></span></a>
+      ${iosNote}
       <p class="note">${inline(i.appNote)}</p>
     </div>
   </div>
@@ -276,8 +370,27 @@ function faq(m: WebMessages): string {
 </section>`
 }
 
-/** Tabs (Windows preselected on Windows browsers) and copy buttons; the page works without it. */
+/**
+ * Tabs (Windows preselected on Windows browsers), copy buttons and the hero carousel's controls and
+ * auto-advance (paused on hover and focus, off with reduced motion); the page works without it.
+ */
 export const SCRIPT = `(function(){
+document.querySelectorAll('[data-carousel]').forEach(function(c){
+var track=c.querySelector('[data-track]'),nav=c.querySelector('.cnav'),dots=c.querySelectorAll('[data-go]'),n=dots.length,current=0,timer=0,hover=false,focus=false;
+if(!track||!nav||!n)return;
+nav.hidden=false;
+var still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function go(i){current=(i+n)%n;track.scrollTo({left:current*track.clientWidth,behavior:still?'auto':'smooth'})}
+function mark(){current=Math.min(n-1,Math.round(track.scrollLeft/Math.max(track.clientWidth,1)));dots.forEach(function(d,j){if(j===current)d.setAttribute('aria-current','true');else d.removeAttribute('aria-current')})}
+function restart(){if(still)return;clearInterval(timer);timer=setInterval(function(){if(!hover&&!focus&&!document.hidden)go(current+1)},6000)}
+track.addEventListener('scroll',mark,{passive:true});
+track.addEventListener('touchstart',restart,{passive:true});
+dots.forEach(function(d){d.addEventListener('click',function(){go(Number(d.getAttribute('data-go')));restart()})});
+c.querySelectorAll('[data-step]').forEach(function(b){b.addEventListener('click',function(){go(current+Number(b.getAttribute('data-step')));restart()})});
+c.addEventListener('mouseenter',function(){hover=true});c.addEventListener('mouseleave',function(){hover=false});
+c.addEventListener('focusin',function(){focus=true});c.addEventListener('focusout',function(e){if(!c.contains(e.relatedTarget))focus=false});
+restart();
+});
 var tabs=document.querySelectorAll('[data-tab]'),panes=document.querySelectorAll('[data-pane]');
 function select(name){tabs.forEach(function(t){var on=t.getAttribute('data-tab')===name;t.classList.toggle('on',on);t.setAttribute('aria-selected',on?'true':'false')});panes.forEach(function(p){p.hidden=p.getAttribute('data-pane')!==name})}
 tabs.forEach(function(t){t.addEventListener('click',function(){select(t.getAttribute('data-tab'))})});
@@ -286,8 +399,15 @@ document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener(
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,done);else done()})});
 })();`
 
-/** The landing page in `locale`; `path` is the URL being served (`/` or the language's own path). */
-export function renderLanding(locale: Locale, path: string = LOCALE_PATHS[locale]): string {
+/**
+ * The landing page in `locale`; `path` is the URL being served (`/` or the language's own path),
+ * `site` what the server's environment adds (the app install link).
+ */
+export function renderLanding(
+  locale: Locale,
+  path: string = LOCALE_PATHS[locale],
+  site: SiteConfig = {},
+): string {
   const m = messagesFor(locale)
   return `<!doctype html>
 <html lang="${locale}">
@@ -303,7 +423,7 @@ ${agents(m)}
 ${how(m)}
 ${features(m)}
 ${security(m)}
-${install(m)}
+${install(locale, m, site)}
 ${faq(m)}
 ${siteFooter(locale, m)}
 </div></main>

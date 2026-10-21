@@ -69,6 +69,7 @@ import {
 } from './features/setup/install.ts'
 import { detectConfigDirs, isCodexDir, sameDir, tildify } from './features/setup/profiles.ts'
 import { runSetupWizard, SetupAborted } from './features/setup/wizard.ts'
+import { COMMANDS_RELOAD_ROUTE } from './features/shell/index.ts'
 import { STATUS_LINE_SCRIPT } from './features/status-line/wrapper.ts'
 import {
   classifyAccessibility,
@@ -760,6 +761,28 @@ program
     const reply = await adminRequest('/admin/keep-awake-reload')
     console.log(`✓ ${k.current(k.modes[parsed.data])}`)
     console.log(`  ${reply ? k.applied : k.notRunning}`)
+  })
+
+program
+  .command('commands [state]')
+  .description(m.cli.commands.description)
+  .action(async (state: string | undefined) => {
+    const c = m.cli.commands
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    if (state === undefined) {
+      console.log(c.state(config.shellCommands.enabled))
+      return
+    }
+    if (state !== 'on' && state !== 'off') {
+      console.error(`✗ ${c.invalid(state)}`)
+      process.exit(1)
+    }
+    const enabled = state === 'on'
+    await updateConfigFile({ shellCommands: { ...config.shellCommands, enabled } })
+    const reply = await adminRequest(COMMANDS_RELOAD_ROUTE)
+    console.log(`✓ ${c.state(enabled)}`)
+    if (enabled) console.log(`  ⚠ ${c.warning}`)
+    console.log(`  ${reply ? c.applied : c.notRunning}`)
   })
 
 const updates = program.command('updates').description(m.cli.updates.description)

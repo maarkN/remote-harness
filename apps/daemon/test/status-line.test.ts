@@ -246,6 +246,18 @@ describe('StatusLineService', () => {
     store.dispose()
   })
 
+  test('limits reported from a Codex rollout share the dedupe and broadcast', () => {
+    const { sent, store, service } = setup()
+    const windows = { fiveHour: { percent: 12, resetsAt: 1_792_000_000_000 }, sevenDay: null }
+    service.reportLimits('cdx', windows)
+    service.reportLimits('cdx', { ...windows })
+    expect(sent.filter((m) => m.type === 'limits.updated')).toEqual([
+      { type: 'limits.updated', limits: expect.objectContaining({ profileId: 'cdx', ...windows }) },
+    ])
+    expect(service.current().map((l) => l.profileId)).toEqual(['cdx'])
+    store.dispose()
+  })
+
   test('applies a status that arrived before the session', async () => {
     const { store, service } = setup()
     service.handle({ ...full, transcript_path: undefined }, null)

@@ -7,6 +7,24 @@ export const REPO_URL = 'https://github.com/maarkN/remote-harness'
 export const AUTHOR = { name: 'maarkn', url: 'https://maarkn.dev' } as const
 /** GitHub logins shown in the footer's contributors line, in order. */
 export const CONTRIBUTORS = ['maarkN', 'hannadev-uiux'] as const
+/** What the site reads from its environment besides storage, kept out of the repository. */
+export type SiteConfig = {
+  /** The app install link page (`/app/<token>/`) the landing's iPhone & iPad card opens. */
+  appInstallUrl?: string
+}
+
+/**
+ * `APP_INSTALL_URL`: a path on this site (`/app/<token>/`) or an https URL. Anything else is
+ * ignored, and the card falls back to the docs.
+ */
+export function siteConfig(env: Record<string, string | undefined>): SiteConfig {
+  const raw = env.APP_INSTALL_URL?.trim()
+  if (!raw) return {}
+  if (/^\/[^/\\\s]/.test(raw) && URL.canParse(raw, SITE_URL)) return { appInstallUrl: raw }
+  if (URL.canParse(raw) && new URL(raw).protocol === 'https:') return { appInstallUrl: new URL(raw).href }
+  return {}
+}
+
 /** Brand image for link previews (`docs/brand/og.png`), bundled into the Worker and served here. */
 export const OG_IMAGE_PATH = '/og.png'
 export const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`

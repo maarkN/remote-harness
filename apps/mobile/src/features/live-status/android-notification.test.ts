@@ -47,6 +47,18 @@ describe('Android live status data messages', () => {
     })
   })
 
+  test('the body starts with the current step and the todo progress', () => {
+    const live = {
+      ...props,
+      current: 'Bash · pnpm test',
+      progress: { done: 3, total: 7 },
+      tasks: '1 subagent',
+    }
+    const parsed = parseLiveData(push({ event: 'update', props: live }))
+    if (!parsed) throw new Error('not parsed')
+    expect(liveNotification(parsed).body).toBe('Bash · pnpm test · ☑ 3/7 · 1 subagent · 2 tools · ✎ ⌘')
+  })
+
   test('a pending permission gets Allow / Deny with the translated labels and the request id', () => {
     const parsed = parseLiveData(
       push({ event: 'update', props: { ...props, state: 'waiting', status: 'Aguardando você', pending } }),

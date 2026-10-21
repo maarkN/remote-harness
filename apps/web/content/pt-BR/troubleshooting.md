@@ -13,6 +13,10 @@ Comece por `remote-harness doctor` no computador: ele confere as ferramentas, o 
 - Um token trocado no computador (`remote-harness rotate-token`) ou uma reinstalação exige parear de novo: **Esquecer esta máquina** nos Ajustes e escanear `remote-harness pair`.
 - Num simulador ou emulador sem Tailscale, use `remote-harness start --dev` e `remote-harness pair --dev` (emulador Android: `adb reverse tcp:7337 tcp:7337`).
 
+## O app diz que o computador não está respondendo
+
+Quando o computador pareado não responde de forma alguma, a lista de sessões mostra a mesma checklist, além de **Tentar de novo**, **Abrir o Tailscale** e um link para esta página: o computador está ligado e acordado (sem suspender, com a tela aberta ou configurado para não suspender), o Tailscale está em execução e conectado no computador, o Tailscale está em execução e conectado neste celular com a mesma conta, e o daemon está em execução (`remote-harness status`). As seções acima detalham cada um desses pontos; a mensagem desaparece por conta própria assim que a conexão abre.
+
 ## Tailscale não encontrado
 
 O daemon só escuta num endereço 100.x. Se o `doctor` disser que não há nenhum: instale o Tailscale, entre (`sudo tailscale up` no Linux) e inicie o daemon de novo; o serviço em segundo plano espera a interface em vez de falhar. No WSL veja [abaixo](#windows-wsl2).

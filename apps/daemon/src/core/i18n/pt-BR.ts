@@ -53,6 +53,16 @@ export const ptBR = {
       saved: (id: string, store: string) =>
         `Chave do perfil ${id} guardada ${store}. As novas sessões do perfil passam a usá-la.`,
     },
+    commands: {
+      description:
+        'mostra, permite (on) ou proíbe (off) rodar comandos de shell pelo app na pasta de uma sessão',
+      state: (enabled: boolean) => `comandos de shell pelo app: ${enabled ? 'ligados' : 'desligados'}`,
+      warning:
+        'um celular pareado poderá rodar qualquer comando como você na pasta de uma sessão (ele confirma antes de cada um)',
+      invalid: (value: string) => `"${value}" não é válido; use on ou off`,
+      applied: 'aplicado ao daemon em execução',
+      notRunning: 'o daemon não está rodando; vale na próxima vez que ele iniciar',
+    },
     keepAwake: {
       description: 'mostra ou define quando o computador fica acordado: off, sessions ou always',
       modes: {
@@ -482,7 +492,9 @@ export const ptBR = {
       permission: 'permissão pendente',
     },
     tools: (count: number) => (count === 1 ? '1 ferramenta' : `${count} ferramentas`),
-    tasks: (count: number) => (count === 1 ? '1 tarefa rodando' : `${count} tarefas rodando`),
+    subagents: (count: number) => (count === 1 ? '1 subagente' : `${count} subagentes`),
+    background: (count: number) =>
+      count === 1 ? '1 tarefa em segundo plano' : `${count} tarefas em segundo plano`,
     ago: 'há {time}',
     allow: 'Permitir',
     deny: 'Negar',

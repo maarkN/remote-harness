@@ -8,6 +8,7 @@ import {
   LiveFollowDeviceSchema,
   LivePaletteSchema,
   MAX_ATTACHMENTS,
+  MAX_COMMAND_LENGTH,
   MAX_DIRECTORY_LIST_LIMIT,
   PermissionAnswerSchema,
   PushRelaySchema,
@@ -199,6 +200,18 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('machine.permissions'), id }),
   /** Opens a System Settings pane for a denied computer permission (macOS; a no-op elsewhere). */
   z.object({ type: z.literal('machine.openSettingsPane'), id, pane: SettingsPaneSchema }),
+  /**
+   * Runs a shell command in the session's folder (only when the daemon config allows it); answered
+   * with `command.started`, then `command.output` and `command.exit` to this connection only.
+   */
+  z.object({
+    type: z.literal('command.run'),
+    id,
+    sessionId,
+    command: z.string().trim().min(1).max(MAX_COMMAND_LENGTH),
+  }),
+  /** Kills a run this connection started; answered with `ack` (its `command.exit` follows). */
+  z.object({ type: z.literal('command.cancel'), id, runId: z.string().min(1) }),
   z.object({
     type: z.literal('settings.mute'),
     id,

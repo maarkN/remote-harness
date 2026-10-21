@@ -36,6 +36,10 @@ O chip de **modo** troca o modo de permissão: padrão, aceitar edições, plano
 
 **Ver terminal** (menu, ou o botão de terminal no cabeçalho) mostra o próprio painel do tmux, para menus e tudo o que a visão estruturada não cobre, com a mesma barra de teclas. Sessões somente leitura (sem painel do tmux) não aceitam digitação.
 
+## Rodar um comando
+
+**Rodar comando…** (menu da sessão) roda um comando de shell na pasta da sessão no computador, como o `!` do Claude Code, e mostra a saída ao vivo: `git status`, `ls`, `pnpm test`. O app confirma antes de cada comando; **Parar** encerra, **Copiar saída** copia e **Adicionar ao prompt** coloca o comando e a saída no composer como bloco de código para o agente, sem enviar. Fica desligado até você rodar `remote-harness commands on` no computador; os comandos têm limite de tempo e de saída, e nada interativo funciona (não há entrada pelo teclado).
+
 ## Subagentes
 
 Enquanto o agente delega trabalho, o menu do cabeçalho mostra **Subagentes (N · M rodando)**; a planilha lista cada um com descrição, estado, contagem de ferramentas e horário de início, além das tarefas em segundo plano.

@@ -55,6 +55,14 @@ export const enUS = {
       saved: (id: string, store: string) =>
         `Key of profile ${id} stored ${store}. New sessions of the profile use it.`,
     },
+    commands: {
+      description: 'show, allow (on) or forbid (off) running shell commands from the app in a session folder',
+      state: (enabled: boolean) => `shell commands from the app: ${enabled ? 'on' : 'off'}`,
+      warning: 'a paired phone can then run any command as you in a session folder (it asks before each one)',
+      invalid: (value: string) => `"${value}" is not valid; use on or off`,
+      applied: 'applied to the running daemon',
+      notRunning: 'the daemon is not running; it applies at the next start',
+    },
     keepAwake: {
       description: 'show or set when the computer is kept awake: off, sessions or always',
       modes: {
@@ -475,8 +483,9 @@ export const enUS = {
       permission: 'permission pending',
     },
     tools: (count: number) => (count === 1 ? '1 tool' : `${count} tools`),
-    /** Background tasks and running subagents of the session, shown when there is at least one. */
-    tasks: (count: number) => (count === 1 ? '1 task running' : `${count} tasks running`),
+    /** Running subagents and background tasks of the session, each shown when there is at least one. */
+    subagents: (count: number) => (count === 1 ? '1 subagent' : `${count} subagents`),
+    background: (count: number) => (count === 1 ? '1 background task' : `${count} background tasks`),
     /** Time since the state changed; the widget puts a live counter in `{time}`. */
     ago: '{time} ago',
     /** Lock screen buttons while a tool permission waits. */

@@ -3,11 +3,13 @@
  * it key for key (a test walks the three). Texts are plain strings; `code` spans and
  * [label](url) links are the only markup (see `html.ts`). Product names are never translated.
  */
+import type { MarkId } from '../agent-marks.ts'
+
 export const enUS = {
   meta: {
     title: 'Remote Harness: follow and drive your coding agents from your phone',
     description:
-      'Self-hosted: Claude Code runs in tmux on your own machine, Remote Harness streams the conversation to your phone over your Tailscale network. Permissions, prompts and new sessions from anywhere.',
+      'Self-hosted: Claude Code or Codex runs in tmux on your own machine, Remote Harness streams the conversation to your phone over your Tailscale network. Permissions, prompts and new sessions from anywhere.',
   },
   nav: {
     skip: 'Skip to content',
@@ -23,13 +25,29 @@ export const enUS = {
   hero: {
     eyebrow: 'Self-hosted · Tailscale · tmux',
     title: 'Follow and drive your coding agents from your phone.',
-    lead: 'Claude Code runs in tmux on your own machine. Remote Harness streams the conversation to your phone over your Tailscale network, so you can read what the agent did, answer its permission requests, send the next prompt and start new sessions, from anywhere.',
+    lead: 'Claude Code or Codex runs in tmux on your own machine. Remote Harness streams the conversation to your phone over your Tailscale network, so you can read what the agent did, answer its permission requests, send the next prompt and start new sessions, from anywhere.',
     install: 'Install on your machine',
     app: 'Get the app',
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
     terms: 'MIT, no account, no cloud relay',
-    mockLabel: 'The session list in the app, with a permission request waiting',
+    carousel: {
+      label: 'Screens of the app',
+      role: 'carousel',
+      previous: 'Previous screen',
+      next: 'Next screen',
+    },
+    slides: [
+      { name: 'Sessions', label: 'The session list in the app, with a permission request waiting' },
+      {
+        name: 'Conversation',
+        label: 'A session in the app: the prompt, the agent’s reply, its tool calls and the message box',
+      },
+      {
+        name: 'Live status',
+        label: 'The lock screen with two live activities: a session working and one waiting for a permission',
+      },
+    ],
   },
   mock: {
     title: 'Sessions',
@@ -90,6 +108,48 @@ export const enUS = {
         ago: '2 h',
       },
     ],
+    conversation: {
+      title: 'Fix crash on onboarding',
+      folder: '~/projects/acme-mobile',
+      branch: 'fix/onboarding',
+      mode: 'accept edits',
+      model: 'sonnet',
+      context: '38% context',
+      prompt:
+        'The app crashes on the second onboarding step when the user skips the photo. Find out why and fix it',
+      intro: 'I’ll look at how the onboarding steps read the photo.',
+      tools: [
+        { name: 'Grep("photo" in src/onboarding)', result: 'src/onboarding/Profile.tsx:31: photo.uri' },
+        { name: 'Edit(src/onboarding/Profile.tsx)', result: 'ok · +3 −1' },
+        { name: 'Bash(pnpm test onboarding)', result: '✓ 12 tests · 1.4 s' },
+      ],
+      reply: 'Fixed. `Profile.tsx` read `photo.uri` before checking that a photo was picked:',
+      points: ['the step now falls back to the initials avatar', 'a new test covers skipping the photo'],
+      placeholder: 'Message Claude Code…',
+    },
+    live: {
+      date: 'Tuesday, October 21',
+      working: {
+        who: 'Personal · MacBook Pro',
+        title: 'Migrate landing to Tailwind 4',
+        folder: '~/projects/landing',
+        timer: '4:36',
+        sub: 'working',
+        state: 'Working',
+        step: 'Bash · pnpm',
+        tools: '6 tools',
+      },
+      waiting: {
+        who: 'Work · MacBook Pro',
+        title: 'Add rate limit on login',
+        folder: '~/projects/acme-api',
+        timer: '0:52',
+        sub: 'waiting',
+        state: 'Waiting for you',
+        step: 'permission · Bash',
+        tools: '9 tools',
+      },
+    },
   },
   agents: {
     label: 'Works with',
@@ -117,8 +177,13 @@ export const enUS = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Your agents, in tmux',
-      body: 'One window per session, one alias per profile.',
-      aliases: ['personal → ~/.claude', 'work → ~/.claude-work', 'openrouter → ~/.claude-openrouter'],
+      body: 'One window per session, one alias per profile, for Claude Code or Codex.',
+      aliases: [
+        { mark: 'claude' as MarkId, text: 'personal → ~/.claude' },
+        { mark: 'claude' as MarkId, text: 'work → ~/.claude-work' },
+        { mark: 'codex' as MarkId, text: 'codex → ~/.codex' },
+        { mark: 'claude' as MarkId, text: 'openrouter → ~/.claude-openrouter' },
+      ],
     },
     steps: [
       {
@@ -223,9 +288,21 @@ export const enUS = {
       'Checks the system, installs what’s missing (Homebrew, apt, dnf, pacman or zypper), builds the daemon and opens the guided setup.',
     windowsNote:
       'In PowerShell. Sets up WSL2 with Ubuntu when it is missing (reboot if asked, then run it again) and then runs the Linux installer inside it.',
-    requirements: ['Node 24+ (bundled if missing)', 'tmux', 'git', 'ripgrep', 'Tailscale', 'claude on PATH'],
+    requirements: [
+      'Node 24+ (bundled if missing)',
+      'tmux',
+      'git',
+      'ripgrep',
+      'Tailscale',
+      'claude or codex on PATH',
+    ],
     appTitle: 'Get the app',
-    ios: { title: 'iPhone & iPad', detail: 'Build from source today · TestFlight soon · iOS 17+' },
+    ios: {
+      title: 'iPhone & iPad',
+      detail: 'Install over the air · registered devices · iOS 17+',
+      source: 'Build from source today · TestFlight soon · iOS 17+',
+      note: 'The iPhone & iPad build installs only on registered devices: [how to get yours added](/en/docs/getting-started/#registering-an-iphone-or-ipad), or build it from source.',
+    },
     android: { title: 'Android', detail: 'APK on GitHub Releases · Android 10+' },
     appNote:
       'Both need Tailscale on the phone too. Installed the app first? Its pairing screen walks you through the machine setup.',
@@ -241,7 +318,7 @@ export const enUS = {
       },
       {
         q: 'Which agents are supported?',
-        a: 'Claude Code today, with every profile (`CLAUDE_CONFIG_DIR`) in one list, including profiles routed through OpenRouter. Codex CLI, Kimi and Qwen Code are on the roadmap.',
+        a: 'Claude Code and Codex CLI, with every profile (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) in one list, including Claude Code profiles routed through OpenRouter. Kimi and Qwen Code are on the roadmap.',
       },
       {
         q: 'Can it run my agent unsupervised?',
@@ -310,7 +387,7 @@ export const enUS = {
       title: 'iPhone & iPad',
       install: 'Install',
       registered:
-        'Only iPhones and iPads registered in the developer team can install this build. Open this page in Safari.',
+        'Only iPhones and iPads registered in the developer team can install this build ([how to get yours added](/en/docs/getting-started/#registering-an-iphone-or-ipad)). Open this page in Safari.',
       developerMode:
         'The first time, iOS asks to turn on Developer Mode: Settings → Privacy & Security → Developer Mode, then restart.',
     },

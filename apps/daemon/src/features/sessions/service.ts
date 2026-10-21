@@ -1,6 +1,11 @@
 import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
-import { type PermissionMode, PermissionModeSchema, type Profile } from '@remote-harness/protocol'
+import {
+  type AccountLimits,
+  type PermissionMode,
+  PermissionModeSchema,
+  type Profile,
+} from '@remote-harness/protocol'
 import type { Logger } from '../../core/logger.ts'
 import type { TmuxClient } from '../../infra/tmux.ts'
 import { type AgentAdapter, adapterOf, profileAgentId, type TranscriptSummary } from '../agents/index.ts'
@@ -16,6 +21,8 @@ export type SessionServiceOptions = {
   maxRecentPerProfile?: number
   /** Minimum interval between disk scans triggered by `sessions.list`. */
   scanCacheMs?: number
+  /** Account limits read from a live session's transcript (Codex), for the status line feature. */
+  onLimits?: (limits: Pick<AccountLimits, 'profileId' | 'fiveHour' | 'sevenDay'>) => void
 }
 
 /** Minimum interval between two `updatedAt` touches from transcript activity, per session. */
@@ -109,6 +116,9 @@ export class SessionService {
         const summary = path ? await this.summary(hook.profileId, path) : null
         if (summary?.title) patch.title = summary.title
         if (summary?.approvalPolicy) patch.approvalPolicy = summary.approvalPolicy
+        if (summary?.status) patch.status = summary.status
+        if (summary?.limits && hook.profileId)
+          this.options.onLimits?.({ profileId: hook.profileId, ...summary.limits })
         break
       }
       case 'UserPromptSubmit': {
@@ -175,6 +185,7 @@ export class SessionService {
     for (const link of links) {
       if (!alive.has(link.paneId)) continue
       const meta = link.transcriptPath ? await this.summary(link.profileId, link.transcriptPath) : null
+      if (meta?.limits) this.options.onLimits?.({ profileId: link.profileId, ...meta.limits })
       // Last activity survives the restart: the persisted stamp, else the transcript's mtime.
       const updatedAt =
         link.updatedAt ??
@@ -201,7 +212,7 @@ export class SessionService {
         subagents: [],
         backgroundTasks: 0,
         checkout: null,
-        status: null,
+        status: meta?.status ?? null,
         transcriptPath: link.transcriptPath,
       }))
     }
@@ -235,7 +246,7 @@ export class SessionService {
         subagents: [],
         backgroundTasks: 0,
         checkout: null,
-        status: null,
+        status: meta.status ?? null,
         transcriptPath: file.path,
       }))
     }

@@ -15,7 +15,7 @@ import {
 import { renderInstallPage } from './install-page.ts'
 import { renderLanding, renderNotFound } from './landing.ts'
 import { route } from './routes.ts'
-import { faviconSvg, robotsTxt, sitemapXml } from './site.ts'
+import { faviconSvg, robotsTxt, type SiteConfig, sitemapXml } from './site.ts'
 import type { PublishTokens } from './updates/auth.ts'
 import { handleUpdates } from './updates/handler.ts'
 import type { UpdatesStore } from './updates/store.ts'
@@ -33,8 +33,8 @@ export interface BuildsStore {
   get(key: string): Promise<StoredFile | null>
 }
 
-/** What the site needs from its host: the two stores and the publish tokens. */
-export type AppDeps = { updates: UpdatesStore; builds: BuildsStore; tokens: PublishTokens }
+/** What the site needs from its host: the two stores, the publish tokens and its environment. */
+export type AppDeps = { updates: UpdatesStore; builds: BuildsStore; tokens: PublishTokens; site?: SiteConfig }
 
 /** A build file of an install link, with the content type of its name. */
 async function appFile(request: Request, builds: BuildsStore, key: string, name: string): Promise<Response> {
@@ -130,7 +130,12 @@ function file(body: string | Uint8Array, type: string): Response {
 }
 
 /** The whole site as one request handler; the host (server.ts, tests) supplies storage and tokens. */
-export function createApp({ updates, builds, tokens }: AppDeps): (request: Request) => Promise<Response> {
+export function createApp({
+  updates,
+  builds,
+  tokens,
+  site = {},
+}: AppDeps): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url)
     const target = route(url.pathname, url.search)
@@ -164,7 +169,8 @@ export function createApp({ updates, builds, tokens }: AppDeps): (request: Reque
     }
     if (target.kind === 'page') {
       const locale = target.locale ?? negotiated
-      return page(renderLanding(locale, target.locale ? undefined : '/'), 200, locale, target.locale === null)
+      const html = renderLanding(locale, target.locale ? undefined : '/', site)
+      return page(html, 200, locale, target.locale === null)
     }
     if (target.kind === 'doc') {
       if (!isDocSlug(target.slug)) return notFound()

@@ -358,6 +358,12 @@ describe('codex sessions', () => {
         approvalPolicy: 'never',
         permissionMode: null,
         state: 'idle',
+        // Model and effort from `turn_context`, context from `token_count` (#313).
+        status: {
+          model: 'gpt-5.5-codex',
+          effort: 'medium',
+          context: { usedTokens: 12_300, size: 272_000, percent: expect.closeTo(0.115, 3) },
+        },
       })
       await service.handleHook(
         hookEvent('UserPromptSubmit', { session_id: 'abc', prompt: 'go' }, { profileId: 'cdx' }),
@@ -365,6 +371,61 @@ describe('codex sessions', () => {
       expect(store.get('abc')?.state).toBe('running')
       await service.handleHook(hookEvent('Stop', { session_id: 'abc' }, { profileId: 'cdx' }))
       expect(store.get('abc')?.state).toBe('idle')
+    } finally {
+      store.dispose()
+    }
+  })
+
+  test('SessionStart reports the rollout rate limits for the profile (#313)', async () => {
+    const configDir = join(home.dir(), '.codex-limits')
+    await mkdir(configDir, { recursive: true })
+    const rollout = join(configDir, 'rollout.jsonl')
+    const lines = [
+      { type: 'session_meta', payload: { id: 'lim', cwd: '/w' } },
+      { type: 'turn_context', payload: { cwd: '/w', model: 'gpt-5.5-codex' } },
+      {
+        timestamp: '2026-10-21T12:00:00.000Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: null,
+          rate_limits: {
+            primary: { used_percent: 20, window_minutes: 300, resets_at: 1_792_000_000 },
+            secondary: { used_percent: 60, window_minutes: 10_080, resets_at: 1_792_400_000 },
+          },
+        },
+      },
+    ]
+    await writeFile(rollout, `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`)
+    const store = new SessionStore(
+      { broadcast: () => {} },
+      join(home.dir(), 'state-limits.json'),
+      silentLogger,
+      60_000,
+    )
+    const profiles: Profile[] = [{ id: 'cdx', name: 'Codex', configDir, color: '', agent: 'codex' }]
+    const reported: unknown[] = []
+    const service = new SessionService(store, new TmuxClient(fakeExecutor()), profiles, silentLogger, {
+      recentDays: 7,
+      scanCacheMs: 0,
+      onLimits: (limits) => reported.push(limits),
+    })
+    try {
+      await service.handleHook(
+        hookEvent(
+          'SessionStart',
+          { session_id: 'lim', cwd: '/w', transcript_path: rollout },
+          { paneId: '%5', profileId: 'cdx' },
+        ),
+      )
+      expect(store.get('lim')?.status).toEqual({ model: 'gpt-5.5-codex', effort: null, context: null })
+      expect(reported).toEqual([
+        {
+          profileId: 'cdx',
+          fiveHour: { percent: 20, resetsAt: 1_792_000_000_000 },
+          sevenDay: { percent: 60, resetsAt: 1_792_400_000_000 },
+        },
+      ])
     } finally {
       store.dispose()
     }

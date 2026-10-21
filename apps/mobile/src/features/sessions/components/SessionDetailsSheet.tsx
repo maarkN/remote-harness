@@ -1,6 +1,6 @@
 import type { Profile, Session } from '@remote-harness/protocol'
 import { useTranslation } from 'react-i18next'
-import { Modal, Pressable, ScrollView } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { makeStyles, radius, space } from '@/core/theme'
 import { Button, Text } from '@/ui'
@@ -23,8 +23,10 @@ export function SessionDetailsSheet({
   const styles = useStyles()
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + space.md }]}>
+      <View style={styles.backdrop}>
+        {/* A sibling behind the sheet, not its parent: a Pressable around the sheet would take the drag from the ScrollView. */}
+        <Pressable style={StyleSheet.absoluteFill} accessible={false} onPress={onClose} />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + space.md }]}>
           <Text weight="bold" accessibilityRole="header">
             {t('sessionDetails.title')}
           </Text>
@@ -35,8 +37,8 @@ export function SessionDetailsSheet({
             <SessionDetailsList session={session} profile={profile} />
           </ScrollView>
           <Button label={t('common.close')} variant="ghost" onPress={onClose} />
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   )
 }

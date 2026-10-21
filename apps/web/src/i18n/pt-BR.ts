@@ -4,7 +4,7 @@ export const ptBR: WebMessages = {
   meta: {
     title: 'Remote Harness: acompanhe e comande seus agentes de código pelo celular',
     description:
-      'Self-hosted: o Claude Code roda no tmux da sua própria máquina e o Remote Harness transmite a conversa para o seu celular pela sua rede Tailscale. Permissões, prompts e novas sessões de onde você estiver.',
+      'Self-hosted: o Claude Code ou o Codex roda no tmux da sua própria máquina e o Remote Harness transmite a conversa para o seu celular pela sua rede Tailscale. Permissões, prompts e novas sessões de onde você estiver.',
   },
   nav: {
     skip: 'Ir para o conteúdo',
@@ -20,13 +20,26 @@ export const ptBR: WebMessages = {
   hero: {
     eyebrow: 'Self-hosted · Tailscale · tmux',
     title: 'Acompanhe e comande seus agentes de código pelo celular.',
-    lead: 'O Claude Code roda no tmux da sua própria máquina. O Remote Harness transmite a conversa para o seu celular pela sua rede Tailscale: você lê o que o agente fez, responde aos pedidos de permissão, manda o próximo prompt e abre novas sessões, de onde estiver.',
+    lead: 'O Claude Code ou o Codex roda no tmux da sua própria máquina. O Remote Harness transmite a conversa para o seu celular pela sua rede Tailscale: você lê o que o agente fez, responde aos pedidos de permissão, manda o próximo prompt e abre novas sessões, de onde estiver.',
     install: 'Instalar na máquina',
     app: 'Baixar o app',
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
     terms: 'MIT, sem conta, sem relay na nuvem',
-    mockLabel: 'A lista de sessões no app, com um pedido de permissão esperando',
+    carousel: { label: 'Telas do app', role: 'carrossel', previous: 'Tela anterior', next: 'Próxima tela' },
+    slides: [
+      { name: 'Sessões', label: 'A lista de sessões no app, com um pedido de permissão esperando' },
+      {
+        name: 'Conversa',
+        label:
+          'Uma sessão no app: o prompt, a resposta do agente, as chamadas de ferramenta e o campo de mensagem',
+      },
+      {
+        name: 'Status ao vivo',
+        label:
+          'A tela bloqueada com duas atividades ao vivo: uma sessão trabalhando e outra esperando uma permissão',
+      },
+    ],
   },
   mock: {
     title: 'Sessões',
@@ -87,6 +100,48 @@ export const ptBR: WebMessages = {
         ago: '2 h',
       },
     ],
+    conversation: {
+      title: 'Corrigir crash no onboarding',
+      folder: '~/projects/acme-mobile',
+      branch: 'fix/onboarding',
+      mode: 'aceitar edições',
+      model: 'sonnet',
+      context: '38% do contexto',
+      prompt:
+        'O app quebra no segundo passo do onboarding quando o usuário pula a foto. Descubra por quê e corrija',
+      intro: 'Vou ver como os passos do onboarding leem a foto.',
+      tools: [
+        { name: 'Grep("photo" in src/onboarding)', result: 'src/onboarding/Profile.tsx:31: photo.uri' },
+        { name: 'Edit(src/onboarding/Profile.tsx)', result: 'ok · +3 −1' },
+        { name: 'Bash(pnpm test onboarding)', result: '✓ 12 testes · 1,4 s' },
+      ],
+      reply: 'Corrigido. O `Profile.tsx` lia `photo.uri` antes de conferir se uma foto foi escolhida:',
+      points: ['o passo agora usa o avatar com as iniciais', 'um teste novo cobre pular a foto'],
+      placeholder: 'Mensagem para Claude Code…',
+    },
+    live: {
+      date: 'terça-feira, 21 de outubro',
+      working: {
+        who: 'Pessoal · MacBook Pro',
+        title: 'Migrar a landing para Tailwind 4',
+        folder: '~/projects/landing',
+        timer: '4:36',
+        sub: 'trabalhando',
+        state: 'Trabalhando',
+        step: 'Bash · pnpm',
+        tools: '6 ferramentas',
+      },
+      waiting: {
+        who: 'Trabalho · MacBook Pro',
+        title: 'Adicionar rate limit no login',
+        folder: '~/projects/acme-api',
+        timer: '0:52',
+        sub: 'esperando',
+        state: 'Esperando você',
+        step: 'permissão · Bash',
+        tools: '9 ferramentas',
+      },
+    },
   },
   agents: {
     label: 'Funciona com',
@@ -114,8 +169,13 @@ export const ptBR: WebMessages = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Seus agentes, no tmux',
-      body: 'Uma janela por sessão, um alias por perfil.',
-      aliases: ['pessoal → ~/.claude', 'trabalho → ~/.claude-work', 'openrouter → ~/.claude-openrouter'],
+      body: 'Uma janela por sessão, um alias por perfil, para Claude Code ou Codex.',
+      aliases: [
+        { mark: 'claude', text: 'pessoal → ~/.claude' },
+        { mark: 'claude', text: 'trabalho → ~/.claude-work' },
+        { mark: 'codex', text: 'codex → ~/.codex' },
+        { mark: 'claude', text: 'openrouter → ~/.claude-openrouter' },
+      ],
     },
     steps: [
       {
@@ -220,9 +280,21 @@ export const ptBR: WebMessages = {
       'Confere o sistema, instala o que falta (Homebrew, apt, dnf, pacman ou zypper), compila o daemon e abre a instalação guiada.',
     windowsNote:
       'No PowerShell. Configura o WSL2 com Ubuntu quando falta (reinicie se pedir e rode de novo) e então executa o instalador Linux dentro dele.',
-    requirements: ['Node 24+ (incluído se faltar)', 'tmux', 'git', 'ripgrep', 'Tailscale', 'claude no PATH'],
+    requirements: [
+      'Node 24+ (incluído se faltar)',
+      'tmux',
+      'git',
+      'ripgrep',
+      'Tailscale',
+      'claude ou codex no PATH',
+    ],
     appTitle: 'Baixar o app',
-    ios: { title: 'iPhone e iPad', detail: 'Compile do código por enquanto · TestFlight em breve · iOS 17+' },
+    ios: {
+      title: 'iPhone e iPad',
+      detail: 'Instale pelo ar · aparelhos cadastrados · iOS 17+',
+      source: 'Compile do código por enquanto · TestFlight em breve · iOS 17+',
+      note: 'O build de iPhone e iPad só instala em aparelhos cadastrados: [como incluir o seu](/pt-br/docs/getting-started/#cadastrar-um-iphone-ou-ipad), ou compile a partir do código.',
+    },
     android: { title: 'Android', detail: 'APK nos Releases do GitHub · Android 10+' },
     appNote:
       'Os dois precisam do Tailscale no celular também. Instalou o app primeiro? A tela de pareamento guia a instalação na máquina.',
@@ -238,7 +310,7 @@ export const ptBR: WebMessages = {
       },
       {
         q: 'Quais agentes são suportados?',
-        a: 'Claude Code hoje, com todos os perfis (`CLAUDE_CONFIG_DIR`) numa lista só, inclusive perfis roteados pelo OpenRouter. Codex CLI, Kimi e Qwen Code estão no roadmap.',
+        a: 'Claude Code e Codex CLI, com todos os perfis (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) numa lista só, inclusive perfis do Claude Code roteados pelo OpenRouter. Kimi e Qwen Code estão no roadmap.',
       },
       {
         q: 'Ele roda meu agente sem supervisão?',
@@ -307,7 +379,7 @@ export const ptBR: WebMessages = {
       title: 'iPhone e iPad',
       install: 'Instalar',
       registered:
-        'Só iPhones e iPads cadastrados no time de desenvolvedor instalam este build. Abra esta página no Safari.',
+        'Só iPhones e iPads cadastrados no time de desenvolvedor instalam este build ([como incluir o seu](/pt-br/docs/getting-started/#cadastrar-um-iphone-ou-ipad)). Abra esta página no Safari.',
       developerMode:
         'Na primeira vez, o iOS pede para ligar o Modo de Desenvolvedor: Ajustes → Privacidade e Segurança → Modo de Desenvolvedor, e reiniciar.',
     },

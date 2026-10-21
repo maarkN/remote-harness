@@ -24,6 +24,8 @@ const clientSamples: ClientMessage[] = [
   { type: 'transcript.image', id: '1', sessionId: 's', agentId: 'a', imageId: '12.0' },
   { type: 'session.key', id: '1', sessionId: 's', key: 'Escape' },
   { type: 'session.setMode', id: '1', sessionId: 's', mode: 'plan' },
+  { type: 'command.run', id: '1', sessionId: 's', command: 'git status' },
+  { type: 'command.cancel', id: '1', runId: 'r1' },
   {
     type: 'permission.respond',
     id: '1',
@@ -164,6 +166,17 @@ const session: Session = {
 }
 
 const serverSamples: ServerMessage[] = [
+  { type: 'command.started', replyTo: '1', runId: 'r1', cwd: '/w' },
+  { type: 'command.output', runId: 'r1', stream: 'stderr', text: 'warn\n' },
+  {
+    type: 'command.exit',
+    runId: 'r1',
+    exitCode: null,
+    signal: 'SIGTERM',
+    reason: 'timeout',
+    durationMs: 300_000,
+    truncated: false,
+  },
   {
     type: 'auth.ok',
     protocolVersion: 1,
@@ -449,6 +462,26 @@ describe('client messages', () => {
     expect(start('x'.repeat(81)).ok).toBe(false)
   })
 
+  test('shell commands: trimmed, bounded, never empty', () => {
+    const run = (command: string) =>
+      parseClientMessage({ type: 'command.run', id: '1', sessionId: 's', command })
+    expect(run('  ls -la  ')).toMatchObject({ ok: true, value: { command: 'ls -la' } })
+    expect(run('   ').ok).toBe(false)
+    expect(run('x'.repeat(4000)).ok).toBe(true)
+    expect(run('x'.repeat(4001)).ok).toBe(false)
+    expect(
+      parseServerMessage({
+        type: 'command.exit',
+        runId: 'r',
+        exitCode: 0,
+        signal: null,
+        reason: 'killed',
+        durationMs: 1,
+        truncated: false,
+      }).ok,
+    ).toBe(false)
+  })
+
   test('strips unknown fields', () => {
     const result = parseClientMessage({ type: 'ping', id: '1', extra: true })
     expect(result).toEqual({ ok: true, value: { type: 'ping', id: '1' } })
@@ -492,9 +525,12 @@ describe('client messages', () => {
       glyphs: ['⌘'],
       pending: { requestId: 'r1', tool: 'Bash', allow: 'Allow', deny: 'Deny' },
       hint: '',
-      tasks: '2 tasks running',
+      tasks: '2 subagents · 1 background task',
+      current: 'Bash · pnpm test',
+      progress: { done: 3, total: 7 },
     }
     expect(LiveStatusPropsSchema.parse({ ...full, prompt: 'secret' })).toEqual(full)
+    expect(LiveStatusPropsSchema.safeParse({ ...full, progress: { done: 1, total: 0 } }).success).toBe(false)
     // The pending request carries identifiers and labels only.
     expect(
       LiveStatusPropsSchema.parse({ ...full, pending: { ...full.pending, input: { command: 'rm' } } })
@@ -538,6 +574,8 @@ describe('client messages', () => {
       pending: null,
       hint: '',
       tasks: '',
+      current: '',
+      progress: null,
     })
   })
 
@@ -562,6 +600,15 @@ describe('client messages', () => {
       title: 'Work · Working',
       body: 'running a command · 3 tools · ✎ ⌘',
     })
+    // The current step replaces the category; the progress and the counts follow it.
+    expect(
+      liveNotificationText({
+        ...props,
+        current: 'Bash · pnpm test',
+        progress: { done: 3, total: 7 },
+        tasks: '2 subagents',
+      }).body,
+    ).toBe('Bash · pnpm test · ☑ 3/7 · 2 subagents · 3 tools · ✎ ⌘')
     expect(liveNotificationText({ ...props, session: 'Fix login', step: '', tools: '', glyphs: [] })).toEqual(
       {
         title: 'Fix login · Working',

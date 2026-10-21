@@ -23,6 +23,7 @@ The daemon runs on the computer: it tails the session transcripts, drives tmux, 
 | `remote-harness push off` / `on` | Stops (or resumes) every push and live status update from this computer, without restarting the daemon. |
 | `remote-harness provider key <profile>` | Stores a profile's provider key (OpenRouter) in the OS secret store. `--stdin` reads it from a pipe. |
 | `remote-harness rules list` / `undo <id>` | The "always allow" rules created from the phone. |
+| `remote-harness commands [on|off]` | Shows, allows or forbids running shell commands from the app in a session's folder (off by default), applied to the running daemon. |
 
 The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for installs made before the rename.
 
@@ -63,6 +64,7 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
 - `update`: the channel `update` and the background check follow, and whether updates apply by themselves.
 - `tray`: the menu bar / tray icon.
 - `trayPermissions`: whether the tray offers Allow / Always allow / Deny for a waiting permission (on by default; also under the tray's Preferences).
+- `shellCommands`: `enabled` (off by default; change it with `remote-harness commands on|off`), `timeoutSec` (300) and `maxOutputKb` (1024) for the commands run from the app.
 
 Edits to the file take effect when the daemon restarts (`remote-harness service install` again, or restart from the tray).
 
