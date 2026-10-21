@@ -41,6 +41,7 @@ import type { PushSender } from './features/push/sender.ts'
 import { registerQueueFeature } from './features/queue/index.ts'
 import { registerSessionsFeature } from './features/sessions/index.ts'
 import { justEnded } from './features/sessions/state.ts'
+import { registerShellFeature } from './features/shell/index.ts'
 import { registerStatusLineFeature } from './features/status-line/index.ts'
 import { registerSubagentsFeature } from './features/subagents/index.ts'
 import { registerSystemPermissionsFeature } from './features/system-permissions/index.ts'
@@ -245,6 +246,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       push: { mode: features.pushMode() },
       update: { channel: features.updateChannel() },
       live: { follow: true },
+      commands: { enabled: features.commandsEnabled() },
     }),
   })
   const wsAddress = wss.address()
@@ -276,7 +278,12 @@ async function registerFeatures(
   desktop: DesktopOptions | undefined,
   sleepInhibitor: SleepInhibitor | null,
   pairing: Pick<TrayShellDeps, 'pairing' | 'rotateToken'>,
-): Promise<{ mute: MuteStore; pushMode: () => PushMode; updateChannel: () => DaemonUpdateChannel }> {
+): Promise<{
+  mute: MuteStore
+  pushMode: () => PushMode
+  updateChannel: () => DaemonUpdateChannel
+  commandsEnabled: () => boolean
+}> {
   const sessions = registerSessionsFeature(ctx, ctx.tmux)
   const transcript = registerTranscriptFeature(ctx, sessions.store, (id, at) =>
     sessions.service.noteActivity(id, at),
@@ -292,6 +299,7 @@ async function registerFeatures(
   registerModeFeature(ctx, sessions.store, sessionLock, hasPendingPermission)
   registerAutocompleteFeature(ctx, sessions.store)
   registerVoicePolishFeature(ctx, sessions.store)
+  const shell = registerShellFeature(ctx, sessions.store)
   registerDiagnosticsFeature(ctx)
   registerPaneFeature(ctx, sessions.store)
   registerProvidersFeature(ctx, { key: ctx.providerKey })
@@ -365,5 +373,10 @@ async function registerFeatures(
   power = registerPowerFeature(ctx, sessions.store, sleepInhibitor)
   // After the sessions, so prompts queued for sessions that ended meanwhile are dropped.
   await queue.service.load().catch((error) => ctx.logger.warn({ err: error }, 'queue restore failed'))
-  return { mute: mute.store, pushMode: push.mode, updateChannel: () => updateChannel() }
+  return {
+    mute: mute.store,
+    pushMode: push.mode,
+    updateChannel: () => updateChannel(),
+    commandsEnabled: shell.enabled,
+  }
 }

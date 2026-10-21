@@ -8,6 +8,8 @@ import { useLayout } from '@/core/layout'
 import { makeStyles, space, useTheme } from '@/core/theme'
 import { shortPath } from '@/core/utils/time'
 import { SmartComposer } from '@/features/autocomplete/SmartComposer'
+import { CommandSheet } from '@/features/commands/CommandSheet'
+import { appendToDraft } from '@/features/commands/logic'
 import { ConversationScreen } from '@/features/conversation/ConversationScreen'
 import { setFollow, useFollowStore } from '@/features/conversation/follow-store'
 import { setKeyBarVisible, useKeyBarStore } from '@/features/conversation/key-bar-store'
@@ -44,6 +46,8 @@ export default function SessionRoute() {
   const session = useSessionsStore((s) => s.sessions[id])
   const profile = useConnectionStore((s) => s.hello?.profiles.find((p) => p.id === session?.profileId))
   const provider = providerName(profile)
+  // Absent on daemons without shell commands; `enabled` is the computer's opt-in.
+  const commands = useConnectionStore((s) => s.hello?.commands)
   const client = useDaemonClient()
   const prompt = usePrompt(id)
   const controllable = session?.controllable ?? false
@@ -59,6 +63,7 @@ export default function SessionRoute() {
   const [closeOpen, setCloseOpen] = useState(false)
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
   // ⌘⇧O opens More options of the session on screen (others stay mounted under it on phones).
   const [menuRequests, setMenuRequests] = useState(0)
   useShortcutRequest('sessionMenu', () => setMenuRequests((n) => n + 1), useIsFocused())
@@ -80,6 +85,7 @@ export default function SessionRoute() {
       subagents: subagentStats,
       provider: provider !== null,
       liveFollow,
+      commands: commands !== undefined,
     },
     t,
   )
@@ -92,6 +98,10 @@ export default function SessionRoute() {
   }
   const actions: Record<SessionMenuAction, () => void> = {
     terminal: () => router.push({ pathname: '/session/[id]/terminal', params: { id } }),
+    runCommand: () => {
+      Keyboard.dismiss()
+      setCommandOpen(true)
+    },
     model: () => {
       Keyboard.dismiss()
       setModelOpen(true)
@@ -183,6 +193,16 @@ export default function SessionRoute() {
           subagents={session.subagents}
           visible={subagentsOpen}
           onClose={() => setSubagentsOpen(false)}
+        />
+      ) : null}
+      {session && commands ? (
+        <CommandSheet
+          sessionId={id}
+          cwd={session.cwd}
+          enabled={commands.enabled}
+          visible={commandOpen}
+          onClose={() => setCommandOpen(false)}
+          onAddToPrompt={(block) => prompt.setText((current) => appendToDraft(current, block))}
         />
       ) : null}
       {session && provider ? (

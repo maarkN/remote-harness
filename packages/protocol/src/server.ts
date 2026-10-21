@@ -3,7 +3,9 @@ import {
   AccountLimitsSchema,
   CheckoutPeerSchema,
   CheckoutSchema,
+  CommandEndReasonSchema,
   CommandItemSchema,
+  CommandStreamSchema,
   DaemonUpdateChannelSchema,
   DaemonUpdateInfoSchema,
   DirectoryItemSchema,
@@ -50,6 +52,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     update: z.object({ channel: DaemonUpdateChannelSchema }).optional(),
     /** Present when the daemon accepts `live.follow` and the other follow messages. */
     live: z.object({ follow: z.boolean() }).optional(),
+    /** Present when the daemon accepts `command.run`; `enabled` is its config's opt-in. */
+    commands: z.object({ enabled: z.boolean() }).optional(),
   }),
   /** Reply to the follow messages: what this phone follows. */
   z.object({
@@ -184,6 +188,26 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('push.testResult'), replyTo, result: PushTestResultSchema }),
   /** Usage limits of a profile's account; sent when they change and to every client that connects. */
   z.object({ type: z.literal('limits.updated'), limits: AccountLimitsSchema }),
+  /** Reply to `command.run`: the run's id and the folder it runs in. */
+  z.object({ type: z.literal('command.started'), replyTo, runId: z.string(), cwd: z.string() }),
+  /** Output of a run (UTF-8, ANSI escapes removed), only to the connection that started it. */
+  z.object({
+    type: z.literal('command.output'),
+    runId: z.string(),
+    stream: CommandStreamSchema,
+    text: z.string(),
+  }),
+  /** End of a run; `exitCode` is null when it was killed or never started. */
+  z.object({
+    type: z.literal('command.exit'),
+    runId: z.string(),
+    exitCode: z.number().int().nullable(),
+    signal: z.string().nullable(),
+    reason: CommandEndReasonSchema,
+    durationMs: z.number().nonnegative(),
+    /** Output past the cap was dropped. */
+    truncated: z.boolean(),
+  }),
   /** Reply to `machine.permissions`: never folder contents, only per-row/per-folder status. */
   z.object({
     type: z.literal('machine.permissions.results'),

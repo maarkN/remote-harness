@@ -151,6 +151,59 @@ describe('sessions.list', () => {
   })
 })
 
+describe('command.run end to end (#308)', () => {
+  test('off until the CLI turns it on, then runs in the session folder and streams the output', async () => {
+    const { daemon, token } = await boot()
+    const client = await connect(daemon.wsPort)
+    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
+    expect(await client.next()).toMatchObject({ type: 'auth.ok', commands: { enabled: false } })
+    client.ws.send(JSON.stringify({ type: 'command.run', id: 'c1', sessionId: 's', command: 'echo hi' }))
+    expect(await client.next()).toMatchObject({ type: 'error', replyTo: 'c1', code: 'commands_disabled' })
+
+    // What `remote-harness commands on` does: write the config, then reload the running daemon.
+    await writeTestConfig(home.dir(), ['claudin'], { shellCommands: { enabled: true } })
+    const { readFile } = await import('node:fs/promises')
+    const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
+    // Like the CLI's admin requests: no body, no content type.
+    const post = (path: string, body?: unknown) =>
+      fetch(`http://127.0.0.1:${daemon.hookPort}${path}`, {
+        method: 'POST',
+        headers: body
+          ? { 'content-type': 'application/json', [SECRET_HEADER]: secret }
+          : { [SECRET_HEADER]: secret },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      })
+    expect(await (await post('/admin/commands-reload')).json()).toEqual({ enabled: true })
+    await post('/hooks/SessionStart', { session_id: 's', cwd: home.dir() })
+
+    const messages: ServerMessage[] = []
+    const until = async (type: ServerMessage['type']) => {
+      for (;;) {
+        const message = await client.next()
+        messages.push(message)
+        if (message.type === type) return message
+      }
+    }
+    client.ws.send(
+      JSON.stringify({
+        type: 'command.run',
+        id: 'c2',
+        sessionId: 's',
+        command: 'pwd; echo oops >&2; exit 4',
+      }),
+    )
+    const started = await until('command.started')
+    expect(started).toMatchObject({ replyTo: 'c2', cwd: home.dir() })
+    const exit = await until('command.exit')
+    expect(exit).toMatchObject({ reason: 'exited', exitCode: 4, truncated: false })
+    const text = (stream: string) =>
+      messages.flatMap((m) => (m.type === 'command.output' && m.stream === stream ? [m.text] : [])).join('')
+    expect(text('stdout')).toContain(home.dir().split('/').pop())
+    expect(text('stderr')).toBe('oops\n')
+    client.ws.close()
+  })
+})
+
 describe('attachment.upload', () => {
   test('accepts frames above 1 MB and checks the session before saving', async () => {
     const { daemon, token } = await boot()

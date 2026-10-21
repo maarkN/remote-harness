@@ -26,6 +26,10 @@ El daemon puede escribir en tus sesiones de Claude Code y aprobar llamadas a her
 - El daemon no envía telemetría. La comprobación de actualizaciones habla con el remoto de git del código instalado.
 - Las peticiones de catálogo y créditos de OpenRouter van del ordenador a OpenRouter, y a nadie más.
 
+## Comandos de shell
+
+Ejecutar comandos desde la app (**Ejecutar comando…**) viene desactivado y solo puede activarse desde el ordenador (`remote-harness commands on`). Activado, un móvil emparejado puede ejecutar cualquier comando con tu usuario en la carpeta de una sesión, por eso la app confirma cada comando antes. Cada ejecución tiene límite de tiempo y de salida, se termina con todo su grupo de procesos al cancelar, y la salida va solo al móvil que la inició: los comandos y su salida nunca se registran, se guardan, se envían a otros móviles ni van en una notificación push.
+
 ## Permisos
 
 La app nunca ofrece el modo "bypass permissions" del agente. "Permitir siempre" escribe una regla en los ajustes del propio Claude Code, para el proyecto o para tu usuario, y `remote-harness rules undo` la revierte. Una petición sin responder vuelve al diálogo del terminal pasados unos minutos.

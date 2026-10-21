@@ -26,6 +26,10 @@ The daemon can type into your Claude Code sessions and approve tool calls, so it
 - The daemon sends no telemetry. The update check talks to the git remote of the installed source.
 - The OpenRouter catalog and credits requests go from the computer to OpenRouter, nowhere else.
 
+## Shell commands
+
+Running commands from the app (**Run command…**) is off by default and can only be turned on from the computer (`remote-harness commands on`). When on, a paired phone can run any command as your user in a session's folder, so the app confirms every command first. Each run has a time limit and an output limit, is killed with its whole process group on cancel, and its output goes only to the phone that started it: commands and output are never logged, stored, sent to other phones or put in a push notification.
+
 ## Permissions
 
 The app never offers the agent's "bypass permissions" mode. "Always allow" writes a rule in Claude Code's own settings, for the project or for your user, and `remote-harness rules undo` reverts it. An unanswered request falls back to the terminal dialog after a few minutes.

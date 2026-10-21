@@ -53,6 +53,17 @@ export const esES = {
       saved: (id: string, store: string) =>
         `Clave del perfil ${id} guardada ${store}. Las sesiones nuevas del perfil la usan.`,
     },
+    commands: {
+      description:
+        'muestra, permite (on) o prohíbe (off) ejecutar comandos de shell desde la app en la carpeta de una sesión',
+      state: (enabled: boolean) =>
+        `comandos de shell desde la app: ${enabled ? 'activados' : 'desactivados'}`,
+      warning:
+        'un móvil emparejado podrá ejecutar cualquier comando como tú en la carpeta de una sesión (pide confirmación antes de cada uno)',
+      invalid: (value: string) => `"${value}" no es válido; usa on u off`,
+      applied: 'aplicado al daemon en ejecución',
+      notRunning: 'el daemon no está en ejecución; se aplica en el próximo inicio',
+    },
     keepAwake: {
       description: 'muestra o define cuándo el ordenador se mantiene despierto: off, sessions o always',
       modes: {
