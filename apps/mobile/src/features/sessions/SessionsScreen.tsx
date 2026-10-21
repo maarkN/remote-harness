@@ -1,6 +1,7 @@
 import type { Session } from '@remote-harness/protocol'
 import { FlashList, type FlashListRef } from '@shopify/flash-list'
 import * as Clipboard from 'expo-clipboard'
+import { router } from 'expo-router'
 import {
   Bell,
   BellOff,
@@ -12,6 +13,7 @@ import {
   Power,
   Radio,
   RadioOff,
+  Settings,
   SlidersHorizontal,
 } from 'lucide-react-native'
 import { useMemo, useRef, useState } from 'react'
@@ -50,6 +52,7 @@ import { WaitingStrip } from '../permissions/components/WaitingStrip'
 import { NestedSubagents } from '../subagents/SubagentList'
 import { type SessionAction, sessionActions, swipeSides } from './actions'
 import { sharedCheckoutCounts } from './checkout'
+import { COMPACT_MARK_SIZE, MARK_GLYPH_SIZE, type MarkTransform, markTransform, slotIn } from './collapse'
 import { CloseSessionSheet } from './components/CloseSessionSheet'
 import { MachineLine } from './components/MachineLine'
 import { NEW_SESSION_FAB_SPACE, NewSessionFab } from './components/NewSessionFab'
@@ -69,10 +72,11 @@ import { refreshSessions, useSessionsStore } from './store'
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as unknown as typeof FlashList
 
 /** Natural heights before the real ones are measured (`onLayout`); avoids a flash on first mount. */
-const HEADER_HEIGHT_FALLBACK = 132
+const HEADER_HEIGHT_FALLBACK = 176
 const COMPACT_BAR_HEIGHT_FALLBACK = 56
 /** Scroll delta (px) past which a direction counts as a deliberate up/down, not jitter. */
 const SCROLL_DIRECTION_THRESHOLD = 2
+const NO_TRANSFORM: MarkTransform = { translateX: 0, translateY: 0, scale: 1 }
 
 type Props = {
   pendingBySession?: Record<string, number>
@@ -136,8 +140,9 @@ export function SessionsScreen({
     listRef.current?.scrollToOffset({ offset: 0, animated: false })
   }
 
-  // Collapsing header (compact width only): scrolling down gives way to a slim bar with the mark,
-  // the search field and a filters button; scrolling up, or reaching the top, restores it.
+  // Collapsing header (compact width only): the title row, machine line, chips and search give way,
+  // on scroll down, to a slim bar with the mark, the search field, a filters button and settings;
+  // scrolling up, or reaching the top, restores it. One mark slides between the two layouts.
   const widthClass = useWidthClass()
   const collapsible = widthClass === 'compact'
   const reducedMotion = useReducedMotion()
@@ -152,6 +157,22 @@ export function SessionsScreen({
   const onCompactBarLayout = (event: LayoutChangeEvent) => {
     compactBarHeight.value = event.nativeEvent.layout.height
   }
+  const expandedMark = useSharedValue(NO_TRANSFORM)
+  const compactMark = useSharedValue(NO_TRANSFORM)
+  // Hidden until both slots are measured, so it never flashes at the origin.
+  const markReady = useSharedValue(0)
+  const measuredSlots = useRef({ expanded: false, compact: false })
+  // The title row and the compact bar both sit at the top of the header: their own origin is (0, 0).
+  // In the title row the slot is the first child of the centered title group, measured instead.
+  const onMarkSlot = (which: 'expanded' | 'compact') => (event: LayoutChangeEvent) => {
+    const size = which === 'expanded' ? MARK_GLYPH_SIZE : COMPACT_MARK_SIZE
+    const transform = markTransform(slotIn({ x: 0, y: 0 }, event.nativeEvent.layout, size))
+    if (which === 'expanded') expandedMark.value = transform
+    else compactMark.value = transform
+    measuredSlots.current[which] = true
+    if (measuredSlots.current.expanded && measuredSlots.current.compact) markReady.value = 1
+  }
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       if (!collapsible) return
@@ -182,6 +203,22 @@ export function SessionsScreen({
   const compactBarStyle = useAnimatedStyle(() => ({
     opacity: interpolate(collapsed.value, [0, 1], [0, 1], Extrapolation.CLAMP),
   }))
+  const markStyle = useAnimatedStyle(() => {
+    const from = expandedMark.value
+    const to = compactMark.value
+    const at = (a: number, b: number) => interpolate(collapsed.value, [0, 1], [a, b], Extrapolation.CLAMP)
+    return {
+      opacity: markReady.value,
+      transform: [
+        { translateX: at(from.translateX, to.translateX) },
+        { translateY: at(from.translateY, to.translateY) },
+        { scale: at(from.scale, to.scale) },
+      ],
+    }
+  })
+  const settingsButton = (
+    <IconButton icon={Settings} label={t('nav.settings')} onPress={() => router.push('/settings')} />
+  )
 
   const sort = useSessionSortStore((s) => s.sort)
   const items = useMemo(
@@ -279,7 +316,8 @@ export function SessionsScreen({
   })
 
   return (
-    <Screen>
+    // On compact width the list draws its own title row (the stack header is hidden): it keeps the top inset.
+    <Screen edges={collapsible ? ['top', 'bottom'] : ['bottom']}>
       <ConnectionBanner />
       <DaemonUpdateBanner />
       <Animated.View style={[collapsible && styles.headerContainer, collapsible && containerStyle]}>
@@ -288,6 +326,23 @@ export function SessionsScreen({
           onLayout={onFullHeaderLayout}
           pointerEvents={collapsible && headerCollapsed ? 'none' : 'auto'}
         >
+          {collapsible ? (
+            <View style={styles.titleRow}>
+              <View
+                style={styles.titleGroup}
+                onLayout={onMarkSlot('expanded')}
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={t('sessions.title')}
+              >
+                <View style={styles.expandedMarkSlot} />
+                <Text weight="bold" size="lg" numberOfLines={1}>
+                  {t('sessions.title')}
+                </Text>
+              </View>
+              <View style={styles.titleActions}>{settingsButton}</View>
+            </View>
+          ) : null}
           <MachineLine sessions={items} stateFilter={filter.state} onToggleState={toggleState} />
           <ScrollView
             horizontal
@@ -317,7 +372,7 @@ export function SessionsScreen({
             onLayout={onCompactBarLayout}
             pointerEvents={headerCollapsed ? 'auto' : 'none'}
           >
-            <Mark size={18} />
+            <View style={styles.compactMarkSlot} onLayout={onMarkSlot('compact')} />
             <View style={styles.compactSearch}>
               <SessionSearch
                 value={filter.query}
@@ -333,6 +388,17 @@ export function SessionsScreen({
               />
               {isFiltering(filter) ? <View style={styles.filterDot} /> : null}
             </View>
+            {settingsButton}
+          </Animated.View>
+        ) : null}
+        {collapsible ? (
+          <Animated.View
+            style={[styles.slidingMark, markStyle]}
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Mark size={MARK_GLYPH_SIZE} />
           </Animated.View>
         ) : null}
       </Animated.View>
@@ -461,6 +527,13 @@ const useStyles = makeStyles((theme) => ({
     paddingVertical: space.sm,
   },
   compactSearch: { flex: 1 },
+  // The navigation bar's height; the title is centered as the native iOS title was.
+  titleRow: { height: 44, justifyContent: 'center', alignItems: 'center', paddingHorizontal: space.lg },
+  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  titleActions: { position: 'absolute', right: space.sm, top: 0, bottom: 0, justifyContent: 'center' },
+  expandedMarkSlot: { width: MARK_GLYPH_SIZE, height: MARK_GLYPH_SIZE },
+  compactMarkSlot: { width: COMPACT_MARK_SIZE, height: COMPACT_MARK_SIZE },
+  slidingMark: { position: 'absolute', left: 0, top: 0 },
   filterDot: {
     position: 'absolute',
     top: 2,

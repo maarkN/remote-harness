@@ -3,9 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import { useWidthClass } from '@/core/layout'
 import { selectPendingCounts, usePermissionsStore } from '@/features/permissions/store'
-import { SessionListActions } from '@/features/sessions/components/SessionListActions'
 import { SessionsScreen } from '@/features/sessions/SessionsScreen'
-import { EmptyState, headerActions, Text } from '@/ui'
+import { EmptyState, Text } from '@/ui'
 
 export default function SessionsRoute() {
   const { t } = useTranslation()
@@ -26,7 +25,8 @@ export default function SessionsRoute() {
   }
   return (
     <>
-      <Stack.Screen options={headerActions(<SessionListActions newSession={false} />)} />
+      {/* The list draws its own title row, which collapses with its header on scroll (#307). */}
+      <Stack.Screen options={{ headerShown: false }} />
       <SessionsScreen pendingBySession={pending} interactive={visible} fab />
     </>
   )

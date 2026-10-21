@@ -6,21 +6,19 @@ import { space } from '@/core/theme'
 import { IconButton } from '@/ui'
 
 /**
- * New session / Settings — used in the stack header (compact) and the master pane header (regular).
- * On compact width the new-session icon is dropped: a floating action button opens `/new` instead.
+ * New session / Settings in the master pane header (regular width). On compact width the list draws
+ * its own title row with settings, and a floating action button opens `/new`.
  */
-export function SessionListActions({ newSession = true }: { newSession?: boolean }) {
+export function SessionListActions() {
   const { t } = useTranslation()
   return (
     <View style={styles.actions}>
-      {newSession ? (
-        <IconButton
-          icon={Plus}
-          label={t('nav.newSession')}
-          color="accentText"
-          onPress={() => router.push('/new')}
-        />
-      ) : null}
+      <IconButton
+        icon={Plus}
+        label={t('nav.newSession')}
+        color="accentText"
+        onPress={() => router.push('/new')}
+      />
       <IconButton icon={Settings} label={t('nav.settings')} onPress={() => router.push('/settings')} />
     </View>
   )
