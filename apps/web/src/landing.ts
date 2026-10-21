@@ -119,10 +119,8 @@ export function siteFooter(locale: Locale, m: WebMessages): string {
   ).join('')
   return `<footer>
   <div class="row"><span class="brand">${mark(20)}Remote Harness</span><a href="${docsPath(locale)}">${esc(f.docs)}</a><a href="${REPO_URL}">${esc(f.github)}</a><a href="${LINKS.releases}">${esc(f.releases)}</a><a href="${LINKS.security}">${esc(f.security)}</a><a href="${docsPath(locale)}privacy/">${esc(f.privacy)}</a><a href="${LINKS.license}">${esc(f.license)}</a><span class="langs">${languages}</span></div>
-  <div class="fine">
-    <small>${esc(f.legal)}</small>
-    <div class="contrib"><span>${esc(f.contributors)}</span>${contributors}</div>
-  </div>
+  <div class="contrib"><span>${esc(f.contributors)}</span>${contributors}</div>
+  <small class="legal">${esc(f.legal)}</small>
   <div class="by">${esc(f.madeBy)} <a href="${AUTHOR.url}">${AUTHOR.name}</a></div>
 </footer>`
 }

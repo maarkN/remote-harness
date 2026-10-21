@@ -149,8 +149,7 @@ footer .row a { color: var(--muted); }
 footer .row .brand { display: flex; align-items: center; gap: 8px; color: var(--fg); font-weight: 700; margin-right: auto; }
 footer .row .brand svg { width: 20px; height: 20px; color: var(--accent); }
 footer .row .langs { color: var(--dim); }
-footer .fine { display: flex; gap: 24px 48px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
-footer small { font-size: 11.5px; color: var(--dim); max-width: 72ch; flex: 1 1 420px; }
+footer .legal { display: block; width: 100%; font-size: 11.5px; line-height: 1.6; color: var(--dim); }
 footer .contrib { display: flex; gap: 6px 14px; align-items: center; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--dim); }
 footer .contrib a { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 footer .contrib i { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); font-style: normal; font-size: 10px; color: var(--muted); }

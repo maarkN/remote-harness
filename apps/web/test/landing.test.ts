@@ -3,6 +3,7 @@ import { agentMark } from '../src/agent-marks.ts'
 import { renderDoc } from '../src/docs/page.ts'
 import { esc, inline } from '../src/html.ts'
 import { CATALOGS, LOCALE_PATHS, WEB_LOCALES } from '../src/i18n/index.ts'
+import { renderInstallPage } from '../src/install-page.ts'
 import { INSTALL_COMMANDS, renderLanding, renderNotFound } from '../src/landing.ts'
 import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, siteConfig, sitemapXml } from '../src/site.ts'
 
@@ -166,6 +167,37 @@ describe('renderLanding', () => {
     expect(without).toContain(`<small>${esc(ios.source)}</small>`)
     expect(without).not.toContain(inline(ios.note))
   })
+
+  test.each(WEB_LOCALES)(
+    '%s: footer order, the trademark notice full width under the contributors',
+    (locale) => {
+      const f = CATALOGS[locale].footer
+      const pages = {
+        landing: renderLanding(locale),
+        docs: renderDoc(locale, 'getting-started') ?? '',
+        install: renderInstallPage(locale, 'macos'),
+      }
+      for (const [name, html] of Object.entries(pages)) {
+        const footer = html.slice(html.indexOf('<footer>'), html.indexOf('</footer>'))
+        const order = [
+          '<div class="row">',
+          '<div class="contrib">',
+          `<small class="legal">${esc(f.legal)}</small>`,
+          '<div class="by">',
+        ]
+        const positions = order.map((part) => footer.indexOf(part))
+        expect(
+          positions.every((p) => p >= 0),
+          name,
+        ).toBe(true)
+        expect(
+          [...positions].sort((a, b) => a - b),
+          name,
+        ).toEqual(positions)
+        expect(footer, name).not.toContain('class="fine"')
+      }
+    },
+  )
 
   test('the root page keeps its own canonical; the language switcher marks the current one', () => {
     const root = renderLanding('es-ES', '/')
