@@ -16,7 +16,8 @@ let base = ''
 
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), 'rh-server-'))
-  server = createSiteServer({ ...fsStores(dir), tokens: { token: PUBLISH } }, () => {})
+  const site = { appInstallUrl: `/app/${TOKEN}/` }
+  server = createSiteServer({ ...fsStores(dir), tokens: { token: PUBLISH }, site }, () => {})
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
@@ -40,6 +41,8 @@ describe('site server', () => {
     const landing = await fetch(`${base}/pt-br/`)
     expect(landing.status).toBe(200)
     expect(landing.headers.get('content-language')).toBe('pt-BR')
+    // The iPhone & iPad card opens the install link from the server's environment.
+    expect(await landing.text()).toContain(`<a class="store" href="/app/${TOKEN}/">`)
     const script = await fetch(`${base}/install`, { headers: { 'user-agent': 'curl/8.7.1' } })
     expect(script.headers.get('content-type')).toBe('text/plain; charset=utf-8')
     expect(await script.text()).toMatch(/^#!\/usr\/bin\/env bash/)

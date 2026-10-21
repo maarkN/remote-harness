@@ -1,6 +1,7 @@
 # remoteharness.app behind the server's Traefik (external `web` network, `websecure` entry point,
 # `le` certificate resolver). `make deploy-web` copies this folder's files and `server.js` next to
-# `.env` (publish tokens, created on the server) and `data/` (updates and install links).
+# `.env` (publish tokens, created on the server; `APP_INSTALL_URL`, the landing's iOS install link) and
+# `data/` (updates and install links).
 name: remote-harness
 
 services:

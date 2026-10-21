@@ -296,7 +296,9 @@ export const esES: WebMessages = {
     appTitle: 'Descargar la app',
     ios: {
       title: 'iPhone y iPad',
-      detail: 'Compílala desde el código por ahora · TestFlight pronto · iOS 17+',
+      detail: 'Instalación inalámbrica · dispositivos registrados · iOS 17+',
+      source: 'Compílala desde el código por ahora · TestFlight pronto · iOS 17+',
+      note: 'El build de iPhone y iPad solo se instala en dispositivos registrados: [cómo añadir el tuyo](/es/docs/getting-started/#registrar-un-iphone-o-ipad), o compílala desde el código.',
     },
     android: { title: 'Android', detail: 'APK en los Releases de GitHub · Android 10+' },
     appNote:
@@ -383,7 +385,7 @@ export const esES: WebMessages = {
       title: 'iPhone y iPad',
       install: 'Instalar',
       registered:
-        'Solo los iPhone y iPad registrados en el equipo de desarrollador pueden instalar este build. Abre esta página en Safari.',
+        'Solo los iPhone y iPad registrados en el equipo de desarrollador pueden instalar este build ([cómo añadir el tuyo](/es/docs/getting-started/#registrar-un-iphone-o-ipad)). Abre esta página en Safari.',
       developerMode:
         'La primera vez, iOS pide activar el Modo de desarrollador: Ajustes → Privacidad y seguridad → Modo de desarrollador, y reiniciar.',
     },

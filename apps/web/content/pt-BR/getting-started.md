@@ -55,10 +55,20 @@ node apps/daemon/dist/cli.js setup
 
 ## Instalar o app
 
-- **iPhone e iPad**: por enquanto um development build (o TestFlight vem aí). Com o Xcode num Mac, `cd apps/mobile && pnpm ios` roda no simulador ou num aparelho conectado; `make install-ios` faz um release build num iPhone ou iPad conectado. O [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) tem os detalhes de assinatura.
+- **iPhone e iPad**: instale pelo ar a partir do cartão **Baixar o app** em [remoteharness.app](/pt-br/#app) (abra no Safari; iOS 17+). É um build ad-hoc, então só instala em aparelhos cadastrados no time de desenvolvedor: veja [Cadastrar um iPhone ou iPad](#cadastrar-um-iphone-ou-ipad). Ou compile a partir do código: com o Xcode num Mac, `cd apps/mobile && pnpm ios` roda no simulador ou num aparelho conectado; `make install-ios` faz um release build num iPhone ou iPad conectado. O [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) tem os detalhes de assinatura.
 - **Android**: o APK dos [Releases no GitHub](https://github.com/maarkN/remote-harness/releases) (permita instalar pelo navegador quando pedir), ou `pnpm android` e `pnpm build:android` a partir do repositório.
 
 Instale o Tailscale no celular também e entre na mesma tailnet do computador.
+
+### Cadastrar um iPhone ou iPad
+
+Enquanto o app não está no TestFlight, a Apple só deixa o build pelo ar instalar em aparelhos cujo identificador (UDID) está no perfil de provisionamento do time de desenvolvedor. Em qualquer outro aparelho a instalação falha. Para incluir o seu:
+
+1. Ache o UDID: conecte o iPhone ou iPad num Mac, selecione-o no Finder e clique na linha abaixo do nome até o UDID aparecer (Control-clique para copiar). O Xcode também mostra, em Window → Devices and Simulators.
+2. Mande-o em particular para o mantenedor, pelo contato em [maarkn.dev](https://maarkn.dev), não numa issue pública.
+3. Depois de incluído, o próximo build publicado no link de instalação instala nesse aparelho.
+
+Compilar a partir do código com a sua própria conta de desenvolvedor da Apple não tem essa lista: o Xcode cadastra os seus próprios aparelhos.
 
 ## Parear o celular
 
