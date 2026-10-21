@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { agentMark } from '../src/agent-marks.ts'
+import { renderDoc } from '../src/docs/page.ts'
 import { esc, inline } from '../src/html.ts'
-import { CATALOGS, WEB_LOCALES } from '../src/i18n/index.ts'
+import { CATALOGS, LOCALE_PATHS, WEB_LOCALES } from '../src/i18n/index.ts'
 import { INSTALL_COMMANDS, renderLanding, renderNotFound } from '../src/landing.ts'
-import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, sitemapXml } from '../src/site.ts'
+import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, siteConfig, sitemapXml } from '../src/site.ts'
 
 /** Dotted paths of every leaf, with array lengths, so the three catalogs can be compared. */
 function shape(value: unknown, prefix = ''): string[] {
@@ -151,6 +152,21 @@ describe('renderLanding', () => {
     expect(CATALOGS[locale].faq.items[1]?.a).toContain('Codex CLI')
   })
 
+  test.each(WEB_LOCALES)('%s: the iPhone & iPad card opens the install link when configured', (locale) => {
+    const ios = CATALOGS[locale].install.ios
+    const docs = `${LOCALE_PATHS[locale]}docs/getting-started/`
+    const withLink = renderLanding(locale, undefined, { appInstallUrl: '/app/abc123/' })
+    expect(withLink).toContain(`<a class="store" href="/app/abc123/">`)
+    expect(withLink).toContain(`<small>${esc(ios.detail)}</small>`)
+    // The note explains the device registration and links the docs section.
+    expect(withLink).toContain(inline(ios.note))
+    expect(ios.note).toContain(`](${docs}#`)
+    const without = renderLanding(locale)
+    expect(without).toContain(`<a class="store" href="${docs}">`)
+    expect(without).toContain(`<small>${esc(ios.source)}</small>`)
+    expect(without).not.toContain(inline(ios.note))
+  })
+
   test('the root page keeps its own canonical; the language switcher marks the current one', () => {
     const root = renderLanding('es-ES', '/')
     expect(root).toContain('<link rel="canonical" href="https://remoteharness.app/">')
@@ -177,5 +193,26 @@ describe('site files', () => {
     expect(robotsTxt()).toContain('Sitemap: https://remoteharness.app/sitemap.xml')
     expect(robotsTxt()).toContain('Disallow: /ios/')
     expect(faviconSvg().startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
+  })
+})
+
+describe('siteConfig', () => {
+  test('takes the install link as a path on the site or an https URL, nothing else', () => {
+    expect(siteConfig({})).toEqual({})
+    expect(siteConfig({ APP_INSTALL_URL: ' /app/abc/ ' })).toEqual({ appInstallUrl: '/app/abc/' })
+    expect(siteConfig({ APP_INSTALL_URL: 'https://remoteharness.app/app/abc/' })).toEqual({
+      appInstallUrl: 'https://remoteharness.app/app/abc/',
+    })
+    for (const bad of ['http://example.com/', '//evil.example/', 'javascript:alert(1)', 'app/abc/', ''])
+      expect(siteConfig({ APP_INSTALL_URL: bad }), bad).toEqual({})
+  })
+
+  test.each(WEB_LOCALES)('%s: the docs section the install texts link to exists', (locale) => {
+    const html = renderDoc(locale, 'getting-started') ?? ''
+    for (const text of [CATALOGS[locale].install.ios.note, CATALOGS[locale].appLink.ios.registered]) {
+      const anchor = text.match(/getting-started\/#([a-z0-9-]+)\)/)?.[1]
+      expect(anchor, text).toBeTruthy()
+      expect(html).toContain(`id="${anchor}"`)
+    }
   })
 })

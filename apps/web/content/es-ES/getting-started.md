@@ -55,10 +55,20 @@ node apps/daemon/dist/cli.js setup
 
 ## Instalar la app
 
-- **iPhone y iPad**: por ahora un development build (TestFlight está en camino). Con Xcode en un Mac, `cd apps/mobile && pnpm ios` la ejecuta en el simulador o en un dispositivo conectado; `make install-ios` hace un release build en un iPhone o iPad conectado. El [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) tiene los detalles de firma.
+- **iPhone y iPad**: instálala de forma inalámbrica desde la tarjeta **Descargar la app** de [remoteharness.app](/es/#app) (ábrela en Safari; iOS 17+). Es un build ad-hoc, así que solo se instala en dispositivos registrados en el equipo de desarrollador: consulta [Registrar un iPhone o iPad](#registrar-un-iphone-o-ipad). O compílala desde el código: con Xcode en un Mac, `cd apps/mobile && pnpm ios` la ejecuta en el simulador o en un dispositivo conectado; `make install-ios` hace un release build en un iPhone o iPad conectado. El [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) tiene los detalles de firma.
 - **Android**: el APK de los [Releases de GitHub](https://github.com/maarkN/remote-harness/releases) (permite instalar desde el navegador cuando lo pida), o `pnpm android` y `pnpm build:android` desde el repositorio.
 
 Instala Tailscale también en el móvil y entra en la misma tailnet que el ordenador.
+
+### Registrar un iPhone o iPad
+
+Mientras la app no esté en TestFlight, Apple solo deja instalar el build inalámbrico en dispositivos cuyo identificador (UDID) está en el perfil de aprovisionamiento del equipo de desarrollador. En cualquier otro dispositivo la instalación falla. Para añadir el tuyo:
+
+1. Busca el UDID: conecta el iPhone o iPad a un Mac, selecciónalo en Finder y haz clic en la línea bajo su nombre hasta que aparezca el UDID (Control-clic para copiarlo). Xcode también lo muestra, en Window → Devices and Simulators.
+2. Envíalo en privado al mantenedor, por el contacto de [maarkn.dev](https://maarkn.dev), no en una issue pública.
+3. Una vez añadido, el siguiente build publicado en el enlace de instalación se instala en ese dispositivo.
+
+Compilar desde el código con tu propia cuenta de desarrollador de Apple no tiene esa lista: Xcode registra tus propios dispositivos.
 
 ## Emparejar el móvil
 

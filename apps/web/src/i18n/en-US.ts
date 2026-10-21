@@ -297,7 +297,12 @@ export const enUS = {
       'claude or codex on PATH',
     ],
     appTitle: 'Get the app',
-    ios: { title: 'iPhone & iPad', detail: 'Build from source today · TestFlight soon · iOS 17+' },
+    ios: {
+      title: 'iPhone & iPad',
+      detail: 'Install over the air · registered devices · iOS 17+',
+      source: 'Build from source today · TestFlight soon · iOS 17+',
+      note: 'The iPhone & iPad build installs only on registered devices: [how to get yours added](/en/docs/getting-started/#registering-an-iphone-or-ipad), or build it from source.',
+    },
     android: { title: 'Android', detail: 'APK on GitHub Releases · Android 10+' },
     appNote:
       'Both need Tailscale on the phone too. Installed the app first? Its pairing screen walks you through the machine setup.',
@@ -382,7 +387,7 @@ export const enUS = {
       title: 'iPhone & iPad',
       install: 'Install',
       registered:
-        'Only iPhones and iPads registered in the developer team can install this build. Open this page in Safari.',
+        'Only iPhones and iPads registered in the developer team can install this build ([how to get yours added](/en/docs/getting-started/#registering-an-iphone-or-ipad)). Open this page in Safari.',
       developerMode:
         'The first time, iOS asks to turn on Developer Mode: Settings → Privacy & Security → Developer Mode, then restart.',
     },
