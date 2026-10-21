@@ -792,6 +792,21 @@ const ptBR = {
     emptyBody: 'Inicie uma sessão no computador usando os launchers:',
     detailEmptyTitle: 'Selecione uma sessão',
     detailEmptyBody: 'Escolha uma sessão na lista para ver a conversa aqui.',
+    offlineList: 'lista offline de {{time}}',
+    unreachable: {
+      title: '{{Machine}} não está respondendo',
+      body: 'O que verificar:',
+      checklist: {
+        computerAwake:
+          'O computador está ligado e acordado — sem suspender, com a tela aberta ou configurado para não suspender.',
+        tailscaleComputer: 'O Tailscale está em execução e conectado no computador.',
+        tailscalePhone: 'O Tailscale está em execução e conectado neste celular, com a mesma conta.',
+        daemonRunning: 'O daemon do Remote Harness está em execução no computador (`remote-harness status`).',
+      },
+      tryAgain: 'Tentar de novo',
+      openTailscale: 'Abrir o Tailscale',
+      troubleshooting: 'Guia de solução de problemas',
+    },
     emptyHint: 'Sessões abertas com o `claude` puro aparecem como somente leitura.',
     background: 'background {{count}}',
     sharedCheckout: 'mesmo checkout ({{count}})',

@@ -13,6 +13,10 @@ Start with `remote-harness doctor` on the computer: it checks the tools, Tailsca
 - A token rotated on the computer (`remote-harness rotate-token`) or a reinstall means pairing again: **Forget this machine** in Settings, then scan `remote-harness pair`.
 - On a simulator or emulator without Tailscale, use `remote-harness start --dev` and `remote-harness pair --dev` (Android emulator: `adb reverse tcp:7337 tcp:7337`).
 
+## The app says the computer isn't reachable
+
+When the paired computer does not answer at all, the session list shows the same checklist, plus **Try again**, **Open Tailscale** and a link to this page: the computer is on and awake (not sleeping, lid open, or set not to sleep), Tailscale is running and signed in on the computer, Tailscale is running and connected on this phone with the same account, and the daemon is running (`remote-harness status`). The sections above cover each of these in detail; it disappears by itself as soon as the connection opens.
+
 ## Tailscale not found
 
 The daemon binds only to a 100.x address. If `doctor` says there is none: install Tailscale, sign in (`sudo tailscale up` on Linux) and start the daemon again; the background service waits for the interface instead of failing. On WSL see [below](#windows-wsl2).

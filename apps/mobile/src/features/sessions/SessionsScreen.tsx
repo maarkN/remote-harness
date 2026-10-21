@@ -62,12 +62,15 @@ import { SessionFiltersSheet } from './components/SessionFiltersSheet'
 import { SessionRow } from './components/SessionRow'
 import { SessionSearch } from './components/SessionSearch'
 import { closeOpenRow, type SwipeAction, SwipeableRow, type SwipeTone } from './components/SwipeableRow'
+import { UnreachableEmptyState } from './components/UnreachableEmptyState'
+import { UnreachableNotice } from './components/UnreachableNotice'
 import { isFiltering, listSessions, NO_FILTER, type SessionFilter, type StateFilter } from './filter'
 import { moveCursor } from './keyboard-nav'
 import { openSession } from './open-session'
 import { setHidden, setPinned, useSessionPrefsStore } from './prefs-store'
 import { setSessionSort, useSessionSortStore } from './sort-store'
 import { refreshSessions, useSessionsStore } from './store'
+import { unreachableView } from './unreachable'
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as unknown as typeof FlashList
 
@@ -119,6 +122,10 @@ export function SessionsScreen({
   const sessions = useSessionsStore((s) => s.sessions)
   const loaded = useSessionsStore((s) => s.loaded)
   const refreshing = useSessionsStore((s) => s.refreshing)
+  const lastFetchedAt = useSessionsStore((s) => s.lastFetchedAt)
+  const connectionStatus = useConnectionStore((s) => s.status)
+  const unreachable = useConnectionStore((s) => s.unreachable)
+  const unreachableState = unreachableView(connectionStatus, unreachable, Object.keys(sessions).length > 0)
   const muted = useMuteStore()
   const prefs = useSessionPrefsStore()
   const [filter, setFilter] = useState<SessionFilter>(NO_FILTER)
@@ -405,6 +412,9 @@ export function SessionsScreen({
       <View style={styles.strip}>
         <WaitingStrip />
       </View>
+      {unreachableState === 'compact' && lastFetchedAt ? (
+        <UnreachableNotice lastFetchedAt={lastFetchedAt} />
+      ) : null}
       <AnimatedFlashList<Session>
         ref={listRef}
         data={items}
@@ -450,7 +460,9 @@ export function SessionsScreen({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={
-          loaded && isFiltering(filter) && Object.keys(sessions).length > 0 ? (
+          unreachableState === 'full' ? (
+            <UnreachableEmptyState />
+          ) : loaded && isFiltering(filter) && Object.keys(sessions).length > 0 ? (
             <EmptyState title={t('sessions.noMatch')}>
               <Button label={t('sessions.clearFilters')} onPress={() => changeFilter(NO_FILTER)} />
             </EmptyState>
