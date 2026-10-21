@@ -25,7 +25,7 @@ import {
   upsertDevice,
 } from './follows.ts'
 import { LiveStatusService } from './service.ts'
-import { parallelTasks, stepForEntry } from './status.ts'
+import { eventsForEntry, sameTaskCounts, taskCounts } from './status.ts'
 
 /** How often expired follows are dropped. */
 const FOLLOW_SWEEP_MS = 10 * 60_000
@@ -59,12 +59,11 @@ export async function registerLiveStatusFeature(
     isMuted: options.isMuted,
     tasksOf: (sessionId) => {
       const session = options.store.get(sessionId)
-      return session ? parallelTasks(session) : 0
+      return session ? taskCounts(session) : { subagents: 0, background: 0 }
     },
     follow: (sessionId, onEvent) =>
       options.follow(sessionId, (_id, entry) => {
-        const event = stepForEntry(entry)
-        if (event) onEvent(event)
+        for (const event of eventsForEntry(entry)) onEvent(event)
       }),
   })
 
@@ -87,9 +86,9 @@ export async function registerLiveStatusFeature(
       if (service.has(session.id)) service.handle(session.id, { type: 'end' })
       return
     }
-    const count = parallelTasks(session)
-    if (service.has(session.id) && (!previous || parallelTasks(previous) !== count)) {
-      service.handle(session.id, { type: 'tasks', count })
+    const counts = taskCounts(session)
+    if (service.has(session.id) && (!previous || !sameTaskCounts(taskCounts(previous), counts))) {
+      service.handle(session.id, { type: 'tasks', counts })
     }
   })
 

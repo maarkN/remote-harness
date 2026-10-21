@@ -1,4 +1,10 @@
-import type { LiveState, LiveStatusProps, Session, TranscriptEntry } from '@remote-harness/protocol'
+import type {
+  LiveProgress,
+  LiveState,
+  LiveStatusProps,
+  Session,
+  TranscriptEntry,
+} from '@remote-harness/protocol'
 import type { Messages } from '../../core/i18n/index.ts'
 
 export type LiveStep = keyof Messages['live']['steps']
@@ -8,6 +14,18 @@ export type RecentStep = { step: LiveStep; tool: string | null; count: number }
 
 /** The tool permission the session waits for: only its id and the tool name, never the input. */
 export type LivePendingRequest = { requestId: string; tool: string }
+
+/** The step running now: the tool and its sanitized target (see `stepTarget`), never the input. */
+export type CurrentStep = { tool: string; target: string | null }
+
+/** Tasks running in parallel in the session. */
+export type TaskCounts = { subagents: number; background: number }
+
+/**
+ * The session's todo list as counts: from the latest `TodoWrite` snapshot, or built up from
+ * `TaskCreate` / `TaskUpdate` calls (`completed` keeps the task ids already counted as done).
+ */
+export type TodoProgress = { done: number; total: number; completed: string[] }
 
 /** Live status of one registered session. Only categories and counts: never session content. */
 export type LiveStatus = {
@@ -27,18 +45,29 @@ export type LiveStatus = {
   /** Tool permission waiting for an answer, answerable from the lock screen. */
   pending: LivePendingRequest | null
   /** Tasks running in parallel in the session (background tasks and running subagents). */
-  tasks: number
+  tasks: TaskCounts
+  /** The step running now, `null` while thinking, writing or between turns. */
+  current: CurrentStep | null
+  /** The session's todo list, `null` without one. */
+  todo: TodoProgress | null
 }
 
 export type LiveEvent =
   | { type: 'prompt' }
-  | { type: 'step'; step: LiveStep; tool: string | null }
+  | { type: 'step'; step: LiveStep; tool: string | null; target?: string | null }
+  /** A todo list change: a full snapshot (`TodoWrite`), a new task or a task's new status. */
+  | { type: 'todo'; change: TodoChange }
   /** `pending: null` drops the lock-screen answer (the request moved to the terminal). */
   | { type: 'waiting'; permission: boolean; pending?: LivePendingRequest | null }
   | { type: 'resumed' }
   | { type: 'stop' }
   | { type: 'end' }
-  | { type: 'tasks'; count: number }
+  | { type: 'tasks'; counts: TaskCounts }
+
+export type TodoChange =
+  | { kind: 'snapshot'; done: number; total: number }
+  | { kind: 'created' }
+  | { kind: 'updated'; taskId: string; status: 'completed' | 'deleted' | 'open' }
 
 /** Step-only changes are sent at most this often (state changes go out at once). */
 export const STEP_INTERVAL_MS = 15_000
@@ -89,12 +118,181 @@ export function toolStep(name: string): LiveStep {
   return TOOL_STEPS[name] ?? 'tool'
 }
 
+/** Longest target shown after the tool name. */
+export const TARGET_MAX = 40
+
+const FILE_TOOLS = new Set(['Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
+/** Programs whose next word is a subcommand worth showing (`pnpm test`, `git push`). */
+const SUBCOMMAND_PROGRAMS = new Set([
+  'git',
+  'pnpm',
+  'npm',
+  'yarn',
+  'bun',
+  'npx',
+  'pnpx',
+  'bunx',
+  'cargo',
+  'go',
+  'make',
+  'docker',
+  'gh',
+  'kubectl',
+  'turbo',
+  'uv',
+  'pip',
+  'brew',
+])
+/** Words that run the next one (`sudo make`, `env FOO=1 pnpm`). */
+const WRAPPERS = new Set(['sudo', 'env', 'time', 'nohup', 'exec', 'command'])
+const PLAIN_WORD = /^[a-z][a-z0-9._-]{0,23}$/
+const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/
+
+function clip(text: string): string {
+  return text.length > TARGET_MAX ? `${text.slice(0, TARGET_MAX - 1)}…` : text
+}
+
+function baseName(path: string): string {
+  return (
+    path
+      .replace(/[\\/]+$/, '')
+      .split(/[\\/]/)
+      .at(-1) ?? ''
+  )
+}
+
+/** `pnpm test` from `cd app && FOO=1 pnpm test --filter x`: the program and maybe its subcommand. */
+function commandTarget(command: string): string | null {
+  for (const segment of command.split(/&&|\|\||;|\||\n/)) {
+    const words = segment.trim().split(/\s+/).filter(Boolean)
+    let index = 0
+    while (WRAPPERS.has(words[index] ?? '') || /^\w+=/.test(words[index] ?? '')) index++
+    const program = words[index]
+    if (!program || program === 'cd') continue
+    // A quoted or expanded program (`"./my script.sh"`, `$(…)`) is not shown.
+    if (!/^[\w.+~/\\-]+$/.test(program)) return null
+    const name = baseName(program)
+    if (!name) return null
+    const next = words[index + 1]
+    return next && SUBCOMMAND_PROGRAMS.has(name) && PLAIN_WORD.test(next) ? `${name} ${next}` : name
+  }
+  return null
+}
+
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A short target for a tool call, from a fixed table: a file's base name, a command's program (with
+ * its subcommand for a few programs), a URL's host name, a subagent type. Nothing else of the input
+ * (command arguments, directories, patterns, queries) ever leaves the daemon.
+ */
+export function stepTarget(name: string, input: Readonly<Record<string, unknown>>): string | null {
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null)
+  let target: string | null = null
+  if (FILE_TOOLS.has(name)) {
+    const path = text(input.file_path) ?? text(input.notebook_path)
+    target = path ? baseName(path) || null : null
+  } else if (name === 'Bash') {
+    const command = text(input.command)
+    target = command ? commandTarget(command) : null
+  } else if (name === 'WebFetch') {
+    const url = text(input.url)
+    target = url ? hostOf(url) : null
+  } else if (name === 'Task' || name === 'Agent') {
+    const type = text(input.subagent_type)
+    target = type && IDENTIFIER.test(type) ? type : null
+  }
+  return target ? clip(target) : null
+}
+
+/** The todo list change a tool call stands for (`TodoWrite`, `TaskCreate`, `TaskUpdate`), if any. */
+export function todoChange(name: string, input: Readonly<Record<string, unknown>>): TodoChange | null {
+  switch (name) {
+    case 'TodoWrite': {
+      if (!Array.isArray(input.todos)) return null
+      const items = input.todos.filter(
+        (todo): todo is Record<string, unknown> => !!todo && typeof todo === 'object',
+      )
+      return {
+        kind: 'snapshot',
+        done: items.filter((todo) => todo.status === 'completed').length,
+        total: items.length,
+      }
+    }
+    case 'TaskCreate':
+      return { kind: 'created' }
+    case 'TaskUpdate': {
+      const taskId = input.taskId ?? input.task_id ?? input.id
+      if ((typeof taskId !== 'string' && typeof taskId !== 'number') || typeof input.status !== 'string')
+        return null
+      const status = input.status === 'completed' || input.status === 'deleted' ? input.status : 'open'
+      return { kind: 'updated', taskId: String(taskId), status }
+    }
+    default:
+      return null
+  }
+}
+
+/** The todo list after a change; an update without a known list changes nothing. */
+export function applyTodo(todo: TodoProgress | null, change: TodoChange): TodoProgress | null {
+  switch (change.kind) {
+    case 'snapshot':
+      return change.total > 0 ? { done: change.done, total: change.total, completed: [] } : null
+    case 'created': {
+      const current = todo ?? { done: 0, total: 0, completed: [] }
+      return { ...current, total: current.total + 1 }
+    }
+    case 'updated': {
+      if (!todo || todo.total === 0) return todo
+      const wasDone = todo.completed.includes(change.taskId)
+      if (change.status === 'completed') {
+        return wasDone
+          ? todo
+          : { ...todo, done: todo.done + 1, completed: [...todo.completed, change.taskId] }
+      }
+      const completed = wasDone ? todo.completed.filter((id) => id !== change.taskId) : todo.completed
+      const done = wasDone ? todo.done - 1 : todo.done
+      if (change.status === 'deleted') {
+        const total = todo.total - 1
+        return total > 0 ? { done, total, completed } : null
+      }
+      return wasDone ? { ...todo, done, completed } : todo
+    }
+  }
+}
+
+/** The todo list as the props show it: `null` without one, `done` never past `total`. */
+export function todoProgress(todo: TodoProgress | null): LiveProgress | null {
+  if (!todo || todo.total <= 0) return null
+  return { done: Math.max(0, Math.min(todo.done, todo.total)), total: todo.total }
+}
+
+/** The events a transcript entry stands for: its step, then its todo list change when it has one. */
+export function eventsForEntry(entry: TranscriptEntry): LiveEvent[] {
+  const step = stepForEntry(entry)
+  if (!step) return []
+  if (entry.kind !== 'tool_use') return [step]
+  const change = todoChange(entry.name, entry.input)
+  return change ? [step, { type: 'todo', change }] : [step]
+}
+
 /** The step event a transcript entry stands for, if any. */
 export function stepForEntry(entry: TranscriptEntry): LiveEvent | null {
   if (entry.isSidechain) return null
   switch (entry.kind) {
     case 'tool_use':
-      return { type: 'step', step: toolStep(entry.name), tool: entry.name }
+      return {
+        type: 'step',
+        step: toolStep(entry.name),
+        tool: entry.name,
+        target: stepTarget(entry.name, entry.input),
+      }
     case 'thinking':
       return { type: 'step', step: 'thinking', tool: null }
     case 'assistant_text':
@@ -104,7 +302,13 @@ export function stepForEntry(entry: TranscriptEntry): LiveEvent | null {
   }
 }
 
-export function initialLiveStatus(at: number, tasks = 0): LiveStatus {
+const NO_TASKS: TaskCounts = { subagents: 0, background: 0 }
+
+export function initialLiveStatus(
+  at: number,
+  tasks: TaskCounts = NO_TASKS,
+  todo: TodoProgress | null = null,
+): LiveStatus {
   return {
     state: 'working',
     step: null,
@@ -116,12 +320,26 @@ export function initialLiveStatus(at: number, tasks = 0): LiveStatus {
     glyphs: [],
     pending: null,
     tasks,
+    current: null,
+    todo,
   }
 }
 
-/** Tasks a session runs in parallel: its background tasks plus the subagents still running. */
-export function parallelTasks(session: Pick<Session, 'backgroundTasks' | 'subagents'>): number {
-  return session.backgroundTasks + session.subagents.filter((s) => s.state === 'running').length
+/** Tasks a session runs in parallel: its running subagents and its background tasks. */
+export function taskCounts(session: Pick<Session, 'backgroundTasks' | 'subagents'>): TaskCounts {
+  return {
+    subagents: session.subagents.filter((s) => s.state === 'running').length,
+    background: session.backgroundTasks,
+  }
+}
+
+export function sameTaskCounts(a: TaskCounts, b: TaskCounts): boolean {
+  return a.subagents === b.subagents && a.background === b.background
+}
+
+/** A todo list carries over to the next turn only while unfinished. */
+function carriedTodo(todo: TodoProgress | null): TodoProgress | null {
+  return todo && todo.done < todo.total ? todo : null
 }
 
 /** Adds a step to the latest ones, merging it with the newest when it repeats. */
@@ -148,15 +366,20 @@ function withState(status: LiveStatus, state: LiveState, now: number): LiveStatu
  * count (background tasks outlive the turn) or the session closing; a closed one never does.
  */
 export function reduceLiveStatus(status: LiveStatus, event: LiveEvent, now: number): LiveStatus {
-  if (event.type === 'prompt') return initialLiveStatus(now, status.tasks)
+  if (event.type === 'prompt') return initialLiveStatus(now, status.tasks, carriedTodo(status.todo))
   if (status.state === 'closed') return status
-  if (event.type === 'tasks') return status.tasks === event.count ? status : { ...status, tasks: event.count }
+  if (event.type === 'tasks') {
+    return sameTaskCounts(status.tasks, event.counts) ? status : { ...status, tasks: event.counts }
+  }
   if (status.state === 'done' && event.type !== 'end') return status
   switch (event.type) {
+    case 'todo':
+      return { ...status, todo: applyTodo(status.todo, event.change) }
     case 'step':
       return {
         ...withState(status, 'working', now),
         step: event.step,
+        current: event.tool ? { tool: event.tool, target: event.target ?? null } : null,
         toolCount: status.toolCount + (event.tool ? 1 : 0),
         recent: pushRecent(status.recent, event.step, event.tool),
         glyphs: pushGlyph(status.glyphs, event.step),
@@ -177,9 +400,9 @@ export function reduceLiveStatus(status: LiveStatus, event: LiveEvent, now: numb
         ? { ...withState(status, 'working', now), step: null, pending: null }
         : status
     case 'stop':
-      return { ...withState(status, 'done', now), step: null, endedAt: now, pending: null }
+      return { ...withState(status, 'done', now), step: null, current: null, endedAt: now, pending: null }
     case 'end':
-      return { ...withState(status, 'closed', now), step: null, endedAt: now, pending: null }
+      return { ...withState(status, 'closed', now), step: null, current: null, endedAt: now, pending: null }
   }
 }
 
@@ -211,7 +434,9 @@ export function planSend(
     previous.step === next.step &&
     previous.toolCount === next.toolCount &&
     previous.recent === next.recent &&
-    previous.tasks === next.tasks
+    previous.current === next.current &&
+    previous.todo === next.todo &&
+    sameTaskCounts(previous.tasks, next.tasks)
   ) {
     return { when: 'never' }
   }
@@ -244,6 +469,23 @@ export function recentLine(recent: RecentStep, messages: Messages['live']): stri
   return recent.count > 1 ? `${text} ×${recent.count}` : text
 }
 
+/** The current step as one line: "Bash · pnpm test", or the tool alone without a target. */
+export function currentLine(current: CurrentStep | null): string {
+  if (!current) return ''
+  const tool = shortTool(current.tool)
+  return current.target ? `${tool} · ${current.target}` : tool
+}
+
+/** The translated counts of tasks in parallel: "2 subagents · 1 background task", empty when none. */
+export function tasksLine(tasks: TaskCounts, messages: Messages['live']): string {
+  return [
+    tasks.subagents > 0 ? messages.subagents(tasks.subagents) : '',
+    tasks.background > 0 ? messages.background(tasks.background) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 /** Props shown by the widget and the Android notification, in the daemon's language. */
 export function liveProps(
   status: LiveStatus,
@@ -274,6 +516,8 @@ export function liveProps(
         }
       : null,
     hint: status.state === 'done' ? messages.total : status.state === 'closed' ? messages.closedHint : '',
-    tasks: status.tasks > 0 ? messages.tasks(status.tasks) : '',
+    tasks: tasksLine(status.tasks, messages),
+    current: currentLine(status.current),
+    progress: todoProgress(status.todo),
   }
 }
