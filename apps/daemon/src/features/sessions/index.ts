@@ -12,6 +12,7 @@ export function registerSessionsFeature(ctx: DaemonContext, tmux: TmuxClient) {
   const store = new SessionStore(ctx.hub, paths.state(), ctx.logger)
   const service = new SessionService(store, tmux, ctx.profiles, ctx.logger, {
     recentDays: ctx.config.recentDays,
+    onLimits: (limits) => ctx.bus.emit('account.limits', limits),
   })
 
   ctx.bus.on('hook', (hook) => {

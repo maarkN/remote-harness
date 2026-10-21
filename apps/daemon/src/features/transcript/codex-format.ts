@@ -9,8 +9,14 @@
  * (plus injected context) and are ignored; tool calls always come from `response_item`s, so a
  * running command shows before it ends.
  */
-import type { ImageRef, TranscriptEntry } from '@remote-harness/protocol'
-import type { ImageData, TranscriptFormat, TranscriptMetaUpdate } from './format.ts'
+import type {
+  ContextUsage,
+  ImageRef,
+  SessionStatus,
+  TranscriptEntry,
+  UsageWindow,
+} from '@remote-harness/protocol'
+import { type ImageData, mergeStatus, type TranscriptFormat, type TranscriptMetaUpdate } from './format.ts'
 import { base64Bytes, MAX_TOOL_RESULT_CHARS } from './parser.ts'
 
 type Json = Record<string, unknown>
@@ -365,11 +371,104 @@ function lineApprovalPolicy(line: Json): string | null {
   return null
 }
 
+/** Tokens the Codex TUI leaves out of both the used tokens and the window for "% context left". */
+export const CONTEXT_BASELINE_TOKENS = 12_000
+const DAY_MINUTES = 24 * 60
+
+function finite(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+/** Context usage of a `token_count` `info`: the last turn's tokens against the model's window. */
+function contextUsage(info: Json): ContextUsage | null {
+  const size = finite(info.model_context_window)
+  const usage = isObject(info.last_token_usage)
+    ? info.last_token_usage
+    : isObject(info.total_token_usage)
+      ? info.total_token_usage
+      : null
+  const tokens = usage ? finite(usage.total_tokens) : null
+  if (size === null || tokens === null || size <= CONTEXT_BASELINE_TOKENS || tokens < 0) return null
+  const used = Math.max(0, tokens - CONTEXT_BASELINE_TOKENS)
+  const percent = Math.min(100, (used / (size - CONTEXT_BASELINE_TOKENS)) * 100)
+  return { usedTokens: Math.round(tokens), size: Math.round(size), percent }
+}
+
+/** A rate-limit window with its reset time (`resets_at` seconds, or `resets_in_seconds` from `at`). */
+function usageWindow(window: Json, at: number | null): UsageWindow | null {
+  const percent = finite(window.used_percent)
+  const resetsAt = finite(window.resets_at)
+  const resetsIn = finite(window.resets_in_seconds)
+  const reset =
+    resetsAt !== null ? resetsAt * 1000 : resetsIn !== null && at !== null ? at + resetsIn * 1000 : null
+  return percent === null || percent < 0 || reset === null ? null : { percent, resetsAt: reset }
+}
+
+/**
+ * The account's windows: up to a day is the 5-hour slot, longer the 7-day one; without a length,
+ * primary → 5-hour and secondary → 7-day. The first window to claim a slot keeps it.
+ */
+function rateLimits(limits: Json, at: number | null): CodexLimits | null {
+  const result: CodexLimits = { fiveHour: null, sevenDay: null }
+  for (const [name, fallback] of [
+    ['primary', 'fiveHour'],
+    ['secondary', 'sevenDay'],
+  ] as const) {
+    const window = limits[name]
+    if (!isObject(window)) continue
+    const value = usageWindow(window, at)
+    if (!value) continue
+    const minutes = finite(window.window_minutes)
+    const slot = minutes === null ? fallback : minutes <= DAY_MINUTES ? 'fiveHour' : 'sevenDay'
+    result[slot] ??= value
+  }
+  return result.fiveHour || result.sevenDay ? result : null
+}
+
+export type CodexLimits = { fiveHour: UsageWindow | null; sevenDay: UsageWindow | null }
+
+/** What a line says about the session's status (model, effort, context) and the account's limits. */
+export type CodexStatusUpdate = { status?: Partial<SessionStatus>; limits?: CodexLimits }
+
+/** Status items of a `turn_context` or `token_count` line; null for every other line. */
+export function codexLineStatus(line: Json): CodexStatusUpdate | null {
+  const payload = isObject(line.payload) ? line.payload : {}
+  // `/model` mid-session records the new model as `thread_settings_applied`.
+  const settings =
+    line.type === 'turn_context'
+      ? payload
+      : line.type === 'event_msg' &&
+          payload.type === 'thread_settings_applied' &&
+          isObject(payload.thread_settings)
+        ? payload.thread_settings
+        : null
+  if (settings) {
+    const model = str(settings.model) || null
+    const effort = str(settings.effort) || str(settings.reasoning_effort) || null
+    return model || effort ? { status: { ...(model ? { model } : {}), ...(effort ? { effort } : {}) } } : null
+  }
+  if (line.type !== 'event_msg' || payload.type !== 'token_count') return null
+  const time = str(line.timestamp)
+  const at = time ? Date.parse(time) : Number.NaN
+  const context = isObject(payload.info) ? contextUsage(payload.info) : null
+  const limits = isObject(payload.rate_limits)
+    ? rateLimits(payload.rate_limits, Number.isNaN(at) ? null : at)
+    : null
+  if (!context && !limits) return null
+  return { ...(context ? { status: { context } } : {}), ...(limits ? { limits } : {}) }
+}
+
 export function parseCodexMeta(raw: string): TranscriptMetaUpdate | null {
-  if (!raw.includes('"turn_context"') && !raw.includes('"thread_settings_applied"')) return null
+  const settings = raw.includes('"turn_context"') || raw.includes('"thread_settings_applied"')
+  if (!settings && !raw.includes('"token_count"')) return null
   const line = parseLine(raw)
-  const approvalPolicy = line ? lineApprovalPolicy(line) : null
-  return approvalPolicy ? { approvalPolicy } : null
+  if (!line) return null
+  const approvalPolicy = lineApprovalPolicy(line)
+  const update: TranscriptMetaUpdate = {
+    ...(approvalPolicy ? { approvalPolicy } : {}),
+    ...codexLineStatus(line),
+  }
+  return Object.keys(update).length > 0 ? update : null
 }
 
 export function findCodexImage(raw: string, index: number): ImageData | null {
@@ -403,6 +502,17 @@ export type CodexMeta = {
   cwd: string | null
   firstPrompt: string | null
   approvalPolicy: string | null
+  /** Latest model, effort and context seen; null when the rollout carries none. */
+  status: SessionStatus | null
+  /** Latest rate limits seen; null when the rollout carries none. */
+  limits: CodexLimits | null
+}
+
+/** Folds a line's status into what was seen so far (later lines win, item by item). */
+function foldStatus(meta: Pick<CodexMeta, 'status' | 'limits'>, line: Json): void {
+  const update = codexLineStatus(line)
+  if (update?.status) meta.status = mergeStatus(meta.status, update.status)
+  if (update?.limits) meta.limits = update.limits
 }
 
 /** Session id, folder and first prompt from the head of a rollout, approval policy from its tail. */
@@ -411,6 +521,7 @@ export function extractCodexMeta(headLines: readonly string[], tailLines: readon
   let cwd: string | null = null
   let firstPrompt: string | null = null
   let approvalPolicy: string | null = null
+  const seen: Pick<CodexMeta, 'status' | 'limits'> = { status: null, limits: null }
   for (const raw of headLines) {
     const line = parseLine(raw)
     if (!line) continue
@@ -422,12 +533,15 @@ export function extractCodexMeta(headLines: readonly string[], tailLines: readon
     if (!cwd && line.type === 'turn_context') cwd = str(payload.cwd)
     firstPrompt ??= promptOf(line)
     approvalPolicy = lineApprovalPolicy(line) ?? approvalPolicy
+    foldStatus(seen, line)
   }
   for (const raw of tailLines) {
     const line = parseLine(raw)
-    if (line) approvalPolicy = lineApprovalPolicy(line) ?? approvalPolicy
+    if (!line) continue
+    approvalPolicy = lineApprovalPolicy(line) ?? approvalPolicy
+    foldStatus(seen, line)
   }
-  return { id, cwd, firstPrompt, approvalPolicy }
+  return { id, cwd, firstPrompt, approvalPolicy, ...seen }
 }
 
 /** Latest thread name per id in `session_index.jsonl` lines (`{id, thread_name}`, last wins). */

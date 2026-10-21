@@ -1,4 +1,10 @@
-import type { AgentId, CommandItem, PermissionMode } from '@remote-harness/protocol'
+import type {
+  AccountLimits,
+  AgentId,
+  CommandItem,
+  PermissionMode,
+  SessionStatus,
+} from '@remote-harness/protocol'
 import type { TranscriptFormat } from '../transcript/format.ts'
 
 /** A main-session transcript on disk. */
@@ -12,6 +18,10 @@ export type TranscriptSummary = {
   permissionMode: PermissionMode | null
   /** Codex's approval policy. */
   approvalPolicy: string | null
+  /** Codex: model, effort and context read from the transcript (Claude Code's come from the status line). */
+  status?: SessionStatus | null
+  /** Codex: the account's latest rate limits read from the transcript. */
+  limits?: Pick<AccountLimits, 'fiveHour' | 'sevenDay'> | null
 }
 
 /**

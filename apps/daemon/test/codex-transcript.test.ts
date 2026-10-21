@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import {
   approvalPolicyName,
+  CONTEXT_BASELINE_TOKENS,
+  codexLineStatus,
   codexTranscript,
   extractCodexMeta,
   findCodexImage,
@@ -150,8 +152,11 @@ describe('codex rollout parser', () => {
 describe('codex helpers', () => {
   test('meta lines carry the approval policy', async () => {
     const all = await lines(paginated)
-    expect(parseCodexMeta(all[3]!)).toEqual({ approvalPolicy: 'on-request' })
-    expect(parseCodexMeta(all[19]!)).toEqual({ approvalPolicy: 'never' })
+    expect(parseCodexMeta(all[3]!)).toEqual({
+      approvalPolicy: 'on-request',
+      status: { model: 'gpt-5.5-codex', effort: 'medium' },
+    })
+    expect(parseCodexMeta(all[19]!)).toEqual({ approvalPolicy: 'never', status: { model: 'gpt-5.5-codex' } })
     expect(parseCodexMeta(all[5]!)).toBeNull()
     expect(approvalPolicyName({ granular: { rules: true } })).toBe('granular')
     expect(approvalPolicyName(3)).toBeNull()
@@ -164,12 +169,16 @@ describe('codex helpers', () => {
       cwd: '/Users/me/proj',
       firstPrompt: 'run the tests',
       approvalPolicy: 'never',
+      status: { model: 'gpt-5.5-codex', effort: 'medium', context: null },
+      limits: null,
     })
     const old = await lines(legacy)
     expect(extractCodexMeta(old, [])).toMatchObject({
       cwd: '/Users/me/old',
       firstPrompt: 'list files',
       approvalPolicy: 'untrusted',
+      status: { model: 'gpt-5', effort: null, context: null },
+      limits: null,
     })
   })
 
@@ -208,5 +217,110 @@ describe('codex helpers', () => {
       isError: false,
     })
     expect(toolOutput('{"output":"x","metadata":{"exit_code":2}}')).toEqual({ text: 'x', isError: true })
+  })
+})
+
+const T = '2026-10-21T12:00:00.000Z'
+const tokenCount = (info: unknown, rateLimits: unknown) =>
+  JSON.stringify({
+    timestamp: T,
+    type: 'event_msg',
+    payload: { type: 'token_count', info, rate_limits: rateLimits },
+  })
+const usage = (total: number) => ({
+  input_tokens: total - 500,
+  cached_input_tokens: 0,
+  output_tokens: 500,
+  reasoning_output_tokens: 0,
+  total_tokens: total,
+})
+
+describe('codex status', () => {
+  test('context from the last turn, with the TUI baseline', () => {
+    const line = tokenCount(
+      { total_token_usage: usage(900_000), last_token_usage: usage(72_000), model_context_window: 272_000 },
+      null,
+    )
+    const meta = parseCodexMeta(line)
+    expect(meta?.limits).toBeUndefined()
+    expect(meta?.status?.context?.usedTokens).toBe(72_000)
+    expect(meta?.status?.context?.size).toBe(272_000)
+    expect(meta?.status?.context?.percent).toBeCloseTo(23.077, 2)
+    // Below the baseline reads as empty; past the window as full.
+    const low = parseCodexMeta(
+      tokenCount({ last_token_usage: usage(5_000), model_context_window: 272_000 }, null),
+    )
+    expect(low?.status?.context?.percent).toBe(0)
+    const full = parseCodexMeta(
+      tokenCount({ last_token_usage: usage(400_000), model_context_window: 272_000 }, null),
+    )
+    expect(full?.status?.context?.percent).toBe(100)
+    expect(
+      parseCodexMeta(
+        tokenCount({ last_token_usage: usage(1_000), model_context_window: CONTEXT_BASELINE_TOKENS }, null),
+      ),
+    ).toBeNull()
+  })
+
+  test('rate limits by window length', () => {
+    const line = tokenCount(null, {
+      primary: { used_percent: 12, window_minutes: 300, resets_at: 1_792_000_000 },
+      secondary: { used_percent: 40.5, window_minutes: 10_080, resets_at: 1_792_400_000 },
+    })
+    expect(parseCodexMeta(line)).toEqual({
+      limits: {
+        fiveHour: { percent: 12, resetsAt: 1_792_000_000_000 },
+        sevenDay: { percent: 40.5, resetsAt: 1_792_400_000_000 },
+      },
+    })
+    // A weekly primary (no 5-hour window on the plan) goes to the 7-day slot.
+    const weekly = parseCodexMeta(
+      tokenCount(null, { primary: { used_percent: 7, window_minutes: 10_080, resets_at: 1_792_400_000 } }),
+    )
+    expect(weekly?.limits).toEqual({ fiveHour: null, sevenDay: { percent: 7, resetsAt: 1_792_400_000_000 } })
+  })
+
+  test('older reset fields and missing lengths', () => {
+    const at = Date.parse(T)
+    const line = tokenCount(null, {
+      primary: { used_percent: 30, resets_in_seconds: 600 },
+      secondary: { used_percent: 5, window_minutes: null, resets_in_seconds: 86_400 },
+    })
+    expect(parseCodexMeta(line)?.limits).toEqual({
+      fiveHour: { percent: 30, resetsAt: at + 600_000 },
+      sevenDay: { percent: 5, resetsAt: at + 86_400_000 },
+    })
+    // Without a reset time a window is unknown.
+    expect(
+      parseCodexMeta(tokenCount(null, { primary: { used_percent: 30, window_minutes: 300 } })),
+    ).toBeNull()
+  })
+
+  test('unknown items stay unknown', () => {
+    expect(parseCodexMeta(tokenCount(null, null))).toBeNull()
+    expect(parseCodexMeta(tokenCount({ model_context_window: 'x' }, { primary: 'nope' }))).toBeNull()
+    expect(codexLineStatus({ type: 'turn_context', payload: { cwd: '/x' } })).toBeNull()
+    expect(codexLineStatus({ type: 'event_msg', payload: { type: 'agent_message' } })).toBeNull()
+  })
+
+  test('the tail wins over the head', () => {
+    const head = [
+      JSON.stringify({ type: 'session_meta', payload: { id: 's', cwd: '/p' } }),
+      JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.5-codex', effort: 'low' } }),
+    ]
+    const tail = [
+      JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.5-codex', effort: 'high' } }),
+      tokenCount(
+        { last_token_usage: usage(142_000), model_context_window: 272_000 },
+        { primary: { used_percent: 50, window_minutes: 300, resets_at: 1_792_000_000 } },
+      ),
+    ]
+    const meta = extractCodexMeta(head, tail)
+    expect(meta.status).toEqual({
+      model: 'gpt-5.5-codex',
+      effort: 'high',
+      context: { usedTokens: 142_000, size: 272_000, percent: 50 },
+    })
+    expect(meta.limits).toEqual({ fiveHour: { percent: 50, resetsAt: 1_792_000_000_000 }, sevenDay: null })
   })
 })

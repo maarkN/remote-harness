@@ -1,4 +1,4 @@
-import type { PermissionOutcome, PermissionRequestInfo } from '@remote-harness/protocol'
+import type { AccountLimits, PermissionOutcome, PermissionRequestInfo } from '@remote-harness/protocol'
 import type { HookEvent } from '../features/hooks/payloads.ts'
 
 /** Domain events exchanged between features through the bus. Grows as features are added. */
@@ -11,4 +11,6 @@ export type DaemonEvents = {
   'permission.handover': PermissionRequestInfo
   /** A question or plan is still open after a while. */
   'permission.reminder': PermissionRequestInfo
+  /** Account limits a profile reported outside the status line (Codex rollouts). */
+  'account.limits': Pick<AccountLimits, 'profileId' | 'fiveHour' | 'sevenDay'>
 }
