@@ -4,7 +4,7 @@ export const esES: WebMessages = {
   meta: {
     title: 'Remote Harness: sigue y dirige tus agentes de código desde el móvil',
     description:
-      'Autoalojado: Claude Code se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil por tu red Tailscale. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
+      'Autoalojado: Claude Code o Codex se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil por tu red Tailscale. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
   },
   nav: {
     skip: 'Ir al contenido',
@@ -20,7 +20,7 @@ export const esES: WebMessages = {
   hero: {
     eyebrow: 'Autoalojado · Tailscale · tmux',
     title: 'Sigue y dirige tus agentes de código desde el móvil.',
-    lead: 'Claude Code se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil por tu red Tailscale: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas desde donde estés.',
+    lead: 'Claude Code o Codex se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil por tu red Tailscale: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas desde donde estés.',
     install: 'Instalar en la máquina',
     app: 'Descargar la app',
     platforms: 'macOS · Linux · Windows (WSL2)',
@@ -174,8 +174,13 @@ export const esES: WebMessages = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Tus agentes, en tmux',
-      body: 'Una ventana por sesión, un alias por perfil.',
-      aliases: ['personal → ~/.claude', 'trabajo → ~/.claude-work', 'openrouter → ~/.claude-openrouter'],
+      body: 'Una ventana por sesión, un alias por perfil, para Claude Code o Codex.',
+      aliases: [
+        { mark: 'claude', text: 'personal → ~/.claude' },
+        { mark: 'claude', text: 'trabajo → ~/.claude-work' },
+        { mark: 'codex', text: 'codex → ~/.codex' },
+        { mark: 'claude', text: 'openrouter → ~/.claude-openrouter' },
+      ],
     },
     steps: [
       {
@@ -286,7 +291,7 @@ export const esES: WebMessages = {
       'git',
       'ripgrep',
       'Tailscale',
-      'claude en el PATH',
+      'claude o codex en el PATH',
     ],
     appTitle: 'Descargar la app',
     ios: {
@@ -308,7 +313,7 @@ export const esES: WebMessages = {
       },
       {
         q: '¿Qué agentes están soportados?',
-        a: 'Claude Code hoy, con todos los perfiles (`CLAUDE_CONFIG_DIR`) en una sola lista, incluidos los perfiles enrutados por OpenRouter. Codex CLI, Kimi y Qwen Code están en la hoja de ruta.',
+        a: 'Claude Code y Codex CLI, con todos los perfiles (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) en una sola lista, incluidos los perfiles de Claude Code enrutados por OpenRouter. Kimi y Qwen Code están en la hoja de ruta.',
       },
       {
         q: '¿Puede ejecutar mi agente sin supervisión?',
