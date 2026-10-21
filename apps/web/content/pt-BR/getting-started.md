@@ -6,7 +6,7 @@ applies: 0.7+
 
 ## Requisitos
 
-- Um computador com macOS, Linux (systemd recomendado) ou Windows 10 2004+ / 11 via WSL2, com `tmux`, `git`, `rg` (ripgrep), `zsh` e `claude` no `PATH`. O instalador adiciona as ferramentas que faltam.
+- Um computador com macOS, Linux (systemd recomendado) ou Windows 10 2004+ / 11 via WSL2, com `tmux`, `git`, `rg` (ripgrep), `zsh` e `claude` (ou `codex`) no `PATH`. O instalador adiciona as ferramentas que faltam.
 - Node 24+. O instalador baixa um Node privado para `~/.remote-harness/node` quando ele falta, sem mexer no Node do sistema.
 - [Tailscale](https://tailscale.com) no computador e no celular, com a mesma conta (mesma tailnet).
 - Um iPhone ou iPad (iOS 17+) ou um celular Android (Android 10+).

@@ -251,17 +251,17 @@ function agents(m: WebMessages): string {
   return `<div class="agents" aria-label="${esc(a.label)}">
   <span class="lbl">${esc(a.label)}</span>
   <span class="agchip">${agentMark('claude')}${esc(a.claude)}</span>
-  <span class="agchip">${agentMark('openrouter')}${esc(a.openrouter)} <small>${esc(a.openrouterNote)}</small></span>
-  <span class="agchip soon">${agentMark('codex')}${esc(a.codex)} <small>${esc(a.soon)}</small></span>
+  <span class="agchip">${agentMark('codex')}${esc(a.codex)}</span>
   <span class="agchip soon">${agentMark('kimi')}${esc(a.kimi)} <small>${esc(a.soon)}</small></span>
   <span class="agchip soon">${agentMark('qwen')}${esc(a.qwen)} <small>${esc(a.soon)}</small></span>
+  <span class="agchip">${agentMark('openrouter')}${esc(a.openrouter)} <small>${esc(a.openrouterNote)}</small></span>
 </div>`
 }
 
 function how(m: WebMessages): string {
   const h = m.how
   const aliases = h.agents.aliases
-    .map((alias) => `<span>${agentMark('claude', 14)}${esc(alias)}</span>`)
+    .map((alias) => `<span>${agentMark(alias.mark, 14)}${esc(alias.text)}</span>`)
     .join('')
   const steps = h.steps
     .map((s) => `<li class="step"><div><b>${esc(s.title)}</b><p>${inline(s.body)}</p></div></li>`)

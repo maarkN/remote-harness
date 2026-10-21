@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { agentMark } from '../src/agent-marks.ts'
 import { esc, inline } from '../src/html.ts'
 import { CATALOGS, WEB_LOCALES } from '../src/i18n/index.ts'
 import { INSTALL_COMMANDS, renderLanding, renderNotFound } from '../src/landing.ts'
@@ -124,6 +125,30 @@ describe('renderLanding', () => {
     for (const event of ['mouseenter', 'mouseleave', 'focusin', 'focusout'])
       expect(html).toContain(`addEventListener('${event}'`)
     expect(html).toContain('scroll-snap-type: x mandatory')
+  })
+
+  test.each(WEB_LOCALES)('%s: agent chips in product order, Codex supported', (locale) => {
+    const html = renderLanding(locale)
+    const a = CATALOGS[locale].agents
+    const strip = html.slice(
+      html.indexOf('<div class="agents"'),
+      html.indexOf('</div>', html.indexOf('<div class="agents"')),
+    )
+    const chips = [...strip.matchAll(/<span class="agchip( soon)?"><svg class="mk (\w+)"/g)].map((x) => [
+      x[2],
+      Boolean(x[1]),
+    ])
+    expect(chips).toEqual([
+      ['claude', false],
+      ['codex', false],
+      ['kimi', true],
+      ['qwen', true],
+      ['openrouter', false],
+    ])
+    expect(strip).toContain(`${esc(a.codex)}</span>`)
+    // The agents node of "How it works" shows a Codex alias with its mark.
+    expect(html).toContain(`<span>${agentMark('codex', 14)}codex → ~/.codex</span>`)
+    expect(CATALOGS[locale].faq.items[1]?.a).toContain('Codex CLI')
   })
 
   test('the root page keeps its own canonical; the language switcher marks the current one', () => {
