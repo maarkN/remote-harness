@@ -74,6 +74,8 @@ async function readCodexSummary(path: string, configDir: string) {
     cwd: meta.cwd,
     permissionMode: null,
     approvalPolicy: meta.approvalPolicy,
+    status: meta.status,
+    limits: meta.limits,
   }
 }
 

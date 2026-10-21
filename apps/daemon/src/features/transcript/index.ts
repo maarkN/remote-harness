@@ -4,6 +4,7 @@ import type { DaemonContext } from '../../main.ts'
 import { adapterOf } from '../agents/index.ts'
 import type { SessionStore } from '../sessions/store.ts'
 import { oneLine } from '../sessions/transcript-meta.ts'
+import { mergeStatus } from './format.ts'
 import { type EntryListener, type StreamTarget, TranscriptService } from './service.ts'
 
 /** Resolves the transcript file for a session or one of its subagents. */
@@ -24,6 +25,18 @@ export function registerTranscriptFeature(
         ...(update.customTitle ? { title: oneLine(update.customTitle) } : {}),
         ...(update.approvalPolicy ? { approvalPolicy: update.approvalPolicy } : {}),
       })
+      const session = store.get(sessionId)
+      if (!session) return
+      if (update.status) {
+        // Keeps `updatedAt`, like the status line: status ticks must not reorder the session list.
+        store.upsert(sessionId, {
+          status: mergeStatus(session.status, update.status),
+          updatedAt: session.updatedAt,
+        })
+      }
+      // An ended session's rollout may be older than the account's latest numbers.
+      if (update.limits && session.state !== 'ended')
+        ctx.bus.emit('account.limits', { profileId: session.profileId, ...update.limits })
     },
     onActivity,
   )

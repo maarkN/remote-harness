@@ -48,6 +48,11 @@ export class StatusLineService {
     return true
   }
 
+  /** Limits a profile reported outside the status line (a Codex rollout); same dedupe and broadcast. */
+  reportLimits(profileId: string, windows: Pick<AccountLimits, 'fiveHour' | 'sevenDay'>): void {
+    this.updateLimits(profileId, windows)
+  }
+
   /** Latest limits of every profile that reported them. */
   current(): AccountLimits[] {
     return [...this.limits.values()]

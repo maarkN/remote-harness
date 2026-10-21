@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { MAX_TRANSCRIPT_IMAGE_BYTES, type ServerMessage } from '@remote-harness/protocol'
 import { afterEach, describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
+import { codexTranscript } from '../src/features/transcript/codex-format.ts'
 import {
   base64Bytes,
   findImage,
@@ -400,6 +401,23 @@ describe('TranscriptService', () => {
     const other = fakeConnection()
     const resumed = await service.subscribe({ sessionId: 's', path }, other, 19)
     expect(resumed.entries.map((e) => e.cursor)).toEqual([21])
+  })
+
+  test('a Codex backlog applies only its latest status when opened (#313)', async () => {
+    const path = join(home.dir(), 'rollout.jsonl')
+    await copyFile(join(import.meta.dirname, 'fixtures', 'codex-paginated.jsonl'), path)
+    const metas: unknown[] = []
+    service = new TranscriptService(silentLogger, (_id, meta) => metas.push(meta))
+    await service.subscribe({ sessionId: 'c', path, format: codexTranscript }, fakeConnection())
+    expect(metas).toEqual([
+      {
+        status: {
+          model: 'gpt-5.5-codex',
+          effort: 'medium',
+          context: { usedTokens: 12_300, size: 272_000, percent: expect.closeTo(0.115, 3) },
+        },
+      },
+    ])
   })
 
   test('follow feeds new entries only and keeps the stream while subscribers remain', async () => {

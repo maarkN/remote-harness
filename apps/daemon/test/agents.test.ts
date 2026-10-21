@@ -124,6 +124,12 @@ describe('codex rollouts on disk', () => {
       cwd: '/Users/me/proj',
       permissionMode: null,
       approvalPolicy: 'never',
+      status: {
+        model: 'gpt-5.5-codex',
+        effort: 'medium',
+        context: expect.objectContaining({ size: 272_000 }),
+      },
+      limits: null,
     })
     await writeFile(
       join(configDir, 'session_index.jsonl'),
