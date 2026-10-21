@@ -12,6 +12,7 @@ export function IconButton({
   color = 'textMuted',
   size = 20,
   disabled,
+  filled = false,
 }: {
   icon: LucideIcon
   /** Omit when using `onPressIn`/`onPressOut` for a press-and-hold interaction instead. */
@@ -22,6 +23,8 @@ export function IconButton({
   color?: ColorName
   size?: number
   disabled?: boolean
+  /** Accent-filled primary variant (`accentInk` icon over an `accent` background); overrides `color`. */
+  filled?: boolean
 }) {
   const { colors } = useTheme()
   const [hovered, setHovered] = useState(false)
@@ -38,11 +41,12 @@ export function IconButton({
       onHoverOut={() => setHovered(false)}
       style={({ pressed }) => [
         styles.base,
-        hovered && !disabled && { backgroundColor: colors.surfaceRaised },
+        filled && { backgroundColor: colors.accent },
+        hovered && !disabled && !filled && { backgroundColor: colors.surfaceRaised },
         { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 },
       ]}
     >
-      <Icon size={size} color={colors[color]} strokeWidth={2} />
+      <Icon size={size} color={filled ? colors.accentInk : colors[color]} strokeWidth={2} />
     </Pressable>
   )
 }
