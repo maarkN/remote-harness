@@ -63,7 +63,7 @@ The screen SHALL follow the end of the conversation while following is on, the u
 - **THEN** the last message stays visible above the keyboard
 
 ### Requirement: Prompt sending
-The prompt field SHALL send `session.input` with `mode: auto` and clear the field after the `ack`, whether the prompt was sent or queued; on error, it MUST keep the text and show the message. In a read-only session the field MUST be disabled and its placeholder say so (`Read-only session`). Otherwise the placeholder SHALL name the agent when it is known (`Message Claude Code…`) and say `Message the agent…` when it is not. The placeholder MUST stay on one line whatever the language and width, ending in an ellipsis when it does not fit, so the empty field never grows. While the message would be queued (the session is `running` or `waiting`, a permission is pending or prompts are already queued), the composer SHALL show the hint `Hold: send now · ⌘⏎` and label the send button as queueing; a long press on Send, and ⌘⏎ on a hardware keyboard, SHALL send with `mode: now`. The session's queued prompts SHALL be shown in a dashed `QUEUED · N` card above the composer, numbered in order, each with its text, a photo count when it has attachments, the delivery error when one failed, and Edit (a sheet that keeps the attachments), Remove and Send now actions; the card SHALL offer `Send all now`. The card mirrors `session.queue` and disappears when the queue is empty.
+The prompt field SHALL send `session.input` with `mode: auto` and clear the field after the `ack`, whether the prompt was sent or queued; on error, it MUST keep the text and show the message. In a read-only session the field MUST be disabled and its placeholder say so (`Read-only session`). Otherwise the placeholder SHALL name the agent when it is known (`Message Claude Code…`) and say `Message the agent…` when it is not. The placeholder MUST stay on one line whatever the language and width, ending in an ellipsis when it does not fit, so the empty field never grows. While the message would be queued (the session is `running` or `waiting`, a permission is pending or prompts are already queued), the composer SHALL show the hint `Hold: send now · ⌘⏎` and label the send button as queueing; a long press on Send, and ⌘⏎ on a hardware keyboard, SHALL send with `mode: now`. The session's queued prompts SHALL be shown in a dashed `QUEUED · N` card above the composer, numbered in order, each with its text, a photo count when it has attachments, the delivery error when one failed, and Edit, Remove and Send now actions; the card SHALL offer `Send all now`. Remove MUST NOT be adjacent to Send now: a full row SHALL separate them, with Remove at the row's top-right corner and Edit and Send now at the row's bottom-right (Send now last, styled as the primary action), so a mis-tap cannot turn a tap on Send now into Remove. Each action MUST keep a hit area of at least 44×44pt. The card mirrors `session.queue` and disappears when the queue is empty.
 
 #### Scenario: Successful send
 - **WHEN** the user sends "continue" to an idle session
@@ -88,6 +88,10 @@ The prompt field SHALL send `session.input` with `mode: auto` and clear the fiel
 #### Scenario: Failed delivery shown
 - **WHEN** the daemon could not deliver the first queued prompt
 - **THEN** its row shows the error and Send now retries it
+
+#### Scenario: Remove kept away from Send now
+- **WHEN** a queued row is shown, with or without a two-line message or a delivery error
+- **THEN** Remove sits alone in the row's top-right corner and Send now sits in the row's bottom-right, so the two buttons share no edge
 
 ### Requirement: Controls
 The screen SHALL offer Esc (interrupt) and Ctrl+C (with confirmation), plus a key bar (arrows, Enter, Tab, 1-3). The key bar SHALL be hidden by default and shown or hidden from the session options menu; the choice MUST be remembered on the device across app restarts.
