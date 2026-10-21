@@ -74,11 +74,25 @@ export type LocalLiveInfo = {
   palette?: LivePalette
 }
 
-/** Tasks a session runs in parallel: its background tasks plus the subagents still running. */
-export function parallelTasks(session: Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>): number {
-  return (
-    (session.backgroundTasks ?? 0) + (session.subagents ?? []).filter((s) => s.state === 'running').length
-  )
+/** Tasks a session runs in parallel: its running subagents and its background tasks. */
+export function taskCounts(session: Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>): {
+  subagents: number
+  background: number
+} {
+  return {
+    subagents: (session.subagents ?? []).filter((s) => s.state === 'running').length,
+    background: session.backgroundTasks ?? 0,
+  }
+}
+
+/** The translated counts of tasks in parallel, as the daemon writes them: "2 subagents · 1 background task". */
+export function tasksLine(counts: { subagents: number; background: number }, t: TFunction): string {
+  return [
+    counts.subagents > 0 ? t('liveStatus.subagents', { count: counts.subagents }) : '',
+    counts.background > 0 ? t('liveStatus.background', { count: counts.background }) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** Props for an update made by the app itself (no steps: only the daemon follows the transcript). */
@@ -88,7 +102,6 @@ export function localLiveProps(
   t: TFunction,
 ): LiveStatusProps {
   const state = liveStateFor(session.state)
-  const tasks = parallelTasks(session)
   return {
     title: info.title,
     state,
@@ -106,7 +119,9 @@ export function localLiveProps(
     glyphs: [],
     pending: null,
     hint: '',
-    tasks: tasks > 0 ? t('liveStatus.tasks', { count: tasks }) : '',
+    tasks: tasksLine(taskCounts(session), t),
+    current: '',
+    progress: null,
     ...(info.palette ? { palette: info.palette } : {}),
   }
 }

@@ -482,7 +482,9 @@ export const ptBR = {
       permission: 'permissão pendente',
     },
     tools: (count: number) => (count === 1 ? '1 ferramenta' : `${count} ferramentas`),
-    tasks: (count: number) => (count === 1 ? '1 tarefa rodando' : `${count} tarefas rodando`),
+    subagents: (count: number) => (count === 1 ? '1 subagente' : `${count} subagentes`),
+    background: (count: number) =>
+      count === 1 ? '1 tarefa em segundo plano' : `${count} tarefas em segundo plano`,
     ago: 'há {time}',
     allow: 'Permitir',
     deny: 'Negar',

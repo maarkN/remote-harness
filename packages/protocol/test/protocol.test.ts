@@ -492,9 +492,12 @@ describe('client messages', () => {
       glyphs: ['⌘'],
       pending: { requestId: 'r1', tool: 'Bash', allow: 'Allow', deny: 'Deny' },
       hint: '',
-      tasks: '2 tasks running',
+      tasks: '2 subagents · 1 background task',
+      current: 'Bash · pnpm test',
+      progress: { done: 3, total: 7 },
     }
     expect(LiveStatusPropsSchema.parse({ ...full, prompt: 'secret' })).toEqual(full)
+    expect(LiveStatusPropsSchema.safeParse({ ...full, progress: { done: 1, total: 0 } }).success).toBe(false)
     // The pending request carries identifiers and labels only.
     expect(
       LiveStatusPropsSchema.parse({ ...full, pending: { ...full.pending, input: { command: 'rm' } } })
@@ -538,6 +541,8 @@ describe('client messages', () => {
       pending: null,
       hint: '',
       tasks: '',
+      current: '',
+      progress: null,
     })
   })
 
@@ -562,6 +567,15 @@ describe('client messages', () => {
       title: 'Work · Working',
       body: 'running a command · 3 tools · ✎ ⌘',
     })
+    // The current step replaces the category; the progress and the counts follow it.
+    expect(
+      liveNotificationText({
+        ...props,
+        current: 'Bash · pnpm test',
+        progress: { done: 3, total: 7 },
+        tasks: '2 subagents',
+      }).body,
+    ).toBe('Bash · pnpm test · ☑ 3/7 · 2 subagents · 3 tools · ✎ ⌘')
     expect(liveNotificationText({ ...props, session: 'Fix login', step: '', tools: '', glyphs: [] })).toEqual(
       {
         title: 'Fix login · Working',

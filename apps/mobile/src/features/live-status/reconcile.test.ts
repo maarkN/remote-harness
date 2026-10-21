@@ -4,10 +4,10 @@ import { createI18n } from '@/core/i18n/create'
 import {
   DONE_DISMISS_MS,
   localLiveProps,
-  parallelTasks,
   parseActivityMap,
   reconcileActivities,
   sessionIdFromActivityUrl,
+  taskCounts,
 } from './logic'
 
 const now = Date.parse('2026-10-19T22:00:00.000Z')
@@ -147,16 +147,22 @@ describe('tasks in parallel', () => {
   const info = { title: 'Work', host: 'mac', startedAt: 1, changedAt: 1, endedAt: null }
   const subagents = [{ state: 'running' }, { state: 'done' }, { state: 'running' }] as Session['subagents']
 
-  test('background tasks plus running subagents, translated', () => {
-    expect(parallelTasks({ backgroundTasks: 1, subagents })).toBe(3)
-    expect(parallelTasks({})).toBe(0)
+  test('running subagents and background tasks apart, translated like the daemon', () => {
+    expect(taskCounts({ backgroundTasks: 1, subagents })).toEqual({ subagents: 2, background: 1 })
+    expect(taskCounts({})).toEqual({ subagents: 0, background: 0 })
     const en = createI18n('en-US').t
     expect(localLiveProps({ ...session, backgroundTasks: 1, subagents: [] }, info, en).tasks).toBe(
-      '1 task running',
+      '1 background task',
+    )
+    expect(localLiveProps({ ...session, backgroundTasks: 1, subagents }, info, en).tasks).toBe(
+      '2 subagents · 1 background task',
     )
     expect(
       localLiveProps({ ...session, backgroundTasks: 0, subagents }, info, createI18n('pt-BR').t).tasks,
-    ).toBe('2 tarefas rodando')
+    ).toBe('2 subagentes')
+    expect(
+      localLiveProps({ ...session, backgroundTasks: 2, subagents: [] }, info, createI18n('es-ES').t).tasks,
+    ).toBe('2 tareas en segundo plano')
     expect(localLiveProps(session, info, en).tasks).toBe('')
   })
 })

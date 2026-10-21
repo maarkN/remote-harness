@@ -8,8 +8,10 @@ import {
   lineLimit,
   monospacedDigit,
   padding,
+  progressViewStyle,
   resizable,
   strokeBorder,
+  tint,
   truncationMode,
 } from '@expo/ui/swift-ui/modifiers'
 import { LIVE_ACTIVITY_NAME, type LiveStatusProps } from '@remote-harness/protocol'
@@ -21,8 +23,10 @@ import { createLiveActivity } from 'expo-widgets'
  * the props, the colors arrive in `props.palette` (the app theme; the literals below are the dark
  * theme, used when an older daemon sends none) and props from older daemons may lack the fields
  * after `startedAt`. The mark (`LiveActivityIcon`, from the widget extension's asset catalog) is the
- * only icon; color encodes only the state (border, timer, state line, current glyph). The Deny and
- * Allow buttons carry `deny:<requestId>` / `allow:<requestId>` as their target; the app answers them.
+ * only icon; color encodes only the state (border, timer, state line, progress bar, current glyph).
+ * Nothing spins: widgets don't animate an indeterminate `ProgressView`, so progress is only the
+ * ticking timer and, with a todo list, a determinate bar. The Deny and Allow buttons carry
+ * `deny:<requestId>` / `allow:<requestId>` as their target; the app answers them.
  */
 function SessionActivityLayout(props: LiveStatusProps) {
   'widget'
@@ -34,7 +38,7 @@ function SessionActivityLayout(props: LiveStatusProps) {
   const success = palette ? palette.success : '#7FB069'
   const warning = palette ? palette.warning : '#F3DC7A'
   const state = props.state
-  const tint =
+  const stateColor =
     state === 'waiting' ? warning : state === 'done' ? success : state === 'closed' ? textMuted : accent
   const working = state === 'working'
   const finished = state === 'done' || state === 'closed'
@@ -43,9 +47,13 @@ function SessionActivityLayout(props: LiveStatusProps) {
   const glyphs = props.glyphs ?? []
   const pending = props.pending ?? null
   const hint = props.hint ?? ''
-  // Tasks running in parallel ("2 tasks running"); older daemons do not send the field.
+  // Subagents and background tasks ("2 subagents · 1 background task"); older daemons send neither
+  // these nor the current step ("Bash · pnpm test") and the todo progress.
   const tasks = props.tasks ?? ''
-  const stateLine = [props.status, props.step, props.tools, tasks]
+  const current = props.current ?? ''
+  const progress = props.progress ?? null
+  const stateLine = [props.status, props.step].filter((part) => part.length > 0).join(' · ')
+  const meta = [progress ? `☑ ${progress.done}/${progress.total}` : '', tasks, props.tools]
     .filter((part) => part.length > 0)
     .join(' · ')
   // Oldest on the left, the current step on the right; repeated glyphs get their own stable key.
@@ -73,7 +81,7 @@ function SessionActivityLayout(props: LiveStatusProps) {
   const timerStyle = (size: number) => [
     font({ size, weight: 'semibold', design: 'monospaced' }),
     monospacedDigit(),
-    foregroundStyle(tint),
+    foregroundStyle(stateColor),
   ]
   // Running or waiting: ticks on its own. Ended: frozen at the turn's duration, with the hint.
   const timer = (size: number, maxWidth: number) =>
@@ -104,10 +112,48 @@ function SessionActivityLayout(props: LiveStatusProps) {
     </Text>
   ) : null
   const stateText = (
-    <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(tint), lineLimit(1)]}>
+    <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(stateColor), lineLimit(1)]}>
       {stateLine}
     </Text>
   )
+  // What runs now on the left, the progress and counts on the right.
+  const detailRow =
+    current || meta ? (
+      <HStack spacing={8}>
+        {current ? (
+          <Text
+            modifiers={[
+              font({ size: 12, design: 'monospaced' }),
+              foregroundStyle(text),
+              lineLimit(1),
+              truncationMode('middle'),
+            ]}
+          >
+            {current}
+          </Text>
+        ) : null}
+        <Spacer />
+        {meta ? (
+          <Text
+            modifiers={[
+              font({ size: 11, design: 'monospaced' }),
+              monospacedDigit(),
+              foregroundStyle(textMuted),
+              lineLimit(1),
+            ]}
+          >
+            {meta}
+          </Text>
+        ) : null}
+      </HStack>
+    ) : null
+  const progressBar =
+    working && progress ? (
+      <ProgressView
+        value={Math.min(1, progress.done / progress.total)}
+        modifiers={[progressViewStyle('linear'), tint(stateColor)]}
+      />
+    ) : null
   const glyphRow =
     ordered.length > 0 ? (
       <HStack spacing={8}>
@@ -116,7 +162,7 @@ function SessionActivityLayout(props: LiveStatusProps) {
             key={key}
             modifiers={[
               font({ size: 13, weight: 'semibold', design: 'monospaced' }),
-              foregroundStyle(index === ordered.length - 1 ? tint : textMuted),
+              foregroundStyle(index === ordered.length - 1 ? stateColor : textMuted),
             ]}
           >
             {glyph}
@@ -143,7 +189,7 @@ function SessionActivityLayout(props: LiveStatusProps) {
     hint && state === 'done' ? (
       <Text modifiers={[font({ size: 11 }), foregroundStyle(textMuted)]}>{hint}</Text>
     ) : null
-  const stateDot = <Text modifiers={[font({ size: 10 }), foregroundStyle(tint)]}>●</Text>
+  const stateDot = <Text modifiers={[font({ size: 10 }), foregroundStyle(stateColor)]}>●</Text>
 
   return {
     banner: (
@@ -153,7 +199,7 @@ function SessionActivityLayout(props: LiveStatusProps) {
         modifiers={[
           padding({ all: 14 }),
           activityBackgroundTint(background),
-          strokeBorder({ content: tint, style: { lineWidth: 2 }, shape: 'containerRelativeShape' }),
+          strokeBorder({ content: stateColor, style: { lineWidth: 2 }, shape: 'containerRelativeShape' }),
         ]}
       >
         <HStack spacing={10}>
@@ -173,12 +219,13 @@ function SessionActivityLayout(props: LiveStatusProps) {
             {totalText}
           </VStack>
         </HStack>
-        {working ? <ProgressView modifiers={[foregroundStyle(tint)]} /> : null}
+        {progressBar}
         <HStack spacing={8}>
           {stateText}
           <Spacer />
           {glyphRow}
         </HStack>
+        {detailRow}
         {hintText}
         {actions}
       </VStack>
@@ -187,7 +234,9 @@ function SessionActivityLayout(props: LiveStatusProps) {
     compactTrailing: !finished ? (
       timer(14, 56)
     ) : glyphs[0] ? (
-      <Text modifiers={[font({ size: 13, design: 'monospaced' }), foregroundStyle(tint)]}>{glyphs[0]}</Text>
+      <Text modifiers={[font({ size: 13, design: 'monospaced' }), foregroundStyle(stateColor)]}>
+        {glyphs[0]}
+      </Text>
     ) : (
       stateDot
     ),
@@ -213,6 +262,8 @@ function SessionActivityLayout(props: LiveStatusProps) {
           <Spacer />
           {glyphRow}
         </HStack>
+        {detailRow}
+        {progressBar}
         {hintText}
         {actions}
       </VStack>

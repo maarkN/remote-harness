@@ -63,6 +63,8 @@ describe('localLiveProps', () => {
       pending: null,
       hint: '',
       tasks: '',
+      current: '',
+      progress: null,
     })
   })
 

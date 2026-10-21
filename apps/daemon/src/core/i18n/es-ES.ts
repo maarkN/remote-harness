@@ -480,7 +480,9 @@ export const esES = {
       permission: 'permiso pendiente',
     },
     tools: (count: number) => (count === 1 ? '1 herramienta' : `${count} herramientas`),
-    tasks: (count: number) => (count === 1 ? '1 tarea en curso' : `${count} tareas en curso`),
+    subagents: (count: number) => (count === 1 ? '1 subagente' : `${count} subagentes`),
+    background: (count: number) =>
+      count === 1 ? '1 tarea en segundo plano' : `${count} tareas en segundo plano`,
     ago: 'hace {time}',
     allow: 'Permitir',
     deny: 'Denegar',

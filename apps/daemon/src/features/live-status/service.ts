@@ -13,6 +13,7 @@ import {
   planSend,
   reduceLiveStatus,
   STALE_AFTER_MS,
+  type TaskCounts,
 } from './status.ts'
 
 export type LiveRegistration = {
@@ -62,7 +63,7 @@ export type LiveStatusOptions = {
   /** Starts following the session's transcript; resolves with the function that stops it. */
   follow: (sessionId: string, onEvent: (event: LiveEvent) => void) => Promise<() => void>
   /** Tasks the session runs in parallel right now (the count shown from the first update). */
-  tasksOf?: (sessionId: string) => number
+  tasksOf?: (sessionId: string) => TaskCounts
   now?: () => number
 }
 

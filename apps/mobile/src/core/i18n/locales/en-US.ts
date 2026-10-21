@@ -350,11 +350,13 @@ const enUS = {
   liveStatus: {
     states: { working: 'Working', waiting: 'Waiting for you', done: 'Done', closed: 'Session closed' },
     title: 'Live status',
-    hint: 'While a session works, follow it on the lock screen and in the Dynamic Island (iPhone) or in a silent notification (Android). It shows the computer, the session name and folder, the state, the latest step types and the time, never the conversation itself.',
+    hint: 'While a session works, follow it on the lock screen and in the Dynamic Island (iPhone) or in a silent notification (Android). It shows the computer, the session name and folder, the state, the current tool with the file name or program it is on, the task progress and the time, never the conversation itself.',
     /** The widget puts a live counter in `{time}` (single braces: not an i18next placeholder). */
     ago: '{time} ago',
-    tasks_one: '{{count}} task running',
-    tasks_other: '{{count}} tasks running',
+    subagents_one: '{{count}} subagent',
+    subagents_other: '{{count}} subagents',
+    background_one: '{{count}} background task',
+    background_other: '{{count}} background tasks',
     enabled: 'Show live status',
     channelName: 'Live status',
     channelDescription: 'Progress of sessions while they work (silent).',
