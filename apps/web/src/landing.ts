@@ -130,7 +130,9 @@ function landingNav(locale: Locale, m: WebMessages): NavLink[] {
   ]
 }
 
-function phoneMock(m: WebMessages): string {
+const STATUS_BAR = '<div class="sb"><span>9:41</span><span class="ic">▮▮▮ ⌔ ▭</span></div>'
+
+function sessionsSlide(m: WebMessages): string {
   const mock = m.mock
   const states = mock.states as Record<string, string>
   const profiles = mock.profiles as Record<string, string>
@@ -143,9 +145,8 @@ function phoneMock(m: WebMessages): string {
       return `<div class="srow${s.state === 'waiting' ? ' waiting' : ''}"><div class="t">${agentMark('claude', 14)}<span class="title">${esc(s.title)}</span><span class="ago">${esc(s.ago)}</span></div><div class="p"><span>${esc(s.folder)}</span>${branch}</div><div class="m"><span class="pill ${esc(s.state)}">${esc(states[s.state] ?? s.state)}</span><span class="ptag ${esc(s.profile)}">${esc(profiles[s.profile] ?? s.profile)}</span></div></div>`
     })
     .join('')
-  return `<div class="phone" role="img" aria-label="${esc(m.hero.mockLabel)}">
-  <div class="sb"><span>9:41</span><span class="ic">▮▮▮ ⌔ ▭</span></div>
-  <div class="app" aria-hidden="true">
+  return `${STATUS_BAR}
+  <div class="app">
     <div class="ah"><div class="title">${mark(20)}${esc(mock.title)}</div><div class="ib accent">+</div><div class="ib">⚙</div></div>
     <div class="mline"><span class="dot"></span><span class="host">${esc(mock.host)}</span><span>${esc(mock.count)}</span></div>
     <div class="chips">${chips}</div>
@@ -153,8 +154,82 @@ function phoneMock(m: WebMessages): string {
       <div class="attn"><div class="h">⚠ ${esc(mock.waiting)} <span>${esc(mock.timer)}</span></div><div class="who">${agentMark('claude', 14)}<span>${esc(mock.permission.title)}</span></div><div class="tool">${esc(mock.permission.tool)} · <b>${esc(mock.permission.command)}</b></div><div class="ans"><span class="no">${esc(mock.deny)}</span><span>${esc(mock.always)}</span><span class="ok">${esc(mock.allow)}</span></div></div>
       ${rows}
     </div>
+  </div>`
+}
+
+function conversationSlide(m: WebMessages): string {
+  const c = m.mock.conversation
+  const tools = c.tools
+    .map(
+      (t) =>
+        `<div class="tcall"><div class="n">${esc(t.name)}</div><div class="r">└ ${esc(t.result)}</div></div>`,
+    )
+    .join('')
+  const points = c.points.map((p) => `<li>${inline(p)}</li>`).join('')
+  return `${STATUS_BAR}
+  <div class="app conv">
+    <div class="ah"><div class="ib back">‹</div><div class="title"><span>${esc(c.title)}</span></div><div class="ib">⋯</div></div>
+    <div class="mline">${agentMark('claude', 14)}<span class="ptag work">${esc(m.mock.profiles.work)}</span><span class="fold">${esc(c.folder)}</span><span class="sp"></span><span class="pill idle">${esc(m.mock.states.idle)}</span></div>
+    <div class="mline"><span class="pill mode">${esc(c.mode)}</span><span class="sp"></span><span>⎇ ${esc(c.branch)}</span></div>
+    <div class="scroll">
+      <div class="umsg">${esc(c.prompt)}</div>
+      <div class="amsg">${esc(c.intro)}</div>
+      ${tools}
+      <div class="amsg">${inline(c.reply)}<ul>${points}</ul></div>
+    </div>
+    <div class="ctx">${esc(c.model)} · ${esc(c.context)}</div>
+    <div class="composer"><span class="gt">&gt;</span><div class="in">${esc(c.placeholder)}</div><div class="send">↑</div></div>
+  </div>`
+}
+
+type LiveActivity = WebMessages['mock']['live']['working']
+
+function liveActivity(a: LiveActivity, kind: 'working' | 'waiting', m: WebMessages): string {
+  const bottom =
+    kind === 'working'
+      ? '<div class="bar"><i></i></div>'
+      : `<div class="ans"><span class="no">${esc(m.mock.deny)}</span><span class="ok">${esc(m.mock.allow)}</span></div>`
+  return `<div class="la ${kind}"><div class="top"><div class="ic">${mark(24)}</div><div class="tx"><span class="who">${esc(a.who)}</span><span class="ttl">${esc(a.title)}</span><span class="path">${esc(a.folder)}</span></div><div class="tm"><b>${esc(a.timer)}</b><small>${esc(a.sub)}</small></div></div><div class="row"><span class="st">${esc(a.state)}</span><span class="cur">${esc(a.step)}</span><span class="tools">${esc(a.tools)}</span></div>${bottom}</div>`
+}
+
+function liveSlide(m: WebMessages): string {
+  const live = m.mock.live
+  return `${STATUS_BAR}
+  <div class="lockscr">
+    <div class="date">${esc(live.date)}</div>
+    <div class="time">9:41</div>
+    ${liveActivity(live.working, 'working', m)}
+    ${liveActivity(live.waiting, 'waiting', m)}
+    <div class="lbtm"><span>🔦</span><span>📷</span></div>
+  </div>`
+}
+
+const SLIDES = [sessionsSlide, conversationSlide, liveSlide]
+
+/**
+ * The hero phone: the slides scroll and snap inside one frame, so they swipe and stay reachable
+ * without the script; the arrows and dots stay hidden until `SCRIPT` wires them up.
+ */
+function carousel(m: WebMessages): string {
+  const c = m.hero.carousel
+  const slides = m.hero.slides
+    .map(
+      (slide, i) =>
+        `<div class="slide${i === 2 ? ' lockscreen' : ''}" role="img" aria-label="${esc(slide.label)}">${SLIDES[i]?.(m) ?? ''}</div>`,
+    )
+    .join('')
+  const dots = m.hero.slides
+    .map(
+      (slide, i) =>
+        `<button type="button" data-go="${i}" aria-label="${esc(slide.name)}"${i === 0 ? ' aria-current="true"' : ''}></button>`,
+    )
+    .join('')
+  return `<div class="carousel" role="region" aria-roledescription="${esc(c.role)}" aria-label="${esc(c.label)}" data-carousel>
+  <div class="phone">
+    <div class="track" tabindex="0" data-track>${slides}</div>
+    <div class="home"></div>
   </div>
-  <div class="home"></div>
+  <div class="cnav" hidden><button type="button" class="arr" data-step="-1" aria-label="${esc(c.previous)}">‹</button><div class="dots">${dots}</div><button type="button" class="arr" data-step="1" aria-label="${esc(c.next)}">›</button></div>
 </div>`
 }
 
@@ -167,7 +242,7 @@ function hero(m: WebMessages): string {
     <div class="ctas"><a class="btn primary" href="#install">${esc(m.hero.install)}</a><a class="btn" href="#app">${esc(m.hero.app)}</a></div>
     <div class="meta"><span>${esc(m.hero.platforms)}</span><span aria-hidden="true">→</span><span>${esc(m.hero.phones)}</span><span aria-hidden="true">·</span><span>${esc(m.hero.terms)}</span></div>
   </div>
-  <div class="shot">${phoneMock(m)}</div>
+  <div class="shot">${carousel(m)}</div>
 </section>`
 }
 
@@ -276,8 +351,27 @@ function faq(m: WebMessages): string {
 </section>`
 }
 
-/** Tabs (Windows preselected on Windows browsers) and copy buttons; the page works without it. */
+/**
+ * Tabs (Windows preselected on Windows browsers), copy buttons and the hero carousel's controls and
+ * auto-advance (paused on hover and focus, off with reduced motion); the page works without it.
+ */
 export const SCRIPT = `(function(){
+document.querySelectorAll('[data-carousel]').forEach(function(c){
+var track=c.querySelector('[data-track]'),nav=c.querySelector('.cnav'),dots=c.querySelectorAll('[data-go]'),n=dots.length,current=0,timer=0,hover=false,focus=false;
+if(!track||!nav||!n)return;
+nav.hidden=false;
+var still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function go(i){current=(i+n)%n;track.scrollTo({left:current*track.clientWidth,behavior:still?'auto':'smooth'})}
+function mark(){current=Math.min(n-1,Math.round(track.scrollLeft/Math.max(track.clientWidth,1)));dots.forEach(function(d,j){if(j===current)d.setAttribute('aria-current','true');else d.removeAttribute('aria-current')})}
+function restart(){if(still)return;clearInterval(timer);timer=setInterval(function(){if(!hover&&!focus&&!document.hidden)go(current+1)},6000)}
+track.addEventListener('scroll',mark,{passive:true});
+track.addEventListener('touchstart',restart,{passive:true});
+dots.forEach(function(d){d.addEventListener('click',function(){go(Number(d.getAttribute('data-go')));restart()})});
+c.querySelectorAll('[data-step]').forEach(function(b){b.addEventListener('click',function(){go(current+Number(b.getAttribute('data-step')));restart()})});
+c.addEventListener('mouseenter',function(){hover=true});c.addEventListener('mouseleave',function(){hover=false});
+c.addEventListener('focusin',function(){focus=true});c.addEventListener('focusout',function(e){if(!c.contains(e.relatedTarget))focus=false});
+restart();
+});
 var tabs=document.querySelectorAll('[data-tab]'),panes=document.querySelectorAll('[data-pane]');
 function select(name){tabs.forEach(function(t){var on=t.getAttribute('data-tab')===name;t.classList.toggle('on',on);t.setAttribute('aria-selected',on?'true':'false')});panes.forEach(function(p){p.hidden=p.getAttribute('data-pane')!==name})}
 tabs.forEach(function(t){t.addEventListener('click',function(){select(t.getAttribute('data-tab'))})});

@@ -26,7 +26,25 @@ export const esES: WebMessages = {
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
     terms: 'MIT, sin cuenta, sin relay en la nube',
-    mockLabel: 'La lista de sesiones en la app, con una petición de permiso esperando',
+    carousel: {
+      label: 'Pantallas de la app',
+      role: 'carrusel',
+      previous: 'Pantalla anterior',
+      next: 'Pantalla siguiente',
+    },
+    slides: [
+      { name: 'Sesiones', label: 'La lista de sesiones en la app, con una petición de permiso esperando' },
+      {
+        name: 'Conversación',
+        label:
+          'Una sesión en la app: el prompt, la respuesta del agente, sus llamadas a herramientas y el cuadro de mensaje',
+      },
+      {
+        name: 'Estado en vivo',
+        label:
+          'La pantalla de bloqueo con dos actividades en vivo: una sesión trabajando y otra esperando un permiso',
+      },
+    ],
   },
   mock: {
     title: 'Sesiones',
@@ -87,6 +105,48 @@ export const esES: WebMessages = {
         ago: '2 h',
       },
     ],
+    conversation: {
+      title: 'Arreglar el crash del onboarding',
+      folder: '~/projects/acme-mobile',
+      branch: 'fix/onboarding',
+      mode: 'aceptar ediciones',
+      model: 'sonnet',
+      context: '38% del contexto',
+      prompt:
+        'La app se cierra en el segundo paso del onboarding cuando el usuario se salta la foto. Averigua por qué y arréglalo',
+      intro: 'Voy a ver cómo leen la foto los pasos del onboarding.',
+      tools: [
+        { name: 'Grep("photo" in src/onboarding)', result: 'src/onboarding/Profile.tsx:31: photo.uri' },
+        { name: 'Edit(src/onboarding/Profile.tsx)', result: 'ok · +3 −1' },
+        { name: 'Bash(pnpm test onboarding)', result: '✓ 12 tests · 1,4 s' },
+      ],
+      reply: 'Arreglado. `Profile.tsx` leía `photo.uri` antes de comprobar que se había elegido una foto:',
+      points: ['el paso ahora usa el avatar con las iniciales', 'un test nuevo cubre saltarse la foto'],
+      placeholder: 'Mensaje para Claude Code…',
+    },
+    live: {
+      date: 'martes, 21 de octubre',
+      working: {
+        who: 'Personal · MacBook Pro',
+        title: 'Migrar la landing a Tailwind 4',
+        folder: '~/projects/landing',
+        timer: '4:36',
+        sub: 'trabajando',
+        state: 'Trabajando',
+        step: 'Bash · pnpm',
+        tools: '6 herramientas',
+      },
+      waiting: {
+        who: 'Trabajo · MacBook Pro',
+        title: 'Añadir rate limit en el login',
+        folder: '~/projects/acme-api',
+        timer: '0:52',
+        sub: 'esperando',
+        state: 'Esperándote',
+        step: 'permiso · Bash',
+        tools: '9 herramientas',
+      },
+    },
   },
   agents: {
     label: 'Funciona con',

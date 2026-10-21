@@ -26,7 +26,20 @@ export const ptBR: WebMessages = {
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
     terms: 'MIT, sem conta, sem relay na nuvem',
-    mockLabel: 'A lista de sessões no app, com um pedido de permissão esperando',
+    carousel: { label: 'Telas do app', role: 'carrossel', previous: 'Tela anterior', next: 'Próxima tela' },
+    slides: [
+      { name: 'Sessões', label: 'A lista de sessões no app, com um pedido de permissão esperando' },
+      {
+        name: 'Conversa',
+        label:
+          'Uma sessão no app: o prompt, a resposta do agente, as chamadas de ferramenta e o campo de mensagem',
+      },
+      {
+        name: 'Status ao vivo',
+        label:
+          'A tela bloqueada com duas atividades ao vivo: uma sessão trabalhando e outra esperando uma permissão',
+      },
+    ],
   },
   mock: {
     title: 'Sessões',
@@ -87,6 +100,48 @@ export const ptBR: WebMessages = {
         ago: '2 h',
       },
     ],
+    conversation: {
+      title: 'Corrigir crash no onboarding',
+      folder: '~/projects/acme-mobile',
+      branch: 'fix/onboarding',
+      mode: 'aceitar edições',
+      model: 'sonnet',
+      context: '38% do contexto',
+      prompt:
+        'O app quebra no segundo passo do onboarding quando o usuário pula a foto. Descubra por quê e corrija',
+      intro: 'Vou ver como os passos do onboarding leem a foto.',
+      tools: [
+        { name: 'Grep("photo" in src/onboarding)', result: 'src/onboarding/Profile.tsx:31: photo.uri' },
+        { name: 'Edit(src/onboarding/Profile.tsx)', result: 'ok · +3 −1' },
+        { name: 'Bash(pnpm test onboarding)', result: '✓ 12 testes · 1,4 s' },
+      ],
+      reply: 'Corrigido. O `Profile.tsx` lia `photo.uri` antes de conferir se uma foto foi escolhida:',
+      points: ['o passo agora usa o avatar com as iniciais', 'um teste novo cobre pular a foto'],
+      placeholder: 'Mensagem para Claude Code…',
+    },
+    live: {
+      date: 'terça-feira, 21 de outubro',
+      working: {
+        who: 'Pessoal · MacBook Pro',
+        title: 'Migrar a landing para Tailwind 4',
+        folder: '~/projects/landing',
+        timer: '4:36',
+        sub: 'trabalhando',
+        state: 'Trabalhando',
+        step: 'Bash · pnpm',
+        tools: '6 ferramentas',
+      },
+      waiting: {
+        who: 'Trabalho · MacBook Pro',
+        title: 'Adicionar rate limit no login',
+        folder: '~/projects/acme-api',
+        timer: '0:52',
+        sub: 'esperando',
+        state: 'Esperando você',
+        step: 'permissão · Bash',
+        tools: '9 ferramentas',
+      },
+    },
   },
   agents: {
     label: 'Funciona com',
