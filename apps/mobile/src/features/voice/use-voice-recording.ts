@@ -1,6 +1,8 @@
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useDaemonClient } from '@/core/connection'
+import { useTranslation } from 'react-i18next'
+import { Alert } from 'react-native'
+import { DaemonRequestError, useDaemonClient } from '@/core/connection'
 import { currentLocale } from '@/core/i18n'
 import { classifyRecognitionError } from './error-outcome'
 import { resolveVoiceLanguage } from './language'
@@ -70,6 +72,7 @@ export function useVoiceRecording(
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
   const client = useDaemonClient()
+  const { t } = useTranslation()
 
   const setPhase = useCallback((next: VoiceRecordingState) => {
     phaseRef.current = next
@@ -97,7 +100,14 @@ export function useVoiceRecording(
     if (polishEnabled && client) {
       const reply = await client
         .request({ type: 'voice.polish', sessionId, text }, { timeoutMs: 12_000 })
-        .catch(() => null)
+        .catch((error: unknown) => {
+          // Older daemons do not know `voice.polish` yet: say so instead of silently using the
+          // raw transcript, which otherwise looks like Polish dictation did nothing (#325).
+          if (error instanceof DaemonRequestError && error.code === 'unknown_type') {
+            Alert.alert(t('voice.polishUnsupportedTitle'), t('voice.polishUnsupported'))
+          }
+          return null
+        })
       const result = reply && reply.type === 'voice.polish.result' ? reply : { text, applied: false }
       if (shouldReview(result, text)) {
         reset()
@@ -113,7 +123,7 @@ export function useVoiceRecording(
     reset()
     setPhase('idle')
     onTranscriptRef.current(text)
-  }, [client, sessionId, reset, setPhase])
+  }, [client, sessionId, reset, setPhase, t])
 
   const finishRecording = useCallback(() => {
     if (phaseRef.current === 'recording') {

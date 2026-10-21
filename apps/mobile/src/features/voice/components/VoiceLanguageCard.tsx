@@ -1,29 +1,26 @@
 import { LOCALE_NAMES, LOCALES } from '@remote-harness/protocol'
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Switch, View } from 'react-native'
 import { space, useTheme } from '@/core/theme'
 import { Button, Card, Text } from '@/ui'
 import type { VoiceLanguage } from '../language'
-import { restoreVoiceInteraction, setPushToTalk, useVoiceInteractionStore } from '../voice-interaction-store'
-import { restoreVoiceLanguage, setVoiceLanguage, useVoiceLanguageStore } from '../voice-language-store'
-import { restoreVoicePolish, setVoicePolish, useVoicePolishStore } from '../voice-polish-store'
+import { setPushToTalk, useVoiceInteractionStore } from '../voice-interaction-store'
+import { setVoiceLanguage, useVoiceLanguageStore } from '../voice-language-store'
+import { setVoicePolish, useVoicePolishStore } from '../voice-polish-store'
 
 const OPTIONS: VoiceLanguage[] = ['app', ...LOCALES]
 
-/** Settings → Voice: transcription language, "Polish dictation" and "Press and hold to record". */
+/**
+ * Settings → Voice: transcription language, "Polish dictation" and "Press and hold to record".
+ * The three stores are restored once at app startup (`app/_layout.tsx`), not here, so a recording
+ * started before Settings is ever opened already uses the saved choices (#325).
+ */
 export function VoiceLanguageCard() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const language = useVoiceLanguageStore((s) => s.language)
   const polishEnabled = useVoicePolishStore((s) => s.enabled)
   const pushToTalk = useVoiceInteractionStore((s) => s.pushToTalk)
-
-  useEffect(() => {
-    void restoreVoiceLanguage()
-    void restoreVoicePolish()
-    void restoreVoiceInteraction()
-  }, [])
 
   return (
     <Card>
