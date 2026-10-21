@@ -665,6 +665,9 @@ const ptBR = {
     pushToTalkTitle: 'Pressionar e segurar para gravar',
     pushToTalkHint:
       'Segure o botão do microfone para gravar e solte para parar, em vez de tocar para alternar.',
+    polishUnsupportedTitle: 'Aprimorar ditado indisponível',
+    polishUnsupported:
+      '{{Machine}} ainda não aprimora o ditado. No computador, rode `remote-harness update`. Usando a transcrição original.',
   },
   newSession: {
     profile: 'Agente e perfil',

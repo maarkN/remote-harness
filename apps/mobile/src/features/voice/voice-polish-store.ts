@@ -8,7 +8,7 @@ type VoicePolishState = { enabled: boolean }
 /** "Polish dictation": off by default, Claude Code sessions only (see `use-voice-recording.ts`). */
 export const useVoicePolishStore = create<VoicePolishState>(() => ({ enabled: false }))
 
-/** Loads the persisted choice; call once before Settings renders the toggle. */
+/** Loads the persisted choice; called once at app startup (`app/_layout.tsx`), before any recording can start. */
 export async function restoreVoicePolish(): Promise<void> {
   const saved = await SecureStore.getItemAsync(VOICE_POLISH_KEY).catch(() => null)
   useVoicePolishStore.setState({ enabled: saved === 'true' })
