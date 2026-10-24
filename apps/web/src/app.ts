@@ -178,7 +178,7 @@ export function createApp({
       const html = renderDoc(
         locale,
         target.slug,
-        target.locale ? {} : { path: negotiatedDocPath(target.slug) },
+        target.locale ? {} : { path: target.path ?? negotiatedDocPath(target.slug) },
       )
       return html ? page(html, 200, locale, target.locale === null) : notFound()
     }

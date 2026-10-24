@@ -21,7 +21,7 @@ El daemon puede escribir en tus sesiones de Claude Code y aprobar llamadas a her
 
 ## Qué sale de tu máquina
 
-- Las notificaciones push llevan un título, el perfil y el id de la sesión. El estado en vivo añade el nombre de la sesión, la carpeta, el estado y la categoría del paso. Nunca la conversación.
+- Las notificaciones push llevan un título, el perfil y el id de la sesión. El estado en vivo añade el nombre de la sesión, la carpeta, el estado, el paso actual (la herramienta y un objetivo corto, como el nombre de un archivo o el programa de un comando, nunca sus argumentos) y el progreso de las tareas. Nunca la conversación.
 - Con el relay de push, el relay ve esos mismos mensajes sin contenido y un grant sellado (tu token de FCM); no guarda nada. Con tu propio proyecto de Firebase, nada pasa por nadie más.
 - El daemon no envía telemetría. La comprobación de actualizaciones habla con el remoto de git del código instalado.
 - Las peticiones de catálogo y créditos de OpenRouter van del ordenador a OpenRouter, y a nadie más.

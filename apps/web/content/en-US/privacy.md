@@ -4,7 +4,7 @@ description: What Remote Harness collects (only the error reports and performanc
 applies: 0.7+
 ---
 
-Remote Harness is self-hosted software: the daemon runs on your computer, the app on your phone, and they talk over your own Tailscale network. This page is the privacy policy of the app distributed through the stores, of the daemon, and of this website. Last updated on 2026-10-20.
+Remote Harness is self-hosted software: the daemon runs on your computer, the app on your phone, and they talk over your own Tailscale network. This page is the privacy policy of the app distributed through the stores, of the daemon, and of this website, published by Alvyn Tech ("we"). Its short address is [remoteharness.app/privacy](/privacy). Last updated on 2026-10-24.
 
 ## What we collect
 
@@ -23,8 +23,8 @@ Deleting the app and running `remote-harness uninstall` remove them.
 
 ## What leaves your machine, and when
 
-- **Between your phone and your computer**: the conversation, the permissions you answer and the prompts you send travel only over your Tailscale network, authenticated with the pairing token. Nothing of it reaches us.
-- **Push notifications (optional)**: a title, the profile name, the session id and the event type go through Firebase Cloud Messaging (Google) to your phone; the live status adds the session title, the folder, the state and the step category. The push relay is a small service we run that forwards those same messages and stores nothing; with your own Firebase project, nothing passes through us. Google's handling of Firebase Cloud Messaging is covered by Google's privacy policy.
+- **Between your phone and your computer**: the conversation, the permissions you answer and the prompts you send travel only over your Tailscale network, authenticated with the pairing token. Nothing of it reaches us. Commands run from the app (**Run command…**, off by default) and their output take the same path, only to the phone that started them, and are never stored. With **Polish dictation** on (off by default), the transcript text of a dictation goes to your computer, where the session's own `claude` command rewrites it under your own Anthropic account, like any prompt you send; the audio never leaves the phone.
+- **Push notifications (optional)**: a title, the profile name, the session id and the event type go through Firebase Cloud Messaging (Google) to your phone; the live status adds the session title, the folder, the state, the current step (the tool and a short target: a file's base name, a command's program, a web address's host or a subagent type, never arguments, file contents or search terms) and the progress of the todo list. The push relay is a small service we run that forwards those same messages and stores nothing; with your own Firebase project, nothing passes through us. Google's handling of Firebase Cloud Messaging is covered by Google's privacy policy.
 - **Updates**: the daemon checks the git remote of the installed source for new versions; the app checks the update server configured in its build for new JavaScript (the request carries the app version and platform, no personal data).
 - **OpenRouter profiles (optional)**: the model catalog and credits requests go from your computer to OpenRouter with your key; no model traffic passes through us.
 - **This website**: served from the project's own server through Cloudflare, which both log requests like any host; the fonts come from Google Fonts. No cookies, no analytics.
@@ -35,10 +35,20 @@ Deleting the app and running `remote-harness uninstall` remove them.
 - **Microphone and speech recognition**: to dictate prompts; the transcription runs on the device.
 - **Notifications**: for push and the live status, which you can turn off at any time.
 
+## How your data is protected
+
+Traffic between the phone and the computer is encrypted end to end by Tailscale (WireGuard) and authenticated with the pairing token; the daemon only listens on the Tailscale interface. Error reports, performance data, push messages and updates travel over HTTPS. Updates are signed, and the app refuses one without a valid signature. The pairing token and the drafts are kept in the system's secure storage.
+
+## Your choices and requests
+
+- Turn error reports and performance data off at any time in Settings → Error reports; nothing more is sent from that phone.
+- Delete what stays on your devices by forgetting the machine in the app, deleting the app and running `remote-harness uninstall`.
+- To access or delete the error reports and performance data already sent to Firebase, write to [privacy@remoteharness.app](mailto:privacy@remoteharness.app). They carry no name or account, so tell us the approximate date and the device model, and we delete the matching data. Firebase also deletes it on its own after its retention period ([Firebase privacy](https://firebase.google.com/support/privacy)).
+
 ## Children
 
 Remote Harness is not directed at children under 13 and collects no data from anyone.
 
 ## Changes and contact
 
-This policy changes only through the [repository](https://github.com/maarkN/remote-harness), where its history is public. Questions go to a GitHub issue; security reports go through [GitHub Security Advisories](https://github.com/maarkN/remote-harness/security/advisories/new), as described in [Security & privacy](/en/docs/security/).
+Remote Harness is published by Alvyn Tech. Privacy questions and requests: [privacy@remoteharness.app](mailto:privacy@remoteharness.app). This policy changes only through the [repository](https://github.com/maarkN/remote-harness), where its history is public, and the date at the top changes with it. Other questions go to a GitHub issue; security reports go through [GitHub Security Advisories](https://github.com/maarkN/remote-harness/security/advisories/new), as described in [Security & privacy](/en/docs/security/).

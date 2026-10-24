@@ -16,6 +16,8 @@ export const INSTALLERS = ['install.sh', 'install.ps1'] as const satisfies reado
 
 const DOCS = /^\/docs(?:\/([A-Za-z0-9-]+))?\/?$/
 const LOCALIZED_DOCS = /^\/([^/]+)\/docs(?:\/([A-Za-z0-9-]+))?\/?$/
+/** Short address of the privacy policy, given to the stores; the same page as `/docs/privacy/`. */
+export const PRIVACY_PATH = '/privacy'
 
 export type Route =
   /** `path` is what follows `/api/updates/`. */
@@ -26,8 +28,11 @@ export type Route =
   | { kind: 'app-file'; key: string; name: string }
   /** The landing page; `locale: null` negotiates from `Accept-Language`. */
   | { kind: 'page'; locale: Locale | null }
-  /** A documentation page (`index` is `/docs/` itself); whether the slug exists is the renderer's call. */
-  | { kind: 'doc'; locale: Locale | null; slug: string }
+  /**
+   * A documentation page (`index` is `/docs/` itself); whether the slug exists is the renderer's call.
+   * `path` is set when the page is served at another address (`/privacy`).
+   */
+  | { kind: 'doc'; locale: Locale | null; slug: string; path?: string }
   | { kind: 'sitemap' }
   | { kind: 'robots' }
   | { kind: 'favicon' }
@@ -61,6 +66,9 @@ export function route(pathname: string, search = ''): Route {
     return { kind: 'not-found' }
   }
   if (pathname === '/' || pathname === '/index.html') return { kind: 'page', locale: null }
+  if (pathname === PRIVACY_PATH || pathname === `${PRIVACY_PATH}/`) {
+    return { kind: 'doc', locale: null, slug: 'privacy', path: PRIVACY_PATH }
+  }
   const docs = DOCS.exec(pathname)
   if (docs) {
     const slug = docSlug(docs[1])
