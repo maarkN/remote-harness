@@ -64,7 +64,7 @@ The launcher refuses to open a window when the profile has no key and prints the
 
 ## Moving from a development build to the store build
 
-When the TestFlight or Google Play build is available, install it next to the build you made yourself: it has a different signature, so it starts empty. Pair it again by scanning `remote-harness pair`; the old pairing keeps working until you tap **Forget this machine** in that build or rotate the token. Push registers itself on the first launch of the new build, and the computer drops the old registration once it stops connecting. Then delete the development build.
+When the TestFlight or Google Play build is available, install it next to the build you have: it is a separate app (`com.alvyntech.remoteharness`; builds up to v0.19 are `tech.doctorx.clauderemote`), so it starts empty. Pair it again by scanning `remote-harness pair`; the old pairing keeps working until you tap **Forget this machine** in that build or rotate the token. Push registers itself on the first launch of the new build, and the computer drops the old registration once it stops connecting. Then delete the development build.
 
 ## The app is slow or freezes
 

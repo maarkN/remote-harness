@@ -31,8 +31,8 @@ const APP_ICON_THEMES: Record<string, string> = {
   Mocha: '#1E1E2E',
   Latte: '#E6E9EF',
 }
-/** Same id on both stores. */
-const APP_ID = 'tech.doctorx.clauderemote'
+/** Same id on both stores; builds up to 0.19 used `tech.doctorx.clauderemote` (a separate app). */
+const APP_ID = 'com.alvyntech.remoteharness'
 /** Android notification channel; the daemon sends `android.notification.channelId` with this id. */
 const NOTIFICATION_CHANNEL = 'claude-remote'
 /**
