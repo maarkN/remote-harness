@@ -25,7 +25,7 @@ const BUILDS: LinkBuilds = {
     build: '7',
     builtAt: '2026-10-19T21:30:00.000Z',
     title: 'Remote Harness',
-    bundleId: 'tech.doctorx.clauderemote',
+    bundleId: 'com.alvyntech.remoteharness',
   },
   android: { version: '0.14.0', versionCode: '7', builtAt: '2026-10-19T22:00:00.000Z', size: 61_400_000 },
 }

@@ -89,7 +89,7 @@ pnpm --filter @remote-harness/mobile xterm              # regenerate the termina
 
 ### Push notifications in your own build
 
-1. In one Firebase project, create the apps you need with the id `tech.doctorx.clauderemote`: an iOS app (upload your APNs key) and/or an Android app. iOS needs a paid Apple Developer account.
+1. In one Firebase project, create the apps you need with the id `com.alvyntech.remoteharness`: an iOS app (upload your APNs key) and/or an Android app. iOS needs a paid Apple Developer account.
 2. Put `GoogleService-Info.plist` (iOS) and/or `google-services.json` (Android) in `apps/mobile/` (both git-ignored) and run `pnpm ios` / `pnpm android` again (after `npx expo prebuild --clean` when `ios/` already exists). Firebase is only linked on a platform when its file exists.
 3. Choose how the daemon sends:
    - **Push relay** (no credential on the computer): build the app with `REMOTE_HARNESS_PUSH_RELAY_URL` pointing to your relay (see below). The app gets a *grant* from the relay (its FCM token, sealed) and hands it to the daemon, which posts each notification to the relay. A daemon can only reach the phones paired with it.

@@ -64,7 +64,7 @@ El lanzador se niega a abrir una ventana cuando el perfil no tiene clave e impri
 
 ## Pasar de un development build al build de la tienda
 
-Cuando el build de TestFlight o de Google Play esté disponible, instálalo junto al build que hiciste tú: tiene otra firma, así que empieza vacío. Empareja de nuevo escaneando `remote-harness pair`; el emparejamiento antiguo sigue funcionando hasta que toques **Olvidar esta máquina** en ese build o rotes el token. El push se registra solo en el primer arranque del nuevo build, y el ordenador descarta el registro antiguo cuando deja de conectarse. Después borra el development build.
+Cuando el build de TestFlight o de Google Play esté disponible, instálalo junto al build que tienes: es otra app (`com.alvyntech.remoteharness`; los builds hasta la v0.19 son `tech.doctorx.clauderemote`), así que empieza vacío. Empareja de nuevo escaneando `remote-harness pair`; el emparejamiento antiguo sigue funcionando hasta que toques **Olvidar esta máquina** en ese build o rotes el token. El push se registra solo en el primer arranque del nuevo build, y el ordenador descarta el registro antiguo cuando deja de conectarse. Después borra el development build.
 
 ## La app va lenta o se congela
 

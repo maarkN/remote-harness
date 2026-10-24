@@ -94,7 +94,7 @@ install-ios: ## Release build on a connected iPhone/iPad, no Metro needed (fresh
 			-allowProvisioningUpdates -allowProvisioningDeviceRegistration build && \
 		xcrun devicectl device install app --device "$$udid" \
 			ios/build/Build/Products/Release-iphoneos/$(IOS_APP).app && \
-		xcrun devicectl device process launch --device "$$udid" tech.doctorx.clauderemote
+		xcrun devicectl device process launch --device "$$udid" com.alvyntech.remoteharness
 
 install-ios-link: ## Release build the iPhone installs from a Safari link (Tailscale, or IOS_LINK=web on remoteharness.app)
 	@# Development-signed like install-ios: the iPhone must already be registered in the team (one
