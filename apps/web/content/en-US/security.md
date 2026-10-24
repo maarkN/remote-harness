@@ -21,7 +21,7 @@ The daemon can type into your Claude Code sessions and approve tool calls, so it
 
 ## What leaves your machine
 
-- Push notifications carry a title, the profile and the session id. The live status adds the session name, the folder, the state and the step category. Never the conversation.
+- Push notifications carry a title, the profile and the session id. The live status adds the session name, the folder, the state, the current step (the tool and a short target such as a file's base name or a command's program, never its arguments) and the todo progress. Never the conversation.
 - With the push relay, the relay sees those same content-free messages and a sealed grant (your FCM token); it stores nothing. With your own Firebase project, nothing goes through anyone else.
 - The daemon sends no telemetry. The update check talks to the git remote of the installed source.
 - The OpenRouter catalog and credits requests go from the computer to OpenRouter, nowhere else.
