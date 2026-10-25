@@ -51,12 +51,15 @@ html,body{margin:0;padding:0;height:100%;overflow:hidden}
     var size = Math.max(6, Math.min(14, Math.floor(width / (cols * 0.6) * 10) / 10));
     if (term.options.fontSize !== size) term.options.fontSize = size;
   }
-  window.renderFrame = function(frame){
-    fit(frame.cols);
-    if (term.cols !== frame.cols || term.rows !== frame.rows) term.resize(frame.cols, frame.rows);
-    term.reset();
-    // iOS draws U+23FA (the Claude Code bullet) as an emoji; use a text glyph of the same width.
-    term.write(frame.text.replace(/\\n$/, '').replace(/⏺/g, '●'));
+  // The app computes what to write (frame-write.ts): the whole screen after a resize, otherwise only
+  // the rows that changed, so most frames redraw a line or two instead of resetting the terminal.
+  window.writeFrame = function(write){
+    if (write.full) {
+      fit(write.cols);
+      if (term.cols !== write.cols || term.rows !== write.rows) term.resize(write.cols, write.rows);
+      term.reset();
+    }
+    term.write(write.data);
   };
   window.ReactNativeWebView && window.ReactNativeWebView.postMessage('ready');
 })();
