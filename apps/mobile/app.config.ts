@@ -553,6 +553,8 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     'expo-router',
     'expo-status-bar',
     'expo-secure-store',
+    // Native crypto for the Noise channel (X25519, ChaCha20-Poly1305); OpenSSL only, no libsodium.
+    'react-native-quick-crypto',
     'expo-font',
     ['expo-localization', { supportedLocales: { ios: APP_LOCALIZATIONS, android: APP_LOCALIZATIONS } }],
     [

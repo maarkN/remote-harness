@@ -1,6 +1,6 @@
 ---
 title: Security & privacy
-description: What the daemon can do, what leaves your machine, tokens and keys, and how to report a problem.
+description: What the daemon can do, what leaves your machine, keys and pairing, and how to report a problem.
 applies: 0.7+
 ---
 
@@ -14,9 +14,10 @@ The daemon can type into your Claude Code sessions and approve tool calls, so it
 - Claude Code's hooks reach the daemon on `127.0.0.1` only, with a local shared secret.
 - Exposing the daemon outside Tailscale with `--host` is out of scope and not supported.
 
-## Tokens and keys
+## Keys and pairing
 
-- Every connection presents a pairing token kept in the macOS Keychain, the Linux Secret Service (`secret-tool`) or a `0600` file, and in the phone's secure storage. `remote-harness rotate-token` invalidates it and drops every client.
+- Every connection is a Noise protocol session (X25519, ChaCha20-Poly1305) encrypted end to end between the phone and the daemon. The daemon's own keys live in the macOS Keychain, the Linux Secret Service (`secret-tool`) or a `0600` file; each phone creates its key pair when it pairs and keeps it in its secure storage, on that device only.
+- A pairing code (`remote-harness pair`, the setup or the tray) works once and only for 5 minutes. The daemon keeps the paired phones' public keys (at most 10) and drops any connection whose key it does not know, before sending anything.
 - Provider keys (OpenRouter) live in the same store, under their own account. They are never written to `config.json`, `settings.json`, shell files or the launchers, never logged, and never sent to the phone: the launcher reads the key inside the tmux window, and the daemon only uses it to ask the provider for your credits.
 
 ## What leaves your machine

@@ -12,7 +12,7 @@ import {
 } from '../src/index.ts'
 
 const clientSamples: ClientMessage[] = [
-  { type: 'auth', id: '1', token: 't', protocolVersion: 1 },
+  { type: 'auth', id: '1', protocolVersion: 2 },
   { type: 'ping', id: '1' },
   { type: 'sessions.list', id: '1' },
   { type: 'session.subscribe', id: '1', sessionId: 's', sinceCursor: 3 },

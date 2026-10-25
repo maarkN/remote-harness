@@ -48,8 +48,8 @@ export type WizardOptions = InstallOptions & {
   /** Installs and starts the service for this build; returns the path of the written definition. */
   installService: (service: ServiceManager) => Promise<string>
   tailscaleAddress: () => string | null
-  /** Prints the pairing QR code for this host. */
-  pair: (host: string) => Promise<void>
+  /** Prints a single-use pairing code from the running daemon. */
+  pair: () => Promise<void>
   /** Opens Claude Code on this terminal with CLAUDE_CONFIG_DIR=configDir (for the login). */
   runClaude: (configDir: string) => Promise<number>
   /** The secret store of a profile's provider key and where it is (for the output; never the key). */
@@ -696,7 +696,7 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
     console.log(`  ${paint('success', '✓')} Tailscale ${host}${source ? ` (${m.wsl.source[source]})` : ''}`)
     console.log(paint('muted', s.phoneHint))
     if (o.interactive && (await confirm({ message: s.showQr, default: true, theme: yesNo }))) {
-      await o.pair(host)
+      await o.pair()
     }
   }
 

@@ -1,7 +1,7 @@
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ChevronRight, Keyboard, QrCode, Rocket } from 'lucide-react-native'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
   KeyboardAvoidingView,
@@ -12,10 +12,11 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { useConnectionStore } from '@/core/connection'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { Button, Card, Screen, Text } from '@/ui'
-import { parseCredentials, parsePairingUrl } from './parse-pairing-url'
+import { type ParsedPairingCode, pairingCodeFromRoute, parsePairingLink } from './parse-pairing-url'
 import { usePairing } from './use-pairing'
 
 type Mode = 'scan' | 'manual'
@@ -24,35 +25,38 @@ export function PairScreen() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const params = useLocalSearchParams<{ host?: string; port?: string; token?: string }>()
+  const params = useLocalSearchParams<Record<string, string | string[]>>()
   const [permission, requestPermission] = useCameraPermissions()
   const [mode, setMode] = useState<Mode>('scan')
   const { pair, busy, error, setError } = usePairing()
+  const pairAgain = useConnectionStore((s) => s.pairAgain)
   const locked = useRef(false)
+
+  /** Pairs with a parsed code, or explains why it cannot be used. */
+  const start = useCallback(
+    (parsed: ParsedPairingCode, invalid: string) => {
+      if (!parsed.ok) {
+        setError(parsed.reason === 'legacy' ? t('pairing.legacyCode') : invalid)
+        return
+      }
+      locked.current = true
+      void pair(parsed.code).finally(() => {
+        locked.current = false
+      })
+    },
+    [pair, setError, t],
+  )
 
   // Opened through a `remoteharness://pair?...` or `claude-remote://pair?...` link (e.g. scanned with
   // the iOS Camera app).
   useEffect(() => {
-    const fromLink = parseCredentials(params)
-    if (fromLink && !locked.current) {
-      locked.current = true
-      void pair(fromLink).then(() => {
-        locked.current = false
-      })
-    }
-  }, [params, pair])
+    const fromLink = pairingCodeFromRoute(params)
+    if (fromLink && !locked.current) start(fromLink, t('pairing.invalidQr'))
+  }, [params, start, t])
 
   const onScanned = ({ data }: BarcodeScanningResult) => {
     if (locked.current || busy) return
-    const credentials = parsePairingUrl(data)
-    if (!credentials) {
-      setError(t('pairing.invalidQr'))
-      return
-    }
-    locked.current = true
-    void pair(credentials).finally(() => {
-      locked.current = false
-    })
+    start(parsePairingLink(data), t('pairing.invalidQr'))
   }
 
   return (
@@ -68,6 +72,13 @@ export function PairScreen() {
           <Text color="textMuted">
             <Trans i18nKey="pairing.intro" components={{ cmd: <Text color="accentText" /> }} />
           </Text>
+          {pairAgain ? (
+            <Card accent={colors.warning}>
+              <Text color="warning">
+                <Trans i18nKey="pairing.pairAgain" components={{ cmd: <Text color="accentText" /> }} />
+              </Text>
+            </Card>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"
@@ -117,10 +128,9 @@ export function PairScreen() {
               busy={busy}
             />
           ) : (
-            <ManualForm
+            <PasteForm
               busy={busy}
-              onSubmit={(c) => void pair(c)}
-              onInvalid={() => setError(t('pairing.invalidManual'))}
+              onSubmit={(link) => start(parsePairingLink(link), t('pairing.invalidManual'))}
             />
           )}
 
@@ -177,32 +187,26 @@ function Scanner(props: {
   )
 }
 
-function ManualForm({
-  busy,
-  onSubmit,
-  onInvalid,
-}: {
-  busy: boolean
-  onSubmit: (credentials: { host: string; port: number; token: string }) => void
-  onInvalid: () => void
-}) {
+/** For simulators and phones without a camera: the link `remote-harness pair` prints. */
+function PasteForm({ busy, onSubmit }: { busy: boolean; onSubmit: (link: string) => void }) {
   const { t } = useTranslation()
   const styles = useStyles()
-  const [host, setHost] = useState('')
-  const [port, setPort] = useState('7337')
-  const [token, setToken] = useState('')
-  const submit = () => {
-    const credentials = parseCredentials({ host, port, token })
-    if (credentials) onSubmit(credentials)
-    else onInvalid()
-  }
+  const [link, setLink] = useState('')
   return (
     <Card>
       <View style={styles.gap}>
-        <Field label={t('pairing.host')} value={host} onChangeText={setHost} placeholder="100.x.y.z" />
-        <Field label={t('pairing.port')} value={port} onChangeText={setPort} keyboardType="number-pad" />
-        <Field label={t('pairing.token')} value={token} onChangeText={setToken} secure />
-        <Button label={t('pairing.connect')} variant="primary" loading={busy} onPress={submit} />
+        <Field
+          label={t('pairing.linkLabel')}
+          value={link}
+          onChangeText={setLink}
+          placeholder="remoteharness://pair?v=2&…"
+        />
+        <Button
+          label={t('pairing.connect')}
+          variant="primary"
+          loading={busy}
+          onPress={() => onSubmit(link)}
+        />
       </View>
     </Card>
   )
@@ -213,8 +217,6 @@ function Field(props: {
   value: string
   onChangeText: (v: string) => void
   placeholder?: string
-  keyboardType?: 'default' | 'number-pad'
-  secure?: boolean
 }) {
   const { colors } = useTheme()
   const styles = useStyles()
@@ -228,8 +230,6 @@ function Field(props: {
         onChangeText={props.onChangeText}
         placeholder={props.placeholder}
         placeholderTextColor={colors.textDim}
-        keyboardType={props.keyboardType}
-        secureTextEntry={props.secure}
         autoCapitalize="none"
         autoCorrect={false}
         style={styles.input}

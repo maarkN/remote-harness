@@ -15,11 +15,12 @@ import {
 } from './core/config.ts'
 import { EventBus } from './core/event-bus.ts'
 import type { DaemonEvents } from './core/events.ts'
+import { type DaemonIdentity, ensureIdentity } from './core/identity.ts'
 import { KeyedMutex } from './core/keyed-mutex.ts'
 import type { Logger } from './core/logger.ts'
-import { pairingAddress, pairingUrl } from './core/pairing.ts'
+import { pairingAddress } from './core/pairing.ts'
 import { displayHostName } from './core/paths.ts'
-import { ensureHookSecret, ensureToken, generateToken, type TokenStore } from './core/secrets.ts'
+import { ensureHookSecret, type TokenStore } from './core/secrets.ts'
 import { DAEMON_VERSION } from './core/version.ts'
 import { registerAttachmentsFeature } from './features/attachments/index.ts'
 import { registerAutocompleteFeature } from './features/autocomplete/index.ts'
@@ -32,6 +33,7 @@ import { registerLiveStatusFeature } from './features/live-status/index.ts'
 import { registerModeFeature } from './features/mode/index.ts'
 import { registerMuteFeature } from './features/mute/index.ts'
 import type { MuteStore } from './features/mute/store.ts'
+import { type PairingFeature, registerPairingFeature } from './features/pairing/index.ts'
 import { registerPaneFeature } from './features/pane/index.ts'
 import { registerPermissionsFeature } from './features/permissions/index.ts'
 import { type KeepAwakeController, registerPowerFeature } from './features/power/index.ts'
@@ -66,7 +68,8 @@ import { startWsServer } from './transport/ws-server.ts'
 export type DaemonOptions = {
   logger: Logger
   exec: Executor
-  tokenStore: TokenStore
+  /** Keychain, Secret Service or 0600 file: holds the daemon identity. */
+  secretStore: TokenStore
   /** Bind the WebSocket to 127.0.0.1 instead of the Tailscale address. */
   dev?: boolean
   /** Explicit bind address for the WebSocket (overrides Tailscale discovery). */
@@ -92,6 +95,8 @@ export type RunningDaemon = {
   wsHost: string
   wsPort: number
   hookPort: number
+  identity: DaemonIdentity
+  pairing: PairingFeature
   stop(): Promise<void>
 }
 
@@ -158,7 +163,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   // Narrower than `profiles`: only what the app may offer for starting a new session (not used
   // for `install`/`uninstall`, which manage a profile's launcher regardless of its CLI's PATH).
   const appProfiles = await profilesWithResolvableAgent(profiles, options.exec, logger)
-  let token = await ensureToken(options.tokenStore)
+  const identity = await ensureIdentity(options.secretStore)
   const hookSecret = await ensureHookSecret()
 
   const bus = new EventBus<DaemonEvents>()
@@ -187,28 +192,22 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   }
 
   router.register('ping', () => ({ type: 'pong' }))
-  const reloadToken = async () => {
-    token = await ensureToken(options.tokenStore)
-    hub.closeAll(4003, 'token rotated')
-    bus.emit('token.rotated', { token })
-    logger.info('token reloaded, connections closed')
-    return { ok: true }
-  }
-  hooks.post('/admin/reload-token', reloadToken)
 
   /** Where the app connects, set once the WebSocket server listens (after Tailscale is up). */
   let endpoint: { host: string; port: number } | null = null
+  const pairing = await registerPairingFeature({
+    identity,
+    hooks,
+    logger,
+    addresses: () => (endpoint ? [pairingAddress(endpoint.host, endpoint.port)] : []),
+    name: () => displayHostName(config),
+  })
   const features = await registerFeatures(context, options.desktop, options.sleepInhibitor ?? null, {
-    pairing: () =>
-      endpoint
-        ? {
-            url: pairingUrl(endpoint.host, endpoint.port, token),
-            address: pairingAddress(endpoint.host, endpoint.port),
-          }
-        : null,
-    rotateToken: async () => {
-      await options.tokenStore.set(generateToken())
-      await reloadToken()
+    pairing: () => {
+      const link = endpoint ? pairing.current() : null
+      return endpoint && link
+        ? { url: link.url, address: pairingAddress(endpoint.host, endpoint.port) }
+        : null
     },
   })
 
@@ -229,7 +228,8 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const wss: WebSocketServer = await startWsServer({
     host: wsHost,
     port: options.wsPort ?? config.wsPort,
-    getToken: () => token,
+    staticKey: identity.noise,
+    hooks: pairing.hooks,
     router,
     hub,
     logger,
@@ -263,6 +263,8 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     wsHost,
     wsPort,
     hookPort,
+    identity,
+    pairing,
     async stop() {
       hub.closeAll(1001, 'daemon stopping')
       await new Promise<void>((resolve) => wss.close(() => resolve()))
@@ -277,7 +279,7 @@ async function registerFeatures(
   ctx: DaemonContext,
   desktop: DesktopOptions | undefined,
   sleepInhibitor: SleepInhibitor | null,
-  pairing: Pick<TrayShellDeps, 'pairing' | 'rotateToken'>,
+  pairing: Pick<TrayShellDeps, 'pairing'>,
 ): Promise<{
   mute: MuteStore
   pushMode: () => PushMode

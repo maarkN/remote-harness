@@ -9,10 +9,11 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    credentialsStorage
-      .load()
-      .then((credentials) => {
-        if (!cancelled) setCredentials(credentials)
+    Promise.all([credentialsStorage.load(), credentialsStorage.dropLegacy().catch(() => false)])
+      .then(([credentials, legacy]) => {
+        if (cancelled) return
+        setCredentials(credentials)
+        if (!credentials && legacy) useConnectionStore.setState({ pairAgain: true })
       })
       .catch(() => setCredentials(null))
     return () => {

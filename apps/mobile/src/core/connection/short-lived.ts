@@ -1,10 +1,11 @@
+import { noiseCrypto } from '@/core/crypto'
 import { credentialsStorage } from '@/core/storage/credentials'
 import { DaemonClient, type Hello } from './daemon-client'
 
 const TIMEOUT_MS = 8_000
 
 /**
- * Runs `use` on a short-lived connection with the saved credentials (a notification action, a Live
+ * Runs `use` on a short-lived connection (Noise IK with the saved keys) (a notification action, a Live
  * Activity button or token with the app in the background). False when there are no credentials,
  * the daemon cannot be reached or `use` fails.
  */
@@ -13,7 +14,12 @@ export async function withShortLivedClient(
 ): Promise<boolean> {
   const credentials = await credentialsStorage.load()
   if (!credentials) return false
-  const client = new DaemonClient({ ...credentials, reconnect: false, requestTimeoutMs: TIMEOUT_MS })
+  const client = new DaemonClient({
+    computer: credentials,
+    crypto: noiseCrypto,
+    reconnect: false,
+    requestTimeoutMs: TIMEOUT_MS,
+  })
   try {
     await new Promise<Hello>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS)

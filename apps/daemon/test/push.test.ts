@@ -282,7 +282,7 @@ describe('integration: hook → push', () => {
     const daemon = await startDaemon({
       logger: silentLogger,
       exec: fakeExecutor(),
-      tokenStore: new FileTokenStore(),
+      secretStore: new FileTokenStore(),
       dev: true,
       wsPort: 0,
       hookPort: 0,
@@ -309,36 +309,26 @@ describe('integration: device.register', () => {
     const { startDaemon } = await import('../src/main.ts')
     const { FileTokenStore } = await import('../src/core/secrets.ts')
     const { fakeExecutor, writeTestConfig } = await import('./helpers.ts')
-    const { PROTOCOL_VERSION } = await import('@remote-harness/protocol')
-    const { default: WebSocket } = await import('ws')
+    const { authedClient } = await import('./noise-client.ts')
     const root = paths.devices().replace(/\/\.remote-harness\/devices\.json$/, '')
     await writeTestConfig(root, ['claudin'])
-    const store = new FileTokenStore()
-    await store.set('tok')
     const daemon = await startDaemon({
       logger: silentLogger,
       exec: fakeExecutor(),
-      tokenStore: store,
+      secretStore: new FileTokenStore(),
       dev: true,
       wsPort: 0,
       hookPort: 0,
       pushSender: fakeSender().sender,
     })
-    const ws = new WebSocket(`ws://127.0.0.1:${daemon.wsPort}`)
+    const client = await authedClient(daemon)
     try {
-      const replies: { replyTo?: string }[] = []
-      ws.on('message', (d) => replies.push(JSON.parse(d.toString())))
-      await new Promise((r) => ws.once('open', r))
-      ws.send(JSON.stringify({ type: 'auth', id: '1', token: 'tok', protocolVersion: PROTOCOL_VERSION }))
-      ws.send(JSON.stringify({ type: 'device.register', id: '2', fcmToken: 'pixel', platform: 'android' }))
-      const start = Date.now()
-      while (!replies.some((r) => r.replyTo === '2') && Date.now() - start < 2000) {
-        await new Promise((r) => setTimeout(r, 20))
-      }
+      client.send({ type: 'device.register', id: '2', fcmToken: 'pixel', platform: 'android' })
+      await client.until('ack')
       const saved = JSON.parse(await readFile(paths.devices(), 'utf8'))
       expect(saved.tokens).toMatchObject([{ token: 'pixel', platform: 'android' }])
     } finally {
-      ws.close()
+      client.close()
       await daemon.stop()
     }
   })

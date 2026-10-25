@@ -7,8 +7,8 @@
  *   … demo --perf                                        # plus the performance scenario (long, bursty, busy terminal)
  *   … demo --host <address>                              # listen there instead of 127.0.0.1 (pair a physical device)
  *
- * Isolation: its own data home, file token store, tmux server (`TMUX_TMPDIR`, no `TMUX`), ports,
- * `HOME` and host name; push off. Only the paths in its manifest are created and removed.
+ * Isolation: its own data home, file secret store (a fresh daemon identity), tmux server
+ * (`TMUX_TMPDIR`, no `TMUX`), ports, `HOME` and host name; push off. Only the paths in its manifest are created and removed.
  */
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -33,7 +33,6 @@ import {
   DEMO_REPOS,
   DEMO_SESSIONS,
   DEMO_TMUX_SESSION,
-  DEMO_WS_PORT,
   type DemoLayout,
   type DemoSession,
   demoConfig,
@@ -152,7 +151,6 @@ if (readManifest().length > 0) clean()
 writeFileSync(manifestPath, JSON.stringify(layout.owned, null, 2))
 
 const now = Date.now()
-const token = randomBytes(32).toString('base64url')
 const hookSecret = randomBytes(24).toString('base64url')
 let daemon: ChildProcess | undefined
 let stopping = false
@@ -196,7 +194,6 @@ function writeSandbox(l: DemoLayout): void {
     )
   }
   writeFileSync(join(l.home, 'config.json'), `${JSON.stringify(demoConfig(), null, 2)}\n`)
-  writeFileSync(join(l.home, 'token'), token, { mode: 0o600 })
   writeFileSync(join(l.home, 'hook-secret'), hookSecret, { mode: 0o600 })
   for (const dir of Object.values(l.configDirs)) mkdirSync(join(dir, 'projects'), { recursive: true })
   mkdirSync(join(l.configDirs.codex, 'sessions'), { recursive: true })
@@ -436,7 +433,12 @@ for (const session of sessions) {
 
 if (perf) startBursts()
 
-const link = `remoteharness://pair?host=${encodeURIComponent(host)}&port=${DEMO_WS_PORT}&token=${token}`
+// A single-use pairing code (5 minutes) from the demo daemon, like `remote-harness pair`.
+const pairing = await fetch(`http://127.0.0.1:${DEMO_HOOK_PORT}/admin/pairing-code`, {
+  method: 'POST',
+  headers: { 'x-claude-remote-secret': hookSecret },
+})
+const link = ((await pairing.json()) as { url: string }).url
 console.log(`Remote Harness demo running in ${root} (machine "${DEMO_HOST_NAME}").`)
 console.log(`\nPair a simulator:\n  xcrun simctl openurl booted '${link}'\n\nOr open: ${link}`)
 if (perf)

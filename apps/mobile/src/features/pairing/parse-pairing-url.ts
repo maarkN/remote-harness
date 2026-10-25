@@ -1,34 +1,34 @@
-import { z } from 'zod'
-import type { Credentials } from '@/core/storage/credentials'
+import { type ParsedPairingCode, pairingCodeFromParams, parsePairingCode } from '@remote-harness/protocol'
 
-const CredentialsSchema = z.object({
-  host: z.string().trim().min(1),
-  port: z.coerce.number().int().min(1).max(65535),
-  token: z.string().trim().min(16),
-})
+export type { ParsedPairingCode } from '@remote-harness/protocol'
 
-/** Validates manually typed or scanned pairing data. */
-export function parseCredentials(input: {
-  host?: unknown
-  port?: unknown
-  token?: unknown
-}): Credentials | null {
-  const parsed = CredentialsSchema.safeParse(input)
-  return parsed.success ? parsed.data : null
+/** A scanned QR or a pasted `remoteharness://pair?…` link. */
+export function parsePairingLink(raw: string): ParsedPairingCode {
+  return parsePairingCode(raw)
 }
 
+type RouteParams = Record<string, string | string[] | undefined>
+
 /**
- * Parses `remoteharness://pair?host=…&port=…&token=…`, or the same link with the `claude-remote://`
- * scheme that `remote-harness pair` prints (and older QR codes carry).
+ * The pairing code of a deep link opened on `/pair` (e.g. scanned with the iOS Camera app); null
+ * when the route was opened without one.
  */
-export function parsePairingUrl(raw: string): Credentials | null {
-  const text = raw.trim()
-  const match = /^(?:remoteharness|claude-remote):\/\/pair\/?\?(.*)$/i.exec(text)
-  if (!match?.[1]) return null
-  const params = new URLSearchParams(match[1])
-  return parseCredentials({
-    host: params.get('host') ?? '',
-    port: params.get('port') ?? '',
-    token: params.get('token') ?? '',
-  })
+export function pairingCodeFromRoute(params: RouteParams): ParsedPairingCode | null {
+  if (!params.v && !params.token) return null
+  const all = (name: string): string[] => {
+    const value = params[name]
+    if (value === undefined) return []
+    return Array.isArray(value) ? value : [value]
+  }
+  return pairingCodeFromParams(
+    (name) => all(name)[0] ?? null,
+    (name) => all(name).flatMap((value) => value.split(',')),
+  )
+}
+
+/** What this device tells the daemon about itself when pairing (shown in its device list). */
+export function deviceInfo(os: string, isPad: boolean): { name: string; platform: string } {
+  if (os === 'ios') return { name: isPad ? 'iPad' : 'iPhone', platform: 'ios' }
+  if (os === 'android') return { name: 'Android', platform: 'android' }
+  return { name: os, platform: os }
 }

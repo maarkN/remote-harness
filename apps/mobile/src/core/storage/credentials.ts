@@ -1,27 +1,31 @@
 import * as SecureStore from 'expo-secure-store'
+import { type Computer, parseStoredComputer, serializeComputer } from './computer'
 
-export type Credentials = { host: string; port: number; token: string }
+export type { Computer } from './computer'
 
-const KEY = 'claude-remote.credentials'
+const KEY = 'remote-harness.computer'
+/** The `{host, port, token}` item of protocol 1, deleted at start (ADR-0002: pair again). */
+const LEGACY_KEY = 'claude-remote.credentials'
 
-/** Pairing credentials live only in SecureStore (iOS Keychain / Android Keystore). */
+const options = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY }
+
+/** The paired computer's keys live only in SecureStore (iOS Keychain / Android Keystore), on this device. */
 export const credentialsStorage = {
-  async load(): Promise<Credentials | null> {
-    const raw = await SecureStore.getItemAsync(KEY)
-    if (!raw) return null
-    try {
-      const value = JSON.parse(raw) as Credentials
-      return value.host && value.port && value.token ? value : null
-    } catch {
-      return null
-    }
+  async load(): Promise<Computer | null> {
+    const stored = parseStoredComputer(await SecureStore.getItemAsync(KEY, options))
+    return stored.kind === 'computer' ? stored.computer : null
   },
-  async save(credentials: Credentials): Promise<void> {
-    await SecureStore.setItemAsync(KEY, JSON.stringify(credentials), {
-      keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
-    })
+  async save(computer: Computer): Promise<void> {
+    await SecureStore.setItemAsync(KEY, serializeComputer(computer), options)
   },
   async clear(): Promise<void> {
-    await SecureStore.deleteItemAsync(KEY)
+    await SecureStore.deleteItemAsync(KEY, options)
+  },
+  /** Deletes a protocol-1 pairing; true when there was one (the pairing screen then says why). */
+  async dropLegacy(): Promise<boolean> {
+    const legacy = parseStoredComputer(await SecureStore.getItemAsync(LEGACY_KEY))
+    if (legacy.kind === 'none') return false
+    await SecureStore.deleteItemAsync(LEGACY_KEY)
+    return true
   },
 }

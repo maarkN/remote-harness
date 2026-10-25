@@ -10,7 +10,7 @@ Remote Harness lets you follow and drive Claude Code and Codex sessions that run
 - [Getting started](/en/docs/getting-started/): requirements, the one-line install on macOS, Linux and Windows (WSL2), the app, pairing.
 - [Using the app](/en/docs/using-the-app/): session list, conversation, prompts, permissions, terminal, sessions and worktrees, live status, notifications, profiles and OpenRouter, settings.
 - [The daemon](/en/docs/daemon/): CLI commands, the configuration file, the background service, updates and channels, the tray icon, logs.
-- [Security & privacy](/en/docs/security/): what the daemon can do, what leaves your machine, tokens and keys, reporting a problem.
+- [Security & privacy](/en/docs/security/): what the daemon can do, what leaves your machine, keys and pairing, reporting a problem.
 - [Troubleshooting](/en/docs/troubleshooting/): connection, Tailscale, push, sleep, read-only sessions, WSL, version mismatch.
 - [Contributing](/en/docs/contributing/): how the project is built and how to help.
 

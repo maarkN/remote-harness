@@ -12,9 +12,8 @@ The daemon runs on the computer: it tails the session transcripts, drives tmux, 
 | --- | --- |
 | `remote-harness setup` | Guided setup: accounts and aliases, hooks, service, pairing. `--yes` keeps the config, `--lang` picks the language. |
 | `remote-harness start` | Runs the daemon in the foreground. `--dev` binds to `127.0.0.1`, `--host` sets the address, `--wait-tailscale` waits for the interface. |
-| `remote-harness pair` | Shows the pairing QR code (address and token). `--dev` for `127.0.0.1`. |
-| `remote-harness rotate-token` | New token; every phone has to pair again. |
-| `remote-harness doctor` | Checks the tools, Tailscale, the config, the profiles and their provider keys, the token store, the service, push and the registered phones. |
+| `remote-harness pair` | Asks the running daemon for a pairing QR code: it pairs one phone and expires in 5 minutes. |
+| `remote-harness doctor` | Checks the tools, Tailscale, the config, the profiles and their provider keys, the daemon identity, the service, push and the registered phones. |
 | `remote-harness install` / `uninstall` | Installs or removes the launchers, the `PATH` entry, the hooks and the status line wrapper, without questions. |
 | `remote-harness service install` / `uninstall` / `status` | The background service: a launchd LaunchAgent on macOS, a systemd user unit on Linux and WSL. |
 | `remote-harness update` | Fetches the new version, rebuilds, refreshes the hooks and restarts the service. `--ref <branch|tag>` picks a version. |
@@ -84,7 +83,7 @@ By hand: add a `provider` with `kind: "openrouter"` and, optionally, `baseUrl` (
 }
 ```
 
-Then `remote-harness install` regenerates the launchers and `remote-harness provider key openrouter` stores the key in the same place as the pairing token (Keychain on macOS, Secret Service or a `0600` file on Linux). The launcher reads it only inside the tmux window, never on a command line, and the daemon only uses it to show your credits in the app. `doctor` reports whether each provider profile has a key.
+Then `remote-harness install` regenerates the launchers and `remote-harness provider key openrouter` stores the key in the same secret store as the daemon's own keys (Keychain on macOS, Secret Service or a `0600` file on Linux). The launcher reads it only inside the tmux window, never on a command line, and the daemon only uses it to show your credits in the app. `doctor` reports whether each provider profile has a key.
 
 ## Codex profiles
 
@@ -114,7 +113,7 @@ The service checks its channel on the git remote every 6 hours and shows a deskt
 
 ## Tray icon
 
-The service daemon shows a menu bar icon on macOS (a small Swift helper built on first start with the Command Line Tools) and a tray icon on Linux (`python3` with GTK 3 and AyatanaAppIndicator3 or AppIndicator3). The menu shows the running sessions and the pending permissions (answer them from there), starts a new session, shows the pairing code, checks or applies updates, picks the channel, opens the logs, the config and the documentation, and restarts the daemon. **Pair a phone** shows the pairing QR code right in the menu on macOS, the address, the pairing in the terminal and **Rotate token…** (the paired phones must pair again). **Preferences** toggles the permission answers in the menu, the keep-awake mode and push notifications, applied at once, and opens the config file for the rest. Under the service, **Quit** either hides the icon or stops the service until the next login. `"tray": false` turns it off; without the helper, and in WSL, the daemon runs headless.
+The service daemon shows a menu bar icon on macOS (a small Swift helper built on first start with the Command Line Tools) and a tray icon on Linux (`python3` with GTK 3 and AyatanaAppIndicator3 or AppIndicator3). The menu shows the running sessions and the pending permissions (answer them from there), starts a new session, shows the pairing code, checks or applies updates, picks the channel, opens the logs, the config and the documentation, and restarts the daemon. **Pair a phone** shows the pairing QR code right in the menu on macOS, the address and the pairing in the terminal; each code is single use and expires in 5 minutes. **Preferences** toggles the permission answers in the menu, the keep-awake mode and push notifications, applied at once, and opens the config file for the rest. Under the service, **Quit** either hides the icon or stops the service until the next login. `"tray": false` turns it off; without the helper, and in WSL, the daemon runs headless.
 
 ## Self-hosting the connection relay
 
@@ -139,4 +138,4 @@ Pair the phone again afterwards: the pairing code tells the app which relay to u
 
 Everything the daemon keeps lives in `~/.remote-harness/`: `config.json`, `state.json` (the known sessions), `secrets/` (provider keys when the file store is used), `models-cache.json`, `bin/` (launchers), `logs/` and `src/` (the source the installer built). Attach the logs to a bug report after removing tokens and session content.
 
-Environment variables: `REMOTE_HARNESS_HOME` moves the data directory, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` forces the token store, `REMOTE_HARNESS_LANG` sets the language.
+Environment variables: `REMOTE_HARNESS_HOME` moves the data directory, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` forces the secret store (the daemon's keys and the provider keys), `REMOTE_HARNESS_LANG` sets the language.

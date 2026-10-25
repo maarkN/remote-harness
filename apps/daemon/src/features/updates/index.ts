@@ -62,8 +62,6 @@ export type TrayShellDeps = {
   renameSession: (sessionId: string, name: string) => Promise<void>
   /** The pairing link and `host:port` once the daemon listens for the app. */
   pairing: () => { url: string; address: string } | null
-  /** Stores a new token and closes the app connections (phones pair again). */
-  rotateToken: () => Promise<void>
   keepAwake: { mode: () => KeepAwakeMode; set: (mode: KeepAwakeMode) => Promise<void> }
   /** The config's `push` setting, and writing + applying a new one. */
   push: { setting: () => PushSetting; set: (setting: PushSetting) => Promise<void> }
@@ -412,9 +410,6 @@ export async function registerUpdatesFeature(
         // The service manager stops this daemon (SIGTERM) right after; the icon goes first.
         tray?.stop()
         await stopService(ctx.exec)
-      } else if (id === TRAY_ACTIONS.rotateToken && shell) {
-        await shell.rotateToken()
-        refreshMenu()
       } else if (id === TRAY_ACTIONS.prefPermissions) {
         await updateConfigFile({ trayPermissions: !settings.trayPermissions })
         await reload()

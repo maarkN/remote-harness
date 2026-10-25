@@ -12,9 +12,8 @@ O daemon roda no computador: acompanha os transcripts das sessões, controla o t
 | --- | --- |
 | `remote-harness setup` | Instalação guiada: contas e aliases, hooks, serviço, pareamento. `--yes` mantém a configuração, `--lang` escolhe o idioma. |
 | `remote-harness start` | Roda o daemon em primeiro plano. `--dev` prende a `127.0.0.1`, `--host` define o endereço, `--wait-tailscale` espera a interface. |
-| `remote-harness pair` | Mostra o QR code de pareamento (endereço e token). `--dev` para `127.0.0.1`. |
-| `remote-harness rotate-token` | Token novo; todos os celulares precisam parear de novo. |
-| `remote-harness doctor` | Confere as ferramentas, o Tailscale, a configuração, os perfis e as chaves de provedor, o cofre do token, o serviço, o push e os celulares registrados. |
+| `remote-harness pair` | Pede ao daemon em execução um QR code de pareamento: ele pareia um celular e expira em 5 minutos. |
+| `remote-harness doctor` | Confere as ferramentas, o Tailscale, a configuração, os perfis e as chaves de provedor, a identidade do daemon, o serviço, o push e os celulares registrados. |
 | `remote-harness install` / `uninstall` | Instala ou remove os atalhos, a entrada no `PATH`, os hooks e o wrapper da status line, sem perguntas. |
 | `remote-harness service install` / `uninstall` / `status` | O serviço em segundo plano: um LaunchAgent do launchd no macOS, uma unidade de usuário do systemd no Linux e no WSL. |
 | `remote-harness update` | Baixa a nova versão, recompila, atualiza os hooks e reinicia o serviço. `--ref <branch|tag>` escolhe a versão. |
@@ -84,7 +83,7 @@ Um perfil pode rotear o Claude Code pelo OpenRouter em vez da conta Anthropic. O
 }
 ```
 
-Depois, `remote-harness install` regenera os atalhos e `remote-harness provider key openrouter` guarda a chave no mesmo lugar do token de pareamento (Keychain no macOS, Secret Service ou arquivo `0600` no Linux). O atalho lê a chave só dentro da janela do tmux, nunca numa linha de comando, e o daemon só a usa para mostrar os seus créditos no app. O `doctor` informa se cada perfil com provedor tem chave.
+Depois, `remote-harness install` regenera os atalhos e `remote-harness provider key openrouter` guarda a chave no mesmo cofre das chaves do próprio daemon (Keychain no macOS, Secret Service ou arquivo `0600` no Linux). O atalho lê a chave só dentro da janela do tmux, nunca numa linha de comando, e o daemon só a usa para mostrar os seus créditos no app. O `doctor` informa se cada perfil com provedor tem chave.
 
 ## Perfis do Codex
 
@@ -114,7 +113,7 @@ O serviço confere o canal dele no remoto git a cada 6 horas e mostra uma notifi
 
 ## Ícone na bandeja
 
-O daemon do serviço mostra um ícone na barra de menus do macOS (um pequeno auxiliar em Swift compilado no primeiro início com as Command Line Tools) e um ícone na bandeja do Linux (`python3` com GTK 3 e AyatanaAppIndicator3 ou AppIndicator3). O menu mostra as sessões em andamento e as permissões pendentes (responda por ali), abre uma sessão nova, mostra o código de pareamento, confere ou aplica atualizações, escolhe o canal, abre os logs, a configuração e a documentação, e reinicia o daemon. **Parear um celular** mostra o QR de pareamento no próprio menu no macOS, o endereço, o pareamento no terminal e **Trocar o token…** (os celulares pareados precisam parear de novo). **Preferências** liga e desliga as respostas de permissão no menu, o modo de manter acordado e as notificações push, aplicados na hora, e abre o arquivo de configuração para o resto. Com o serviço, **Sair** esconde o ícone ou para o serviço até o próximo login. `"tray": false` desliga; sem o auxiliar, e no WSL, o daemon roda sem interface.
+O daemon do serviço mostra um ícone na barra de menus do macOS (um pequeno auxiliar em Swift compilado no primeiro início com as Command Line Tools) e um ícone na bandeja do Linux (`python3` com GTK 3 e AyatanaAppIndicator3 ou AppIndicator3). O menu mostra as sessões em andamento e as permissões pendentes (responda por ali), abre uma sessão nova, mostra o código de pareamento, confere ou aplica atualizações, escolhe o canal, abre os logs, a configuração e a documentação, e reinicia o daemon. **Parear um celular** mostra o QR de pareamento no próprio menu no macOS, o endereço e o pareamento no terminal; cada código é de uso único e expira em 5 minutos. **Preferências** liga e desliga as respostas de permissão no menu, o modo de manter acordado e as notificações push, aplicados na hora, e abre o arquivo de configuração para o resto. Com o serviço, **Sair** esconde o ícone ou para o serviço até o próximo login. `"tray": false` desliga; sem o auxiliar, e no WSL, o daemon roda sem interface.
 
 ## Hospedar o próprio relay de conexão
 
@@ -139,4 +138,4 @@ Pareie o celular de novo em seguida: o código de pareamento diz ao app qual rel
 
 Tudo o que o daemon guarda fica em `~/.remote-harness/`: `config.json`, `state.json` (as sessões conhecidas), `secrets/` (chaves de provedor quando o cofre é o arquivo), `models-cache.json`, `bin/` (atalhos), `logs/` e `src/` (o código que o instalador compilou). Anexe os logs a um relato de bug depois de remover tokens e conteúdo de sessões.
 
-Variáveis de ambiente: `REMOTE_HARNESS_HOME` muda a pasta de dados, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` força o cofre do token, `REMOTE_HARNESS_LANG` define o idioma.
+Variáveis de ambiente: `REMOTE_HARNESS_HOME` muda a pasta de dados, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` força o cofre de segredos (as chaves do daemon e as de provedor), `REMOTE_HARNESS_LANG` define o idioma.

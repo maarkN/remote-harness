@@ -72,11 +72,11 @@ Building from source with your own Apple developer account has no such list: Xco
 
 ## Pair the phone
 
-The setup ends with a QR code; `remote-harness pair` shows it again at any time. Open the app, scan it, and you are in: the app keeps the token in the phone's secure storage and connects over Tailscale.
+The setup ends with a QR code; `remote-harness pair` asks the running daemon for a new one at any time. Each code pairs one phone and expires after 5 minutes. Open the app, scan it, and you are in: the phone creates its own key pair, keeps it in its secure storage and connects over Tailscale, with everything encrypted end to end.
 
 Installed the app first? Its pairing screen has a step-by-step guide for the computer side, including the install command to share.
 
-Trying it on a simulator without Tailscale: `remote-harness start --dev` binds the daemon to `127.0.0.1` and `remote-harness pair --dev` prints a matching code. On the Android emulator also run `adb reverse tcp:7337 tcp:7337`.
+Trying it on a simulator without Tailscale: `remote-harness start --dev` binds the daemon to `127.0.0.1` and `remote-harness pair` prints a code with that address: paste the link in the app's **Paste link** tab. On the Android emulator also run `adb reverse tcp:7337 tcp:7337`.
 
 ## First session
 

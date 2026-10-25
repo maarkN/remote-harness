@@ -72,11 +72,11 @@ Compilar a partir do código com a sua própria conta de desenvolvedor da Apple 
 
 ## Parear o celular
 
-A instalação termina com um QR code; `remote-harness pair` mostra de novo quando quiser. Abra o app, escaneie e pronto: o app guarda o token no armazenamento seguro do celular e conecta pelo Tailscale.
+A instalação termina com um QR code; `remote-harness pair` pede um novo ao daemon em execução quando quiser. Cada código pareia um celular e expira depois de 5 minutos. Abra o app, escaneie e pronto: o celular cria o próprio par de chaves, guarda no armazenamento seguro e conecta pelo Tailscale, com tudo criptografado de ponta a ponta.
 
 Instalou o app primeiro? A tela de pareamento tem um passo a passo para o lado do computador, com o comando de instalação para compartilhar.
 
-Testando num simulador sem Tailscale: `remote-harness start --dev` prende o daemon a `127.0.0.1` e `remote-harness pair --dev` imprime um código compatível. No emulador Android rode também `adb reverse tcp:7337 tcp:7337`.
+Testando num simulador sem Tailscale: `remote-harness start --dev` prende o daemon a `127.0.0.1` e `remote-harness pair` imprime um código com esse endereço: cole o link na aba **Colar link** do app. No emulador Android rode também `adb reverse tcp:7337 tcp:7337`.
 
 ## Primeira sessão
 

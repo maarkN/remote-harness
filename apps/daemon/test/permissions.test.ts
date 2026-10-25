@@ -1,8 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { PROTOCOL_VERSION, type ServerMessage } from '@remote-harness/protocol'
+import type { ServerMessage } from '@remote-harness/protocol'
 import { afterEach, describe, expect, test } from 'vitest'
-import WebSocket from 'ws'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import { FileTokenStore } from '../src/core/secrets.ts'
@@ -17,6 +16,7 @@ import { RulesLog } from '../src/features/permissions/rules-log.ts'
 import { type RunningDaemon, startDaemon } from '../src/main.ts'
 import { SECRET_HEADER } from '../src/transport/hooks-server.ts'
 import { fakeExecutor, hookEvent, useTempHome, writeTestConfig } from './helpers.ts'
+import { authedClient } from './noise-client.ts'
 
 const home = useTempHome()
 
@@ -450,21 +450,15 @@ describe('integration: hook HTTP + WebSocket', () => {
 
   test('phone approves a pending hook', async () => {
     await writeTestConfig(home.dir())
-    const store = new FileTokenStore()
-    await store.set('tok')
     daemon = await startDaemon({
       logger: silentLogger,
       exec: fakeExecutor(),
-      tokenStore: store,
+      secretStore: new FileTokenStore(),
       dev: true,
       wsPort: 0,
       hookPort: 0,
     })
-    const ws = new WebSocket(`ws://127.0.0.1:${daemon.wsPort}`)
-    const messages: ServerMessage[] = []
-    ws.on('message', (d) => messages.push(JSON.parse(d.toString())))
-    await new Promise((r) => ws.once('open', r))
-    ws.send(JSON.stringify({ type: 'auth', id: '1', token: 'tok', protocolVersion: PROTOCOL_VERSION }))
+    const client = await authedClient(daemon)
 
     const { readFile } = await import('node:fs/promises')
     const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
@@ -473,27 +467,17 @@ describe('integration: hook HTTP + WebSocket', () => {
       headers: { 'content-type': 'application/json', [SECRET_HEADER]: secret },
       body: JSON.stringify({ session_id: 's', cwd: '/w', tool_name: 'Bash', tool_input: { command: 'ls' } }),
     })
-    const deadline = Date.now() + 3000
-    let request: Extract<ServerMessage, { type: 'permission.request' }> | undefined
-    while (!request && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 20))
-      request = messages.find(
-        (m): m is Extract<ServerMessage, { type: 'permission.request' }> => m.type === 'permission.request',
-      )
-    }
-    expect(request).toBeDefined()
-    ws.send(
-      JSON.stringify({
-        type: 'permission.respond',
-        id: '2',
-        requestId: request!.request.requestId,
-        decision: 'allow',
-      }),
-    )
+    const request = await client.until('permission.request')
+    client.send({
+      type: 'permission.respond',
+      id: '2',
+      requestId: request.request.requestId,
+      decision: 'allow',
+    })
     const body = await (await hookResponse).json()
     expect(body).toEqual({
       hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
     })
-    ws.close()
+    client.close()
   })
 })
