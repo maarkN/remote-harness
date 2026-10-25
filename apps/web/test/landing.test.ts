@@ -76,8 +76,13 @@ describe('renderLanding', () => {
     expect(html).toContain(m.footer.contributors)
     // The only external resources are the fonts.
     const externals = [...html.matchAll(/(?:href|src)="(https?:\/\/[^"]+)"/g)].map((match) => match[1])
-    // Links (not resources) to the contributors' profiles and the author's site are fine too.
-    const credits = [AUTHOR.url, ...CONTRIBUTORS.map((login) => `https://github.com/${login}`)]
+    // Links (not resources) to the contributors' profiles, the author's site and the app's Google Play
+    // testing page are fine too.
+    const credits = [
+      AUTHOR.url,
+      ...CONTRIBUTORS.map((login) => `https://github.com/${login}`),
+      'https://play.google.com/apps/test/com.alvyntech.remoteharness',
+    ]
     const foreign = externals.filter(
       (url) =>
         !credits.includes(url ?? '') &&
@@ -166,6 +171,16 @@ describe('renderLanding', () => {
     expect(without).toContain(`<a class="store" href="${docs}">`)
     expect(without).toContain(`<small>${esc(ios.source)}</small>`)
     expect(without).not.toContain(inline(ios.note))
+  })
+
+  test.each(WEB_LOCALES)('%s: the Android card opens the Google Play testing page', (locale) => {
+    const android = CATALOGS[locale].install.android
+    const html = renderLanding(locale)
+    expect(html).toContain(
+      '<a class="store" href="https://play.google.com/apps/test/com.alvyntech.remoteharness">',
+    )
+    expect(html).toContain(`<small>${esc(android.detail)}</small>`)
+    expect(android.detail).toContain('Google Play')
   })
 
   test.each(WEB_LOCALES)(

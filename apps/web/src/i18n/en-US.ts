@@ -303,7 +303,7 @@ export const enUS = {
       source: 'Build from source today · TestFlight soon · iOS 17+',
       note: 'The iPhone & iPad build installs only on registered devices: [how to get yours added](/en/docs/getting-started/#registering-an-iphone-or-ipad), or build it from source.',
     },
-    android: { title: 'Android', detail: 'APK on GitHub Releases · Android 10+' },
+    android: { title: 'Android', detail: 'Google Play (testing) · Android 10+' },
     appNote:
       'Both need Tailscale on the phone too. Installed the app first? Its pairing screen walks you through the machine setup.',
   },

@@ -56,7 +56,7 @@ node apps/daemon/dist/cli.js setup
 ## Install the app
 
 - **iPhone and iPad**: install it over the air from the **Get the app** card on [remoteharness.app](/en/#app) (open it in Safari; iOS 17+). It is an ad-hoc build, so it installs only on devices registered in the developer team: see [Registering an iPhone or iPad](#registering-an-iphone-or-ipad). Or build it from source: with Xcode on a Mac, `cd apps/mobile && pnpm ios` runs it on the simulator or a connected device; `make install-ios` makes a release build for a connected iPhone or iPad. [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) has the signing details.
-- **Android**: the APK from [GitHub Releases](https://github.com/maarkN/remote-harness/releases) (allow installs from your browser when asked), or `pnpm android` and `pnpm build:android` from the repository.
+- **Android**: from [Google Play (testing)](https://play.google.com/apps/test/com.alvyntech.remoteharness): join the test, then install it from the Play Store; or the APK from [GitHub Releases](https://github.com/maarkN/remote-harness/releases) (allow installs from your browser when asked), or `pnpm android` and `pnpm build:android` from the repository.
 
 Install Tailscale on the phone as well and sign in to the same tailnet as the computer.
 
