@@ -8,10 +8,26 @@ const ESC = '\x1b'
 // Built from ESC so the source holds no control character in a regex literal.
 const SGR = new RegExp(`${ESC}\\[([0-9;:]*)m`, 'g')
 
-/** The lines of a frame, as drawn: no trailing newline, the Claude Code bullet as a text glyph. */
+/**
+ * Characters the agents' TUIs print that a platform cannot draw as a one-column text glyph, and the
+ * glyph drawn instead (same width). iOS draws U+23FA (the Claude Code bullet) as an emoji; no Android
+ * font has U+23F5 (the `⏵⏵` of Claude Code's mode line) or U+23BF (its `⎿` under each tool call), so
+ * the WebView showed boxes (#344).
+ */
+export const GLYPH_SUBSTITUTES: Readonly<Record<string, string>> = {
+  '⏺': '●',
+  '⏵': '►',
+  '⎿': '└',
+}
+
+const SUBSTITUTED = new RegExp(`[${Object.keys(GLYPH_SUBSTITUTES).join('')}]`, 'g')
+
+/** The lines of a frame, as drawn: no trailing newline, with `GLYPH_SUBSTITUTES` applied. */
 export function frameLines(frame: PaneFrame): string[] {
-  // iOS draws U+23FA (the Claude Code bullet) as an emoji; use a text glyph of the same width.
-  return frame.text.replace(/\n$/, '').replace(/⏺/g, '●').split('\n')
+  return frame.text
+    .replace(/\n$/, '')
+    .replace(SUBSTITUTED, (glyph) => GLYPH_SUBSTITUTES[glyph] ?? glyph)
+    .split('\n')
 }
 
 /**
