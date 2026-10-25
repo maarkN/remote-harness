@@ -89,6 +89,33 @@ describe('transcript meta', () => {
     expect(meta.title).toBe('corrija o bug')
   })
 
+  test('titles from prompts never show markup (#350)', () => {
+    const pasted = '<pasted_content id="p1">Error: boom\nat x</pasted_content>'
+    // A pasted first prompt: the pasted text's first line.
+    expect(extractMeta([], [{ type: 'user', message: { content: pasted } }]).title).toBe('Error: boom')
+    // A question wins over an earlier slash command; the command is the fallback.
+    const command = '<command-name>/review</command-name>\n<command-args>12</command-args>'
+    expect(
+      extractMeta(
+        [],
+        [
+          { type: 'user', message: { content: command } },
+          { type: 'user', message: { content: 'why does it fail?' } },
+        ],
+      ).title,
+    ).toBe('why does it fail?')
+    expect(extractMeta([], [{ type: 'user', message: { content: command } }]).title).toBe('/review 12')
+    // The last prompt fallback goes through the same rules.
+    expect(extractMeta([{ type: 'last-prompt', lastPrompt: `see ${pasted}` }], []).title).toBe('see')
+    // A name still wins.
+    expect(
+      extractMeta(
+        [{ type: 'custom-title', customTitle: 'Login bug' }],
+        [{ type: 'user', message: { content: pasted } }],
+      ).title,
+    ).toBe('Login bug')
+  })
+
   test('reads from a file and tolerates broken lines', async () => {
     const path = join(home.dir(), 's.jsonl')
     await writeFile(path, `{"type":"user","cwd":"/w","message":{"content":"oi"}}\n{broken\n`)
@@ -175,6 +202,26 @@ describe('session state from hooks', () => {
     await service.handleHook(hookEvent('SessionEnd', { session_id: 's1', reason: 'other' }))
     expect(store.get('s1')).toMatchObject({ state: 'ended', controllable: false, paneId: null })
     expect(sent.filter((m) => m.type === 'session.updated').length).toBe(5)
+  })
+
+  test('a pasted prompt titles the session without markup and fixes raw tags (#350)', async () => {
+    const { service, store } = setup()
+    await service.handleHook(hookEvent('SessionStart', { session_id: 's1', cwd: '/w/api' }, { paneId: '%1' }))
+    const pasted = '<pasted_content id="p1">Error: boom</pasted_content>'
+    // Nothing left in the prompt: the folder name stays.
+    await service.handleHook(
+      hookEvent('UserPromptSubmit', { session_id: 's1', prompt: '<system-reminder>x</system-reminder>' }),
+    )
+    expect(store.get('s1')?.title).toBe('api')
+    await service.handleHook(hookEvent('UserPromptSubmit', { session_id: 's1', prompt: `explain ${pasted}` }))
+    expect(store.get('s1')?.title).toBe('explain')
+    // A later prompt does not replace a real title...
+    await service.handleHook(hookEvent('UserPromptSubmit', { session_id: 's1', prompt: 'other' }))
+    expect(store.get('s1')?.title).toBe('explain')
+    // ...but replaces a raw tag left by an older daemon.
+    store.upsert('s1', { title: '<pasted_content id="p1">Error…' })
+    await service.handleHook(hookEvent('UserPromptSubmit', { session_id: 's1', prompt: pasted }))
+    expect(store.get('s1')?.title).toBe('Error: boom')
   })
 
   test('a new session in the same pane ends the previous one', async () => {
