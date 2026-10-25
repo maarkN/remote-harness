@@ -56,6 +56,8 @@ function fakeClient() {
 }
 
 const tick = () => new Promise((r) => setTimeout(r, 0))
+/** Live entries are applied once per frame (a 16 ms timer without frame callbacks). */
+const frame = () => new Promise((r) => setTimeout(r, 20))
 const page = (entries: TranscriptEntry[], hasMore: boolean): ServerMessage => ({
   type: 'transcript.page',
   sessionId: 's',
@@ -77,6 +79,9 @@ describe('transcript store', () => {
     f.emit({ type: 'transcript.entry', sessionId: 's', cursor: 52, entry: entry(52) })
     f.emit({ type: 'transcript.entry', sessionId: 'other', cursor: 9, entry: entry(9) })
     let state = selectStream('s')(useTranscriptStore.getState())
+    expect(state.entries.map((e) => e.cursor)).toEqual([50, 51])
+    await frame()
+    state = selectStream('s')(useTranscriptStore.getState())
     expect(state.entries.map((e) => e.cursor)).toEqual([50, 51, 52])
 
     f.reply(page([entry(53)], false))

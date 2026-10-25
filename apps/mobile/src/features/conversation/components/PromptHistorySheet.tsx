@@ -24,9 +24,10 @@ export function PromptHistorySheet({
   const { t } = useTranslation()
   const insets = useSafeAreaInsets()
   const styles = useStyles()
+  // Built only while the sheet is open: it stays mounted, and the entries change on every arrival.
   const prompts = useMemo(
-    () => promptHistory(stream.entries, (count) => t('images.count', { count })),
-    [stream.entries, t],
+    () => (visible ? promptHistory(stream.entries, (count) => t('images.count', { count })) : []),
+    [visible, stream.entries, t],
   )
 
   return (

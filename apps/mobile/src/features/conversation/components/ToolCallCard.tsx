@@ -7,7 +7,7 @@ import { makeStyles, radius, space, useTheme } from '@/core/theme'
 import { Text } from '@/ui'
 import { ImageStrip } from '../../images/ImageStrip'
 import { toolTabCopyText } from '../copy'
-import { diffForTool } from '../diff'
+import { cachedDiffForTool, type diffForTool } from '../diff'
 import { summarizeTool } from '../summarize-tool'
 import { cutText, TOOL_TABS, type ToolTab, tabFor, toolCallJson, toolInputFields } from '../tool-details'
 import { saveToolTab, useToolTabStore } from '../tool-tab-store'
@@ -32,7 +32,7 @@ export const ToolCallCard = memo(function ToolCallCard({
   const styles = useStyles()
   const [open, setOpen] = useState(false)
   const title = use ? summarizeTool(use.name, use.input, t) : t('conversation.toolResult')
-  const diff = useMemo(() => (use ? diffForTool(use.name, use.input, t) : null), [use, t])
+  const diff = useMemo(() => (use ? cachedDiffForTool(use, t) : null), [use, t])
   const status: 'running' | 'ok' | 'error' = !result ? 'running' : result.isError ? 'error' : 'ok'
   const Icon = open ? ChevronDown : ChevronRight
   const dotColor = status === 'running' ? 'warning' : status === 'error' ? 'danger' : 'success'

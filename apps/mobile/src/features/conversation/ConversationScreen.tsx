@@ -33,7 +33,7 @@ import { useKeyBarStore } from './key-bar-store'
 import { useKeyboardToolbarStore } from './keyboard-toolbar-store'
 import type { PromptHistoryItem } from './prompt-history'
 import { loadOlder, selectStream, streamKey, subscribeTranscript, useTranscriptStore } from './store'
-import { buildTimeline, type TimelineItem } from './timeline'
+import type { TimelineItem } from './timeline'
 import { useFollowScroll } from './use-follow-scroll'
 
 function renderItem({ item }: { item: TimelineItem }) {
@@ -105,7 +105,8 @@ export function ConversationScreen({
   const keyBarShown = useKeyBarStore((s) => s.visible)
   const keyBarHidden = useKeyboardToolbarStore((s) => s.keyBarHiddenBy !== null)
   const keyBarVisible = keyBarShown && !keyBarHidden
-  const items = useMemo(() => buildTimeline(stream.entries), [stream.entries])
+  // Built in the store as entries arrive: new entries add items, the others keep their objects.
+  const items = stream.timeline.items
   // Where the conversation starts in the window (under the header, the banner, the session header):
   // the keyboard offset, so the composer and its toolbar sit right above the keyboard.
   const anchor = useRef<View>(null)
