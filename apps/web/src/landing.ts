@@ -24,9 +24,10 @@ export function docsPath(locale: Locale): string {
   return `${LOCALE_PATHS[locale]}docs/`
 }
 
-/** Where the links go until the stores exist (#161); the iPhone & iPad card comes from `SiteConfig`. */
+/** Fixed links; the iPhone & iPad card comes from `SiteConfig` (#347). */
 export const LINKS = {
-  android: `${REPO_URL}/releases`,
+  /** Google Play's testing opt-in page, until the listing is public (#161). */
+  android: 'https://play.google.com/apps/test/com.alvyntech.remoteharness',
   releases: `${REPO_URL}/releases`,
   security: `${REPO_URL}/blob/main/SECURITY.md`,
   license: `${REPO_URL}/blob/main/LICENSE`,

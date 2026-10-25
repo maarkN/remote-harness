@@ -295,7 +295,7 @@ export const ptBR: WebMessages = {
       source: 'Compile do código por enquanto · TestFlight em breve · iOS 17+',
       note: 'O build de iPhone e iPad só instala em aparelhos cadastrados: [como incluir o seu](/pt-br/docs/getting-started/#cadastrar-um-iphone-ou-ipad), ou compile a partir do código.',
     },
-    android: { title: 'Android', detail: 'APK nos Releases do GitHub · Android 10+' },
+    android: { title: 'Android', detail: 'Google Play (teste) · Android 10+' },
     appNote:
       'Os dois precisam do Tailscale no celular também. Instalou o app primeiro? A tela de pareamento guia a instalação na máquina.',
   },
