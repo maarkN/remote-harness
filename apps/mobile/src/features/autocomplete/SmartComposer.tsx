@@ -76,11 +76,12 @@ export function SmartComposer({ sessionId, prompt, disabled, autoFocus }: Props)
     const session = s.sessions[sessionId]
     return session ? sessionAgent(session) : null
   })
-  const session = useSessionsStore((s) => s.sessions[sessionId])
+  const state = useSessionsStore((s) => s.sessions[sessionId]?.state)
+  const profileId = useSessionsStore((s) => s.sessions[sessionId]?.profileId)
   const pendingPermissions = usePermissionsStore(useShallow(selectPendingFor(sessionId))).length
   const queued = useQueueStore(selectQueueFor(sessionId)).length
   // Send holds the prompt while the agent is busy; the hint tells how to paste it mid-turn instead.
-  const queueing = willQueue(session, pendingPermissions, queued)
+  const queueing = willQueue(state ? { state } : undefined, pendingPermissions, queued)
   const { layout } = useLayout()
   const suggestions = useSuggestions(sessionId, trigger)
   const commands = useCommands(sessionId)
@@ -124,7 +125,7 @@ export function SmartComposer({ sessionId, prompt, disabled, autoFocus }: Props)
     const interactive = isInteractiveCommand(text, commands.data ?? [])
     const command = sentCommand(text, commands.data ?? [])
     const ok = await prompt.send(mode)
-    if (ok && command && session) void recordCommandUse(session.profileId, command)
+    if (ok && command && profileId) void recordCommandUse(profileId, command)
     // Menus like /model only exist in the TUI: show the raw terminal to drive them.
     if (interactive && ok) router.push({ pathname: '/session/[id]/terminal', params: { id: sessionId } })
   }

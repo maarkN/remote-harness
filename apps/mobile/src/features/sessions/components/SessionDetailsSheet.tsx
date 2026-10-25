@@ -34,7 +34,7 @@ export function SessionDetailsSheet({
             {session.title || t('common.session')}
           </Text>
           <ScrollView style={styles.list} contentContainerStyle={styles.content}>
-            <SessionDetailsList session={session} profile={profile} />
+            <SessionDetailsList sessionId={session.id} profile={profile} />
           </ScrollView>
           <Button label={t('common.close')} variant="ghost" onPress={onClose} />
         </View>

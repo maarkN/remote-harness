@@ -1,4 +1,4 @@
-import type { Profile, Session } from '@remote-harness/protocol'
+import type { Profile } from '@remote-harness/protocol'
 import * as Clipboard from 'expo-clipboard'
 import { Check, Copy } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
@@ -7,20 +7,30 @@ import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native'
 import { makeStyles, space, useTheme } from '@/core/theme'
 import { Text } from '@/ui'
 import { type SessionDetail, type SessionDetailKey, sessionDetails } from '../details'
+import { useSessionsStore } from '../store'
 
 const COPIED_MS = 1500
 
 /**
  * Everything the app knows about a session, as label/value rows; paths wrap and can be copied.
- * Shared by the details sheet and the tablet inspector.
+ * Shared by the details sheet and the tablet inspector. Reads the session itself, so its activity
+ * time and status are current even when the screen around it ignores those ticks.
  */
-export function SessionDetailsList({ session, profile }: { session: Session; profile: Profile | undefined }) {
+export function SessionDetailsList({
+  sessionId,
+  profile,
+}: {
+  sessionId: string
+  profile: Profile | undefined
+}) {
   const { t, i18n } = useTranslation()
   const styles = useStyles()
+  const session = useSessionsStore((s) => s.sessions[sessionId])
   const [copied, setCopied] = useState<SessionDetailKey | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
 
+  if (!session) return null
   const rows = sessionDetails(session, profile, t, { locale: i18n.language })
 
   const copy = async (row: SessionDetail) => {
