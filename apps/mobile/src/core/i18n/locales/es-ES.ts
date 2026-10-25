@@ -25,6 +25,7 @@ const esES = {
     subagent: 'Subagente',
   },
   connection: {
+    path: { direct: 'directo', relay: 'por relay' },
     banner: {
       connecting: 'conectando con {{machine}}…',
       authenticating: 'autenticando…',
@@ -55,6 +56,37 @@ const esES = {
     hours: '{{count}} h',
     yesterday: 'ayer',
     days: '{{count}} d',
+  },
+  computers: {
+    title: 'Ordenadores',
+    switchTitle: 'Ordenador',
+    switchLabel: 'Ordenador: {{name}}. Cambiar de ordenador',
+    add: 'Añadir un ordenador',
+    forgetTitle: '¿Olvidar {{name}}?',
+    forgetBody:
+      'Se borrarán las claves de este dispositivo para él. Para usarlo de nuevo, vincúlalo con un código nuevo.',
+    revokedTitle: 'Eliminado de un ordenador',
+    revokedBody:
+      'Otro dispositivo eliminó este de {{name}}. Vuelve a vincularlo con un código nuevo para usarlo.',
+  },
+  devices: {
+    title: 'Dispositivos',
+    loading: 'cargando…',
+    offline: 'Conéctate al ordenador para ver sus dispositivos.',
+    thisDevice: 'este dispositivo',
+    lastSeen: 'visto por última vez {{when}}',
+    neverSeen: 'no se ha conectado desde la vinculación',
+    revoke: 'Revocar',
+    revokeTitle: '¿Revocar {{name}}?',
+    revokeBody: 'Se desconecta ahora y solo puede volver vinculándose con un código nuevo.',
+    revokeSelfBody: 'Este dispositivo saldrá de {{machine}} y tendrá que volver a vincularse.',
+    add: 'Añadir dispositivo',
+    addTitle: 'Añadir un dispositivo',
+    addBody_one:
+      'Escanea este código con la app Remote Harness en el otro móvil o tableta. Funciona una vez, durante {{count}} minuto.',
+    addBody_other:
+      'Escanea este código con la app Remote Harness en el otro móvil o tableta. Funciona una vez, durante {{count}} minutos.',
+    copyLink: 'Copiar enlace',
   },
   pairing: {
     title: 'Vincular con el ordenador',

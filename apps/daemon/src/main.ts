@@ -125,6 +125,8 @@ export type DaemonContext = {
   providerKey: (profileId: string) => Promise<string | null>
   /** IDs of the paired devices (push registrations follow them); absent in tests that build a context. */
   pairedDeviceIds?: () => ReadonlySet<string>
+  /** This daemon's ID, which pushes and live status links carry; absent in tests that build a context. */
+  daemonId?: string
 }
 
 export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon> {
@@ -189,6 +191,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     pushSender: options.pushSender,
     providerKey: options.providerKey ?? (async () => null),
     pairedDeviceIds: () => pairing.devices.ids(),
+    daemonId: identity.daemonId,
   }
 
   router.register('ping', () => ({ type: 'pong' }))

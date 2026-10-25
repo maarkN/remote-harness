@@ -8,6 +8,7 @@ import {
 import {
   type ConnectionStatus,
   DaemonClient,
+  type DaemonTarget,
   type Hello,
   type SocketFactory,
   WRONG_DAEMON_CLOSE,
@@ -41,11 +42,15 @@ type PairOptions = {
   socketFactory?: SocketFactory
 }
 
-/** One pairing attempt on one address (no retries). */
-function pairAt(address: string, code: PairingCode, options: PairOptions): Promise<TestResult> {
+/** One pairing attempt on one target (no retries). */
+function pairAt(
+  target: Pick<DaemonTarget, 'addresses' | 'daemonId' | 'relay'>,
+  code: PairingCode,
+  options: PairOptions,
+): Promise<TestResult> {
   return new Promise((resolve) => {
     const client = new DaemonClient({
-      computer: { addresses: [address], daemonKey: code.daemonKey, deviceKey: options.deviceKey },
+      computer: { ...target, daemonKey: code.daemonKey, deviceKey: options.deviceKey },
       crypto: options.crypto,
       pairing: { secret: code.secret, info: options.info },
       reconnect: false,
@@ -71,13 +76,18 @@ function pairAt(address: string, code: PairingCode, options: PairOptions): Promi
 }
 
 /**
- * Pairs this device with the code's daemon (Noise XXpsk3), trying its addresses in turn until one
- * answers; a refusal from the daemon stops there (the code is used up or the device refused).
+ * Pairs this device with the code's daemon (Noise XXpsk3), trying its direct addresses in turn and
+ * then its relay until one answers; a refusal from the daemon stops there (the code is used up or
+ * the device refused).
  */
 export async function testConnection(code: PairingCode, options: PairOptions): Promise<TestResult> {
+  const targets: Pick<DaemonTarget, 'addresses' | 'daemonId' | 'relay'>[] = [
+    ...code.addresses.map((address) => ({ addresses: [address] })),
+    ...(code.relay ? [{ addresses: [], daemonId: code.daemonId, relay: code.relay }] : []),
+  ]
   let last: TestResult = { ok: false, error: 'failed' }
-  for (const address of code.addresses) {
-    last = await pairAt(address, code, options)
+  for (const target of targets) {
+    last = await pairAt(target, code, options)
     if (last.ok || (last.error !== 'failed' && last.error !== 'timeout')) return last
   }
   return last

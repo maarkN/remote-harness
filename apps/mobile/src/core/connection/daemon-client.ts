@@ -10,6 +10,7 @@ import {
   normalizeChannelClose,
   PROTOCOL_VERSION,
   parseServerMessage,
+  relayDeviceUrl,
   type ServerMessage,
   type ServerMessageOf,
   type ServerMessageType,
@@ -51,12 +52,39 @@ export class DaemonRequestError extends Error {
 
 /** What the client needs of a paired computer (or of the code being paired). */
 export type DaemonTarget = {
-  /** Direct `host:port` addresses, tried in turn. */
+  /** Routes the relay path (absent: direct addresses only). */
+  daemonId?: string
+  /** Direct `host:port` addresses, tried first. */
   addresses: string[]
+  /** The home relay, tried after the direct addresses, then the other relays. */
+  relay?: string
+  relays?: string[]
   /** The daemon's Noise static key; the handshake fails when another key answers. */
   daemonKey: Uint8Array
   deviceKey: KeyPair
 }
+
+export type ConnectionPath = 'direct' | 'relay'
+export type ConnectionTarget = { url: string; path: ConnectionPath }
+
+/** Where to try, in order: the direct addresses, then the home relay, then the other relays. */
+export function connectionTargets(target: DaemonTarget): ConnectionTarget[] {
+  const direct = target.addresses.map(
+    (address): ConnectionTarget => ({ url: daemonUrl(address), path: 'direct' }),
+  )
+  const daemonId = target.daemonId
+  if (!daemonId) return direct
+  const relays = [...new Set([target.relay, ...(target.relays ?? [])].filter((r): r is string => Boolean(r)))]
+  return [
+    ...direct,
+    ...relays.map((relay): ConnectionTarget => ({ url: relayDeviceUrl(relay, daemonId), path: 'relay' })),
+  ]
+}
+
+/** A direct address gets this long to answer before the next target; a relay the general timeout. */
+export const DIRECT_CONNECT_TIMEOUT_MS = 3_000
+/** While on the relay, how often the direct addresses are tried again. */
+export const DIRECT_PROBE_INTERVAL_MS = 30_000
 
 export type DaemonClientOptions = {
   computer: DaemonTarget
@@ -71,6 +99,8 @@ export type DaemonClientOptions = {
   maxBackoffMs?: number
   /** An attempt that has not opened after this long is abandoned and counted as unreachable. */
   connectTimeoutMs?: number
+  /** The same for a direct address, shorter so the relay is tried soon away from home. */
+  directTimeoutMs?: number
   clientName?: string
 }
 
@@ -123,6 +153,12 @@ export class DaemonClient {
   /** Cleared after the first successful pairing: reconnects use IK. */
   private pairing: DaemonClientOptions['pairing']
   private _closeCode: number | undefined
+  private target: DaemonTarget
+  private socketPath: ConnectionPath | null = null
+  private _path: ConnectionPath | null = null
+  private readonly pathListeners = new Set<(path: ConnectionPath | null) => void>()
+  private probeTimer: ReturnType<typeof setInterval> | null = null
+  private probing = false
   private readonly pending = new Map<string, Pending>()
   private readonly handlers = new Map<ServerMessageType | '*', Set<AnyHandler>>()
   private readonly statusListeners = new Set<(status: ConnectionStatus, error?: string) => void>()
@@ -142,6 +178,30 @@ export class DaemonClient {
 
   constructor(private readonly options: DaemonClientOptions) {
     this.pairing = options.pairing
+    this.target = options.computer
+  }
+
+  /** Which path the open connection uses (null while not connected). */
+  get path(): ConnectionPath | null {
+    return this._path
+  }
+
+  onPath(listener: (path: ConnectionPath | null) => void): () => void {
+    this.pathListeners.add(listener)
+    return () => this.pathListeners.delete(listener)
+  }
+
+  /** New addresses or relays the daemon announced (used from the next attempt and probe on). */
+  updateTarget(target: Pick<DaemonTarget, 'addresses' | 'relay' | 'relays'>): void {
+    this.target = { ...this.target, ...target }
+  }
+
+  private setPath(path: ConnectionPath | null): void {
+    if (path === this._path) return
+    this._path = path
+    for (const listener of this.pathListeners) listener(path)
+    if (path === 'relay') this.startProbing()
+    else this.stopProbing()
   }
 
   get status(): ConnectionStatus {
@@ -178,6 +238,8 @@ export class DaemonClient {
   /** Reconnects immediately (e.g. app returned to the foreground), skipping the backoff wait. */
   resumeNow(): void {
     if (this.stopped || this._status === 'unauthorized') return
+    // Back in the foreground on the relay: maybe home again.
+    if (this._status === 'open' && this._path === 'relay') void this.probeDirect()
     if (this._status === 'open' || this._status === 'connecting' || this._status === 'authenticating') return
     this.clearRetry()
     this.attempt = 0
@@ -188,6 +250,7 @@ export class DaemonClient {
     this.stopped = true
     this.clearRetry()
     this.clearConnectTimer()
+    this.setPath(null)
     const socket = this.socket
     this.socket = null
     this.session = null
@@ -303,21 +366,26 @@ export class DaemonClient {
     const factory =
       this.options.socketFactory ?? ((url: string) => new WebSocket(url) as unknown as SocketLike)
     this.setStatus(this.attempt === 0 ? 'connecting' : 'reconnecting')
-    const { addresses } = this.options.computer
-    const address = addresses[this.attempt % Math.max(1, addresses.length)]
+    const targets = connectionTargets(this.target)
+    const target = targets[this.attempt % Math.max(1, targets.length)]
     let socket: SocketLike
     try {
-      if (!address) throw new Error('no address for this computer')
-      socket = factory(daemonUrl(address))
+      if (!target) throw new Error('no address for this computer')
+      socket = factory(target.url)
       socket.binaryType = 'arraybuffer'
     } catch (error) {
       this.scheduleReconnect(String(error))
       return
     }
     this.socket = socket
+    this.socketPath = target.path
     this.session = null
     this.handshake = null
     this.clearConnectTimer()
+    const timeoutMs =
+      target.path === 'direct'
+        ? (this.options.directTimeoutMs ?? DIRECT_CONNECT_TIMEOUT_MS)
+        : (this.options.connectTimeoutMs ?? 10_000)
     this.connectTimer = setTimeout(() => {
       this.connectTimer = null
       if (this.socket !== socket) return
@@ -329,7 +397,7 @@ export class DaemonClient {
       this._unreachable = true
       this.failPending('disconnected')
       this.scheduleReconnect('unreachable')
-    }, this.options.connectTimeoutMs ?? 10_000)
+    }, timeoutMs)
     socket.onopen = () => {
       this.clearConnectTimer()
       this._unreachable = false
@@ -351,25 +419,28 @@ export class DaemonClient {
     socket.onerror = () => {
       // onclose follows and drives reconnection.
     }
-    socket.onclose = (event) => {
-      if (this.socket !== socket) return
-      this.socket = null
-      this.session = null
-      this.handshake = null
-      // Closed before opening, within the timeout: something answered (refused, no network).
-      if (this.connectTimer) this._unreachable = false
-      this.clearConnectTimer()
-      this.failPending('disconnected')
-      // Through the connection relay the daemon's codes arrive as 41xx.
-      const code = normalizeChannelClose(event.code)
-      if (FATAL_CLOSE_CODES.has(code)) {
-        this._closeCode = code
-        this.stopped = true
-        this.setStatus('unauthorized', event.reason || 'connection refused by the daemon')
-        return
-      }
-      this.scheduleReconnect(event.reason)
+    socket.onclose = (event) => this.socketClosed(socket, event)
+  }
+
+  private socketClosed(socket: SocketLike, event: { code: number; reason?: string }): void {
+    if (this.socket !== socket) return
+    this.socket = null
+    this.session = null
+    this.handshake = null
+    this.setPath(null)
+    // Closed before opening, within the timeout: something answered (refused, no network).
+    if (this.connectTimer) this._unreachable = false
+    this.clearConnectTimer()
+    this.failPending('disconnected')
+    // Through the connection relay the daemon's codes arrive as 41xx.
+    const code = normalizeChannelClose(event.code)
+    if (FATAL_CLOSE_CODES.has(code)) {
+      this._closeCode = code
+      this.stopped = true
+      this.setStatus('unauthorized', event.reason || 'connection refused by the daemon')
+      return
     }
+    this.scheduleReconnect(event.reason)
   }
 
   /** Handshake messages until the channel is up, then encrypted protocol messages. */
@@ -429,6 +500,7 @@ export class DaemonClient {
         this._hello = hello
         this.attempt = 0
         this.setStatus('open')
+        this.setPath(this.socketPath)
         for (const listener of this.readyListeners) listener(hello)
       })
       .catch((error: unknown) => {
@@ -476,7 +548,10 @@ export class DaemonClient {
     }
     const min = this.options.minBackoffMs ?? 1_000
     const max = this.options.maxBackoffMs ?? 30_000
-    const delay = Math.min(max, min * 2 ** this.attempt)
+    // Every target of a round is tried right after the other; the backoff grows per round.
+    const count = Math.max(1, connectionTargets(this.target).length)
+    const endOfRound = (this.attempt + 1) % count === 0
+    const delay = endOfRound ? Math.min(max, min * 2 ** Math.floor(this.attempt / count)) : 100
     this.attempt += 1
     this.setStatus('reconnecting', reason)
     this.retryTimer = setTimeout(() => {
@@ -493,5 +568,123 @@ export class DaemonClient {
   private clearConnectTimer(): void {
     if (this.connectTimer) clearTimeout(this.connectTimer)
     this.connectTimer = null
+  }
+
+  private startProbing(): void {
+    if (this.probeTimer || this.target.addresses.length === 0) return
+    this.probeTimer = setInterval(() => void this.probeDirect(), DIRECT_PROBE_INTERVAL_MS)
+  }
+
+  private stopProbing(): void {
+    if (this.probeTimer) clearInterval(this.probeTimer)
+    this.probeTimer = null
+  }
+
+  /**
+   * On the relay: tries the direct addresses on a second socket (IK and `auth`) and, when one
+   * answers, moves the connection there. Stores resubscribe through `onReady`, from their cursors.
+   */
+  private async probeDirect(): Promise<void> {
+    if (this.probing || this._status !== 'open' || this._path !== 'relay' || this.pending.size > 0) return
+    this.probing = true
+    try {
+      for (const target of connectionTargets(this.target)) {
+        if (target.path !== 'direct') continue
+        const found = await this.tryDirect(target.url)
+        if (!found) continue
+        if (this._status !== 'open' || this._path !== 'relay' || this.pending.size > 0) {
+          found.socket.onclose = null
+          found.socket.close(1000, 'not needed')
+          return
+        }
+        const old = this.socket
+        this.socket = found.socket
+        this.session = found.session
+        this.socketPath = 'direct'
+        found.socket.onmessage = (event) => {
+          if (this.socket === found.socket) this.handleFrame(found.socket, event.data)
+        }
+        found.socket.onclose = (event) => this.socketClosed(found.socket, event)
+        if (old) {
+          old.onclose = null
+          old.onmessage = null
+          old.close(1000, 'moved to the direct path')
+        }
+        this._hello = found.hello
+        this.setPath('direct')
+        for (const listener of this.readyListeners) listener(found.hello)
+        return
+      }
+    } finally {
+      this.probing = false
+    }
+  }
+
+  /** One direct attempt on its own socket: the channel and `auth.ok`, or null. */
+  private tryDirect(
+    url: string,
+  ): Promise<{ socket: SocketLike; session: ChannelSession; hello: Hello } | null> {
+    const factory = this.options.socketFactory ?? ((u: string) => new WebSocket(u) as unknown as SocketLike)
+    return new Promise((resolve) => {
+      let socket: SocketLike
+      try {
+        socket = factory(url)
+        socket.binaryType = 'arraybuffer'
+      } catch {
+        resolve(null)
+        return
+      }
+      const { crypto, computer } = this.options
+      const handshake = DeviceHandshake.reconnect(crypto, {
+        deviceKey: computer.deviceKey,
+        daemonKey: computer.daemonKey,
+      })
+      let session: ChannelSession | null = null
+      let done = false
+      const authId = `probe-${this.nextId()}`
+      const finish = (result: { socket: SocketLike; session: ChannelSession; hello: Hello } | null) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        if (!result) {
+          socket.onclose = null
+          socket.onmessage = null
+          socket.close()
+        }
+        resolve(result)
+      }
+      const timer = setTimeout(() => finish(null), this.options.directTimeoutMs ?? DIRECT_CONNECT_TIMEOUT_MS)
+      socket.onopen = () => socket.send(toArrayBuffer(handshake.start()))
+      socket.onerror = () => undefined
+      socket.onclose = () => finish(null)
+      socket.onmessage = (event) => {
+        const bytes = toBytes(event.data)
+        if (!bytes) return
+        try {
+          if (!session) {
+            const step = handshake.receive(bytes)
+            if (!step.session) return finish(null)
+            session = step.session
+            const auth = {
+              type: 'auth',
+              id: authId,
+              protocolVersion: PROTOCOL_VERSION,
+              client: this.options.clientName,
+            }
+            for (const frame of session.sealText(JSON.stringify(auth))) socket.send(toArrayBuffer(frame))
+            return
+          }
+          const text = session.openText(bytes)
+          if (text === null) return
+          const parsed = parseServerMessage(text)
+          if (parsed.ok && parsed.value.type === 'auth.ok' && parsed.value.replyTo === authId) {
+            const { type: _t, replyTo: _r, ...hello } = parsed.value
+            finish({ socket, session, hello })
+          }
+        } catch {
+          finish(null)
+        }
+      }
+    })
   }
 }

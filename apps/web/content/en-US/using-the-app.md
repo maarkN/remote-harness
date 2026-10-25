@@ -8,7 +8,7 @@ applies: 0.7+
 
 The home screen lists the sessions of every profile on the paired computer, newest activity first (the sort chip switches to grouping by state). Each row shows the agent badge, the title, the folder and branch, the state (`running`, `waiting`, `idle`, `ended`) and the profile tag; chips filter by profile. A **Waiting for you** strip on top collects the permission requests, with Allow, Always and Deny right there. Swipe a row for the quick actions (close or resume, mute, pin); long-press or tap the row's menu for the rest (copy the path, hide an ended session, clean up its worktree). Sessions that share a git checkout with another live session are marked, since they can step on each other's files.
 
-The line under the title names the machine (rename it in Settings) and how many sessions it has; the `+` button starts a new session.
+The line under the title names the computer and how many sessions it has; tap the name to switch to another paired computer or add one. "via relay" there means the app reaches it through the connection relay: at home it moves to the direct path by itself, without losing the conversation. Notifications keep arriving from every paired computer, and tapping one opens it on its computer. The `+` button starts a new session.
 
 ## Conversation
 
@@ -66,7 +66,9 @@ A profile can also run **Codex** (`cx` badge, green): its sessions show the appr
 
 ## Settings
 
-- **Machine**: the connection, the machine's name (an alias of your choice, else its hostname), the daemon version, and **Forget this machine**.
+- **Machine**: the connection and its path (direct or via relay), the machine's name (an alias of your choice, else its hostname), the daemon version, and **Forget this machine**.
+- **Computers**: every paired computer; switch, rename on this device, forget, or add another one.
+- **Devices**: the phones and tablets paired with this computer and when each was last seen. **Add device** shows a single-use pairing code (QR and link, valid for 5 minutes) to scan with the other device; **Revoke** disconnects one at once, and it must pair again.
 - **Appearance**: System, Dark, Light, Dracula, Catppuccin Mocha and Catppuccin Latte.
 - **Profiles**: each profile with its agent, alias, config dir, notifications switch and, with a provider, the provider, the default model and the credits.
 - **Notifications**: push for this phone, test, live status, the muted profiles and sessions.

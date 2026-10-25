@@ -18,6 +18,8 @@ export type PushServiceOptions = {
   mode: () => PushMode
   /** Name of this computer, the body of test pushes. */
   host: string
+  /** Added to every push so the app opens it on (and answers it from) the right computer. */
+  daemonId?: string
 }
 
 /** Decides which events become a push and builds content-free payloads. */
@@ -98,12 +100,17 @@ export class PushService {
    * Test push asked by the user: to the given phone only (every phone without one), even with the
    * app in the foreground or muted.
    */
+  private tagged(message: PushMessage): PushMessage {
+    const { daemonId } = this.options
+    return daemonId ? { ...message, data: { ...message.data, daemonId } } : message
+  }
+
   async sendTest(token?: string): Promise<{ result: PushTestResult; sent: number }> {
     if (!this.sender || this.options.mode() === 'off') return { result: 'off', sent: 0 }
     const devices = this.devices.devices().filter((d) => token === undefined || d.token === token)
     if (devices.length === 0) return { result: 'unregistered', sent: 0 }
     try {
-      const { invalidTokens } = await this.sender.send(devices, this.testMessage())
+      const { invalidTokens } = await this.sender.send(devices, this.tagged(this.testMessage()))
       await this.devices.remove(invalidTokens)
       const sent = devices.length - invalidTokens.length
       return { result: sent > 0 ? 'sent' : 'failed', sent }
@@ -121,7 +128,7 @@ export class PushService {
     const devices = this.devices.devices()
     if (devices.length === 0) return false
     try {
-      const { invalidTokens } = await this.sender.send(devices, message)
+      const { invalidTokens } = await this.sender.send(devices, this.tagged(message))
       await this.devices.remove(invalidTokens)
       return true
     } catch (error) {

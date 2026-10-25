@@ -8,7 +8,7 @@ applies: 0.7+
 
 La pantalla de inicio lista las sesiones de todos los perfiles del ordenador emparejado, de la actividad más reciente a la más antigua (el chip de orden cambia a agrupar por estado). Cada fila muestra la insignia del agente, el título, la carpeta y la rama, el estado (`en marcha`, `esperando`, `parada`, `terminada`) y la etiqueta del perfil; los chips filtran por perfil. Una franja **Esperándote** arriba reúne las peticiones de permiso, con Permitir, Siempre y Denegar ahí mismo. Desliza una fila para las acciones rápidas (cerrar o reanudar, silenciar, fijar); mantén pulsado o abre el menú de la fila para el resto (copiar la ruta, ocultar una sesión terminada, limpiar su worktree). Las sesiones que comparten un checkout de git con otra sesión en vivo quedan marcadas, porque pueden pisarse los archivos.
 
-La línea bajo el título nombra la máquina (renómbrala en Ajustes) y cuántas sesiones tiene; el botón `+` abre una sesión nueva.
+La línea bajo el título muestra el ordenador y cuántas sesiones tiene; toca el nombre para cambiar a otro ordenador emparejado o añadir uno. "por relay" ahí significa que la app lo alcanza a través del relay de conexión: en casa pasa sola al camino directo, sin perder la conversación. Las notificaciones siguen llegando de todos los ordenadores emparejados, y tocar una la abre en su ordenador. El botón `+` abre una sesión nueva.
 
 ## Conversación
 
@@ -66,7 +66,9 @@ Un perfil también puede ejecutar **Codex** (insignia `cx`, verde): sus sesiones
 
 ## Ajustes
 
-- **Máquina**: la conexión, el nombre de la máquina (un alias a tu elección, si no su hostname), la versión del daemon y **Olvidar esta máquina**.
+- **Máquina**: la conexión y su camino (directo o por relay), el nombre de la máquina (un alias a tu elección, si no su hostname), la versión del daemon y **Olvidar esta máquina**.
+- **Ordenadores**: todos los ordenadores emparejados; cambiar, renombrar en este dispositivo, olvidar o añadir otro.
+- **Dispositivos**: los móviles y tabletas emparejados con este ordenador y cuándo se vio cada uno por última vez. **Añadir dispositivo** muestra un código de emparejamiento de un solo uso (QR y enlace, válido 5 minutos) para escanear con el otro dispositivo; **Revocar** desconecta uno al momento, y tiene que volver a emparejarse.
 - **Apariencia**: Sistema, Oscuro, Claro, Dracula, Catppuccin Mocha y Catppuccin Latte.
 - **Perfiles**: cada perfil con su agente, alias, carpeta de config, interruptor de notificaciones y, con proveedor, el proveedor, el modelo predeterminado y los créditos.
 - **Notificaciones**: push para este móvil, prueba, estado en vivo, los perfiles y sesiones silenciados.

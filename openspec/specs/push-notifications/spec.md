@@ -43,15 +43,19 @@ The payload MUST contain only a generic title, the profile name, `sessionId`, th
 - **THEN** the push says "Permission pending" and the profile, without the command
 
 ### Requirement: Deep link and actions
-Tapping the notification SHALL open the session; the "Allow"/"Deny" actions MUST answer the request by connecting to the daemon in the background. Requests with an `interaction` (question or plan) MUST NOT offer these actions.
+Every push and the live status link SHALL carry the sending daemon's ID. Tapping the notification SHALL open the session on that computer, switching the active computer first when it is another one; the "Allow"/"Deny" actions MUST answer the request by connecting in the background to that notification's computer. Requests with an `interaction` (question or plan) MUST NOT offer these actions.
 
 #### Scenario: Deny from the notification
 - **WHEN** the user taps "Deny" on the notification
-- **THEN** the app sends `permission.respond` with `deny`
+- **THEN** the app sends `permission.respond` with `deny` to the computer that sent it
 
 #### Scenario: Question without actions
 - **WHEN** Claude asks a question and the app is in the background
 - **THEN** the push has no Allow/Deny actions and tapping it opens the session
+
+#### Scenario: Notification from the other computer
+- **WHEN** the desktop is active and the user taps a notification from the laptop
+- **THEN** the app switches to the laptop and opens that session
 
 ### Requirement: Interactive request title
 The push for a request with an `interaction` SHALL use a generic title saying Claude is waiting for an answer (question) or for a plan review (plan), never the question or plan content.

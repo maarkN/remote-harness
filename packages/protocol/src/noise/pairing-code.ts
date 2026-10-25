@@ -98,6 +98,11 @@ export function pairingCodeFromParams(
   return { ok: true, code: { daemonId, daemonKey, secret, addresses, ...(relay ? { relay } : {}), name } }
 }
 
+/** A connection relay's device endpoint for a daemon (`wss://relay/v1/device/<daemon ID>`). */
+export function relayDeviceUrl(relayUrl: string, daemonId: string): string {
+  return `${relayUrl.replace(/\/+$/, '')}/v1/device/${daemonId}`
+}
+
 /** Parses `remoteharness://pair?…` (or the same link with the `claude-remote://` scheme). */
 export function parsePairingCode(raw: string): ParsedPairingCode {
   const match = /^(?:remoteharness|claude-remote):\/\/pair\/?\?(.*)$/i.exec(raw.trim())

@@ -1,6 +1,6 @@
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router'
 import { ChevronDown, EllipsisVertical, PanelRight, Radio, Terminal } from 'lucide-react-native'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Keyboard, Pressable, StyleSheet, View } from 'react-native'
 import { useConnectionStore, useDaemonClient } from '@/core/connection'
@@ -32,6 +32,7 @@ import { sessionAgent } from '@/features/sessions/agent'
 import { CloseSessionSheet } from '@/features/sessions/components/CloseSessionSheet'
 import { SessionDetailsSheet } from '@/features/sessions/components/SessionDetailsSheet'
 import { StateBadge } from '@/features/sessions/components/StateBadge'
+import { switchToComputer } from '@/features/sessions/switch-computer'
 import { useStableSession } from '@/features/sessions/use-stable-session'
 import { useShortcutRequest } from '@/features/shortcuts/use-shortcut-request'
 import { SubagentsSheet } from '@/features/subagents/SubagentsSheet'
@@ -42,7 +43,15 @@ export default function SessionRoute() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const { id, autofocus } = useLocalSearchParams<{ id: string; autofocus?: string }>()
+  const { id, autofocus, computer } = useLocalSearchParams<{
+    id: string
+    autofocus?: string
+    computer?: string
+  }>()
+  // Opened from another computer's live status card: switch to it first.
+  useEffect(() => {
+    void switchToComputer(computer)
+  }, [computer])
   // Not re-rendered by status-line or activity ticks; the details read those fresh by id.
   const session = useStableSession(id)
   const profile = useConnectionStore((s) => s.hello?.profiles.find((p) => p.id === session?.profileId))

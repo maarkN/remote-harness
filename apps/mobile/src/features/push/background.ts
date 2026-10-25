@@ -63,10 +63,10 @@ export function answerAction(response: Notifications.NotificationResponse): Prom
   const { request } = response.notification
   const data = extractPushData(request)
   if (!data?.requestId) return null
-  const { requestId, sessionId } = data
+  const { requestId, sessionId, daemonId } = data
   const running = answers.get(requestId)
   if (running) return running
-  const answer = respondInBackground(requestId, action === ACTION_ALLOW ? 'allow' : 'deny').then(
+  const answer = respondInBackground(requestId, action === ACTION_ALLOW ? 'allow' : 'deny', daemonId).then(
     async (ok) => {
       // A failed answer can be tried again.
       if (!ok) answers.delete(requestId)

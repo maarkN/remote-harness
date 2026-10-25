@@ -17,10 +17,8 @@ export function relayDaemonUrl(relayUrl: string): string {
   return `${base(relayUrl)}/v1/daemon`
 }
 
-/** The device endpoint of a relay for a daemon ID. */
-export function relayDeviceUrl(relayUrl: string, daemonId: string): string {
-  return `${base(relayUrl)}/v1/device/${daemonId}`
-}
+/** The device endpoint of a relay for a daemon ID (shared with the app). */
+export { relayDeviceUrl } from '@remote-harness/protocol'
 
 /** The fastest relay that answered, leaving out `exclude`; null when none answered. */
 export function pickHomeRelay(

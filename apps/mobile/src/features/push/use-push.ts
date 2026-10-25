@@ -7,6 +7,7 @@ import { useConnectionStore } from '@/core/connection'
 import type { TFunction } from '@/core/i18n/create'
 import { devicePlatform } from '@/core/platform/platform'
 import { openSession as openSessionScreen } from '@/features/sessions/open-session'
+import { switchToComputer } from '@/features/sessions/switch-computer'
 import { answerAction, showLiveMessage } from './background'
 import { loadMessaging } from './firebase'
 import {
@@ -87,7 +88,8 @@ async function requestPermission(messaging: NonNullable<ReturnType<typeof loadMe
 
 function openSession(data: PushData) {
   if (!firstTap(data.requestId ?? `${data.sessionId}:${data.event ?? ''}`, Date.now())) return
-  openSessionScreen(data.sessionId)
+  // A notification from another paired computer switches to it first.
+  void switchToComputer(data.daemonId).then(() => openSessionScreen(data.sessionId))
 }
 
 async function handleResponse(response: Notifications.NotificationResponse) {
