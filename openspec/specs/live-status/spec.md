@@ -1,7 +1,7 @@
 # live-status Specification
 
 ## Purpose
-TBD - created by archiving change 36-live-status. Update Purpose after archive.
+Shows what a working session is doing on the phone outside the app (iOS Live Activity and Dynamic Island, Android ongoing notification), kept up to date by the daemon through push, including sessions followed from the computer while the app is closed.
 
 ## Requirements
 
@@ -167,7 +167,7 @@ When the daemon announces `live.follow` and "Live status" is on, the session's M
 
 While a session is followed, each new turn (`UserPromptSubmit`) SHALL start its live status on that phone, even with the app in the background or closed. This happens only when the session has no live status yet, no app is in the foreground (the app in front starts its own), and neither the session nor its profile is muted. It starts:
 - on Android, as the app-drawn notification, with the updates that follow;
-- on iOS 17.2 or later, as a Live Activity started by push with the phone's push-to-start token. Its updates resume once the app registers the activity's own token;
+- on iOS 17.2 or later, as a Live Activity started by push with the phone's push-to-start token. The start payload SHALL ask iOS for the activity's update token right away (iOS 18+). When iOS hands the app that token in the background, the app SHALL register it with the daemon without opening its screens, over a short-lived authenticated connection, so the activity gets the same updates (steps, counts, waiting with Deny / Allow, done, end) as one started from the app. Until a token arrives the daemon keeps the status but sends no update. A registration without theme colors SHALL keep the colors the session's live status already had;
 - on older iOS, or before the app sent a push-to-start token, as a regular push "Session working" with the profile name, like the other notifications.
 
 A session SHALL stop being followed when the user taps Stop following, when it ends, or after 12 hours without a turn. Turning "Live status" off SHALL stop following every session and turn auto-follow off. Follows MUST survive daemon restarts. The push-to-start payload follows the live status content rules. The fallback push carries only the state, the profile name and the session id. Texts MUST be translated.
@@ -183,6 +183,22 @@ A session SHALL stop being followed when the user taps Stop following, when it e
 #### Scenario: Desktop turn with the app in the background (iOS)
 - **WHEN** a followed session gets a prompt from the computer, the iPhone runs iOS 18 and the app is in the background
 - **THEN** a Live Activity for that session starts from the push, and the next time the app runs it adopts that activity instead of starting another
+
+#### Scenario: Push-started activity keeps updating with the app closed (iOS)
+- **WHEN** a followed session gets a prompt from the computer while the iPhone app is closed, and iOS hands the new activity's token to the app in the background
+- **THEN** the activity shows the current step, glyphs and counts within the usual throttle, without the app being opened
+
+#### Scenario: Permission on a push-started activity
+- **WHEN** a session whose Live Activity was started by push asks for a tool permission
+- **THEN** the activity turns to "Waiting for you" with Deny / Allow, and tapping Allow answers the request without opening the app
+
+#### Scenario: Push-started activity ends
+- **WHEN** the turn of a push-started activity finishes, or its session closes
+- **THEN** the activity shows done (and is dismissed after 15 minutes without a new turn) or ends at once, like one started from the app
+
+#### Scenario: Colors kept
+- **WHEN** the app registers a push-started activity's token from the background without theme colors
+- **THEN** the updates keep the colors the follow carried
 
 #### Scenario: Older iOS
 - **WHEN** a followed session starts a turn on an iPhone without a push-to-start token

@@ -113,6 +113,8 @@ export function buildLiveMessage(message: LiveMessage) {
                   'attributes-type': LIVE_ACTIVITY_ATTRIBUTES,
                   attributes: { url: message.url ?? null },
                   ...(message.alert ? { alert: message.alert } : {}),
+                  // iOS 18+: issue the activity's update token now (and wake the app to read it).
+                  'input-push-token': 1,
                 }
               : {}),
           },
