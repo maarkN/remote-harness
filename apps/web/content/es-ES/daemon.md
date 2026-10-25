@@ -4,7 +4,7 @@ description: Comandos de la CLI, el archivo de configuración, el servicio en se
 applies: 0.7+
 ---
 
-El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, controla tmux, recibe los hooks de Claude Code en `127.0.0.1` y sirve a la app por un WebSocket atado a la interfaz de Tailscale. `remote-harness --help` es la fuente de verdad de los comandos.
+El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, controla tmux, recibe los hooks de Claude Code en `127.0.0.1` y sirve a la app por dos caminos con el mismo cifrado de extremo a extremo: directo, en un WebSocket que escucha en todas las interfaces (la red de casa, una tailnet), y a través de su relay de conexión, donde mantiene una sala abierta. `remote-harness --help` es la fuente de verdad de los comandos.
 
 ## Comandos
 
@@ -21,6 +21,7 @@ El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, con
 | `remote-harness push status` / `test` | Modo de push en uso y móviles registrados; envía una notificación de prueba. |
 | `remote-harness push off` / `on` | Detiene (o reanuda) todos los push y el estado en vivo de este ordenador, sin reiniciar el daemon. |
 | `remote-harness provider key <perfil>` | Guarda la clave del proveedor (OpenRouter) de un perfil en el almacén seguro del sistema. `--stdin` la lee de una tubería. |
+| `remote-harness devices list` / `revoke <id>` | Los móviles y tabletas emparejados con este ordenador (ID, nombre, plataforma, emparejado, visto por última vez); `revoke` desconecta uno, que debe volver a emparejarse. |
 | `remote-harness rules list` / `undo <id>` | Las reglas "permitir siempre" creadas desde el móvil. |
 | `remote-harness commands [on|off]` | Muestra, permite o prohíbe ejecutar comandos de shell desde la app en la carpeta de una sesión (desactivado por defecto), aplicado al daemon en ejecución. |
 
@@ -46,7 +47,10 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
   "tmuxSession": "claude-remote",
   "push": "auto",
   "update": { "channel": "main", "auto": false },
-  "tray": true
+  "tray": true,
+  "relays": ["wss://us.relay.remoteharness.app", "wss://br.relay.remoteharness.app"],
+  "relay": "on",
+  "direct": "on"
 }
 ```
 
@@ -62,6 +66,8 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
 - `push`: `auto` (tu cuenta de servicio de Firebase cuando existe, si no el relay) u `off`.
 - `update`: el canal que siguen `update` y la comprobación, y si las actualizaciones se aplican solas.
 - `tray`: el icono de la barra de menús / bandeja.
+- `relays`: los relays de conexión que puede usar el daemon. Al iniciar los mide y mantiene la sala en el más rápido, cambiando solo cuando ese cae; cambia la lista para [alojar el tuyo](#alojar-tu-propio-relay-de-conexion).
+- `relay`: `off` deja el daemon fuera de los relays (los móviles solo lo alcanzan directo). `direct`: `off` deja de escuchar conexiones directas (solo el relay). No ambos. `start --dev` nunca usa relay.
 - `trayPermissions`: si la bandeja ofrece Permitir / Permitir siempre / Denegar para un permiso pendiente (activado por defecto; también en las Preferencias de la bandeja).
 - `shellCommands`: `enabled` (desactivado por defecto; cámbialo con `remote-harness commands on|off`), `timeoutSec` (300) y `maxOutputKb` (1024) para los comandos ejecutados desde la app.
 

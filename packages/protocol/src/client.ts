@@ -220,6 +220,12 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     targetId: z.string().min(1),
     muted: z.boolean(),
   }),
+  /** The devices paired with the daemon; answered with `devices.result`. */
+  z.object({ type: z.literal('devices.list'), id }),
+  /** Unpairs a device (possibly this one): its connections close with 4007; answered with `ack`. */
+  z.object({ type: z.literal('devices.revoke'), id, deviceId: z.string().min(1) }),
+  /** A single-use pairing code to add another device; answered with `pairing.code`. */
+  z.object({ type: z.literal('pairing.create'), id }),
 ])
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>

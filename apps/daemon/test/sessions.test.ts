@@ -201,7 +201,15 @@ describe('session state from hooks', () => {
     expect(store.get('s1')?.state).toBe('idle')
     await service.handleHook(hookEvent('SessionEnd', { session_id: 's1', reason: 'other' }))
     expect(store.get('s1')).toMatchObject({ state: 'ended', controllable: false, paneId: null })
-    expect(sent.filter((m) => m.type === 'session.updated').length).toBe(5)
+    expect(sent.filter((m) => m.type === 'session.updated' || m.type === 'session.changed').length).toBe(5)
+    // In full once, then only what changed.
+    expect(sent.filter((m) => m.type === 'session.updated')).toHaveLength(1)
+    const waiting = sent.find((m) => m.type === 'session.changed' && m.set.state === 'waiting')
+    expect(waiting).toMatchObject({ type: 'session.changed', sessionId: 's1' })
+    // `updatedAt` too unless the hooks ran within the same millisecond.
+    const keys = Object.keys((waiting as { set: object }).set)
+    expect(keys).toContain('state')
+    expect(keys.every((k) => k === 'state' || k === 'updatedAt')).toBe(true)
   })
 
   test('a pasted prompt titles the session without markup and fixes raw tags (#350)', async () => {
@@ -327,7 +335,8 @@ describe('panes and persistence', () => {
     await service.handleHook(hookEvent('SessionStart', { session_id: 's', cwd: '/w' }, { paneId: '%1' }))
     // Activity stamps only move forward: start after the session's creation time.
     const t0 = Date.now() + 60_000
-    const broadcasts = () => sent.filter((m) => m.type === 'session.updated').length
+    const broadcasts = () =>
+      sent.filter((m) => m.type === 'session.updated' || m.type === 'session.changed').length
     const before = broadcasts()
     service.noteActivity('s', t0)
     expect(store.get('s')?.updatedAt).toBe(new Date(t0).toISOString())

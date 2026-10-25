@@ -394,14 +394,13 @@ describe('TranscriptService', () => {
       path,
       `${JSON.stringify({ type: 'assistant', uuid: 'z', message: { content: [{ type: 'text', text: 'novo' }] } })}\n`,
     )
-    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entry'))
-    const entry = conn.sent.find(
-      (m): m is Extract<ServerMessage, { type: 'transcript.entry' }> => m.type === 'transcript.entry',
+    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entries'))
+    const batch = conn.sent.find(
+      (m): m is Extract<ServerMessage, { type: 'transcript.entries' }> => m.type === 'transcript.entries',
     )
-    expect(entry).toMatchObject({
+    expect(batch).toMatchObject({
       sessionId: 's',
-      cursor: 21,
-      entry: { kind: 'assistant_text', text: 'novo' },
+      entries: [{ cursor: 21, kind: 'assistant_text', text: 'novo' }],
     })
     expect(metas).toContainEqual({ permissionMode: 'plan' })
     // New lines read for the session count as its activity (the session list sorts by it).
@@ -410,6 +409,49 @@ describe('TranscriptService', () => {
     const other = fakeConnection()
     const resumed = await service.subscribe({ sessionId: 's', path }, other, 19)
     expect(resumed.entries.map((e) => e.cursor)).toEqual([21])
+    expect(resumed.hasMore).toBe(false)
+  })
+
+  test('one read becomes one transcript.entries, in order', async () => {
+    const path = join(home.dir(), 'burst.jsonl')
+    await copyFile(fixture, path)
+    service = new TranscriptService(silentLogger)
+    const conn = fakeConnection()
+    await service.subscribe({ sessionId: 's', path }, conn)
+    const lines = Array.from({ length: 30 }, (_, i) =>
+      JSON.stringify({
+        type: 'assistant',
+        uuid: `b${i}`,
+        message: { content: [{ type: 'text', text: `t${i}` }] },
+      }),
+    )
+    await appendFile(path, `${lines.join('\n')}\n`)
+    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entries'))
+    const batches = conn.sent.filter(
+      (m): m is Extract<ServerMessage, { type: 'transcript.entries' }> => m.type === 'transcript.entries',
+    )
+    const texts = batches.flatMap((b) => b.entries.map((e) => (e.kind === 'assistant_text' ? e.text : '')))
+    expect(texts).toEqual(lines.map((_, i) => `t${i}`))
+    expect(batches.length).toBeLessThanOrEqual(2)
+  })
+
+  test('a resume past 200 lines answers the last page with hasMore (paged, not 2,000 lines)', async () => {
+    const path = join(home.dir(), 'long.jsonl')
+    await copyFile(fixture, path)
+    service = new TranscriptService(silentLogger)
+    await service.subscribe({ sessionId: 's', path }, fakeConnection())
+    const lines = Array.from({ length: 500 }, (_, i) =>
+      JSON.stringify({
+        type: 'assistant',
+        uuid: `l${i}`,
+        message: { content: [{ type: 'text', text: `x${i}` }] },
+      }),
+    )
+    await appendFile(path, `${lines.join('\n')}\n`)
+    const resumed = await service.subscribe({ sessionId: 's', path }, fakeConnection(), 10)
+    expect(resumed.hasMore).toBe(true)
+    expect(resumed.entries).toHaveLength(50)
+    expect(resumed.entries.at(-1)).toMatchObject({ text: 'x499' })
   })
 
   test('a Codex backlog applies only its latest status when opened (#313)', async () => {
@@ -444,7 +486,7 @@ describe('TranscriptService', () => {
       path,
       `${JSON.stringify({ type: 'assistant', uuid: 'y', message: { content: [{ type: 'text', text: 'one' }] } })}\n`,
     )
-    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entry'))
+    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entries'))
     expect(seen).toEqual([])
 
     const again = await service.follow({ sessionId: 's', path }, (sessionId, entry) =>
@@ -482,12 +524,11 @@ describe('TranscriptService', () => {
     )
     await service.image({ sessionId: 's', path }, '3.0')
     await service.history({ sessionId: 's', path }, 5, 2)
-    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entry'))
+    await waitFor(() => conn.sent.some((m) => m.type === 'transcript.entries'))
     expect(conn.sent).toContainEqual(
       expect.objectContaining({
-        type: 'transcript.entry',
-        cursor: 5,
-        entry: expect.objectContaining({ text: 'new' }),
+        type: 'transcript.entries',
+        entries: [expect.objectContaining({ cursor: 5, text: 'new' })],
       }),
     )
   })

@@ -3,6 +3,8 @@ import type { ServerMessage } from '@remote-harness/protocol'
 /** Per-connection view handed to message handlers. */
 export interface Connection {
   readonly id: string
+  /** The paired device on the other end (its short ID), once the handshake finished. */
+  readonly deviceId?: string
   /** Whether the app reported itself as in the foreground (used to suppress push). */
   foreground: boolean
   send(message: ServerMessage): void
@@ -35,6 +37,12 @@ export class ClientHub {
 
   closeAll(code = 4001, reason = 'closed'): void {
     for (const connection of [...this.connections.values()]) connection.close(code, reason)
+  }
+
+  /** Closes every connection of one paired device. */
+  closeDevice(deviceId: string, code: number, reason: string): void {
+    for (const connection of [...this.connections.values()])
+      if (connection.deviceId === deviceId) connection.close(code, reason)
   }
 }
 

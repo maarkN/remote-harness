@@ -337,6 +337,21 @@ describe('DaemonClient', () => {
     await expect(image).resolves.toMatchObject({ data })
   })
 
+  test('a revoked device and refusals through the relay (41xx) are final', () => {
+    for (const [code, read] of [
+      [CHANNEL_CLOSE.revoked, CHANNEL_CLOSE.revoked],
+      [4101, CHANNEL_CLOSE.unauthorized],
+      [4105, CHANNEL_CLOSE.pairingRefused],
+    ]) {
+      FakeSocket.instances = []
+      const client = makeClient()
+      client.connect()
+      FakeSocket.instances[0]!.drop(code)
+      expect(client.status).toBe('unauthorized')
+      expect(client.closeCode).toBe(read)
+    }
+  })
+
   test('formats addresses', () => {
     expect(daemonUrl('[fd7a::1]:7337')).toBe('ws://[fd7a::1]:7337')
   })

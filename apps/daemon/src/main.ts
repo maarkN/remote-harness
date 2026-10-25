@@ -18,13 +18,13 @@ import type { DaemonEvents } from './core/events.ts'
 import { type DaemonIdentity, ensureIdentity } from './core/identity.ts'
 import { KeyedMutex } from './core/keyed-mutex.ts'
 import type { Logger } from './core/logger.ts'
-import { pairingAddress } from './core/pairing.ts'
 import { displayHostName } from './core/paths.ts'
 import { ensureHookSecret, type TokenStore } from './core/secrets.ts'
 import { DAEMON_VERSION } from './core/version.ts'
 import { registerAttachmentsFeature } from './features/attachments/index.ts'
 import { registerAutocompleteFeature } from './features/autocomplete/index.ts'
 import { registerCheckoutFeature } from './features/checkout/index.ts'
+import { type ConnectivityOptions, registerConnectivityFeature } from './features/connectivity/index.ts'
 import { registerDiagnosticsFeature } from './features/diagnostics/index.ts'
 import { HookReceiver } from './features/hooks/receiver.ts'
 import { registerInputFeature } from './features/input/index.ts'
@@ -56,13 +56,13 @@ import {
 } from './features/updates/index.ts'
 import { registerVoicePolishFeature } from './features/voice-polish/index.ts'
 import type { Executor } from './infra/exec.ts'
-import { findTailscaleAddress } from './infra/network.ts'
 import { resolvePlatform } from './infra/platform.ts'
 import type { SleepInhibitor } from './infra/power.ts'
 import { TmuxClient } from './infra/tmux.ts'
 import { ClientHub, type Connection } from './transport/connection.ts'
 import { createHooksServer } from './transport/hooks-server.ts'
 import { MessageRouter } from './transport/router.ts'
+import { acceptSecureConnection, type SecureConnectionDeps } from './transport/secure-connection.ts'
 import { startWsServer } from './transport/ws-server.ts'
 
 export type DaemonOptions = {
@@ -70,11 +70,11 @@ export type DaemonOptions = {
   exec: Executor
   /** Keychain, Secret Service or 0600 file: holds the daemon identity. */
   secretStore: TokenStore
-  /** Bind the WebSocket to 127.0.0.1 instead of the Tailscale address. */
+  /** Development run: the WebSocket on 127.0.0.1 only and no connection relay. */
   dev?: boolean
-  /** Explicit bind address for the WebSocket (overrides Tailscale discovery). */
+  /** Explicit bind address for the WebSocket (the only direct address offered). */
   host?: string
-  /** Wait for the Tailscale interface instead of failing (service mode: avoids a launchd crash loop). */
+  /** Ignored: the direct path listens on every interface and no longer waits for one. */
   waitForTailscale?: boolean
   configPath?: string
   /** Overrides config ports (0 = random, used in tests). */
@@ -87,12 +87,15 @@ export type DaemonOptions = {
   sleepInhibitor?: SleepInhibitor
   /** A profile's provider key from the OS secret store (`null` when none); absent = no keys (tests). */
   providerKey?: (profileId: string) => Promise<string | null>
+  /** Relay measurement and connection overrides (tests). */
+  connectivity?: Pick<ConnectivityOptions, 'measure' | 'connect' | 'interfaces'>
 }
 
 export type RunningDaemon = {
   config: Config
   profiles: Profile[]
-  wsHost: string
+  /** Where the direct path listens (null with `direct: off`); port 0 when off. */
+  wsHost: string | null
   wsPort: number
   hookPort: number
   identity: DaemonIdentity
@@ -120,39 +123,8 @@ export type DaemonContext = {
   pushSender?: PushSender | null
   /** A profile's provider key from the OS secret store; only ever handed to the provider itself. */
   providerKey: (profileId: string) => Promise<string | null>
-}
-
-export function resolveWsHost(options: Pick<DaemonOptions, 'dev' | 'host'>): string {
-  if (options.host) return options.host
-  if (options.dev) return '127.0.0.1'
-  const address = findTailscaleAddress()
-  if (!address) throw new Error(TAILSCALE_NOT_FOUND)
-  return address
-}
-
-export const TAILSCALE_NOT_FOUND =
-  'Tailscale not found (no 100.x interface). Install and connect Tailscale, or use --dev for 127.0.0.1.'
-
-/** Resolves the WebSocket host, polling for the Tailscale interface when `waitForTailscale` is set. */
-export async function waitForWsHost(
-  options: Pick<DaemonOptions, 'dev' | 'host' | 'waitForTailscale' | 'logger'>,
-  intervalMs = 5000,
-  find: () => string | null = findTailscaleAddress,
-): Promise<string> {
-  if (options.host) return options.host
-  if (options.dev) return '127.0.0.1'
-  let warned = false
-  for (;;) {
-    const address = find()
-    if (address) {
-      if (warned) options.logger.info({ address }, 'Tailscale interface found')
-      return address
-    }
-    if (!options.waitForTailscale) throw new Error(TAILSCALE_NOT_FOUND)
-    if (!warned) options.logger.warn(`${TAILSCALE_NOT_FOUND} Waiting…`)
-    warned = true
-    await new Promise((resolve) => setTimeout(resolve, intervalMs))
-  }
+  /** IDs of the paired devices (push registrations follow them); absent in tests that build a context. */
+  pairedDeviceIds?: () => ReadonlySet<string>
 }
 
 export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon> {
@@ -174,6 +146,33 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   hookReceiver.register(hooks)
   const stopHandlers: Array<() => void | Promise<void>> = []
   const connectHandlers: Array<(connection: Connection) => void> = []
+
+  /** Set once the features are registered; relay channels opened before that are turned away. */
+  let secure: SecureConnectionDeps | null = null
+  const relayEnabled = config.relay === 'on' && !options.dev
+  const connectivity = registerConnectivityFeature({
+    relays: config.relays,
+    relayEnabled,
+    identity,
+    hub,
+    logger,
+    onLink: (link) => {
+      if (secure) acceptSecureConnection(link, secure, { path: 'relay' })
+      else link.close(1013, 'starting')
+    },
+    ...options.connectivity,
+  })
+  const pairing = await registerPairingFeature({
+    identity,
+    hooks,
+    router,
+    hub,
+    bus,
+    logger,
+    addresses: () => connectivity.addresses(),
+    relay: () => connectivity.relay(),
+    name: () => displayHostName(config),
+  })
   const context: DaemonContext = {
     config,
     profiles,
@@ -189,45 +188,24 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     onClientConnected: (fn) => connectHandlers.push(fn),
     pushSender: options.pushSender,
     providerKey: options.providerKey ?? (async () => null),
+    pairedDeviceIds: () => pairing.devices.ids(),
   }
 
   router.register('ping', () => ({ type: 'pong' }))
 
-  /** Where the app connects, set once the WebSocket server listens (after Tailscale is up). */
-  let endpoint: { host: string; port: number } | null = null
-  const pairing = await registerPairingFeature({
-    identity,
-    hooks,
-    logger,
-    addresses: () => (endpoint ? [pairingAddress(endpoint.host, endpoint.port)] : []),
-    name: () => displayHostName(config),
-  })
   const features = await registerFeatures(context, options.desktop, options.sleepInhibitor ?? null, {
     pairing: () => {
-      const link = endpoint ? pairing.current() : null
-      return endpoint && link
-        ? { url: link.url, address: pairingAddress(endpoint.host, endpoint.port) }
-        : null
+      const link = pairing.current()
+      const address = connectivity.addresses()[0] ?? connectivity.relay()
+      return link && address ? { url: link.url, address } : null
     },
   })
 
   await hooks.listen({ host: '127.0.0.1', port: options.hookPort ?? config.hookPort })
   const hookAddress = hooks.server.address()
   const hookPort = typeof hookAddress === 'object' && hookAddress ? hookAddress.port : config.hookPort
-  // Hooks are live before the app transport: Claude Code sessions must never hit a closed port
-  // while the service waits for Tailscale.
-  let wsHost: string
-  try {
-    wsHost = await waitForWsHost(options)
-  } catch (error) {
-    await hooks.close()
-    for (const fn of stopHandlers.reverse()) await fn()
-    throw error
-  }
 
-  const wss: WebSocketServer = await startWsServer({
-    host: wsHost,
-    port: options.wsPort ?? config.wsPort,
+  const secureDeps: SecureConnectionDeps = {
     staticKey: identity.noise,
     hooks: pairing.hooks,
     router,
@@ -247,13 +225,40 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       update: { channel: features.updateChannel() },
       live: { follow: true },
       commands: { enabled: features.commandsEnabled() },
+      paths: connectivity.paths(),
     }),
-  })
-  const wsAddress = wss.address()
-  const wsPort = typeof wsAddress === 'object' && wsAddress ? wsAddress.port : config.wsPort
-  endpoint = { host: wsHost, port: wsPort }
+  }
+  secure = secureDeps
+
+  // The direct path: every interface unless `--dev` / `--host` pick one; the Noise channel protects it.
+  let wss: WebSocketServer | null = null
+  let wsHost: string | null = null
+  let wsPort = 0
+  if (config.direct === 'on') {
+    const port = options.wsPort ?? config.wsPort
+    const forced = options.host ?? (options.dev ? '127.0.0.1' : null)
+    const listen = (host: string) => startWsServer({ ...secureDeps, host, port })
+    try {
+      wsHost = forced ?? '::'
+      wss = await listen(wsHost)
+    } catch (error) {
+      // No IPv6 on this host: IPv4 on every interface.
+      if (forced) throw error
+      wsHost = '0.0.0.0'
+      wss = await listen(wsHost)
+    }
+    const wsAddress = wss.address()
+    wsPort = typeof wsAddress === 'object' && wsAddress ? wsAddress.port : port
+    connectivity.setDirect({ host: wsHost, port: wsPort, forced: forced !== null })
+  }
+  connectivity.start()
   logger.info(
-    { ws: `${wsHost}:${wsPort}`, hooks: `127.0.0.1:${hookPort}`, profiles: profiles.map((p) => p.id) },
+    {
+      direct: wsHost ? `${wsHost}:${wsPort}` : 'off',
+      relay: relayEnabled ? config.relays : 'off',
+      hooks: `127.0.0.1:${hookPort}`,
+      profiles: profiles.map((p) => p.id),
+    },
     'daemon started',
   )
 
@@ -267,7 +272,9 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     pairing,
     async stop() {
       hub.closeAll(1001, 'daemon stopping')
-      await new Promise<void>((resolve) => wss.close(() => resolve()))
+      await connectivity.stop()
+      const server = wss
+      if (server) await new Promise<void>((resolve) => server.close(() => resolve()))
       await hooks.close()
       for (const fn of stopHandlers.reverse()) await fn()
     },

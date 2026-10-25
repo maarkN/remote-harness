@@ -27,6 +27,11 @@ export type DaemonIdentity = {
 const KEY = 32
 const ED25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
 
+/** Short, stable ID of a paired device: the first 8 bytes of SHA-256 of its static key, in hex. */
+export function deviceIdOf(publicKey: Uint8Array): string {
+  return bytesToHex(noiseCrypto.sha256(publicKey).subarray(0, 8))
+}
+
 /** First 16 bytes of SHA-256 of the relay public key, in hex (the connection relay computes the same). */
 export function daemonIdOf(relayPublicKey: Uint8Array): string {
   return bytesToHex(noiseCrypto.sha256(relayPublicKey).subarray(0, 16))

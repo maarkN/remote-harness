@@ -12,6 +12,8 @@ import { claudeTranscript, parseImageId } from './parser.ts'
 import { TranscriptFile } from './transcript-file.ts'
 
 export const DEFAULT_PAGE_SIZE = 50
+/** A resume sends what was written after the cursor only up to this many lines (else the last page). */
+export const RESUME_MAX_LINES = 200
 /** Safety net: fs events get coalesced under bursts of appends, so subscribed files are also polled. */
 export const POLL_INTERVAL_MS = 500
 
@@ -79,13 +81,24 @@ export class TranscriptService {
     }
     const { file } = stream
     if (sinceCursor !== undefined) {
-      const { entries, gap } = await file.since(sinceCursor)
-      // `hasMore` on a resume: lines after the cursor were left out, so the app replaces its entries.
+      const resumed = await file.since(sinceCursor, RESUME_MAX_LINES)
+      // Too much was written meanwhile: the last page with `hasMore`, which the app takes as a
+      // replacement for what it had, then pages older history on scroll.
+      if (resumed.gap) {
+        const page = await file.page(file.lineCount, DEFAULT_PAGE_SIZE)
+        return {
+          sessionId: target.sessionId,
+          agentId: target.agentId,
+          entries: page.entries,
+          hasMore: true,
+          lineCount: file.lineCount,
+        }
+      }
       return {
         sessionId: target.sessionId,
         agentId: target.agentId,
-        entries,
-        hasMore: gap,
+        entries: resumed.entries,
+        hasMore: false,
         lineCount: file.lineCount,
       }
     }
@@ -202,26 +215,29 @@ export class TranscriptService {
         return
       }
       if (lines.length === 0) return
+      const entries: TranscriptEntry[] = []
       for (const line of lines) {
         if (!stream.agentId) {
           const meta = stream.file.format.parseMeta(line.text)
           if (meta) this.onMeta(stream.sessionId, meta)
         }
-        for (const entry of stream.file.format.parseLine(line.text, line.cursor)) this.emit(stream, entry)
+        entries.push(...stream.file.format.parseLine(line.text, line.cursor))
       }
+      this.emit(stream, entries)
       this.onActivity(stream.sessionId, Date.now())
     }
   }
 
-  private emit(stream: Stream, entry: TranscriptEntry): void {
-    for (const listener of stream.listeners) listener(stream.sessionId, entry)
+  /** The entries of one read: each to the listeners, all of them in one message to the subscribers. */
+  private emit(stream: Stream, entries: TranscriptEntry[]): void {
+    if (entries.length === 0) return
+    for (const entry of entries) for (const listener of stream.listeners) listener(stream.sessionId, entry)
     for (const connection of stream.subscribers) {
       connection.send({
-        type: 'transcript.entry',
+        type: 'transcript.entries',
         sessionId: stream.sessionId,
         agentId: stream.agentId,
-        cursor: entry.cursor,
-        entry,
+        entries,
       })
     }
   }

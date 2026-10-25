@@ -30,15 +30,32 @@ const MAX_CHUNK = MAX_NOISE_MESSAGE - TAG_LENGTH - 1
 const FLAG_LAST = 0x00
 const FLAG_MORE = 0x01
 
-/** WebSocket close codes of the channel (the daemon closes; the app treats 4001/4002/4005/4006 as final). */
+/** WebSocket close codes of the channel (the daemon closes; the app treats 4001/4002/4005–4007 as final). */
 export const CHANNEL_CLOSE = {
   unauthorized: 4001,
   protocolMismatch: 4002,
   pairingRefused: 4005,
   deviceLimit: 4006,
+  revoked: 4007,
   handshakeTimeout: 4008,
   tooBig: 1009,
 } as const
+
+/**
+ * The connection relay only passes daemon close codes 4100–4199 to devices, so on the relay path
+ * the daemon sends its 4000–4099 codes plus this offset.
+ */
+export const RELAY_CLOSE_OFFSET = 100
+
+/** The code the daemon sends to the relay for a channel close (`relayCloseCode(4001)` is 4101). */
+export function relayCloseCode(code: number): number {
+  return code >= 4000 && code < 4100 ? code + RELAY_CLOSE_OFFSET : 4100
+}
+
+/** The channel close code a device received, on either path (4101 through the relay reads as 4001). */
+export function normalizeChannelClose(code: number): number {
+  return code > 4100 && code < 4200 ? code - RELAY_CLOSE_OFFSET : code
+}
 
 export type Preface = { mode: 'pair'; pairingId: Uint8Array } | { mode: 'reconnect' }
 

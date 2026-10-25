@@ -12,4 +12,8 @@ export type DaemonEvents = {
   'permission.reminder': PermissionRequestInfo
   /** Account limits a profile reported outside the status line (Codex rollouts). */
   'account.limits': Pick<AccountLimits, 'profileId' | 'fiveHour' | 'sevenDay'>
+  /** A paired device was revoked (from a device or the CLI): its connections and push go with it. */
+  'device.revoked': { deviceId: string }
+  /** These FCM tokens no longer belong to a paired device: nothing may be sent to them. */
+  'push.tokens.dropped': { tokens: string[] }
 }

@@ -6,6 +6,7 @@ import {
   CommandEndReasonSchema,
   CommandItemSchema,
   CommandStreamSchema,
+  DaemonPathsSchema,
   DaemonUpdateChannelSchema,
   DaemonUpdateInfoSchema,
   DirectoryItemSchema,
@@ -14,6 +15,7 @@ import {
   MachinePermissionSchema,
   ModelInfoSchema,
   MuteStateSchema,
+  PairedDeviceInfoSchema,
   PermissionModeSchema,
   PermissionOutcomeSchema,
   PermissionRequestInfoSchema,
@@ -54,7 +56,14 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     live: z.object({ follow: z.boolean() }).optional(),
     /** Present when the daemon accepts `command.run`; `enabled` is its config's opt-in. */
     commands: z.object({ enabled: z.boolean() }).optional(),
+    /** Where to reach this daemon (direct addresses, home relay); `daemon.paths` follows changes. */
+    paths: DaemonPathsSchema.optional(),
   }),
+  /** The paths changed (an address, or the home relay moved). */
+  z.object({ type: z.literal('daemon.paths'), ...DaemonPathsSchema.shape }),
+  z.object({ type: z.literal('devices.result'), replyTo, devices: z.array(PairedDeviceInfoSchema) }),
+  /** Reply to `pairing.create`: a single-use code and when it expires (ISO). */
+  z.object({ type: z.literal('pairing.code'), replyTo, url: z.string(), expiresAt: z.string() }),
   /** Reply to the follow messages: what this phone follows. */
   z.object({
     type: z.literal('live.followed'),
@@ -66,7 +75,18 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ack'), replyTo, data: z.record(z.string(), z.unknown()).optional() }),
   z.object({ type: z.literal('error'), replyTo, code: ErrorCodeSchema, message: z.string() }),
   z.object({ type: z.literal('sessions.snapshot'), replyTo, sessions: z.array(SessionSchema) }),
+  /** A session the client may not know yet, in full. */
   z.object({ type: z.literal('session.updated'), session: SessionSchema }),
+  /**
+   * Only the fields that changed since the last `session.updated` / `session.changed` of that
+   * session: `set` merges into it (then validated as a whole), `unset` removes optional fields.
+   */
+  z.object({
+    type: z.literal('session.changed'),
+    sessionId: z.string(),
+    set: z.record(z.string(), z.unknown()),
+    unset: z.array(z.string()).default([]),
+  }),
   z.object({ type: z.literal('session.removed'), sessionId: z.string() }),
   /** Reply to `session.start`; `sessionId` is `null` until the pane's `SessionStart` hook registers it. */
   z.object({
@@ -81,12 +101,12 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     state: SessionStateSchema,
     permissionMode: PermissionModeSchema.nullable(),
   }),
+  /** The new entries of one read of the transcript, in order (each carries its cursor). */
   z.object({
-    type: z.literal('transcript.entry'),
+    type: z.literal('transcript.entries'),
     sessionId: z.string(),
     agentId: z.string().optional(),
-    cursor: z.number().int().nonnegative(),
-    entry: TranscriptEntrySchema,
+    entries: z.array(TranscriptEntrySchema),
   }),
   z.object({
     type: z.literal('transcript.page'),
@@ -104,6 +124,20 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     text: z.string(),
     cols: z.number().int().positive(),
     rows: z.number().int().positive(),
+  }),
+  /**
+   * The lines that changed since the last frame or diff of that pane (`[index, text]`), and its new
+   * line count; applied to the last frame (`applyPaneDiff`).
+   */
+  z.object({
+    type: z.literal('pane.diff'),
+    sessionId: z.string(),
+    cols: z.number().int().positive(),
+    rows: z.number().int().positive(),
+    lineCount: z.number().int().nonnegative(),
+    /** Lines the screen scrolled up by first (a growing log). */
+    scroll: z.number().int().nonnegative().optional(),
+    lines: z.array(z.tuple([z.number().int().nonnegative(), z.string()])),
   }),
   z.object({ type: z.literal('permission.request'), request: PermissionRequestInfoSchema }),
   z.object({

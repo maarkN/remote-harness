@@ -1,4 +1,4 @@
-import type { Session } from '@remote-harness/protocol'
+import { applySessionDelta, type Session, type SessionDelta } from '@remote-harness/protocol'
 import { create } from 'zustand'
 import type { DaemonClient } from '@/core/connection/daemon-client'
 
@@ -11,6 +11,8 @@ type SessionsState = {
   applySnapshot(sessions: Session[]): void
   upsert(session: Session): void
   patch(id: string, patch: Partial<Session>): void
+  /** A `session.changed` delta; ignored for a session the list does not have yet (the snapshot brings it). */
+  applyChange(id: string, delta: SessionDelta): void
   remove(id: string): void
 }
 
@@ -30,6 +32,12 @@ export const useSessionsStore = create<SessionsState>((set) => ({
     set((state) => {
       const current = state.sessions[id]
       return current ? { sessions: { ...state.sessions, [id]: { ...current, ...patch } } } : state
+    }),
+  applyChange: (id, delta) =>
+    set((state) => {
+      const current = state.sessions[id]
+      const next = current ? applySessionDelta(current, delta) : null
+      return next ? { sessions: { ...state.sessions, [id]: next } } : state
     }),
   remove: (id) =>
     set((state) => {
@@ -54,6 +62,7 @@ export function bindSessions(client: DaemonClient): () => void {
   const offs = [
     client.onReady(() => void refreshSessions(client).catch(() => undefined)),
     client.on('session.updated', (m) => store.upsert(m.session)),
+    client.on('session.changed', (m) => store.applyChange(m.sessionId, { set: m.set, unset: m.unset })),
     client.on('session.removed', (m) => store.remove(m.sessionId)),
     client.on('session.state', (m) =>
       store.patch(m.sessionId, { state: m.state, permissionMode: m.permissionMode }),

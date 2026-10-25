@@ -151,13 +151,13 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
     }
   }
 
-  const onEntry = (message: ServerMessageOf<'transcript.entry'>) => {
+  const onEntries = (message: ServerMessageOf<'transcript.entries'>) => {
     if (message.sessionId !== sessionId || message.agentId !== agentId) return
-    batch.push(message.entry)
+    for (const entry of message.entries) batch.push(entry)
   }
 
   opened(key)
-  const offEntry = client.on('transcript.entry', onEntry)
+  const offEntry = client.on('transcript.entries', onEntries)
   const offReady = client.onReady(() => void subscribe())
   if (client.status === 'open') void subscribe()
 

@@ -63,11 +63,31 @@ describe('DeviceRegistry', () => {
   test('keeps the newest tokens first and persists them', async () => {
     const devices = new DeviceRegistry(paths.devices())
     for (const t of ['a', 'b', 'c', 'd', 'b']) await devices.register(t)
-    expect(devices.list()).toEqual(['b', 'd', 'c'].slice(0, MAX_DEVICES))
+    expect(devices.list()).toEqual(['b', 'd', 'c', 'a'])
     const again = new DeviceRegistry(paths.devices())
     await again.load()
     expect(again.list()).toEqual(devices.list())
-    expect(JSON.parse(await readFile(paths.devices(), 'utf8')).tokens).toHaveLength(3)
+    expect(JSON.parse(await readFile(paths.devices(), 'utf8')).tokens).toHaveLength(4)
+  })
+
+  test('one registration per paired device, up to the paired-device cap', async () => {
+    const devices = new DeviceRegistry(paths.devices())
+    await devices.register('old', 'ios', undefined, 'dev1')
+    await devices.register('new', 'ios', undefined, 'dev1')
+    expect(devices.list()).toEqual(['new'])
+    for (let i = 0; i < 12; i++) await devices.register(`t${i}`, 'android', undefined, `d${i}`)
+    expect(devices.list()).toHaveLength(MAX_DEVICES)
+    expect(MAX_DEVICES).toBe(10)
+  })
+
+  test('revoked and unknown devices lose their registration', async () => {
+    const devices = new DeviceRegistry(paths.devices())
+    await devices.register('legacy')
+    await devices.register('a', 'ios', undefined, 'dev-a')
+    await devices.register('b', 'ios', undefined, 'dev-b')
+    expect(await devices.removeDevice('dev-a')).toEqual(['a'])
+    await devices.prune(new Set(['dev-b']))
+    expect(devices.list()).toEqual(['b'])
   })
 
   test('stores the platform and reads files written before it existed', async () => {
@@ -277,7 +297,8 @@ describe('integration: hook → push', () => {
     const { fakeExecutor, writeTestConfig } = await import('./helpers.ts')
     const root = paths.devices().replace(/\/\.remote-harness\/devices\.json$/, '')
     await writeTestConfig(root, ['claudin'], { language: 'en-US' })
-    await new DeviceRegistry(paths.devices()).register('phone')
+    // Registered before protocol 2 (no paired device): dropped at start, never pushed to.
+    await new DeviceRegistry(paths.devices()).register('legacy')
     const { sender, sent } = fakeSender()
     const daemon = await startDaemon({
       logger: silentLogger,
@@ -288,7 +309,13 @@ describe('integration: hook → push', () => {
       hookPort: 0,
       pushSender: sender,
     })
+    const { authedClient } = await import('./noise-client.ts')
+    const client = await authedClient(daemon)
     try {
+      client.send({ type: 'device.register', id: 'r', fcmToken: 'phone', platform: 'ios' })
+      await client.until('ack')
+      client.send({ type: 'app.visibility', id: 'v', foreground: false })
+      await client.until('ack')
       const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
       await fetch(`http://127.0.0.1:${daemon.hookPort}/hooks/Stop`, {
         method: 'POST',
@@ -299,6 +326,7 @@ describe('integration: hook → push', () => {
       while (sent.length === 0 && Date.now() - start < 2000) await new Promise((r) => setTimeout(r, 20))
       expect(sent[0]).toMatchObject({ tokens: ['phone'], message: { title: en.sessionDone } })
     } finally {
+      client.close()
       await daemon.stop()
     }
   })

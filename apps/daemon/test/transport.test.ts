@@ -249,6 +249,100 @@ describe('noise channel', () => {
   })
 })
 
+describe('devices', () => {
+  test('lists the paired devices, marking the one that asks', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    const tablet = await authedClient(daemon)
+    tablet.send({ type: 'devices.list', id: 'l' })
+    const result = await tablet.until('devices.result')
+    expect(result.devices).toHaveLength(2)
+    expect(result.devices.filter((d) => d.current)).toHaveLength(1)
+    expect(result.devices.every((d) => d.lastSeen !== null && d.platform === 'ios')).toBe(true)
+    phone.close()
+    tablet.close()
+  })
+
+  test('revoking a device closes it with 4007 and refuses its key afterwards', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    const tablet = await authedClient(daemon)
+    tablet.send({ type: 'devices.list', id: 'l' })
+    const { devices } = await tablet.until('devices.result')
+    const tabletId = devices.find((d) => d.current)?.id as string
+    phone.send({ type: 'devices.revoke', id: 'r', deviceId: tabletId })
+    expect(await phone.until('ack')).toMatchObject({ replyTo: 'r' })
+    expect(await tablet.closed).toBe(CHANNEL_CLOSE.revoked)
+    expect(await reconnectConnect(daemon, tablet.deviceKey).closed).toBe(CHANNEL_CLOSE.unauthorized)
+    phone.send({ type: 'devices.revoke', id: 'again', deviceId: tabletId })
+    expect(await phone.until('error')).toMatchObject({ replyTo: 'again', code: 'not_found' })
+    phone.close()
+  })
+
+  test('a paired device gets a pairing code for another one', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    phone.send({ type: 'pairing.create', id: 'p' })
+    const code = await phone.until('pairing.code')
+    expect(Date.parse(code.expiresAt) - Date.now()).toBeGreaterThan(4 * 60_000)
+    const tablet = pairConnect(daemon, { url: code.url })
+    await tablet.ready
+    tablet.send(auth)
+    await tablet.until('auth.ok')
+    expect(daemon.pairing.devices.devices()).toHaveLength(2)
+    phone.close()
+    tablet.close()
+  })
+
+  test('the CLI lists and revokes through the admin routes', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
+    const base = `http://127.0.0.1:${daemon.hookPort}`
+    const list = (await (
+      await fetch(`${base}/admin/devices`, { headers: { [SECRET_HEADER]: secret } })
+    ).json()) as {
+      devices: { id: string }[]
+    }
+    expect(list.devices).toHaveLength(1)
+    const revoke = (id: string) =>
+      fetch(`${base}/admin/devices/revoke`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [SECRET_HEADER]: secret },
+        body: JSON.stringify({ id }),
+      })
+    expect((await revoke('nope')).status).toBe(404)
+    expect((await revoke(list.devices[0]?.id as string)).ok).toBe(true)
+    expect(await phone.closed).toBe(CHANNEL_CLOSE.revoked)
+  })
+
+  test('a revoked device loses its push registration', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    phone.send({ type: 'device.register', id: 'r', fcmToken: 'fcm-phone', platform: 'ios' })
+    await phone.until('ack')
+    const saved = () =>
+      readFile(paths.devices(), 'utf8').then((t) => JSON.parse(t).tokens as { token: string }[])
+    expect((await saved()).map((t) => t.token)).toEqual(['fcm-phone'])
+    phone.send({ type: 'devices.list', id: 'l' })
+    const id = (await phone.until('devices.result')).devices[0]?.id as string
+    await daemon.pairing.revoke(id)
+    const deadline = Date.now() + 2000
+    while ((await saved()).length > 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20))
+    expect(await saved()).toEqual([])
+  })
+
+  test('auth.ok carries the paths; dev mode offers only 127.0.0.1 and no relay', async () => {
+    const { daemon } = await boot()
+    const client = pairConnect(daemon)
+    await client.ready
+    client.send(auth)
+    const hello = await client.until('auth.ok')
+    expect(hello.paths).toEqual({ addresses: [`127.0.0.1:${daemon.wsPort}`], relay: null, relays: [] })
+    client.close()
+  })
+})
+
 describe('hooks server', () => {
   test('returns 401 without the secret', async () => {
     const { daemon } = await boot()
