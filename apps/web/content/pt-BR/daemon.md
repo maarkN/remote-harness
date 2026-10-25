@@ -116,6 +116,25 @@ O serviço confere o canal dele no remoto git a cada 6 horas e mostra uma notifi
 
 O daemon do serviço mostra um ícone na barra de menus do macOS (um pequeno auxiliar em Swift compilado no primeiro início com as Command Line Tools) e um ícone na bandeja do Linux (`python3` com GTK 3 e AyatanaAppIndicator3 ou AppIndicator3). O menu mostra as sessões em andamento e as permissões pendentes (responda por ali), abre uma sessão nova, mostra o código de pareamento, confere ou aplica atualizações, escolhe o canal, abre os logs, a configuração e a documentação, e reinicia o daemon. **Parear um celular** mostra o QR de pareamento no próprio menu no macOS, o endereço, o pareamento no terminal e **Trocar o token…** (os celulares pareados precisam parear de novo). **Preferências** liga e desliga as respostas de permissão no menu, o modo de manter acordado e as notificações push, aplicados na hora, e abre o arquivo de configuração para o resto. Com o serviço, **Sair** esconde o ícone ou para o serviço até o próximo login. `"tray": false` desliga; sem o auxiliar, e no WSL, o daemon roda sem interface.
 
+## Hospedar o próprio relay de conexão
+
+Quando o celular não alcança o computador diretamente, o daemon e o app se encontram num relay de conexão: `us.relay.remoteharness.app` e `br.relay.remoteharness.app` por padrão. O relay só repassa o tráfego que o daemon e o app criptografam de ponta a ponta; ele não consegue ler sessões, prompts nem arquivos, e não guarda log do que passa nem de endereços IP. Rodar o seu é um contêiner:
+
+```sh
+docker build -t remote-harness-relay apps/relay
+docker run -d --restart unless-stopped -p 8080:8080 remote-harness-relay
+```
+
+Coloque-o atrás de um proxy que termine o TLS (Traefik, Caddy, nginx), para ser acessado por `wss://`, e defina `RELAY_CLIENT_IP_HEADER` com o cabeçalho em que o proxy põe o endereço do cliente (`X-Real-Ip`, por exemplo), para que os limites por endereço vejam o cliente real. `GET /healthz` responde `{"status":"ok"}`. Os limites vêm do ambiente: `RELAY_MAX_DEVICES` (10 celulares por computador), `RELAY_MAX_FRAME_BYTES` (8 MB), `RELAY_ROOM_RATE_BYTES` e `RELAY_ROOM_BURST_BYTES` (banda por computador), `RELAY_IDLE_TIMEOUT`, `RELAY_IP_CONNECTS_PER_MINUTE`, `RELAY_IP_BURST` e `RELAY_IP_MAX_CONNS`.
+
+Depois liste-o no arquivo de configuração do daemon, no lugar dos relays padrão ou antes deles:
+
+```json
+{ "relays": ["wss://relay.example.com"] }
+```
+
+Pareie o celular de novo em seguida: o código de pareamento diz ao app qual relay usar.
+
 ## Dados e logs
 
 Tudo o que o daemon guarda fica em `~/.remote-harness/`: `config.json`, `state.json` (as sessões conhecidas), `secrets/` (chaves de provedor quando o cofre é o arquivo), `models-cache.json`, `bin/` (atalhos), `logs/` e `src/` (o código que o instalador compilou). Anexe os logs a um relato de bug depois de remover tokens e conteúdo de sessões.

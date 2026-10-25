@@ -148,6 +148,7 @@ apps/mobile        Expo app (Expo Router, feature folders, terminal-style dark t
 apps/web           remoteharness.app: landing, docs, installers, updates server, install links (Node in Docker)
 apps/push-relay    Cloud Function that sends push for daemons without a service account
 apps/push-edge     Cloudflare Worker on push.remoteharness.app in front of the push relay
+apps/relay         Connection relay (Go): forwards end-to-end encrypted traffic it cannot read
 packages/protocol  Zod schemas + types of the WebSocket protocol
 openspec/          Specs and every archived change that built the project
 .docs/             The original product requirements document (Portuguese, from when it was called Claude Remote)

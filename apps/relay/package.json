@@ -1,0 +1,11 @@
+{
+  "name": "@remote-harness/relay",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "go build -trimpath -o dist/relay .",
+    "typecheck": "go vet ./... && test -z \"$(gofmt -l .)\"",
+    "test": "go test ./...",
+    "deploy": "sh scripts/deploy.sh"
+  }
+}

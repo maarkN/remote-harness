@@ -116,6 +116,25 @@ El servicio comprueba su canal en el remoto de git cada 6 horas y muestra una no
 
 El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección, el emparejamiento en la terminal y **Cambiar el token…** (los móviles emparejados deben emparejarse de nuevo). **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, y en WSL, el daemon funciona sin interfaz.
 
+## Alojar tu propio relay de conexión
+
+Cuando el móvil no alcanza el ordenador directamente, el daemon y la app se encuentran en un relay de conexión: `us.relay.remoteharness.app` y `br.relay.remoteharness.app` por defecto. El relay solo reenvía el tráfico que el daemon y la app cifran de extremo a extremo; no puede leer sesiones, prompts ni archivos, y no guarda registros de lo que pasa ni de direcciones IP. Ejecutar el tuyo es un contenedor:
+
+```sh
+docker build -t remote-harness-relay apps/relay
+docker run -d --restart unless-stopped -p 8080:8080 remote-harness-relay
+```
+
+Ponlo detrás de un proxy que termine el TLS (Traefik, Caddy, nginx), para que se acceda por `wss://`, y define `RELAY_CLIENT_IP_HEADER` con la cabecera en la que el proxy pone la dirección del cliente (`X-Real-Ip`, por ejemplo), para que los límites por dirección vean al cliente real. `GET /healthz` responde `{"status":"ok"}`. Los límites vienen del entorno: `RELAY_MAX_DEVICES` (10 móviles por ordenador), `RELAY_MAX_FRAME_BYTES` (8 MB), `RELAY_ROOM_RATE_BYTES` y `RELAY_ROOM_BURST_BYTES` (ancho de banda por ordenador), `RELAY_IDLE_TIMEOUT`, `RELAY_IP_CONNECTS_PER_MINUTE`, `RELAY_IP_BURST` y `RELAY_IP_MAX_CONNS`.
+
+Después añádelo al archivo de configuración del daemon, en lugar de los relays por defecto o antes de ellos:
+
+```json
+{ "relays": ["wss://relay.example.com"] }
+```
+
+Vuelve a emparejar el móvil después: el código de emparejamiento le dice a la app qué relay usar.
+
 ## Datos y registros
 
 Todo lo que guarda el daemon está en `~/.remote-harness/`: `config.json`, `state.json` (las sesiones conocidas), `secrets/` (claves de proveedor cuando el almacén es el archivo), `models-cache.json`, `bin/` (lanzadores), `logs/` y `src/` (el código que compiló el instalador). Adjunta los registros a un informe de error tras quitar tokens y contenido de sesiones.
