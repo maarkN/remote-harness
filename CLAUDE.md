@@ -67,3 +67,8 @@ Tokens semânticos por tema em `apps/mobile/src/core/theme` (`palettes.ts`), lid
 - Implementar os changes em ordem numérica (`openspec/changes/NN-*`), uma task por vez, marcando `- [x]` no `tasks.md` ao concluir e verificar.
 - Ao concluir um change: `pnpm check` verde, depois `openspec archive NN-nome -y`.
 - Mudou um requisito? Atualize o spec do change antes do código.
+
+## Glossário e decisões
+
+- `GLOSSARY.md` (raiz, em inglês) é a linguagem do domínio: use os termos dele em código, specs, issues e textos, e evite os listados em _Avoid_ (ex.: **connection relay** × **push relay**, **computer** × "machine"). Termo novo ou redefinido entra no glossário assim que for decidido; nada de detalhe de implementação lá.
+- `docs/adr/NNNN-slug.md` (em inglês) registra decisões difíceis de desfazer, surpreendentes sem contexto e fruto de um trade-off real (ex.: relay E2E no lugar do Tailscale). Leia os ADRs da área antes de mudar algo que eles cobrem; para contrariar um, escreva um ADR novo que o substitua (`status: superseded by ADR-NNNN`).
