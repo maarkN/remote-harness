@@ -126,6 +126,16 @@ describe('testConnection (pairing)', () => {
     expect(urls).toEqual(['ws://10.0.0.2:7337', 'ws://100.64.0.2:7337'])
   })
 
+  test("pairs through the code's relay when no direct address answers", async () => {
+    const pairing = { ...code(['10.0.0.2:7337']), relay: 'wss://br.relay.remoteharness.app' }
+    const { factory, urls } = socketFactory([pairing.secret], { 'ws://10.0.0.2:7337': 'down' })
+    expect(await testConnection(pairing, { ...options, socketFactory: factory })).toMatchObject({ ok: true })
+    expect(urls).toEqual([
+      'ws://10.0.0.2:7337',
+      `wss://br.relay.remoteharness.app/v1/device/${'0'.repeat(32)}`,
+    ])
+  })
+
   test('nothing answering is a failure with the reason', async () => {
     const pairing = code(['10.0.0.2:7337'])
     const { factory } = socketFactory([pairing.secret], { 'ws://10.0.0.2:7337': 'down' })

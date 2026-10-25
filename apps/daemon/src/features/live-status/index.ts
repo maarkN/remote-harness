@@ -54,7 +54,8 @@ export async function registerLiveStatusFeature(
         host,
         session: session?.title ?? '',
         path: session ? shortenHome(session.cwd) : '',
-        link: `claude-remote://session/${sessionId}`,
+        // The computer goes with the link, so a tap on another computer's card switches to it.
+        link: `claude-remote://session/${sessionId}${ctx.daemonId ? `?computer=${ctx.daemonId}` : ''}`,
       }
     },
     isMuted: options.isMuted,

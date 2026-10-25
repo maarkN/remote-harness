@@ -25,6 +25,7 @@ const ptBR = {
     subagent: 'Subagente',
   },
   connection: {
+    path: { direct: 'direto', relay: 'via relay' },
     banner: {
       connecting: 'conectando a {{machine}}…',
       authenticating: 'autenticando…',
@@ -55,6 +56,37 @@ const ptBR = {
     hours: '{{count}} h',
     yesterday: 'ontem',
     days: '{{count}} d',
+  },
+  computers: {
+    title: 'Computadores',
+    switchTitle: 'Computador',
+    switchLabel: 'Computador: {{name}}. Trocar de computador',
+    add: 'Adicionar um computador',
+    forgetTitle: 'Esquecer {{name}}?',
+    forgetBody:
+      'As chaves deste aparelho para ele serão apagadas. Para usá-lo de novo, pareie com um código novo.',
+    revokedTitle: 'Removido de um computador',
+    revokedBody:
+      'Este aparelho foi removido de {{name}} por outro aparelho. Pareie de novo com um código novo para usá-lo.',
+  },
+  devices: {
+    title: 'Aparelhos',
+    loading: 'carregando…',
+    offline: 'Conecte ao computador para ver os aparelhos dele.',
+    thisDevice: 'este aparelho',
+    lastSeen: 'visto por último {{when}}',
+    neverSeen: 'não conectou desde o pareamento',
+    revoke: 'Revogar',
+    revokeTitle: 'Revogar {{name}}?',
+    revokeBody: 'Ele é desconectado agora e só volta pareando com um código novo.',
+    revokeSelfBody: 'Este aparelho sai de {{machine}} e precisa parear de novo.',
+    add: 'Adicionar aparelho',
+    addTitle: 'Adicionar um aparelho',
+    addBody_one:
+      'Escaneie este código com o app Remote Harness no outro celular ou tablet. Ele funciona uma vez, por {{count}} minuto.',
+    addBody_other:
+      'Escaneie este código com o app Remote Harness no outro celular ou tablet. Ele funciona uma vez, por {{count}} minutos.',
+    copyLink: 'Copiar link',
   },
   pairing: {
     title: 'Parear com o computador',

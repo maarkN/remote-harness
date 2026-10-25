@@ -11,8 +11,11 @@ const TIMEOUT_MS = 8_000
  */
 export async function withShortLivedClient(
   use: (client: DaemonClient) => Promise<unknown>,
+  daemonId?: string,
 ): Promise<boolean> {
-  const credentials = await credentialsStorage.load()
+  const { computers, active } = await credentialsStorage.loadAll()
+  // The notification's computer when it says which; else the active one.
+  const credentials = computers.find((c) => c.daemonId === (daemonId ?? active))
   if (!credentials) return false
   const client = new DaemonClient({
     computer: credentials,

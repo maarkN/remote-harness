@@ -54,6 +54,7 @@ export async function registerPushFeature(
     messages: messagesFor(effectiveLocale(ctx.config)).push,
     mode: () => sender.mode,
     host: displayHostName(ctx.config),
+    ...(ctx.daemonId ? { daemonId: ctx.daemonId } : {}),
   })
 
   ctx.router.register('device.register', async (msg, connection) => {

@@ -324,7 +324,10 @@ describe('integration: hook → push', () => {
       })
       const start = Date.now()
       while (sent.length === 0 && Date.now() - start < 2000) await new Promise((r) => setTimeout(r, 20))
-      expect(sent[0]).toMatchObject({ tokens: ['phone'], message: { title: en.sessionDone } })
+      expect(sent[0]).toMatchObject({
+        tokens: ['phone'],
+        message: { title: en.sessionDone, data: { sessionId: 's', daemonId: daemon.identity.daemonId } },
+      })
     } finally {
       client.close()
       await daemon.stop()

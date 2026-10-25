@@ -8,7 +8,7 @@ applies: 0.7+
 
 A tela inicial lista as sessões de todos os perfis do computador pareado, da atividade mais recente para a mais antiga (o chip de ordenação troca para agrupamento por estado). Cada linha mostra o selo do agente, o título, a pasta e a branch, o estado (`rodando`, `esperando`, `parada`, `encerrada`) e a etiqueta do perfil; os chips filtram por perfil. Uma faixa **Esperando você** no topo reúne os pedidos de permissão, com Permitir, Sempre e Negar ali mesmo. Deslize uma linha para as ações rápidas (encerrar ou retomar, silenciar, fixar); segure ou toque no menu da linha para o resto (copiar o caminho, ocultar uma sessão encerrada, limpar o worktree dela). Sessões que dividem um checkout git com outra sessão ao vivo ficam marcadas, porque podem atropelar os arquivos uma da outra.
 
-A linha sob o título mostra o nome da máquina (renomeie nos Ajustes) e quantas sessões ela tem; o botão `+` abre uma sessão nova.
+A linha sob o título mostra o computador e quantas sessões ele tem; toque no nome para trocar para outro computador pareado ou adicionar um. "via relay" ali quer dizer que o app o alcança pelo relay de conexão: em casa ele passa sozinho para o caminho direto, sem perder a conversa. As notificações continuam chegando de todos os computadores pareados, e tocar numa abre no computador dela. O botão `+` abre uma sessão nova.
 
 ## Conversa
 
@@ -66,7 +66,9 @@ Um perfil também pode rodar o **Codex** (selo `cx`, verde): as sessões dele mo
 
 ## Ajustes
 
-- **Máquina**: a conexão, o nome da máquina (um apelido à sua escolha, senão o hostname), a versão do daemon e **Esquecer esta máquina**.
+- **Máquina**: a conexão e o caminho (direto ou via relay), o nome da máquina (um apelido à sua escolha, senão o hostname), a versão do daemon e **Esquecer esta máquina**.
+- **Computadores**: todos os computadores pareados; trocar, renomear neste aparelho, esquecer ou adicionar outro.
+- **Aparelhos**: os celulares e tablets pareados com este computador e quando cada um foi visto por último. **Adicionar aparelho** mostra um código de pareamento de uso único (QR e link, válido por 5 minutos) para escanear com o outro aparelho; **Revogar** desconecta um na hora, e ele precisa parear de novo.
 - **Aparência**: Sistema, Escuro, Claro, Dracula, Catppuccin Mocha e Catppuccin Latte.
 - **Perfis**: cada perfil com agente, alias, pasta de config, interruptor de notificações e, com provedor, o provedor, o modelo padrão e os créditos.
 - **Notificações**: push para este celular, teste, status ao vivo, os perfis e sessões silenciados.

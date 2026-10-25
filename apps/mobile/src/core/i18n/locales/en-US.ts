@@ -29,6 +29,7 @@ const enUS = {
     subagent: 'Subagent',
   },
   connection: {
+    path: { direct: 'direct', relay: 'via relay' },
     banner: {
       connecting: 'connecting to {{machine}}…',
       authenticating: 'authenticating…',
@@ -59,6 +60,36 @@ const enUS = {
     hours: '{{count}} h',
     yesterday: 'yesterday',
     days: '{{count}} d',
+  },
+  computers: {
+    title: 'Computers',
+    switchTitle: 'Computer',
+    switchLabel: 'Computer: {{name}}. Switch computer',
+    add: 'Add a computer',
+    forgetTitle: 'Forget {{name}}?',
+    forgetBody: "This device's keys for it will be deleted. To use it again, pair with a new code.",
+    revokedTitle: 'Removed from a computer',
+    revokedBody:
+      'This device was removed from {{name}} by another device. Pair again with a new code to use it.',
+  },
+  devices: {
+    title: 'Devices',
+    loading: 'loading…',
+    offline: 'Connect to the computer to see its devices.',
+    thisDevice: 'this device',
+    lastSeen: 'last seen {{when}}',
+    neverSeen: 'not connected since pairing',
+    revoke: 'Revoke',
+    revokeTitle: 'Revoke {{name}}?',
+    revokeBody: 'It is disconnected now and can only come back by pairing with a new code.',
+    revokeSelfBody: 'This device will be signed out of {{machine}} and must pair again.',
+    add: 'Add device',
+    addTitle: 'Add a device',
+    addBody_one:
+      'Scan this code with the Remote Harness app on the other phone or tablet. It works once, for {{count}} minute.',
+    addBody_other:
+      'Scan this code with the Remote Harness app on the other phone or tablet. It works once, for {{count}} minutes.',
+    copyLink: 'Copy link',
   },
   pairing: {
     title: 'Pair with your computer',

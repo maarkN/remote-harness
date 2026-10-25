@@ -6,13 +6,12 @@ import { Platform } from 'react-native'
 import { useConnectionStore } from '@/core/connection'
 import { noiseCrypto } from '@/core/crypto'
 import { computerFromCode } from '@/core/storage/computer'
-import { credentialsStorage } from '@/core/storage/credentials'
 import { deviceInfo } from './parse-pairing-url'
 import { testConnection } from './test-connection'
 
 /** Pairs with a code: a new key for this device, the Noise pairing, then saves the computer. */
 export function usePairing() {
-  const setCredentials = useConnectionStore((s) => s.setCredentials)
+  const addComputer = useConnectionStore((s) => s.addComputer)
   const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,14 +32,12 @@ export function usePairing() {
         setBusy(false)
         return false
       }
-      const computer = computerFromCode(code, deviceKey)
-      await credentialsStorage.save(computer)
-      setCredentials(computer)
+      await addComputer(computerFromCode(code, deviceKey))
       setBusy(false)
       router.replace('/')
       return true
     },
-    [setCredentials, t],
+    [addComputer, t],
   )
 
   return { pair, busy, error, setError }

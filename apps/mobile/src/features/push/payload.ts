@@ -1,5 +1,11 @@
-/** Data the daemon puts in every push (identifiers only). */
-export type PushData = { sessionId: string; profileId?: string; event?: string; requestId?: string }
+/** Data the daemon puts in every push (identifiers only); `daemonId` names the computer that sent it. */
+export type PushData = {
+  sessionId: string
+  profileId?: string
+  event?: string
+  requestId?: string
+  daemonId?: string
+}
 
 export const PERMISSION_CATEGORY = 'PERMISSION'
 export const ACTION_ALLOW = 'ALLOW'
@@ -17,6 +23,7 @@ function pick(source: unknown): PushData | null {
     profileId: str('profileId'),
     event: str('event'),
     requestId: str('requestId'),
+    daemonId: str('daemonId'),
   }
 }
 

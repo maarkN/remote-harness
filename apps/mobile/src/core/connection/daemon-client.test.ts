@@ -11,8 +11,10 @@ import {
 } from '@remote-harness/protocol'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
+  connectionTargets,
   DaemonClient,
   DaemonRequestError,
+  DIRECT_PROBE_INTERVAL_MS,
   daemonUrl,
   type SocketLike,
   WRONG_DAEMON_CLOSE,
@@ -352,6 +354,84 @@ describe('DaemonClient', () => {
     }
   })
 
+  test('targets: direct addresses, then the home relay, then the other relays', () => {
+    expect(
+      connectionTargets({
+        daemonId: 'd'.repeat(32),
+        addresses: ['10.0.0.2:7337'],
+        relay: 'wss://br.relay.remoteharness.app',
+        relays: ['wss://us.relay.remoteharness.app', 'wss://br.relay.remoteharness.app'],
+        daemonKey: daemonKey.publicKey,
+        deviceKey,
+      }),
+    ).toEqual([
+      { url: 'ws://10.0.0.2:7337', path: 'direct' },
+      { url: `wss://br.relay.remoteharness.app/v1/device/${'d'.repeat(32)}`, path: 'relay' },
+      { url: `wss://us.relay.remoteharness.app/v1/device/${'d'.repeat(32)}`, path: 'relay' },
+    ])
+  })
+
+  test('away from home: falls back to the relay, a relay without the daemon (4004) is skipped', async () => {
+    const client = makeClient({
+      computer: {
+        daemonId: 'd'.repeat(32),
+        addresses: ['10.0.0.2:7337'],
+        relay: 'wss://us.relay',
+        relays: ['wss://br.relay'],
+        daemonKey: daemonKey.publicKey,
+        deviceKey,
+      },
+    })
+    const paths: Array<string | null> = []
+    client.onPath((path) => paths.push(path))
+    client.connect()
+    FakeSocket.instances[0]!.drop() // the direct address does not answer
+    vi.advanceTimersByTime(100)
+    FakeSocket.instances[1]!.drop(4004) // the home relay does not have the daemon
+    vi.advanceTimersByTime(100)
+    const relay = FakeSocket.instances[2]!
+    expect(relay.url).toBe(`wss://br.relay/v1/device/${'d'.repeat(32)}`)
+    authenticate(relay)
+    await Promise.resolve()
+    expect(client.status).toBe('open')
+    expect(client.path).toBe('relay')
+    expect(paths).toEqual(['relay'])
+  })
+
+  test('back home: a direct probe that authenticates takes over, and the stores resubscribe', async () => {
+    const client = makeClient({
+      computer: {
+        daemonId: 'd'.repeat(32),
+        addresses: ['10.0.0.2:7337'],
+        relay: 'wss://us.relay',
+        daemonKey: daemonKey.publicKey,
+        deviceKey,
+      },
+    })
+    const ready = vi.fn()
+    client.onReady(ready)
+    client.connect()
+    FakeSocket.instances[0]!.drop()
+    vi.advanceTimersByTime(100)
+    const relay = FakeSocket.instances[1]!
+    authenticate(relay)
+    await Promise.resolve()
+    expect(client.path).toBe('relay')
+    vi.advanceTimersByTime(DIRECT_PROBE_INTERVAL_MS)
+    const probe = FakeSocket.instances[2]!
+    expect(probe.url).toBe('ws://10.0.0.2:7337')
+    probe.open()
+    probe.receive({ type: 'auth.ok', replyTo: probe.last().id, ...hello })
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+    expect(client.path).toBe('direct')
+    expect(relay.readyState).toBe(3)
+    expect(ready).toHaveBeenCalledTimes(2)
+    // Requests now go over the direct socket.
+    const list = client.request({ type: 'sessions.list' })
+    probe.receive({ type: 'sessions.snapshot', replyTo: probe.last().id, sessions: [] })
+    await expect(list).resolves.toMatchObject({ type: 'sessions.snapshot' })
+  })
+
   test('formats addresses', () => {
     expect(daemonUrl('[fd7a::1]:7337')).toBe('ws://[fd7a::1]:7337')
   })
@@ -367,7 +447,7 @@ describe('selectProfiles', () => {
 
 describe('DaemonClient unreachable computer', () => {
   test('an attempt with no answer is abandoned after the connect timeout and marked unreachable', async () => {
-    const client = makeClient({ connectTimeoutMs: 10_000 })
+    const client = makeClient({ directTimeoutMs: 10_000 })
     const statuses: Array<[string, boolean]> = []
     client.onStatus((status) => statuses.push([status, client.unreachable]))
     client.connect()
@@ -393,7 +473,7 @@ describe('DaemonClient unreachable computer', () => {
   })
 
   test('a connection refused at once is not unreachable and notifies the flip', () => {
-    const client = makeClient({ connectTimeoutMs: 10_000 })
+    const client = makeClient({ directTimeoutMs: 10_000 })
     const flags: boolean[] = []
     client.onStatus(() => flags.push(client.unreachable))
     client.connect()
@@ -407,7 +487,7 @@ describe('DaemonClient unreachable computer', () => {
   })
 
   test('close() cancels a pending connect timeout', () => {
-    const client = makeClient({ connectTimeoutMs: 10_000 })
+    const client = makeClient({ directTimeoutMs: 10_000 })
     client.connect()
     client.close()
     vi.advanceTimersByTime(20_000)
