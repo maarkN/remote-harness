@@ -6,7 +6,7 @@
 
 **Acompanhe e conduza pelo celular (iPhone ou Android) os seus agentes de código — Claude Code e Codex CLI — que rodam no seu Mac, Linux ou Windows (WSL).**
 
-Auto-hospedado: um daemon pequeno no computador, um app nativo no celular e um link privado do Tailscale entre os dois.<br/>Sem relay na nuvem, sem notificação para a conta inteira, todos os perfis numa lista só.
+Um daemon pequeno no computador, um app nativo no celular e um link criptografado de ponta a ponta entre os dois.<br/>Um relay que não consegue ler as suas sessões, sem notificação para a conta inteira, todos os perfis numa lista só.
 
 [Documentação](https://remoteharness.app/pt-br/docs/) · [English](README.md) · [Contribuindo](CONTRIBUTING.md) · [Segurança](SECURITY.md)
 
@@ -36,7 +36,7 @@ O controle remoto nativo (`/rc`) ajuda, mas não atendia um uso real:
 - **Trabalha com uma conta por vez.** Muita gente usa dois logins do Claude Code no mesmo Mac (pessoal e trabalho, via `CLAUDE_CONFIG_DIR`) e quer ver os dois juntos.
 - **Não existe API pública para se anexar a uma sessão interativa** a partir de outro processo.
 
-O Remote Harness resolve isso com ferramentas em que você já confia: as sessões rodam no **tmux**, o Claude Code avisa o que acontece pelos **hooks HTTP** nativos e um **daemon** local liga tudo ao celular pelo **Tailscale**.
+O Remote Harness resolve isso com ferramentas em que você já confia: as sessões rodam no **tmux**, o Claude Code avisa o que acontece pelos **hooks HTTP** nativos e um **daemon** local liga tudo ao celular, direto em casa ou por um **relay criptografado de ponta a ponta** em qualquer outro lugar.
 
 ## Status
 
@@ -69,14 +69,14 @@ O Remote Harness resolve isso com ferramentas em que você já confia: as sessõ
 
 1. Você abre o Claude Code com um launcher (um por conta, com o nome que você escolher, como `pessoal` ou `trabalho`) que o roda numa janela do tmux.
 2. Os hooks HTTP do Claude Code avisam o daemon quando a sessão começa, para, pede permissão ou recebe um prompt. Um pequeno wrapper da status line também envia o modelo, o esforço, o uso do contexto e os limites de uso — e depois roda a sua própria status line, então o terminal continua igual.
-3. O daemon acompanha o transcript, lê o painel do tmux e entrega tudo ao app por um WebSocket autenticado, escutando **só** na interface do Tailscale.
+3. O daemon acompanha o transcript, lê o painel do tmux e entrega tudo ao app por um WebSocket criptografado de ponta a ponta: direto na sua rede, ou pelo relay de conexão, que só repassa texto cifrado.
 4. Prompts e teclas voltam pelo tmux; respostas de permissão voltam pela requisição do hook pendente.
 
 O **Codex CLI** funciona do mesmo jeito, pelos hooks de comando dele (`<CODEX_HOME>/hooks.json`) e pelos rollouts das sessões: iniciar, retomar, prompts, Permitir/Negar nos pedidos de permissão e a conversa, sem worktrees nem regras de "permitir sempre".
 
 ## Segurança
 
-O daemon é, na prática, um shell remoto, então vem trancado: o WebSocket escuta **só na interface do Tailscale** (ou em `127.0.0.1` com `--dev` explícito) e toda conexão é criptografada de ponta a ponta com o protocolo Noise, com chaves de cada celular pareado (códigos de pareamento de uso único) e do daemon (no cofre de segredos do sistema); o endpoint dos hooks escuta só em `127.0.0.1` com um segredo local; o push não leva conteúdo da sessão; o `bypassPermissions` nunca é oferecido; e toda edição nos seus arquivos é mesclada, com backup, escrita atômica e desfeita pelo `remote-harness uninstall`. Os detalhes estão em [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/); para relatar uma vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
+O daemon é, na prática, um shell remoto, então vem trancado: só aparelhos pareados recebem algo do WebSocket (ou só `127.0.0.1` com `--dev` explícito): toda conexão é criptografada de ponta a ponta com o protocolo Noise, com chaves de cada celular pareado (códigos de pareamento de uso único) e do daemon (no cofre de segredos do sistema); o endpoint dos hooks escuta só em `127.0.0.1` com um segredo local; o push não leva conteúdo da sessão; o `bypassPermissions` nunca é oferecido; e toda edição nos seus arquivos é mesclada, com backup, escrita atômica e desfeita pelo `remote-harness uninstall`. Os detalhes estão em [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/); para relatar uma vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
 
 ## Início rápido
 
@@ -87,7 +87,7 @@ curl -fsSL https://remoteharness.app/install | bash     # macOS e Linux
 irm https://remoteharness.app/install | iex             # PowerShell do Windows (instala o WSL2 se faltar)
 ```
 
-Depois instale o app e o Tailscale no celular, leia o QR e use o seu alias no lugar de `claude`. Todo o resto está na [documentação](https://remoteharness.app/pt-br/docs/), em português, inglês e espanhol:
+Depois instale o app no celular, leia o QR e use o seu alias no lugar de `claude`. Todo o resto está na [documentação](https://remoteharness.app/pt-br/docs/), em português, inglês e espanhol:
 
 | Assunto | Onde |
 |---|---|
@@ -98,7 +98,7 @@ Depois instale o app e o Tailscale no celular, leia o QR e use o seu alias no lu
 | Comandos do CLI, o arquivo de configuração (`~/.remote-harness/config.json`), perfis do OpenRouter e do Codex | [O daemon](https://remoteharness.app/pt-br/docs/daemon/) |
 | Serviço em segundo plano, atualizações e canais, ícone na barra de menus / bandeja, logs | [O daemon](https://remoteharness.app/pt-br/docs/daemon/#servico-em-segundo-plano) |
 | O que sai da sua máquina, chaves e pareamento, seus arquivos, relatórios de erro | [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/) · [Política de privacidade](https://remoteharness.app/pt-br/docs/privacy/) |
-| Serviço e lingering no Linux, WSL2 (systemd, tarefa de logon, Tailscale), suspensão, push, sessões somente leitura | [Solução de problemas](https://remoteharness.app/pt-br/docs/troubleshooting/) |
+| Serviço e lingering no Linux, WSL2 (systemd, tarefa de logon, rede), suspensão, push, sessões somente leitura | [Solução de problemas](https://remoteharness.app/pt-br/docs/troubleshooting/) |
 | Desinstalar: `remote-harness service uninstall` e depois `remote-harness uninstall` | [O daemon](https://remoteharness.app/pt-br/docs/daemon/#comandos) |
 
 ## Desenvolvimento

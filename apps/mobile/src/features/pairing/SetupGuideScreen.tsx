@@ -19,7 +19,7 @@ function actionIcon(action: GuideAction, color: string) {
   return <QrCode size={16} color={color} />
 }
 
-/** Step-by-step for people who installed the app before setting up Tailscale and the computer. */
+/** Step-by-step for people who installed the app before setting up the computer. */
 export function SetupGuideScreen() {
   const { t } = useTranslation()
   const { colors } = useTheme()

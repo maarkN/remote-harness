@@ -507,8 +507,9 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     ...(firebase.ios ? { googleServicesFile: GOOGLE_SERVICES.ios } : {}),
     supportsTablet: true,
     infoPlist: {
-      // Personal dev build talking ws:// to the computer over Tailscale (WireGuard encrypts the link).
-      NSAppTransportSecurity: { NSAllowsArbitraryLoads: true, NSAllowsLocalNetworking: true },
+      // The direct path is ws:// to the computer's address on the network, every byte of it a Noise
+      // frame encrypted end to end; everything else (relay, updates, push) is https / wss.
+      NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
       NSLocalNetworkUsageDescription: SYSTEM_PROMPTS.en.NSLocalNetworkUsageDescription,
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -607,7 +608,8 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     [
       'expo-build-properties',
       {
-        // ws:// to the daemon over Tailscale (WireGuard encrypts the link); Android blocks cleartext by default.
+        // The direct path is ws:// to the computer's address on the network (Noise frames, encrypted
+        // end to end). Android cannot allow cleartext per IP range, so it stays allowed app-wide.
         android: { usesCleartextTraffic: true },
         ios: {
           // The precompiled Expo modules are built with one Swift version and fail to import with a

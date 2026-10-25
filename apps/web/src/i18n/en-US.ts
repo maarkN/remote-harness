@@ -9,7 +9,7 @@ export const enUS = {
   meta: {
     title: 'Remote Harness: follow and drive your coding agents from your phone',
     description:
-      'Self-hosted: Claude Code or Codex runs in tmux on your own machine, Remote Harness streams the conversation to your phone over your Tailscale network. Permissions, prompts and new sessions from anywhere.',
+      'Self-hosted: Claude Code or Codex runs in tmux on your own machine, Remote Harness streams the conversation to your phone, encrypted end to end. Permissions, prompts and new sessions from anywhere.',
   },
   nav: {
     skip: 'Skip to content',
@@ -23,14 +23,14 @@ export const enUS = {
     menu: 'Menu',
   },
   hero: {
-    eyebrow: 'Self-hosted · Tailscale · tmux',
+    eyebrow: 'End-to-end encrypted · tmux · open source',
     title: 'Follow and drive your coding agents from your phone.',
-    lead: 'Claude Code or Codex runs in tmux on your own machine. Remote Harness streams the conversation to your phone over your Tailscale network, so you can read what the agent did, answer its permission requests, send the next prompt and start new sessions, from anywhere.',
+    lead: 'Claude Code or Codex runs in tmux on your own machine. Remote Harness streams the conversation to your phone from anywhere, encrypted end to end, so you can read what the agent did, answer its permission requests, send the next prompt and start new sessions.',
     install: 'Install on your machine',
     app: 'Get the app',
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
-    terms: 'MIT, no account, no cloud relay',
+    terms: 'MIT, no account, no VPN',
     carousel: {
       label: 'Screens of the app',
       role: 'carousel',
@@ -163,13 +163,13 @@ export const enUS = {
   },
   how: {
     eyebrow: 'How it works',
-    title: 'Your phone, your machine, your network. Nothing in between.',
-    lead: 'Sessions run inside tmux. The agent reports what happens through its native hooks, a small daemon on the machine bridges both to the phone, and Tailscale keeps it all private.',
+    title: 'Your phone, your machine. Nothing in between can read it.',
+    lead: 'Sessions run inside tmux. The agent reports what happens through its native hooks, a small daemon on the machine bridges both to the phone, and end-to-end encryption keeps it all private.',
     phone: {
       title: 'Your phone',
       body: 'Native iOS and Android app. Reads the conversation, answers permissions, sends prompts, keys, photos and voice. Push and live status, with no content inside.',
     },
-    link1: { top: 'WebSocket over Tailscale', bottom: 'token-paired · only your devices' },
+    link1: { top: 'WebSocket: direct or relay', bottom: 'Noise, end to end · only paired devices' },
     machine: {
       title: 'Your machine',
       body: 'The `remote-harness` daemon: tails transcripts, drives tmux, receives the agent’s hooks on 127.0.0.1. One line to install, a Login Item or systemd unit to keep running.',
@@ -192,7 +192,7 @@ export const enUS = {
       },
       {
         title: 'Scan the QR code',
-        body: 'The setup shows it at the end (or `remote-harness pair`). Both devices on the same tailnet, done.',
+        body: 'The setup shows it at the end (or `remote-harness pair`). At home or away, the phone finds the machine, done.',
       },
       {
         title: 'Run your alias',
@@ -251,12 +251,12 @@ export const enUS = {
     title: 'The daemon is a remote shell, so it’s locked down by default.',
     items: [
       {
-        title: 'Only on Tailscale',
-        body: 'The WebSocket binds to the Tailscale interface and nothing else. No port on the internet, no relay server reading your sessions.',
+        title: 'The relay can’t read it',
+        body: 'At home the app talks to the daemon directly; elsewhere through a connection relay. Both paths are encrypted end to end with Noise and per-device keys, so the relay only forwards bytes it can’t read, and keeps no logs.',
       },
       {
-        title: 'Token pairing',
-        body: 'Every connection presents a token kept in the Keychain (macOS), Secret Service (Linux) or SecureStore (phone). Rotate it any time.',
+        title: 'Keys per device',
+        body: "Each phone pairs with a single-use code that expires in 5 minutes and gets its own keys, kept in the Keychain (macOS), Secret Service (Linux) or the phone's secure storage. Revoke one any time.",
       },
       {
         title: 'Content-free push',
@@ -288,14 +288,7 @@ export const enUS = {
       'Checks the system, installs what’s missing (Homebrew, apt, dnf, pacman or zypper), builds the daemon and opens the guided setup.',
     windowsNote:
       'In PowerShell. Sets up WSL2 with Ubuntu when it is missing (reboot if asked, then run it again) and then runs the Linux installer inside it.',
-    requirements: [
-      'Node 24+ (bundled if missing)',
-      'tmux',
-      'git',
-      'ripgrep',
-      'Tailscale',
-      'claude or codex on PATH',
-    ],
+    requirements: ['Node 24+ (bundled if missing)', 'tmux', 'git', 'ripgrep', 'claude or codex on PATH'],
     appTitle: 'Get the app',
     ios: {
       title: 'iPhone & iPad',
@@ -305,7 +298,7 @@ export const enUS = {
     },
     android: { title: 'Android', detail: 'Google Play (testing) · Android 10+' },
     appNote:
-      'Both need Tailscale on the phone too. Installed the app first? Its pairing screen walks you through the machine setup.',
+      'Nothing else to install on the phone. Installed the app first? Its pairing screen walks you through the machine setup.',
   },
   faq: {
     eyebrow: 'Docs & FAQ',
@@ -314,7 +307,7 @@ export const enUS = {
     items: [
       {
         q: 'Does it work away from home?',
-        a: 'Yes. Tailscale connects your phone and your machine wherever they are, with no port forwarding. The machine must be awake; the Troubleshooting page of the docs covers sleep and lock settings.',
+        a: 'Yes: directly at home, through the end-to-end encrypted connection relay elsewhere, with no port forwarding and no VPN. The machine must be awake; the Troubleshooting page of the docs covers sleep and lock settings.',
       },
       {
         q: 'Which agents are supported?',
@@ -330,7 +323,7 @@ export const enUS = {
       },
       {
         q: 'Is there a cloud component?',
-        a: 'No. Optional push goes through FCM (your Firebase project or the content-free relay). Everything else stays on your tailnet.',
+        a: 'Only relays that can’t read anything. Away from home the connection relay forwards end-to-end encrypted traffic (or run your own), and optional push goes through FCM (your Firebase project or the content-free push relay). Nothing stores your sessions.',
       },
       {
         q: 'Does the daemon need a Mac?',

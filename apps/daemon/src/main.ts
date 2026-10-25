@@ -74,8 +74,6 @@ export type DaemonOptions = {
   dev?: boolean
   /** Explicit bind address for the WebSocket (the only direct address offered). */
   host?: string
-  /** Ignored: the direct path listens on every interface and no longer waits for one. */
-  waitForTailscale?: boolean
   configPath?: string
   /** Overrides config ports (0 = random, used in tests). */
   wsPort?: number

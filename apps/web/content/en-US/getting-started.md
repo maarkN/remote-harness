@@ -8,7 +8,7 @@ applies: 0.7+
 
 - A computer running macOS, Linux (systemd recommended) or Windows 10 2004+ / 11 through WSL2, with `tmux`, `git`, `rg` (ripgrep), `zsh` and `claude` (or `codex`) on the `PATH`. The installer adds the missing tools.
 - Node 24+. The installer downloads a private Node into `~/.remote-harness/node` when it is missing, without touching your system Node.
-- [Tailscale](https://tailscale.com) on the computer and on the phone, signed in to the same tailnet.
+- Nothing to install on the phone besides the app, no VPN: at home the app reaches the computer directly, elsewhere through an end-to-end encrypted connection relay.
 - An iPhone or iPad (iOS 17+) or an Android phone (Android 10+).
 
 ## Install on the computer
@@ -27,7 +27,7 @@ The installer checks the system and Node, installs the missing tools (Homebrew o
 - asks the alias of each one: the command that opens that account inside tmux (for example `personal`, `work`);
 - can add an [OpenRouter profile](/en/docs/daemon/#profiles-and-openrouter): Claude Code paid with your OpenRouter key, which it checks and keeps in the OS secret store;
 - installs the launchers, the `PATH` entry and the hooks (with backups), and the background service;
-- helps with Tailscale and shows the pairing QR code.
+- ends with pairing: it shows the pairing QR code.
 
 Options: `bash -s -- --yes` skips the questions, `bash -s -- --ref <branch|tag>` installs another version, `bash -s -- --update` updates without the setup.
 
@@ -41,7 +41,7 @@ irm https://remoteharness.app/install | iex
 
 The script checks Windows 10 2004+ or Windows 11, installs WSL2 with Ubuntu when it is missing (Windows asks for administrator permission; reboot if asked, then run the same command again), helps create the Linux user and runs the Linux installer inside the distribution. Node and Claude Code must be installed inside WSL, not only on Windows. Options: `& ([scriptblock]::Create((irm https://remoteharness.app/install))) -Distro Ubuntu-24.04 -Ref main -Yes -NoService`.
 
-systemd, starting at logon and Tailscale inside WSL are covered in [Troubleshooting](/en/docs/troubleshooting/#windows-wsl2).
+systemd, starting at logon and WSL networking are covered in [Troubleshooting](/en/docs/troubleshooting/#windows-wsl2).
 
 ### From a clone
 
@@ -58,7 +58,7 @@ node apps/daemon/dist/cli.js setup
 - **iPhone and iPad**: install it over the air from the **Get the app** card on [remoteharness.app](/en/#app) (open it in Safari; iOS 17+). It is an ad-hoc build, so it installs only on devices registered in the developer team: see [Registering an iPhone or iPad](#registering-an-iphone-or-ipad). Or build it from source: with Xcode on a Mac, `cd apps/mobile && pnpm ios` runs it on the simulator or a connected device; `make install-ios` makes a release build for a connected iPhone or iPad. [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) has the signing details.
 - **Android**: from [Google Play (testing)](https://play.google.com/apps/test/com.alvyntech.remoteharness): join the test, then install it from the Play Store; or the APK from [GitHub Releases](https://github.com/maarkN/remote-harness/releases) (allow installs from your browser when asked), or `pnpm android` and `pnpm build:android` from the repository.
 
-Install Tailscale on the phone as well and sign in to the same tailnet as the computer.
+Nothing else goes on the phone: no VPN is needed. At home the app reaches the computer directly over the home network; elsewhere it goes through the connection relay, which only forwards end-to-end encrypted traffic it cannot read.
 
 ### Registering an iPhone or iPad
 
@@ -72,11 +72,11 @@ Building from source with your own Apple developer account has no such list: Xco
 
 ## Pair the phone
 
-The setup ends with a QR code; `remote-harness pair` asks the running daemon for a new one at any time. Each code pairs one phone and expires after 5 minutes. Open the app, scan it, and you are in: the phone creates its own key pair, keeps it in its secure storage and connects over Tailscale, with everything encrypted end to end.
+The setup ends with a QR code; `remote-harness pair` asks the running daemon for a new one at any time, and so do the tray and **Add device** in Settings → Devices of a phone already paired. Each code pairs one device and expires after 5 minutes; a computer takes up to 10 devices, and the app can pair several computers and switch between them. Open the app, scan it, and you are in: the phone creates its own key pair, keeps it in its secure storage and connects directly at home or through the connection relay elsewhere, with everything encrypted end to end (Noise, X25519 and ChaCha20-Poly1305).
 
 Installed the app first? Its pairing screen has a step-by-step guide for the computer side, including the install command to share.
 
-Trying it on a simulator without Tailscale: `remote-harness start --dev` binds the daemon to `127.0.0.1` and `remote-harness pair` prints a code with that address: paste the link in the app's **Paste link** tab. On the Android emulator also run `adb reverse tcp:7337 tcp:7337`.
+Trying it on a simulator: `remote-harness start --dev` binds the daemon to `127.0.0.1` (and never uses a relay) and `remote-harness pair` prints a code with that address: paste the link in the app's **Paste link** tab. On the Android emulator also run `adb reverse tcp:7337 tcp:7337`.
 
 ## First session
 

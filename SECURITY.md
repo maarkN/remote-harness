@@ -18,9 +18,9 @@ Only the latest release on `main` receives security fixes.
 
 ## Security model (summary)
 
-- WebSocket bound only to the Tailscale interface (or `127.0.0.1` with `--dev`); every connection is a Noise session (XXpsk3 to pair, IK to reconnect; X25519, ChaCha20-Poly1305) with per-device keys. The daemon's keys are in the macOS Keychain / Linux Secret Service, each device's in its secure storage. Pairing codes are single use and expire after 5 minutes; unknown device keys are dropped before any message.
+- Direct WebSocket on the computer's interfaces (or `127.0.0.1` only with `--dev`) and the connection relay; every connection on both is a Noise session (XXpsk3 to pair, IK to reconnect; X25519, ChaCha20-Poly1305) with per-device keys. The daemon's keys are in the macOS Keychain / Linux Secret Service, each device's in its secure storage. Pairing codes are single use and expire after 5 minutes; unknown device keys are dropped before any message.
 - Hooks endpoint bound only to `127.0.0.1`, protected by a local shared secret.
 - Push notifications never include session content.
 - `bypassPermissions` is never offered by the app.
 
-Out of scope: attacks that require an already compromised Mac or tailnet, or exposing the daemon outside Tailscale via `--host`.
+Out of scope: attacks that require an already compromised computer or paired device. The connection relay is untrusted by design: it only sees ciphertext, the daemon ID and connection metadata.

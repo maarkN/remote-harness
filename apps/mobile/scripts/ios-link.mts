@@ -1,64 +1,25 @@
 /**
- * Installs a release build on the iPhone from a Safari link over Tailscale, from any network and
- * without a cable (Make: `install-ios-link`). With `--web` (Make: `IOS_LINK=web`) the files go to
- * the site server (over SSH) behind https://remoteharness.app/app/<token>/ instead, so the phone needs no Tailscale; the
- * random token is kept in `<dir>/.web-token` and reused by later builds (and by the Android link,
- * `make install-android-link`). The site renders that page from `builds.json`, uploaded last.
- * - `tsx scripts/ios-link.mts --check` prints the install page URL, or why Tailscale cannot serve it.
+ * Installs a release build on the iPhone from a Safari link, from any network and without a cable
+ * (Make: `install-ios-link`): the files go to the site server (over SSH) behind
+ * https://remoteharness.app/app/<token>/. The random token is kept in `<dir>/.web-token` and reused
+ * by later builds (and by the Android link, `make install-android-link`). The site renders that
+ * page from `builds.json`, uploaded last.
+ * - `tsx scripts/ios-link.mts --check` checks the site server and prints the install page URL.
  * - `tsx scripts/ios-link.mts <archive> <dir>` exports the archive to an IPA in <dir>, writes the
- *   manifest and the install page next to it and publishes them on the tailnet only.
- * - `tsx scripts/ios-link.mts --serve <dir>` is the server that does it, started in the background.
- * Tailscale cannot serve a folder on macOS (sandbox), so it proxies to that server, which listens on
- * 127.0.0.1 only and hands out just those three files. It keeps running and rereads them per
- * request, so later builds reuse it; after a reboot the next `make install-ios-link` restarts it.
+ *   manifest and the install page next to it and uploads them.
  * The IPA is development-signed, so only devices registered in the Apple team can install it.
  */
-import { execFileSync, spawn } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import {
-  copyFileSync,
-  createReadStream,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
-import { createServer } from 'node:http'
+import { execFileSync } from 'node:child_process'
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { WEB_BASE } from './app-link-files.ts'
 import { checkWebHost, publishBuilds, webPut, webToken } from './app-link-web.mts'
-import { type AppInfo, buildManifest, buildPage, HINTS, servedFile, tailnetHost } from './ios-link-files.ts'
+import { type AppInfo, buildManifest, buildPage } from './ios-link-files.ts'
 
-/** Path under the Mac's tailnet name, so other `tailscale serve` routes are left alone. */
-const SERVE_PATH = '/remote-harness'
 const IPA = 'RemoteHarness.ipa'
-const PORT = 47391
-const LOCAL = `http://127.0.0.1:${PORT}`
-/** Answers with a hash of the served folder (not its path, since Tailscale proxies every path). */
-const HEALTH = '/.ios-link'
-const folderId = (dir: string) => createHash('sha256').update(dir).digest('hex').slice(0, 16)
 
 const run = (cmd: string, args: string[]) => execFileSync(cmd, args, { encoding: 'utf8' }).trim()
-
-function baseUrl(): string {
-  let json: unknown
-  try {
-    json = JSON.parse(run('tailscale', ['status', '--json']))
-  } catch {
-    console.error('✗ `tailscale status` failed: install Tailscale and add the `tailscale` CLI to the PATH.')
-    process.exit(1)
-  }
-  const tailnet = tailnetHost(json)
-  if (!tailnet.ok) {
-    console.error(`✗ ${HINTS[tailnet.reason]}`)
-    process.exit(1)
-  }
-  return `https://${tailnet.host}${SERVE_PATH}`
-}
 
 function plistValue(file: string, key: string): string | undefined {
   try {
@@ -134,62 +95,6 @@ function exportIpa(archive: string, dir: string): void {
   }
 }
 
-function serve(dir: string): void {
-  createServer((req, res) => {
-    if (req.url === HEALTH) {
-      res.end(folderId(dir))
-      return
-    }
-    const file = req.method === 'GET' || req.method === 'HEAD' ? servedFile(req.url ?? '/') : undefined
-    const path = file && join(dir, file.name)
-    let size: number
-    try {
-      size = path ? statSync(path).size : -1
-    } catch {
-      size = -1
-    }
-    if (!file || !path || size < 0) {
-      res.writeHead(404).end()
-      return
-    }
-    res.writeHead(200, { 'Content-Type': file.type, 'Content-Length': size, 'Cache-Control': 'no-cache' })
-    if (req.method === 'HEAD') res.end()
-    else createReadStream(path).pipe(res)
-  }).listen(PORT, '127.0.0.1')
-}
-
-async function servingDir(): Promise<string | undefined> {
-  try {
-    const res = await fetch(`${LOCAL}${HEALTH}`, { signal: AbortSignal.timeout(1000) })
-    return res.ok ? await res.text() : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** Reuses the server of an earlier run, or starts one detached from this process. */
-async function ensureServer(dir: string): Promise<void> {
-  let current = await servingDir()
-  if (current === undefined) {
-    spawn(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url), '--serve', dir], {
-      detached: true,
-      stdio: 'ignore',
-    }).unref()
-    for (let i = 0; i < 50 && current === undefined; i++) {
-      await new Promise((done) => setTimeout(done, 100))
-      current = await servingDir()
-    }
-  }
-  if (current !== folderId(dir)) {
-    console.error(
-      current === undefined
-        ? `✗ the local server did not start on ${LOCAL} (port in use?)`
-        : `✗ ${LOCAL} already serves another folder; stop that process (lsof -iTCP:${PORT}) or use the same IOS_LINK_DIR`,
-    )
-    process.exit(1)
-  }
-}
-
 /**
  * Uploads the build, then its manifest, then `builds.json` (the page is rendered from it), so the
  * page never links to a missing build. `index.html` still goes up for folders read without `builds.json`.
@@ -208,51 +113,32 @@ function uploadWeb(dir: string, token: string, app: AppInfo, builtAt: Date): voi
   })
 }
 
+// `--web` was the only mode left: still accepted from older Makefiles.
 const args = process.argv.slice(2).filter((a) => a !== '--web')
-const web = process.argv.includes('--web')
 if (args.includes('--check')) {
-  if (web) checkWebHost()
-  console.log(web ? `✓ ${WEB_BASE}/<token>/` : `✓ ${baseUrl()}/`)
+  checkWebHost()
+  console.log(`✓ ${WEB_BASE}/<token>/`)
   process.exit(0)
 }
-if (args[0] === '--serve' && args[1]) {
-  serve(resolve(args[1]))
-} else {
-  const [archiveArg, dirArg] = args
-  if (!archiveArg || !dirArg) {
-    console.error('usage: tsx scripts/ios-link.mts [--web] --check | [--web] <archive.xcarchive> <dir>')
-    process.exit(1)
-  }
-  const archive = resolve(archiveArg)
-  const dir = resolve(dirArg)
-  mkdirSync(dir, { recursive: true })
-  const token = web ? webToken(dir) : ''
-  const base = web ? `${WEB_BASE}/${token}` : baseUrl()
-  const app = appInfo(archive)
-
-  exportIpa(archive, dir)
-  // The query defeats Safari's cache between builds; the files themselves keep fixed names.
-  const stamp = Date.now()
-  writeFileSync(join(dir, 'manifest.plist'), buildManifest(app, `${base}/${IPA}?v=${stamp}`))
-  writeFileSync(join(dir, 'index.html'), buildPage(app, `${base}/manifest.plist?v=${stamp}`, new Date(stamp)))
-
-  if (web) {
-    uploadWeb(dir, token, app, new Date(stamp))
-    console.log(`✓ ${app.title} ${app.version} (${app.build}) ready`)
-    console.log(
-      `  On a registered iPhone (any network), open in Safari and tap Install (Android: make install-android-link):\n  ${base}/`,
-    )
-    process.exit(0)
-  }
-  await ensureServer(dir)
-  try {
-    execFileSync('tailscale', ['serve', '--bg', '--set-path', SERVE_PATH, LOCAL], { stdio: 'ignore' })
-  } catch {
-    console.error(
-      `✗ \`tailscale serve\` failed; run it to see why: tailscale serve --bg --set-path ${SERVE_PATH} ${LOCAL}`,
-    )
-    process.exit(1)
-  }
-  console.log(`✓ ${app.title} ${app.version} (${app.build}) ready`)
-  console.log(`  On the iPhone (any network, Tailscale on), open in Safari and tap Install:\n  ${base}/`)
+const [archiveArg, dirArg] = args
+if (!archiveArg || !dirArg) {
+  console.error('usage: tsx scripts/ios-link.mts --check | <archive.xcarchive> <dir>')
+  process.exit(1)
 }
+const archive = resolve(archiveArg)
+const dir = resolve(dirArg)
+mkdirSync(dir, { recursive: true })
+const token = webToken(dir)
+const base = `${WEB_BASE}/${token}`
+const app = appInfo(archive)
+
+exportIpa(archive, dir)
+// The query defeats Safari's cache between builds; the files themselves keep fixed names.
+const stamp = Date.now()
+writeFileSync(join(dir, 'manifest.plist'), buildManifest(app, `${base}/${IPA}?v=${stamp}`))
+writeFileSync(join(dir, 'index.html'), buildPage(app, `${base}/manifest.plist?v=${stamp}`, new Date(stamp)))
+uploadWeb(dir, token, app, new Date(stamp))
+console.log(`✓ ${app.title} ${app.version} (${app.build}) ready`)
+console.log(
+  `  On a registered iPhone (any network), open in Safari and tap Install (Android: make install-android-link):\n  ${base}/`,
+)

@@ -1,18 +1,12 @@
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { type NetworkInterfaceInfo, networkInterfaces, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join, posix } from 'node:path'
 import type { Executor } from '../../infra/exec.ts'
 import { writeFileAtomic } from '../../infra/fs.ts'
 import { systemdIsPid1, type WslInfo } from '../../infra/platform.ts'
 import { BACKUP_SUFFIX } from '../hooks/installer.ts'
 import { LogonTask } from './logon-task.ts'
-import {
-  enableMirroredNetworking,
-  findWslTailscale,
-  parseCmdEcho,
-  type WslTailscale,
-  wslNetworkingMode,
-} from './networking.ts'
+import { enableMirroredNetworking, parseCmdEcho, wslNetworkingMode } from './networking.ts'
 import {
   displayCommand,
   enableSystemdInWslConf,
@@ -35,7 +29,6 @@ export type WslHostOptions = {
   /** `/etc/wsl.conf` (tests point it at a temp file). */
   wslConfPath?: string
   systemdRunning?: () => boolean
-  interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>
 }
 
 export type SystemdEnableResult =
@@ -120,10 +113,6 @@ export class WslHost {
   async networkingMode(): Promise<string | null> {
     const path = await this.wslconfigPath()
     return path ? wslNetworkingMode(await readTextOrNull(path)) : null
-  }
-
-  tailscale(mode: string | null): WslTailscale | null {
-    return findWslTailscale((this.o.interfaces ?? networkInterfaces)(), mode ?? 'nat')
   }
 
   /**

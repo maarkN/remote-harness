@@ -39,7 +39,7 @@ describe('store metadata', () => {
   test('copy names the product, the install command and the trademarks, and nothing private', () => {
     for (const locale of LOCALES) {
       const text = `${STORE_METADATA[locale].description} ${STORE_METADATA[locale].promotionalText}`
-      expect(text).toContain('Tailscale')
+      expect(text).not.toMatch(/tailscale|tailnet/i)
       expect(text).toContain('curl -fsSL https://remoteharness.app/install | bash')
       expect(text).toContain('Anthropic, PBC')
       expect(text).not.toMatch(/doctorx|acme|bypass/i)

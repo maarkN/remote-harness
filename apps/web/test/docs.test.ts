@@ -141,7 +141,7 @@ describe('renderDoc', () => {
   test('search index entries point at pages and anchors of the same language', () => {
     const entries = searchIndex(DOCS, 'pt-BR')
     expect(entries.every((entry) => entry.url.startsWith('/pt-br/docs/'))).toBe(true)
-    expect(entries.some((entry) => entry.text.toLowerCase().includes('tailscale'))).toBe(true)
+    expect(entries.some((entry) => entry.text.toLowerCase().includes('relay'))).toBe(true)
   })
 
   test('the sitemap lists every docs page in every language', () => {

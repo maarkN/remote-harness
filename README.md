@@ -6,7 +6,7 @@
 
 **Follow and drive your coding agents — Claude Code and Codex CLI — running on your Mac, Linux or Windows (WSL) machine, from your iPhone or Android phone.**
 
-Self-hosted: a small daemon on your computer, a native app on your phone, a private Tailscale link in between.<br/>No cloud relay, no account-wide notifications, every profile in one list.
+A small daemon on your computer, a native app on your phone, an end-to-end encrypted link in between.<br/>A relay that can't read your sessions, no account-wide notifications, every profile in one list.
 
 [![Release](https://img.shields.io/github/v/release/maarkN/remote-harness?include_prereleases&label=release&color=E8A33D)](https://github.com/maarkN/remote-harness/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-D97757.svg)](LICENSE)
@@ -43,7 +43,7 @@ The built-in remote control (`/rc`) helps, but it did not fit a real setup:
 - **It works with one account at a time.** Many of us run two Claude Code logins on the same computer (personal and work, via `CLAUDE_CONFIG_DIR`) and want a single view of both.
 - **There is no public API to attach to a live interactive session** from another process.
 
-Remote Harness solves this with tools you already trust: sessions run inside **tmux**, Claude Code reports what happens through its native **HTTP hooks**, and a local **daemon** bridges both to the phone over **Tailscale**.
+Remote Harness solves this with tools you already trust: sessions run inside **tmux**, Claude Code reports what happens through its native **HTTP hooks**, and a local **daemon** bridges both to the phone, directly at home or through an **end-to-end encrypted relay** anywhere else.
 
 ## Status
 
@@ -78,7 +78,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 ## How it works
 
 ```
-┌──────────────┐  WebSocket over Tailscale   ┌─────────────────────────────────┐
+┌──────────────┐ WebSocket: direct or relay  ┌─────────────────────────────────┐
 │  phone app   │ ◄─────────────────────────► │ remote-harness daemon (computer)│
 │ iOS / Android│   Noise, end to end (E2E)   │  ├─ tmux: send-keys / capture   │
 └──────▲───────┘                             │  ├─ tails transcript .jsonl     │
@@ -95,7 +95,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 
 1. You start Claude Code with a tiny launcher (one per account, named by you, e.g. `pessoal`, `trabalho`) that runs it inside a tmux window.
 2. Claude Code's HTTP hooks tell the daemon when a session starts, stops, needs permission or gets a prompt. A small status line wrapper also forwards the model, effort, context usage and usage limits — and then runs your own status line, so the terminal looks the same.
-3. The daemon tails the session transcript, reads the tmux pane, and serves everything to the app over an authenticated WebSocket bound **only** to the Tailscale interface.
+3. The daemon tails the session transcript, reads the tmux pane, and serves everything to the app over a WebSocket encrypted end to end: directly on your network, or through the connection relay, which only forwards ciphertext.
 4. Prompts and keys go back through tmux; permission answers go back through the pending hook request.
 
 Sessions started with plain `claude` (outside tmux) still show up — read-only — and can be resumed from the phone.
@@ -104,7 +104,7 @@ Sessions started with plain `claude` (outside tmux) still show up — read-only 
 
 ## Security model
 
-The daemon is effectively a remote shell, so it is locked down by default: the WebSocket listens **only on the Tailscale interface** (or `127.0.0.1` with an explicit `--dev`) and every connection is encrypted end to end with the Noise protocol, with keys of each paired phone (single-use pairing codes) and of the daemon (in the OS secret store); the hooks endpoint listens only on `127.0.0.1` with a local secret; push carries no session content; `bypassPermissions` is never offered; and every edit to your files is merged, backed up, written atomically and reverted by `remote-harness uninstall`. The details are in [Security & privacy](https://remoteharness.app/docs/security/); report a vulnerability through [SECURITY.md](SECURITY.md).
+The daemon is effectively a remote shell, so it is locked down by default: only paired devices get anything from the WebSocket (or `127.0.0.1` alone with an explicit `--dev`): every connection is encrypted end to end with the Noise protocol, with keys of each paired phone (single-use pairing codes) and of the daemon (in the OS secret store); the hooks endpoint listens only on `127.0.0.1` with a local secret; push carries no session content; `bypassPermissions` is never offered; and every edit to your files is merged, backed up, written atomically and reverted by `remote-harness uninstall`. The details are in [Security & privacy](https://remoteharness.app/docs/security/); report a vulnerability through [SECURITY.md](SECURITY.md).
 
 ## Getting started
 
@@ -115,7 +115,7 @@ curl -fsSL https://remoteharness.app/install | bash     # macOS and Linux
 irm https://remoteharness.app/install | iex             # Windows PowerShell (installs WSL2 if needed)
 ```
 
-Then install the app and Tailscale on the phone, scan the code, and run your alias instead of `claude`. Everything else is in the [documentation](https://remoteharness.app/docs/), in English, Portuguese and Spanish:
+Then install the app on the phone, scan the code, and run your alias instead of `claude`. Everything else is in the [documentation](https://remoteharness.app/docs/), in English, Portuguese and Spanish:
 
 | Topic | Where |
 |---|---|
@@ -126,7 +126,7 @@ Then install the app and Tailscale on the phone, scan the code, and run your ali
 | CLI commands, the config file (`~/.remote-harness/config.json`), OpenRouter and Codex profiles | [The daemon](https://remoteharness.app/docs/daemon/) |
 | Background service, updates and channels, menu bar / tray icon, logs | [The daemon](https://remoteharness.app/docs/daemon/#background-service) |
 | What leaves your machine, keys and pairing, your files, error reports | [Security & privacy](https://remoteharness.app/docs/security/) · [Privacy policy](https://remoteharness.app/docs/privacy/) |
-| Linux service and lingering, WSL2 (systemd, logon task, Tailscale), sleep, push, read-only sessions | [Troubleshooting](https://remoteharness.app/docs/troubleshooting/) |
+| Linux service and lingering, WSL2 (systemd, logon task, networking), sleep, push, read-only sessions | [Troubleshooting](https://remoteharness.app/docs/troubleshooting/) |
 | Uninstall: `remote-harness service uninstall`, then `remote-harness uninstall` | [The daemon](https://remoteharness.app/docs/daemon/#commands) |
 
 ## Tech stack
@@ -171,7 +171,7 @@ pnpm --filter @remote-harness/mobile ios               # app on the iOS simulato
 
 - The daemon runs on macOS, Linux and Windows through WSL2; the app runs on iOS and Android 10+ (built locally or with EAS, not published to the stores yet). On Android the Allow/Deny buttons are not shown on the notification: tap it to answer in the app.
 - Sessions must run inside tmux to be controllable; others are read-only until resumed.
-- The computer must be awake. The service keeps it from idle-sleeping while sessions run (`remote-harness keep-awake`), but the app cannot wake a computer that already sleeps: Wake-on-LAN does not cross Tailscale, so it needs another always-on device on the same network ([design notes](docs/design/remote-wake.md)).
+- The computer must be awake. The service keeps it from idle-sleeping while sessions run (`remote-harness keep-awake`), but the app cannot wake a computer that already sleeps: Wake-on-LAN only works on the computer's own network, so it needs another always-on device there ([design notes](docs/design/remote-wake.md)).
 - Permission-mode switching reads the Claude Code status line, so a TUI change may need a label update (they live in one tested table).
 - Codex sessions cannot start in their own worktree, and permission requests offer Allow and Deny only.
 - Translations beyond English, Brazilian Portuguese and Spanish are welcome.

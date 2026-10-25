@@ -4,7 +4,7 @@ export const ptBR: WebMessages = {
   meta: {
     title: 'Remote Harness: acompanhe e comande seus agentes de código pelo celular',
     description:
-      'Self-hosted: o Claude Code ou o Codex roda no tmux da sua própria máquina e o Remote Harness transmite a conversa para o seu celular pela sua rede Tailscale. Permissões, prompts e novas sessões de onde você estiver.',
+      'Self-hosted: o Claude Code ou o Codex roda no tmux da sua própria máquina e o Remote Harness transmite a conversa para o seu celular, com criptografia de ponta a ponta. Permissões, prompts e novas sessões de onde você estiver.',
   },
   nav: {
     skip: 'Ir para o conteúdo',
@@ -18,14 +18,14 @@ export const ptBR: WebMessages = {
     menu: 'Menu',
   },
   hero: {
-    eyebrow: 'Self-hosted · Tailscale · tmux',
+    eyebrow: 'Criptografado de ponta a ponta · tmux · código aberto',
     title: 'Acompanhe e comande seus agentes de código pelo celular.',
-    lead: 'O Claude Code ou o Codex roda no tmux da sua própria máquina. O Remote Harness transmite a conversa para o seu celular pela sua rede Tailscale: você lê o que o agente fez, responde aos pedidos de permissão, manda o próximo prompt e abre novas sessões, de onde estiver.',
+    lead: 'O Claude Code ou o Codex roda no tmux da sua própria máquina. O Remote Harness transmite a conversa para o seu celular de qualquer lugar, com criptografia de ponta a ponta: você lê o que o agente fez, responde aos pedidos de permissão, manda o próximo prompt e abre novas sessões.',
     install: 'Instalar na máquina',
     app: 'Baixar o app',
     platforms: 'macOS · Linux · Windows (WSL2)',
     phones: 'iOS · Android',
-    terms: 'MIT, sem conta, sem relay na nuvem',
+    terms: 'MIT, sem conta, sem VPN',
     carousel: { label: 'Telas do app', role: 'carrossel', previous: 'Tela anterior', next: 'Próxima tela' },
     slides: [
       { name: 'Sessões', label: 'A lista de sessões no app, com um pedido de permissão esperando' },
@@ -155,13 +155,13 @@ export const ptBR: WebMessages = {
   },
   how: {
     eyebrow: 'Como funciona',
-    title: 'Seu celular, sua máquina, sua rede. Nada no meio.',
-    lead: 'As sessões rodam dentro do tmux. O agente conta o que acontece pelos seus hooks nativos, um daemon pequeno na máquina faz a ponte com o celular, e o Tailscale mantém tudo privado.',
+    title: 'Seu celular, sua máquina. Nada no meio consegue ler.',
+    lead: 'As sessões rodam dentro do tmux. O agente conta o que acontece pelos seus hooks nativos, um daemon pequeno na máquina faz a ponte com o celular, e a criptografia de ponta a ponta mantém tudo privado.',
     phone: {
       title: 'Seu celular',
       body: 'App nativo para iOS e Android. Lê a conversa, responde permissões, manda prompts, teclas, fotos e voz. Push e status ao vivo, sem conteúdo dentro.',
     },
-    link1: { top: 'WebSocket pelo Tailscale', bottom: 'pareado por token · só os seus aparelhos' },
+    link1: { top: 'WebSocket: direto ou relay', bottom: 'Noise, ponta a ponta · só aparelhos pareados' },
     machine: {
       title: 'Sua máquina',
       body: 'O daemon `remote-harness`: acompanha os transcripts, controla o tmux, recebe os hooks do agente em 127.0.0.1. Uma linha para instalar, um item de login ou unidade systemd para manter rodando.',
@@ -184,7 +184,7 @@ export const ptBR: WebMessages = {
       },
       {
         title: 'Escaneie o QR code',
-        body: 'A instalação mostra no fim (ou `remote-harness pair`). Os dois aparelhos na mesma tailnet, pronto.',
+        body: 'A instalação mostra no fim (ou `remote-harness pair`). Em casa ou fora, o celular acha a máquina, pronto.',
       },
       {
         title: 'Rode o seu alias',
@@ -243,12 +243,12 @@ export const ptBR: WebMessages = {
     title: 'O daemon é um shell remoto, então vem trancado por padrão.',
     items: [
       {
-        title: 'Só no Tailscale',
-        body: 'O WebSocket escuta na interface do Tailscale e em mais nada. Nenhuma porta na internet, nenhum servidor de relay lendo suas sessões.',
+        title: 'O relay não consegue ler',
+        body: 'Em casa o app fala direto com o daemon; fora, por um relay de conexão. Os dois caminhos têm criptografia de ponta a ponta com Noise e chaves por aparelho, então o relay só repassa bytes que não consegue ler, e não guarda registros.',
       },
       {
-        title: 'Pareamento por token',
-        body: 'Toda conexão apresenta um token guardado no Keychain (macOS), no Secret Service (Linux) ou no SecureStore (celular). Troque quando quiser.',
+        title: 'Chaves por aparelho',
+        body: 'Cada celular pareia com um código de uso único que expira em 5 minutos e ganha chaves próprias, guardadas no Keychain (macOS), no Secret Service (Linux) ou no armazenamento seguro do celular. Revogue qualquer um quando quiser.',
       },
       {
         title: 'Push sem conteúdo',
@@ -280,14 +280,7 @@ export const ptBR: WebMessages = {
       'Confere o sistema, instala o que falta (Homebrew, apt, dnf, pacman ou zypper), compila o daemon e abre a instalação guiada.',
     windowsNote:
       'No PowerShell. Configura o WSL2 com Ubuntu quando falta (reinicie se pedir e rode de novo) e então executa o instalador Linux dentro dele.',
-    requirements: [
-      'Node 24+ (incluído se faltar)',
-      'tmux',
-      'git',
-      'ripgrep',
-      'Tailscale',
-      'claude ou codex no PATH',
-    ],
+    requirements: ['Node 24+ (incluído se faltar)', 'tmux', 'git', 'ripgrep', 'claude ou codex no PATH'],
     appTitle: 'Baixar o app',
     ios: {
       title: 'iPhone e iPad',
@@ -297,7 +290,7 @@ export const ptBR: WebMessages = {
     },
     android: { title: 'Android', detail: 'Google Play (teste) · Android 10+' },
     appNote:
-      'Os dois precisam do Tailscale no celular também. Instalou o app primeiro? A tela de pareamento guia a instalação na máquina.',
+      'Nada mais para instalar no celular. Instalou o app primeiro? A tela de pareamento guia a instalação na máquina.',
   },
   faq: {
     eyebrow: 'Docs e FAQ',
@@ -306,7 +299,7 @@ export const ptBR: WebMessages = {
     items: [
       {
         q: 'Funciona fora de casa?',
-        a: 'Sim. O Tailscale conecta seu celular e sua máquina onde estiverem, sem abrir portas. A máquina precisa estar acordada; a página Solução de problemas das docs cobre as opções de suspensão e bloqueio.',
+        a: 'Sim: direto em casa e, fora, pelo relay de conexão com criptografia de ponta a ponta, sem abrir portas nem VPN. A máquina precisa estar acordada; a página Solução de problemas das docs cobre as opções de suspensão e bloqueio.',
       },
       {
         q: 'Quais agentes são suportados?',
@@ -322,7 +315,7 @@ export const ptBR: WebMessages = {
       },
       {
         q: 'Existe algum componente na nuvem?',
-        a: 'Não. O push opcional passa pelo FCM (seu projeto Firebase ou o relay sem conteúdo). Todo o resto fica na sua tailnet.',
+        a: 'Só relays que não conseguem ler nada. Fora de casa o relay de conexão repassa o tráfego criptografado de ponta a ponta (ou rode o seu), e o push opcional passa pelo FCM (seu projeto Firebase ou o relay de push sem conteúdo). Nada guarda as suas sessões.',
       },
       {
         q: 'O daemon precisa de um Mac?',

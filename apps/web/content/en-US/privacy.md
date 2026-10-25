@@ -4,7 +4,7 @@ description: What Remote Harness collects (only the error reports and performanc
 applies: 0.7+
 ---
 
-Remote Harness is self-hosted software: the daemon runs on your computer, the app on your phone, and they talk over your own Tailscale network. This page is the privacy policy of the app distributed through the stores, of the daemon, and of this website, published by Alvyn Tech ("we"). Its short address is [remoteharness.app/privacy](/privacy). Last updated on 2026-10-24.
+Remote Harness is self-hosted software: the daemon runs on your computer, the app on your phone, and they talk end to end encrypted, directly or through a connection relay that cannot read what it forwards. This page is the privacy policy of the app distributed through the stores, of the daemon, and of this website, published by Alvyn Tech ("we"). Its short address is [remoteharness.app/privacy](/privacy). Last updated on 2026-10-24.
 
 ## What we collect
 
@@ -23,7 +23,7 @@ Deleting the app and running `remote-harness uninstall` remove them.
 
 ## What leaves your machine, and when
 
-- **Between your phone and your computer**: the conversation, the permissions you answer and the prompts you send travel only over your Tailscale network, encrypted end to end with the keys of the pairing. Nothing of it reaches us. Commands run from the app (**Run command…**, off by default) and their output take the same path, only to the phone that started them, and are never stored. With **Polish dictation** on (off by default), the transcript text of a dictation goes to your computer, where the session's own `claude` command rewrites it under your own Anthropic account, like any prompt you send; the audio never leaves the phone.
+- **Between your phone and your computer**: the conversation, the permissions you answer and the prompts you send travel only encrypted end to end with the keys of the pairing, directly or through the connection relay, which cannot read them and keeps no logs of them or of IP addresses. Nothing of it reaches us. Commands run from the app (**Run command…**, off by default) and their output take the same path, only to the phone that started them, and are never stored. With **Polish dictation** on (off by default), the transcript text of a dictation goes to your computer, where the session's own `claude` command rewrites it under your own Anthropic account, like any prompt you send; the audio never leaves the phone.
 - **Push notifications (optional)**: a title, the profile name, the session id and the event type go through Firebase Cloud Messaging (Google) to your phone; the live status adds the session title, the folder, the state, the current step (the tool and a short target: a file's base name, a command's program, a web address's host or a subagent type, never arguments, file contents or search terms) the progress of the todo list and a fixed phrase for what the session is doing (such as "Running tests…"). Only if you turn on Settings → Notifications → Show the current task on the lock screen (off by default), it also carries the task in progress from the session's todo list, up to 48 characters. The push relay is a small service we run that forwards those same messages and stores nothing; with your own Firebase project, nothing passes through us. Google's handling of Firebase Cloud Messaging is covered by Google's privacy policy.
 - **Updates**: the daemon checks the git remote of the installed source for new versions; the app checks the update server configured in its build for new JavaScript (the request carries the app version and platform, no personal data).
 - **OpenRouter profiles (optional)**: the model catalog and credits requests go from your computer to OpenRouter with your key; no model traffic passes through us.
@@ -37,7 +37,7 @@ Deleting the app and running `remote-harness uninstall` remove them.
 
 ## How your data is protected
 
-Traffic between the phone and the computer is encrypted end to end with the Noise protocol, with keys only the phone and the computer hold, and runs over Tailscale (WireGuard), the only interface the daemon listens on. Error reports, performance data, push messages and updates travel over HTTPS. Updates are signed, and the app refuses one without a valid signature. The keys and the drafts are kept in the system's secure storage.
+Traffic between the phone and the computer is encrypted end to end with the Noise protocol, with keys only the phone and the computer hold, and runs either directly, on the WebSocket the daemon serves on the computer's network interfaces, or through the connection relay over TLS (`wss://`), which only forwards the ciphertext. Error reports, performance data, push messages and updates travel over HTTPS. Updates are signed, and the app refuses one without a valid signature. The keys and the drafts are kept in the system's secure storage.
 
 ## Your choices and requests
 

@@ -20,7 +20,6 @@ import {
   selectTokenStore,
   TOKEN_STORE_KINDS,
 } from '../src/core/secrets.ts'
-import { findTailscaleAddress, isTailscaleAddress } from '../src/infra/network.ts'
 import { fakeExecutor, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -261,29 +260,5 @@ describe('token store selection', () => {
     const o = linux(() => ({ exitCode: 1 }))
     expect((await selectTokenStore(o)).kind).toBe('secret-tool')
     expect(o.exec.calls).toEqual([])
-  })
-})
-
-describe('tailscale discovery', () => {
-  test('accepts only 100.64.0.0/10', () => {
-    expect(isTailscaleAddress('100.64.0.1')).toBe(true)
-    expect(isTailscaleAddress('100.127.255.255')).toBe(true)
-    expect(isTailscaleAddress('100.128.0.1')).toBe(false)
-    expect(isTailscaleAddress('192.168.0.10')).toBe(false)
-  })
-
-  test('picks the tailscale interface', () => {
-    const iface = (address: string, internal = false) => ({
-      address,
-      internal,
-      family: 'IPv4' as const,
-      netmask: '',
-      mac: '',
-      cidr: null,
-    })
-    expect(findTailscaleAddress({ en0: [iface('192.168.0.2')], utun4: [iface('100.101.1.2')] })).toBe(
-      '100.101.1.2',
-    )
-    expect(findTailscaleAddress({ en0: [iface('192.168.0.2')] })).toBeNull()
   })
 })

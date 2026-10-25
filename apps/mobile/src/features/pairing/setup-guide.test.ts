@@ -5,7 +5,7 @@ import { buildSetupGuide, INSTALL_COMMAND, SETUP_STEPS } from './setup-guide'
 describe('setup guide', () => {
   test('installs through the single HTTPS install URL', () => {
     expect(INSTALL_COMMAND).toBe('curl -fsSL https://remoteharness.app/install | bash')
-    const install = buildSetupGuide(createI18n('en-US').t, 'ios')[2]
+    const install = buildSetupGuide(createI18n('en-US').t, 'ios')[0]
     expect(install?.code).toBe(INSTALL_COMMAND)
     expect(install?.body).toContain('irm https://remoteharness.app/install | iex')
     expect(install?.actions).toEqual([
@@ -17,39 +17,16 @@ describe('setup guide', () => {
     ])
   })
 
-  test('walks from Tailscale to pairing, every link over HTTPS', () => {
+  test('installs, then pairs: nothing else to set up on the phone', () => {
     const guide = buildSetupGuide(createI18n('en-US').t, 'ios')
     expect(guide.map((s) => s.id)).toEqual([...SETUP_STEPS])
-    expect(guide.map((s) => s.title)).toEqual([
-      'Tailscale on this phone',
-      'Tailscale on the computer',
-      'Remote Harness on the computer',
-      'Pair',
-    ])
+    expect(guide.map((s) => s.title)).toEqual(['Remote Harness on the computer', 'Pair'])
     expect(guide.at(-1)?.actions).toEqual([{ kind: 'scan', label: 'Scan the QR code' }])
     for (const step of guide) {
       for (const action of step.actions) {
         if (action.kind === 'link') expect(action.url).toMatch(/^https:\/\//)
       }
     }
-  })
-
-  test('links Tailscale in the store of the current platform', () => {
-    const t = createI18n('en-US').t
-    expect(buildSetupGuide(t, 'ios')[0]?.actions).toEqual([
-      {
-        kind: 'link',
-        label: 'Open in App Store',
-        url: 'https://apps.apple.com/app/tailscale/id1470499037',
-      },
-    ])
-    expect(buildSetupGuide(t, 'android')[0]?.actions).toEqual([
-      {
-        kind: 'link',
-        label: 'Open in Google Play',
-        url: 'https://play.google.com/store/apps/details?id=com.tailscale.ipn',
-      },
-    ])
   })
 
   test('does not assume an iPhone or a Mac', () => {
@@ -63,13 +40,8 @@ describe('setup guide', () => {
 
   test('follows the language', () => {
     const guide = buildSetupGuide(createI18n('pt-BR').t, 'android')
-    expect(guide.map((s) => s.title)).toEqual([
-      'Tailscale neste celular',
-      'Tailscale no computador',
-      'Remote Harness no computador',
-      'Parear',
-    ])
-    expect(guide[0]?.actions[0]).toMatchObject({ label: 'Abrir na Google Play' })
+    expect(guide.map((s) => s.title)).toEqual(['Remote Harness no computador', 'Parear'])
+    expect(guide[0]?.actions[0]).toMatchObject({ kind: 'share' })
     expect(buildSetupGuide(createI18n('es-ES').t, 'ios').at(-1)?.actions).toEqual([
       { kind: 'scan', label: 'Escanear el código QR' },
     ])

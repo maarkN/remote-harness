@@ -1,6 +1,6 @@
 /**
  * Reference catalog: its shape is the `Messages` type, and `pt-BR`/`es-ES` must match it.
- * Interpolation and plurals are functions. Product names (Claude Code, Remote Harness, Tailscale,
+ * Interpolation and plurals are functions. Product names (Claude Code, Remote Harness,
  * tmux) are never translated. Log messages are not here: logs stay in English.
  */
 export const enUS = {
@@ -13,9 +13,8 @@ export const enUS = {
       `Unsupported system (${platform}). Remote Harness runs on ${supported}.`,
     start: {
       description: 'start the daemon',
-      dev: 'listen on 127.0.0.1 instead of Tailscale',
+      dev: 'listen on 127.0.0.1 only and stay off the connection relay',
       host: 'WebSocket listen address',
-      waitTailscale: 'wait for the Tailscale interface instead of failing (used by the background service)',
     },
     pair: {
       description: 'show a single-use pairing QR code (asks the running daemon)',
@@ -74,9 +73,12 @@ export const enUS = {
     doctor: {
       description: 'check dependencies and configuration',
       notOnPath: 'not found in PATH',
-      tailscaleMissing: 'no 100.x interface found',
       profile: (id: string, configDir: string) => `profile ${id} (${configDir})`,
       dirMissing: 'directory does not exist',
+      relay: (url: string, ms: number | null) => `connection relay ${url}${ms === null ? '' : ` (${ms} ms)`}`,
+      relayDown: 'does not answer from here: phones can only reach this computer directly',
+      relayOff:
+        'connection relay off (`"relay": "off"` in the config): phones reach this computer only directly',
       daemonRunning: 'daemon running',
       runStart: 'run `remote-harness start`',
       identity: (store: string) => `daemon identity ${store}`,
@@ -134,7 +136,6 @@ export const enUS = {
       install: 'install and start the background service (starts at login and restarts if it crashes)',
       loaded: (path: string) => `service installed: ${path}`,
       app: (path: string) => `app: ${path}`,
-      tailscaleWaiting: '⚠ Tailscale not found: the daemon waits for the 100.x interface',
       logs: (path: string) => `logs in ${path}`,
       uninstall: 'stop and remove the background service',
       removed: 'service removed',
@@ -271,7 +272,7 @@ export const enUS = {
       accounts: 'Claude Code accounts',
       installing: 'Installing launchers, PATH and hooks',
       service: 'Background service',
-      tailscale: 'Tailscale and phone',
+      pair: 'Pairing the phone',
     },
     noAccounts: 'No Claude Code account found. Run `claude` once to log in, then `remote-harness setup`.',
     confirmSave: 'Save and install?',
@@ -289,21 +290,8 @@ export const enUS = {
       "  Couldn't enable lingering. Run `sudo loginctl enable-linger $USER` to keep the daemon running after logout.",
     lingerSkipped:
       '  Without lingering the daemon stops when you log out. Enable it later with `loginctl enable-linger $USER`.',
-    tailscaleIntro: (machine: string, install: string) =>
-      `  The ${machine} and the phone talk over a private Tailscale network (free), from anywhere.\n` +
-      `  1. On the ${machine}: ${install}\n` +
-      '  2. On the phone: install "Tailscale" (App Store or Google Play) and sign in with the same account',
-    tailscaleInstall: {
-      darwin:
-        'install it from https://tailscale.com/download/mac (or `brew install --cask tailscale`) and sign in',
-      linux: 'install it with `curl -fsSL https://tailscale.com/install.sh | sh` and run `sudo tailscale up`',
-    },
-    tailscaleQuestion: (machine: string) => `Is Tailscale connected on the ${machine}?`,
-    tailscaleRetry: "I've connected it, check again",
-    tailscaleSkip: "I'll do it later",
-    tailscaleNotYet: '  Still no Tailscale interface (100.x) found.',
     phoneHint:
-      '  On the phone: install the Remote Harness app and Tailscale (same account) and tap "QR code".',
+      '  On the phone: install the Remote Harness app and tap "QR code". It reaches this computer from anywhere.',
     showQr: 'Show the pairing QR code now?',
     done: {
       installed: 'Remote Harness installed.',
@@ -311,7 +299,6 @@ export const enUS = {
       useAliases: (aliases: string, claude: string) =>
         `2. Use ${aliases} instead of ${claude}, with the same arguments`,
       pairIfNeeded: (command: string) => `3. Pair with ${command} if you haven't yet`,
-      connectAndPair: (command: string) => `3. Connect Tailscale and run ${command}`,
       footer: 'remote-harness doctor checks it all · remote-harness setup edits accounts',
     },
     accounts: {
@@ -397,13 +384,6 @@ export const enUS = {
       'already enabled in /etc/wsl.conf: run `wsl --shutdown` in Windows PowerShell and open the distribution again',
     networking: (mode: string) => `WSL networking: ${mode}`,
     networkingUnknown: 'unknown (%UserProfile%\\.wslconfig not found)',
-    tailscaleHint:
-      'run Tailscale inside WSL or use mirrored networking with Tailscale on Windows (`remote-harness setup` explains both)',
-    source: {
-      wsl: 'inside WSL',
-      mirrored: 'Windows, mirrored networking',
-      unknown: 'WSL',
-    },
     logonTask: 'Windows logon task "Remote Harness" (starts WSL at logon)',
     logonTaskHint: 'optional: `remote-harness setup` creates it',
     logonTaskMissing: 'no Windows logon task: WSL (and the daemon) only start when you open the distribution',
@@ -430,12 +410,8 @@ export const enUS = {
       `  Couldn't create the task (${error}). In PowerShell (as administrator if access is denied):\n    ${command}`,
     logonTaskSkipped:
       '  Without the logon task, WSL and the daemon start when you open the distribution. Create it later with `remote-harness setup`.',
-    tailscaleIntro:
-      '  The computer and the phone talk over a private Tailscale network (free). Inside WSL there are two ways:\n' +
-      '  A. Tailscale inside WSL (any Windows): `curl -fsSL https://tailscale.com/install.sh | sh` and `sudo tailscale up`\n' +
-      '  B. Tailscale on Windows + WSL mirrored networking (Windows 11 22H2+): networkingMode=mirrored in .wslconfig\n' +
-      '  On the phone: install "Tailscale" (App Store or Google Play) and sign in with the same account',
-    tailscaleMirrored: 'Tailscale runs on Windows: enable mirrored networking (.wslconfig)',
+    mirroredQuestion:
+      'Let phones on your network reach this computer directly? (mirrored networking in .wslconfig; without it they connect through the relay)',
     mirroredEnabled: (path: string) => `networkingMode=mirrored in ${path}`,
     mirroredAlready: (path: string) => `networkingMode=mirrored was already in ${path}`,
     mirroredNoConfig:

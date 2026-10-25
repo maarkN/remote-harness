@@ -26,4 +26,4 @@ Texts and links SHALL not assume an iPhone: they say "phone" and point to the st
 
 #### Scenario: Setup guide on Android
 - **WHEN** the setup guide opens on Android
-- **THEN** the Tailscale link points to Google Play
+- **THEN** its texts say "phone", never "iPhone"
