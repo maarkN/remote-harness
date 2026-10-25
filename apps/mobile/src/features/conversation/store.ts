@@ -1,10 +1,13 @@
 import type { ServerMessageOf, TranscriptEntry } from '@remote-harness/protocol'
 import { create } from 'zustand'
 import type { DaemonClient } from '@/core/connection/daemon-client'
-import { mergeEntries } from './timeline'
+import { createBatcher } from './batch'
+import { EMPTY_TIMELINE, extendTimeline, mergeEntries, type Timeline } from './timeline'
 
 export type StreamState = {
   entries: TranscriptEntry[]
+  /** Display items of `entries`, extended in place as entries arrive (see `extendTimeline`). */
+  timeline: Timeline
   /** Highest line cursor received; used to resume after reconnecting. */
   lastCursor: number | null
   hasMore: boolean
@@ -13,7 +16,14 @@ export type StreamState = {
   error: unknown
 }
 
-const EMPTY: StreamState = { entries: [], lastCursor: null, hasMore: false, loadingOlder: false, error: null }
+const EMPTY: StreamState = {
+  entries: [],
+  timeline: EMPTY_TIMELINE,
+  lastCursor: null,
+  hasMore: false,
+  loadingOlder: false,
+  error: null,
+}
 
 type TranscriptStore = {
   streams: Record<string, StreamState>
@@ -45,12 +55,16 @@ function maxCursor(entries: readonly TranscriptEntry[], fallback: number | null)
 }
 
 function applyEntries(key: string, entries: TranscriptEntry[], patch: Partial<StreamState> = {}) {
-  useTranscriptStore.getState().update(key, (s) => ({
-    entries: mergeEntries(s.entries, entries),
-    lastCursor: maxCursor(entries, s.lastCursor),
-    error: null,
-    ...patch,
-  }))
+  useTranscriptStore.getState().update(key, (s) => {
+    const merged = mergeEntries(s.entries, entries)
+    return {
+      entries: merged,
+      timeline: extendTimeline(s.timeline, merged),
+      lastCursor: maxCursor(entries, s.lastCursor),
+      error: null,
+      ...patch,
+    }
+  })
 }
 
 /**
@@ -60,7 +74,12 @@ function applyEntries(key: string, entries: TranscriptEntry[], patch: Partial<St
 export function subscribeTranscript(client: DaemonClient, sessionId: string, agentId?: string): () => void {
   const key = streamKey(sessionId, agentId)
 
+  // A burst of entries (a tool-heavy turn) becomes one store update per frame.
+  const batch = createBatcher<TranscriptEntry>((entries) => applyEntries(key, entries))
+
   const subscribe = async () => {
+    // Entries still waiting for their frame count for the cursor to resume from.
+    batch.flushNow()
     const { lastCursor } = useTranscriptStore.getState().streams[key] ?? EMPTY
     try {
       const reply = await client.request({
@@ -78,7 +97,7 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
 
   const onEntry = (message: ServerMessageOf<'transcript.entry'>) => {
     if (message.sessionId !== sessionId || message.agentId !== agentId) return
-    applyEntries(key, [message.entry])
+    batch.push(message.entry)
   }
 
   const offEntry = client.on('transcript.entry', onEntry)
@@ -88,6 +107,7 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
   return () => {
     offEntry()
     offReady()
+    batch.flushNow()
     client.send({ type: 'session.unsubscribe', sessionId, agentId })
   }
 }
