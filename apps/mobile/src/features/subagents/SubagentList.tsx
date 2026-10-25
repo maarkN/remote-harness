@@ -1,5 +1,6 @@
 import type { SubagentInfo } from '@remote-harness/protocol'
 import { router } from 'expo-router'
+import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pressable } from 'react-native'
 import { makeStyles, space } from '@/core/theme'
@@ -11,11 +12,17 @@ function open(sessionId: string, agentId: string) {
 }
 
 /** Nested rows under a session in the list (max 3). */
-export function NestedSubagents({ sessionId, subagents }: { sessionId: string; subagents: SubagentInfo[] }) {
+export const NestedSubagents = memo(function NestedSubagents({
+  sessionId,
+  subagents,
+}: {
+  sessionId: string
+  subagents: SubagentInfo[]
+}) {
   const { t } = useTranslation()
   const styles = useStyles()
+  const sorted = useMemo(() => sortSubagents(subagents), [subagents])
   if (subagents.length === 0) return null
-  const sorted = sortSubagents(subagents)
   const running = sorted.filter((s) => s.state === 'running').length
   return (
     <>
@@ -39,7 +46,7 @@ export function NestedSubagents({ sessionId, subagents }: { sessionId: string; s
       ) : null}
     </>
   )
-}
+})
 
 const useStyles = makeStyles(() => ({
   nested: {

@@ -2,21 +2,8 @@ import type { Session } from '@remote-harness/protocol'
 import { FlashList, type FlashListRef } from '@shopify/flash-list'
 import * as Clipboard from 'expo-clipboard'
 import { router } from 'expo-router'
-import {
-  Bell,
-  BellOff,
-  Ellipsis,
-  EyeOff,
-  type LucideIcon,
-  Pin,
-  PinOff,
-  Power,
-  Radio,
-  RadioOff,
-  Settings,
-  SlidersHorizontal,
-} from 'lucide-react-native'
-import { useMemo, useRef, useState } from 'react'
+import { Settings, SlidersHorizontal } from 'lucide-react-native'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, type LayoutChangeEvent, RefreshControl, ScrollView, TextInput, View } from 'react-native'
 import Animated, {
@@ -34,6 +21,8 @@ import { errorMessage } from '@/core/connection/error-message'
 import { keys, useKeyCommand } from '@/core/keyboard/key-commands'
 import { useWidthClass } from '@/core/layout'
 import { makeStyles, space, useTheme } from '@/core/theme'
+import { useDebounced } from '@/core/utils/use-debounced'
+import { useStableCallback } from '@/core/utils/use-stable-callback'
 import {
   Button,
   ConnectionBanner,
@@ -49,8 +38,7 @@ import { useLiveStatusSettings } from '../live-status/settings-store'
 import { followSession, unfollowSession } from '../live-status/use-live-follow'
 import { setMuted, useMuteStore } from '../mute/store'
 import { WaitingStrip } from '../permissions/components/WaitingStrip'
-import { NestedSubagents } from '../subagents/SubagentList'
-import { type SessionAction, sessionActions, swipeSides } from './actions'
+import { sessionActions } from './actions'
 import { sharedCheckoutCounts } from './checkout'
 import { COMPACT_MARK_SIZE, MARK_GLYPH_SIZE, type MarkTransform, markTransform, slotIn } from './collapse'
 import { CloseSessionSheet } from './components/CloseSessionSheet'
@@ -59,9 +47,9 @@ import { NEW_SESSION_FAB_SPACE, NewSessionFab } from './components/NewSessionFab
 import { SessionActionsSheet } from './components/SessionActionsSheet'
 import { SessionFilterChips } from './components/SessionFilterChips'
 import { SessionFiltersSheet } from './components/SessionFiltersSheet'
-import { SessionRow } from './components/SessionRow'
+import { SessionListItem, type SwipeKey } from './components/SessionListItem'
 import { SessionSearch } from './components/SessionSearch'
-import { closeOpenRow, type SwipeAction, SwipeableRow, type SwipeTone } from './components/SwipeableRow'
+import { closeOpenRow } from './components/SwipeableRow'
 import { UnreachableEmptyState } from './components/UnreachableEmptyState'
 import { UnreachableNotice } from './components/UnreachableNotice'
 import { isFiltering, listSessions, NO_FILTER, type SessionFilter, type StateFilter } from './filter'
@@ -90,26 +78,12 @@ type Props = {
   fab?: boolean
 }
 
-type SwipeKey = SessionAction | 'more'
-
-const SWIPE_LOOK: Record<SwipeKey, { icon: LucideIcon; tone: SwipeTone }> = {
-  close: { icon: Power, tone: 'danger' },
-  hide: { icon: EyeOff, tone: 'muted' },
-  more: { icon: Ellipsis, tone: 'muted' },
-  mute: { icon: BellOff, tone: 'accent' },
-  unmute: { icon: Bell, tone: 'accent' },
-  pin: { icon: Pin, tone: 'info' },
-  unpin: { icon: PinOff, tone: 'info' },
-  // Never on a swipe side; listed so the record stays exhaustive.
-  resume: { icon: Power, tone: 'muted' },
-  cleanup: { icon: Power, tone: 'muted' },
-  copyPath: { icon: Power, tone: 'muted' },
-  followLive: { icon: Radio, tone: 'accent' },
-  unfollowLive: { icon: RadioOff, tone: 'accent' },
-}
+/** The search applies once typing pauses this long, so a long list is not filtered on every key. */
+const SEARCH_DEBOUNCE_MS = 150
+const NO_PENDING: Record<string, number> = {}
 
 export function SessionsScreen({
-  pendingBySession = {},
+  pendingBySession = NO_PENDING,
   selectedSessionId = null,
   interactive = false,
   fab = false,
@@ -126,9 +100,15 @@ export function SessionsScreen({
   const connectionStatus = useConnectionStore((s) => s.status)
   const unreachable = useConnectionStore((s) => s.unreachable)
   const unreachableState = unreachableView(connectionStatus, unreachable, Object.keys(sessions).length > 0)
-  const muted = useMuteStore()
-  const prefs = useSessionPrefsStore()
+  const mutedSessions = useMuteStore((s) => s.sessions)
+  const mutedProfiles = useMuteStore((s) => s.profiles)
+  const pinned = useSessionPrefsStore((s) => s.pinned)
+  const hidden = useSessionPrefsStore((s) => s.hidden)
+  const prefs = useMemo(() => ({ pinned, hidden }), [pinned, hidden])
   const [filter, setFilter] = useState<SessionFilter>(NO_FILTER)
+  // What the search field shows; the filter takes it once typing pauses.
+  const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounced(query, SEARCH_DEBOUNCE_MS)
   const [keyboardCursor, setKeyboardCursor] = useState<string | null>(null)
   const [actionsFor, setActionsFor] = useState<Session | null>(null)
   const [closing, setClosing] = useState<{ session: Session; mode: 'close' | 'cleanup' } | null>(null)
@@ -137,9 +117,14 @@ export function SessionsScreen({
 
   // A new filter is a new list: start from the top.
   const changeFilter = (patch: Partial<SessionFilter>) => {
+    if (patch.query !== undefined) setQuery(patch.query)
     setFilter((current) => ({ ...current, ...patch }))
     listRef.current?.scrollToOffset({ offset: 0, animated: false })
   }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: applies the paused search only; `changeFilter` reads the latest state.
+  useEffect(() => {
+    if (debouncedQuery !== filter.query) changeFilter({ query: debouncedQuery })
+  }, [debouncedQuery])
   const toggleState = (state: Exclude<StateFilter, 'all'>) =>
     changeFilter({ state: filter.state === state ? 'all' : state })
   const changeSort = () => {
@@ -236,9 +221,11 @@ export function SessionsScreen({
   const sharedCheckout = useMemo(() => sharedCheckoutCounts(Object.values(sessions)), [sessions])
   const sessionIds = useMemo(() => items.map((session) => session.id), [items])
   const sessionIdsRef = useRef(sessionIds)
-  sessionIdsRef.current = sessionIds
   const keyboardCursorRef = useRef(keyboardCursor)
-  keyboardCursorRef.current = keyboardCursor
+  useLayoutEffect(() => {
+    sessionIdsRef.current = sessionIds
+    keyboardCursorRef.current = keyboardCursor
+  })
 
   const moveKeyboardCursor = (delta: 1 | -1) => {
     if (TextInput.State.currentlyFocusedInput()) return false
@@ -265,8 +252,8 @@ export function SessionsScreen({
   }
 
   const isMuted = (session: Session) =>
-    muted.sessions.includes(session.id) || muted.profiles.includes(session.profileId)
-  const isPinned = (session: Session) => prefs.pinned.includes(session.id)
+    mutedSessions.includes(session.id) || mutedProfiles.includes(session.profileId)
+  const isPinned = (session: Session) => pinned.includes(session.id)
   // Follow needs a daemon that can follow, the live status on and a session that has not ended.
   const followSupported = useLiveFollowStore((s) => s.supported)
   const followed = useLiveFollowStore((s) => s.sessionIds)
@@ -275,7 +262,7 @@ export function SessionsScreen({
     followSupported && liveEnabled && session.state !== 'ended' ? followed.includes(session.id) : null
   const fail = (error: unknown) => Alert.alert(t('sessionActions.failed'), errorMessage(error, t))
 
-  const act = (session: Session, action: SwipeKey) => {
+  const act = useStableCallback((session: Session, action: SwipeKey) => {
     setActionsFor(action === 'more' ? session : null)
     switch (action) {
       case 'close':
@@ -313,14 +300,51 @@ export function SessionsScreen({
       case 'more':
         break
     }
-  }
-
-  const swipeAction = (session: Session, key: SwipeKey): SwipeAction => ({
-    key,
-    label: t(`sessionActions.short.${key}` as const),
-    ...SWIPE_LOOK[key],
-    onPress: () => act(session, key),
   })
+  const openActions = useStableCallback((session: Session) => setActionsFor(session))
+
+  // Rows re-render only when their own props change (`SessionListItem` is memoized); the list as a
+  // whole re-renders its visible rows when one of these inputs changes.
+  const renderItem = useCallback(
+    ({ item: session }: { item: Session }) => {
+      const following =
+        followSupported && liveEnabled && session.state !== 'ended' && followed.includes(session.id)
+      return (
+        <SessionListItem
+          session={session}
+          profile={profilesById.get(session.profileId)}
+          muted={mutedSessions.includes(session.id) || mutedProfiles.includes(session.profileId)}
+          pinned={pinned.includes(session.id)}
+          following={following}
+          pendingPermissions={pendingBySession[session.id] ?? 0}
+          sharedCheckout={sharedCheckout[session.id] ?? 0}
+          selected={session.id === selectedSessionId}
+          keyboardFocused={session.id === keyboardCursor}
+          onAction={act}
+          onLongPress={openActions}
+        />
+      )
+    },
+    [
+      act,
+      openActions,
+      followSupported,
+      liveEnabled,
+      followed,
+      profilesById,
+      mutedSessions,
+      mutedProfiles,
+      pinned,
+      pendingBySession,
+      sharedCheckout,
+      selectedSessionId,
+      keyboardCursor,
+    ],
+  )
+  const extraData = useMemo(
+    () => [mutedSessions, mutedProfiles, pinned, followed],
+    [mutedSessions, mutedProfiles, pinned, followed],
+  )
 
   return (
     // On compact width the list draws its own title row (the stack header is hidden): it keeps the top inset.
@@ -367,11 +391,7 @@ export function SessionsScreen({
               onChangeSort={changeSort}
             />
           </ScrollView>
-          <SessionSearch
-            value={filter.query}
-            onChange={(query) => changeFilter({ query })}
-            focusable={!collapsible || !headerCollapsed}
-          />
+          <SessionSearch value={query} onChange={setQuery} focusable={!collapsible || !headerCollapsed} />
         </Animated.View>
         {collapsible ? (
           <Animated.View
@@ -381,11 +401,7 @@ export function SessionsScreen({
           >
             <View style={styles.compactMarkSlot} onLayout={onMarkSlot('compact')} />
             <View style={styles.compactSearch}>
-              <SessionSearch
-                value={filter.query}
-                onChange={(query) => changeFilter({ query })}
-                focusable={headerCollapsed}
-              />
+              <SessionSearch value={query} onChange={setQuery} focusable={headerCollapsed} />
             </View>
             <View>
               <IconButton
@@ -418,7 +434,7 @@ export function SessionsScreen({
       <AnimatedFlashList<Session>
         ref={listRef}
         data={items}
-        extraData={[muted, prefs, followed]}
+        extraData={extraData}
         // On by default in FlashList 2: when a filter brings other sessions back, it kept the list
         // anchored to the last rows, with the rest above the viewport.
         maintainVisibleContentPosition={{ disabled: true }}
@@ -426,34 +442,7 @@ export function SessionsScreen({
         onScrollBeginDrag={closeOpenRow}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        renderItem={({ item: session }) => {
-          const sides = swipeSides(session, { muted: isMuted(session), pinned: isPinned(session) })
-          return (
-            <>
-              <SwipeableRow
-                start={sides.start.map((key) => swipeAction(session, key))}
-                end={sides.end.map((key) => swipeAction(session, key))}
-              >
-                <SessionRow
-                  session={session}
-                  profile={profilesById.get(session.profileId)}
-                  muted={isMuted(session)}
-                  pinned={isPinned(session)}
-                  following={liveFollow(session) === true}
-                  pendingPermissions={pendingBySession[session.id] ?? 0}
-                  sharedCheckout={sharedCheckout[session.id] ?? 0}
-                  selected={session.id === selectedSessionId}
-                  keyboardFocused={session.id === keyboardCursor}
-                  onLongPress={() => {
-                    closeOpenRow()
-                    setActionsFor(session)
-                  }}
-                />
-              </SwipeableRow>
-              <NestedSubagents sessionId={session.id} subagents={session.subagents} />
-            </>
-          )
-        }}
+        renderItem={renderItem}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }

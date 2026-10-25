@@ -16,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { useShallow } from 'zustand/react/shallow'
 import { selectProfiles, useConnectionStore, useDaemonClient, useIsConnected } from '@/core/connection'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
@@ -82,17 +83,20 @@ export function NewSessionScreen() {
   // Set once `session.started` came back with no `sessionId` yet: the pane whose session we're
   // waiting to register, so we can navigate in as soon as it appears in the sessions store.
   const [startingPane, setStartingPane] = useState<string | null>(null)
-  const sessions = useSessionsStore((s) => s.sessions)
+  // Only the id of the session that registers in that pane: other sessions working do not re-render.
+  const startedId = useSessionsStore((s) =>
+    startingPane
+      ? (Object.values(s.sessions).find((session) => session.paneId === startingPane)?.id ?? null)
+      : null,
+  )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `finish` only resets setters/refs.
   useEffect(() => {
-    if (!startingPane) return
-    const started = Object.values(sessions).find((s) => s.paneId === startingPane)
-    if (!started) return
+    if (!startingPane || !startedId) return
     setStartingPane(null)
     finish()
-    router.replace({ pathname: '/session/[id]', params: { id: started.id, autofocus: '1' } })
-  }, [startingPane, sessions])
+    router.replace({ pathname: '/session/[id]', params: { id: startedId, autofocus: '1' } })
+  }, [startingPane, startedId])
 
   useEffect(() => {
     if (!profileId && profiles[0]) setProfileId(profiles[0].id)
@@ -125,9 +129,12 @@ export function NewSessionScreen() {
   const worktreeAllowed = selectedProfile ? canStartInWorktree(profileAgent(selectedProfile)) : false
   const peers = current?.peers ?? []
   const carryOver = worktreeCarryOver(current?.worktreeCopy, t)
-  const nameChips = cwd.trim()
-    ? nameSuggestions(checkout?.branch ?? null, Object.values(sessions), cwd.trim())
-    : []
+  const branch = checkout?.branch ?? null
+  const trimmedCwd = cwd.trim()
+  // The suggested names only: sessions working elsewhere do not re-render the form.
+  const nameChips = useSessionsStore(
+    useShallow((s) => (trimmedCwd ? nameSuggestions(branch, Object.values(s.sessions), trimmedCwd) : [])),
+  )
 
   // Folder autocomplete: the listing may lag the text, so it is narrowed to what is typed now.
   const directoriesSupported = useDirectoriesSupported()

@@ -7,7 +7,7 @@ import { useConnectionStore } from '@/core/connection'
 import type { PaneMode } from '@/core/layout'
 import { makeStyles, space, useTheme } from '@/core/theme'
 import { SessionDetailsList } from '@/features/sessions/components/SessionDetailsList'
-import { useSessionsStore } from '@/features/sessions/store'
+import { useStableSession } from '@/features/sessions/use-stable-session'
 import { SubagentRows } from '@/features/subagents/SubagentRows'
 import { TerminalScreen } from '@/features/terminal/TerminalScreen'
 import { IconButton, Text } from '@/ui'
@@ -25,7 +25,7 @@ export function InspectorPane({ sessionId, mode }: { sessionId: string; mode: Ex
   const styles = useStyles()
   const tab = useInspectorStore((s) => s.tab)
   const width = useInspectorStore((s) => s.width)
-  const session = useSessionsStore((s) => s.sessions[sessionId])
+  const session = useStableSession(sessionId)
   const profile = useConnectionStore((s) => s.hello?.profiles.find((p) => p.id === session?.profileId))
   const startWidth = useRef(width)
   const resizer = useRef(
@@ -98,7 +98,7 @@ export function InspectorPane({ sessionId, mode }: { sessionId: string; mode: Ex
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <SessionDetailsList session={session} profile={profile} />
+          <SessionDetailsList sessionId={sessionId} profile={profile} />
         </ScrollView>
       )}
       <View style={[styles.edge, { backgroundColor: colors.border }]} pointerEvents="none" />

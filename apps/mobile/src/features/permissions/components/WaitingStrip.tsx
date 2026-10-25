@@ -2,6 +2,7 @@ import type { PermissionRequestInfo } from '@remote-harness/protocol'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pressable, View } from 'react-native'
+import { useShallow } from 'zustand/react/shallow'
 import { selectProfiles, useConnectionStore } from '@/core/connection'
 import { makeStyles, radius, space } from '@/core/theme'
 import { formatElapsed } from '@/core/utils/time'
@@ -12,7 +13,7 @@ import { useSessionsStore } from '@/features/sessions/store'
 import { AgentBadge, Button, ProfileTag, Text } from '@/ui'
 import { describePermission } from '../describe'
 import { usePermissionsStore } from '../store'
-import { pendingForStrip, type StripItem, stripSessionId } from '../strip'
+import { pendingForStrip, type StripItem, stripCandidates, stripSessionId } from '../strip'
 import { useRespond } from '../use-respond'
 import { AlwaysAllowSheet } from './AlwaysAllowSheet'
 
@@ -25,13 +26,15 @@ import { AlwaysAllowSheet } from './AlwaysAllowSheet'
 export function WaitingStrip() {
   const { t } = useTranslation()
   const styles = useStyles()
-  const sessions = useSessionsStore((s) => s.sessions)
   const pending = usePermissionsStore((s) => s.pending)
-  const profiles = useConnectionStore(selectProfiles)
-  const strip = useMemo(
-    () => pendingForStrip(Object.values(sessions), Object.values(pending)),
-    [sessions, pending],
+  const requestSessionIds = useMemo(
+    () => new Set(Object.values(pending).map((request) => request.sessionId)),
+    [pending],
   )
+  // Only the sessions the strip can show: others working do not re-render it.
+  const sessions = useSessionsStore(useShallow((s) => stripCandidates(s.sessions, requestSessionIds)))
+  const profiles = useConnectionStore(selectProfiles)
+  const strip = useMemo(() => pendingForStrip(sessions, Object.values(pending)), [sessions, pending])
   const now = useNow(1000)
   const { respond, busy, error } = useRespond()
   const [always, setAlways] = useState<PermissionRequestInfo | null>(null)
