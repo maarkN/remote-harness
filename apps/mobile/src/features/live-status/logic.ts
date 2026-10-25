@@ -149,6 +149,27 @@ export function sessionIdFromActivityUrl(url: string | null | undefined): string
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
+/** An activity's update token, as iOS hands it to the app (also with the app in the background). */
+export type ActivityToken = { activityId: string; pushToken: string; url?: string | null }
+
+/** Identifies one token of one activity, so each is registered once. */
+export function activityTokenKey(token: ActivityToken): string {
+  return `${token.activityId}|${token.pushToken}`
+}
+
+/**
+ * The session to register from the background for an activity's update token, or `null`: with the
+ * app in front its own screens register their activities, the deep link must name a session (an
+ * activity the daemon started by push for a followed session has one), and each token goes once.
+ */
+export function backgroundRegistration(
+  token: ActivityToken,
+  state: { appActive: boolean; sent: ReadonlySet<string> },
+): string | null {
+  if (state.appActive || !token.pushToken || state.sent.has(activityTokenKey(token))) return null
+  return sessionIdFromActivityUrl(token.url)
+}
+
 /** Activities no record names: their deep links, and the sessions this phone follows. */
 export type FollowedOrphans = {
   /** Activity id → the deep link it was started with (`null` when unknown). */

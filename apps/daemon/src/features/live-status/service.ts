@@ -97,6 +97,8 @@ export class LiveStatusService {
     const kept = previous && !isFinal(previous.status) ? previous.status : null
     const status = kept ?? initialLiveStatus(this.now())
     const entry: Entry = {
+      // A registration without colors (the app in the background) keeps the ones it had.
+      ...(previous?.palette ? { palette: previous.palette } : {}),
       ...registration,
       status: { ...status, tasks: this.options.tasksOf?.(registration.sessionId) ?? status.tasks },
       sent: null,

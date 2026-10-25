@@ -1,5 +1,5 @@
 diff --git a/build/Widgets.d.ts b/build/Widgets.d.ts
-index d4b5aacee380c056855f68c5ca62c9af24304745..e3a9e65e8a1cf225dc2d6861bf9edf4a72840a08 100644
+index d4b5aacee380c056855f68c5ca62c9af24304745..ccbf4057c3a681c457ebbb4afd900d54b21332c3 100644
 --- a/build/Widgets.d.ts
 +++ b/build/Widgets.d.ts
 @@ -56,6 +56,11 @@ export declare class LiveActivity<T extends object = object> {
@@ -14,8 +14,22 @@ index d4b5aacee380c056855f68c5ca62c9af24304745..e3a9e65e8a1cf225dc2d6861bf9edf4a
      /**
       * Adds a listener for push token update events on this Live Activity instance.
       * The token can be used to send content updates to this specific activity via APNs.
+@@ -117,6 +122,13 @@ export declare function addUserInteractionListener(listener: ExpoWidgetsEvents['
+  * @return An event subscription that can be used to remove the listener.
+  */
+ export declare function addPushToStartTokenListener(listener: ExpoWidgetsEvents['onExpoWidgetsPushToStartTokenReceived']): EventSubscription;
++/**
++ * Adds a listener for the update token of every Live Activity of the app, including activities
++ * started by a push-to-start notification while the app was not running.
++ * @param listener Callback function to handle activity push token events.
++ * @return An event subscription that can be used to remove the listener.
++ */
++export declare function addActivityPushTokenListener(listener: ExpoWidgetsEvents['onExpoWidgetsActivityPushToken']): EventSubscription;
+ /**
+  * A directory that can be used to store shared images for widgets.
+  * The contents of this directory are accessible by both the main app and widgets.
 diff --git a/build/Widgets.js b/build/Widgets.js
-index 9099a1bb3c10eaddc41518ba5b82117284f82135..4d0d9a867c6a3cd5421a3b7a96389b26b685d5ec 100644
+index 9099a1bb3c10eaddc41518ba5b82117284f82135..3d1f36a811c6cc26a42231106a4fa5d805265fd2 100644
 --- a/build/Widgets.js
 +++ b/build/Widgets.js
 @@ -84,6 +84,13 @@ export class LiveActivity {
@@ -32,17 +46,70 @@ index 9099a1bb3c10eaddc41518ba5b82117284f82135..4d0d9a867c6a3cd5421a3b7a96389b26
      /**
       * Adds a listener for push token update events on this Live Activity instance.
       * The token can be used to send content updates to this specific activity via APNs.
+@@ -163,6 +170,15 @@ export function addUserInteractionListener(listener) {
+ export function addPushToStartTokenListener(listener) {
+     return ExpoWidgetsModule.addListener('onExpoWidgetsPushToStartTokenReceived', listener);
+ }
++/**
++ * Adds a listener for the update token of every Live Activity of the app, including activities
++ * started by a push-to-start notification while the app was not running.
++ * @param listener Callback function to handle activity push token events.
++ * @return An event subscription that can be used to remove the listener.
++ */
++export function addActivityPushTokenListener(listener) {
++    return ExpoWidgetsModule.addListener('onExpoWidgetsActivityPushToken', listener);
++}
+ /**
+  * A directory that can be used to store shared images for widgets.
+  * The contents of this directory are accessible by both the main app and widgets.
 diff --git a/build/Widgets.types.d.ts b/build/Widgets.types.d.ts
-index 15e026868625ce20a3e359e5cc8e5c7e937c4650..c44769d8fd1b597ee573430d18867b9d900d70cb 100644
+index 15e026868625ce20a3e359e5cc8e5c7e937c4650..c8f7b61dbddec404d56e2bdc392276f385b5fb90 100644
 --- a/build/Widgets.types.d.ts
 +++ b/build/Widgets.types.d.ts
-@@ -269,5 +269,6 @@ export declare class NativeLiveActivity extends SharedObject<LiveActivityEvents>
+@@ -227,6 +227,14 @@ export type PushToStartTokenEvent = {
+      */
+     activityPushToStartToken: string;
+ };
++/**
++ * Event emitted with the update token of one of the app's Live Activities.
++ */
++export type ActivityPushTokenEvent = {
++    activityId: string;
++    pushToken: string;
++    url?: string;
++};
+ /**
+  * Dismissal policy for ending a live activity.
+  * - `'default'` - The system’s default dismissal policy for the Live Activity.
+@@ -245,6 +253,11 @@ export type ExpoWidgetsEvents = {
+      * @param event Token event details.
+      */
+     onExpoWidgetsPushToStartTokenReceived: (event: PushToStartTokenEvent) => void;
++    /**
++     * Function that is invoked with the update token of one of the app's live activities.
++     * @param event Token event details.
++     */
++    onExpoWidgetsActivityPushToken: (event: ActivityPushTokenEvent) => void;
+ };
+ export type LiveActivityEvents = {
+     /**
+@@ -269,5 +282,6 @@ export declare class NativeLiveActivity extends SharedObject<LiveActivityEvents>
      update(props: string, staleDate?: number): Promise<void>;
      end(dismissalPolicy?: string, afterDate?: number, state?: string, contentDate?: number): Promise<void>;
      getPushToken(): Promise<string | null>;
 +    getUrl?(): string | null;
  }
  //# sourceMappingURL=Widgets.types.d.ts.map
+\ No newline at end of file
+diff --git a/build/index.d.ts b/build/index.d.ts
+index 297b87427f45a55ab11b854b1b0244e636fa7e58..68680a414ef6f1d110096a81ff291ccaf6d3e1aa 100644
+--- a/build/index.d.ts
++++ b/build/index.d.ts
+@@ -1,3 +1,3 @@
+ export * from './Widgets';
+-export type { ExpoWidgetsEvents, LevelOfDetail, LiveActivityComponent, LiveActivityDismissalPolicy, LiveActivityEnvironment, LiveActivityEvents, LiveActivityLayout, PushTokenEvent, PushToStartTokenEvent, UserInteractionEvent, WidgetEnvironment, WidgetFamily, WidgetRenderingMode, WidgetTimelineEntry, } from './Widgets.types';
++export type { ActivityPushTokenEvent, ExpoWidgetsEvents, LevelOfDetail, LiveActivityComponent, LiveActivityDismissalPolicy, LiveActivityEnvironment, LiveActivityEvents, LiveActivityLayout, PushTokenEvent, PushToStartTokenEvent, UserInteractionEvent, WidgetEnvironment, WidgetFamily, WidgetRenderingMode, WidgetTimelineEntry, } from './Widgets.types';
+ //# sourceMappingURL=index.d.ts.map
 \ No newline at end of file
 diff --git a/ios/LiveActivity.swift b/ios/LiveActivity.swift
 index 5f34eb2b67a0c2389c8ad8e09c71aa391a0c65ef..83fe5f8363cd94625d0a4068917814e62f05fb52 100644
@@ -61,10 +128,41 @@ index 5f34eb2b67a0c2389c8ad8e09c71aa391a0c65ef..83fe5f8363cd94625d0a4068917814e6
      guard #available(iOS 16.1, *) else { throw LiveActivitiesNotSupportedException() }
  
 diff --git a/ios/WidgetsModule.swift b/ios/WidgetsModule.swift
-index b1b4295e22726e6fe501aa5e514b56061dea57a1..f5cfd7494b5cb7e65c18d68ce0913141f0e3bda1 100644
+index b1b4295e22726e6fe501aa5e514b56061dea57a1..478487f0c70cd61fb48140a740aea1b7dac49569 100644
 --- a/ios/WidgetsModule.swift
 +++ b/ios/WidgetsModule.swift
-@@ -111,6 +111,10 @@ public final class WidgetsModule: Module {
+@@ -7,15 +7,29 @@ let pushNotificationsEnabledKey: String = "ExpoWidgets_EnablePushNotifications"
+ let onUserInteraction = "onExpoWidgetsUserInteraction"
+ let onPushToStartTokenReceived = "onExpoWidgetsPushToStartTokenReceived"
+ let onTokenReceived = "onExpoWidgetsTokenReceived"
++let onActivityPushToken = "onExpoWidgetsActivityPushToken"
+ let onUserInteractionNotification = Notification.Name(onUserInteraction)
+ 
+ public final class WidgetsModule: Module {
+   var pushToStartTokenObserverTask: Task<Void, Never>?
++  var activityUpdatesObserverTask: Task<Void, Never>?
++  var activityTokenObserverTasks: [String: Task<Void, Never>] = [:]
++  let activityTokenObserverLock = NSLock()
+ 
+   public func definition() -> ModuleDefinition {
+     Name("ExpoWidgets")
+ 
+-    Events(onPushToStartTokenReceived, onTokenReceived, onUserInteraction)
++    Events(onPushToStartTokenReceived, onTokenReceived, onUserInteraction, onActivityPushToken)
++
++    OnStartObserving(onActivityPushToken) {
++      if pushNotificationsEnabled {
++        observeActivityPushTokens()
++      }
++    }
++
++    OnStopObserving(onActivityPushToken) {
++      stopObservingActivityPushTokens()
++    }
+ 
+     OnStartObserving(onUserInteraction) {
+       NotificationCenter.default.addObserver(
+@@ -111,6 +125,10 @@ public final class WidgetsModule: Module {
        AsyncFunction("getPushToken") { (instance: LiveActivity) in
          try instance.getPushToken()
        }
@@ -75,8 +173,70 @@ index b1b4295e22726e6fe501aa5e514b56061dea57a1..f5cfd7494b5cb7e65c18d68ce0913141
      }
    }
  
+@@ -147,6 +165,61 @@ public final class WidgetsModule: Module {
+     }
+   }
+ 
++  /**
++   * The update token of every Live Activity of the app, including ones started by a push-to-start
++   * notification while the app was not running (iOS gives the app background time to read it).
++   */
++  private func observeActivityPushTokens() {
++    guard #available(iOS 16.2, *), activityUpdatesObserverTask == nil else { return }
++    for activity in Activity<LiveActivityAttributes>.activities {
++      observeActivityPushToken(activity)
++    }
++    activityUpdatesObserverTask = Task { [weak self] in
++      for await activity in Activity<LiveActivityAttributes>.activityUpdates {
++        self?.observeActivityPushToken(activity)
++      }
++    }
++  }
++
++  @available(iOS 16.2, *)
++  private func observeActivityPushToken(_ activity: Activity<LiveActivityAttributes>) {
++    let activityId = activity.id
++    activityTokenObserverLock.lock()
++    defer { activityTokenObserverLock.unlock() }
++    guard activityTokenObserverTasks[activityId] == nil else { return }
++    let url = activity.attributes.url
++    activityTokenObserverTasks[activityId] = Task { [weak self] in
++      if let data = activity.pushToken {
++        self?.sendActivityPushToken(activityId: activityId, token: data, url: url)
++      }
++      for await data in activity.pushTokenUpdates {
++        self?.sendActivityPushToken(activityId: activityId, token: data, url: url)
++      }
++    }
++  }
++
++  private func sendActivityPushToken(activityId: String, token: Data, url: String?) {
++    var payload: [String: Any] = [
++      "activityId": activityId,
++      "pushToken": token.reduce("") { $0 + String(format: "%02x", $1) }
++    ]
++    if let url {
++      payload["url"] = url
++    }
++    sendEvent(onActivityPushToken, payload)
++  }
++
++  private func stopObservingActivityPushTokens() {
++    activityUpdatesObserverTask?.cancel()
++    activityUpdatesObserverTask = nil
++    activityTokenObserverLock.lock()
++    defer { activityTokenObserverLock.unlock() }
++    for task in activityTokenObserverTasks.values {
++      task.cancel()
++    }
++    activityTokenObserverTasks.removeAll()
++  }
++
+   private var pushNotificationsEnabled: Bool {
+     Bundle.main.object(forInfoDictionaryKey: pushNotificationsEnabledKey) as? Bool ?? false
+   }
 diff --git a/src/Widgets.ts b/src/Widgets.ts
-index 51ea140b4309c347d6f98290051be1c5062bff70..66919a4dab083ae4bee8c4b32b77980657ff67e1 100644
+index 51ea140b4309c347d6f98290051be1c5062bff70..d4a5045a7b1e4debf0b66736aef03994fb9e5a3e 100644
 --- a/src/Widgets.ts
 +++ b/src/Widgets.ts
 @@ -131,6 +131,14 @@ export class LiveActivity<T extends object = object> {
@@ -94,13 +254,80 @@ index 51ea140b4309c347d6f98290051be1c5062bff70..66919a4dab083ae4bee8c4b32b779806
    /**
     * Adds a listener for push token update events on this Live Activity instance.
     * The token can be used to send content updates to this specific activity via APNs.
+@@ -237,6 +245,18 @@ export function addPushToStartTokenListener(
+   return ExpoWidgetsModule.addListener('onExpoWidgetsPushToStartTokenReceived', listener);
+ }
+ 
++/**
++ * Adds a listener for the update token of every Live Activity of the app, including activities
++ * started by a push-to-start notification while the app was not running.
++ * @param listener Callback function to handle activity push token events.
++ * @return An event subscription that can be used to remove the listener.
++ */
++export function addActivityPushTokenListener(
++  listener: ExpoWidgetsEvents['onExpoWidgetsActivityPushToken']
++): EventSubscription {
++  return ExpoWidgetsModule.addListener('onExpoWidgetsActivityPushToken', listener);
++}
++
+ /**
+  * A directory that can be used to store shared images for widgets.
+  * The contents of this directory are accessible by both the main app and widgets.
 diff --git a/src/Widgets.types.ts b/src/Widgets.types.ts
-index fee5c7475b52218fa0e192a1d347dd32cb0fe1f8..6bc049f21b91ca462a777ccab0c00f0d49a32949 100644
+index fee5c7475b52218fa0e192a1d347dd32cb0fe1f8..dc5461cf4a99c52aab85ea571564ca7027e832ec 100644
 --- a/src/Widgets.types.ts
 +++ b/src/Widgets.types.ts
-@@ -304,4 +304,5 @@ export declare class NativeLiveActivity extends SharedObject<LiveActivityEvents>
+@@ -252,6 +252,24 @@ export type PushToStartTokenEvent = {
+   activityPushToStartToken: string;
+ };
+ 
++/**
++ * Event emitted with the update token of one of the app's Live Activities.
++ */
++export type ActivityPushTokenEvent = {
++  /**
++   * The ID of the live activity.
++   */
++  activityId: string;
++  /**
++   * The push token for the live activity.
++   */
++  pushToken: string;
++  /**
++   * The deep link URL the live activity was started with, when it has one.
++   */
++  url?: string;
++};
++
+ /**
+  * Dismissal policy for ending a live activity.
+  * - `'default'` - The system’s default dismissal policy for the Live Activity.
+@@ -271,6 +289,11 @@ export type ExpoWidgetsEvents = {
+    * @param event Token event details.
+    */
+   onExpoWidgetsPushToStartTokenReceived: (event: PushToStartTokenEvent) => void;
++  /**
++   * Function that is invoked with the update token of one of the app's live activities.
++   * @param event Token event details.
++   */
++  onExpoWidgetsActivityPushToken: (event: ActivityPushTokenEvent) => void;
+ };
+ 
+ export type LiveActivityEvents = {
+@@ -304,4 +327,5 @@ export declare class NativeLiveActivity extends SharedObject<LiveActivityEvents>
      contentDate?: number
    ): Promise<void>;
    getPushToken(): Promise<string | null>;
 +  getUrl?(): string | null;
  }
+diff --git a/src/index.ts b/src/index.ts
+index 340c747c8e9758ef3fe62939eace831dfe13c19d..c540a1186313473a061667d0a3327c91008daf87 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,5 +1,6 @@
+ export * from './Widgets';
+ export type {
++  ActivityPushTokenEvent,
+   ExpoWidgetsEvents,
+   LevelOfDetail,
+   LiveActivityComponent,

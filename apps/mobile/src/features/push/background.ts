@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications'
+import { addUserInteractionListener } from 'expo-widgets'
 import { Platform } from 'react-native'
 import {
   answeredLiveNotification,
@@ -7,6 +8,8 @@ import {
   parseLiveData,
 } from '../live-status/android-notification'
 import { presentLiveNotification } from '../live-status/android-renderer'
+import { listenForActivityTokens } from '../live-status/background-register'
+import { liveAction } from '../live-status/logic'
 import { loadMessaging } from './firebase'
 import { ACTION_ALLOW, ACTION_DENY, extractPushData } from './payload'
 import { respondInBackground } from './respond-in-background'
@@ -14,7 +17,8 @@ import { respondInBackground } from './respond-in-background'
 /**
  * Loaded by the entry file (`index.ts`) before Expo Router: headless JS (an FCM message or a
  * notification action with the app closed) never mounts the router, so these handlers must be set at
- * module scope. Android only; nothing happens on iOS.
+ * module scope. Android: FCM data messages and notification actions. iOS: Live Activity tokens and
+ * Deny / Allow, which iOS may hand to the app in the background without its screens.
  */
 
 /** Background task (expo-task-manager) that gets Allow / Deny tapped with the app in the background or closed. */
@@ -97,5 +101,19 @@ if (isAndroid) {
     Notifications.registerTaskAsync(LIVE_ACTION_TASK).catch(() => {
       backgroundActions = false
     })
+  }
+}
+
+if (Platform.OS === 'ios') {
+  // A Live Activity the daemon started by push: its token goes to the daemon with the app closed.
+  listenForActivityTokens()
+  // Deny / Allow tapped on a Live Activity (lock screen or Dynamic Island), app in front or not.
+  try {
+    addUserInteractionListener((event) => {
+      const action = liveAction(event.target)
+      if (action) void respondInBackground(action.requestId, action.decision)
+    })
+  } catch {
+    // Live Activities unavailable.
   }
 }
