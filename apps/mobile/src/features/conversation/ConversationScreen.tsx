@@ -9,6 +9,7 @@ import { keyboardBehavior } from '@/core/platform/platform'
 import { makeStyles, maxContentWidth, radius, space, useTheme } from '@/core/theme'
 import { ConnectionBanner, Screen, Text } from '@/ui'
 import { TranscriptImagesContext } from '../images/use-transcript-image'
+import { useConversationBench } from '../performance/use-conversation-bench'
 import { sessionAgent } from '../sessions/agent'
 import { useSessionsStore } from '../sessions/store'
 import { ConversationAgent } from './agent-context'
@@ -119,6 +120,7 @@ export function ConversationScreen({
     streamKey: key,
     follow,
   })
+  const bench = useConversationBench(key, stream.entries.length)
 
   useEffect(() => {
     if (!client) return
@@ -168,6 +170,15 @@ export function ConversationScreen({
                   onStartReached={loadEarlier}
                   onStartReachedThreshold={0.5}
                   {...scrollProps}
+                  onLoad={bench.onDrawn}
+                  onContentSizeChange={(width, height) => {
+                    scrollProps.onContentSizeChange(width, height)
+                    bench.onDrawn()
+                  }}
+                  onScroll={(event) => {
+                    scrollProps.onScroll(event)
+                    bench.onScroll()
+                  }}
                   // Fixed header: swapping it for the spinner would shift the content (anchoring ignores it).
                   ListHeaderComponent={<View style={styles.top} />}
                   ListEmptyComponent={

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { AppState } from 'react-native'
 import { useConnectionStore } from '@/core/connection'
 import { useLayout } from '@/core/layout'
+import { benchAppReady, benchStall } from './bench-store'
 import { setPerformanceCollection, startTrace, stopTrace } from './perf'
 import { APP_READY_TIMEOUT_MS, addStall, EMPTY_STALLS, STALL_TICK_MS, stallMs } from './stalls'
 import { usePerformanceSettings } from './store'
@@ -10,24 +11,29 @@ import { usePerformanceSettings } from './store'
 const STARTED_AT = Date.now()
 let appReadyRecorded = false
 
-/** Sends `app_ready` once per run: the time to the first daemon connection, or a timeout. */
-function recordAppReady(outcome: 'connected' | 'timeout'): void {
+/**
+ * Records once per run the time to the first daemon connection (or a timeout) in this run's local
+ * numbers, and sends it as `app_ready` when collection was on at that moment.
+ */
+function recordAppReady(outcome: 'connected' | 'timeout', send: boolean): void {
   if (appReadyRecorded) return
   appReadyRecorded = true
-  stopTrace(startTrace('app_ready', { outcome }), { ready_ms: Date.now() - STARTED_AT })
+  const ms = Date.now() - STARTED_AT
+  benchAppReady(ms)
+  if (send) stopTrace(startTrace('app_ready', { outcome }), { ready_ms: ms })
 }
 
 /**
- * Applies the "Send performance data" choice and, while it is on, records `app_ready` and one
- * `js_responsiveness` trace per stretch in the foreground (stalls of the JavaScript thread, measured
- * by how late a timer fires). Traces carry numbers and the layout class only.
+ * Applies the "Send performance data" choice, keeps this run's local numbers (app ready and the stalls
+ * of the JavaScript thread, measured by how late a timer fires) and, while the choice is on, sends
+ * `app_ready` and one `js_responsiveness` trace per stretch in the foreground. Traces carry numbers and
+ * the layout class only.
  */
 export function usePerformanceMonitoring(): void {
   const enabled = usePerformanceSettings((s) => s.enabled)
   const loaded = usePerformanceSettings((s) => s.loaded)
   const status = useConnectionStore((s) => s.status)
   const { layout } = useLayout()
-  const active = loaded && enabled
 
   useEffect(() => {
     if (loaded) setPerformanceCollection(enabled)
@@ -35,29 +41,30 @@ export function usePerformanceMonitoring(): void {
 
   useEffect(() => {
     if (!loaded || appReadyRecorded) return
-    // Turned off: this run's start is never measured, even if the user turns it on later.
-    if (!enabled) {
-      appReadyRecorded = true
-      return
-    }
-    if (status === 'open') return recordAppReady('connected')
+    // Sent only when collection is on at that moment: turning it on later never sends this run's start.
+    if (status === 'open') return recordAppReady('connected', enabled)
     const timer = setTimeout(
-      () => recordAppReady('timeout'),
+      () => recordAppReady('timeout', usePerformanceSettings.getState().enabled),
       Math.max(0, APP_READY_TIMEOUT_MS - (Date.now() - STARTED_AT)),
     )
     return () => clearTimeout(timer)
   }, [loaded, enabled, status])
 
+  // `enabled` restarts the stretch so the trace starts or stops with the choice.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `enabled` is read by `startTrace`, not here.
   useEffect(() => {
-    if (!active) return
+    if (!loaded) return
     let stop: (() => void) | null = null
     const begin = () => {
+      // null while collection is off: the stalls still go to the local numbers.
       const trace = startTrace('js_responsiveness', { layout })
       let summary = EMPTY_STALLS
       let last = Date.now()
       const timer = setInterval(() => {
         const now = Date.now()
-        summary = addStall(summary, stallMs(last + STALL_TICK_MS, now))
+        const ms = stallMs(last + STALL_TICK_MS, now)
+        if (ms > 0) benchStall(ms)
+        summary = addStall(summary, ms)
         last = now
       }, STALL_TICK_MS)
       stop = () => {
@@ -75,5 +82,5 @@ export function usePerformanceMonitoring(): void {
       subscription.remove()
       stop?.()
     }
-  }, [active, layout])
+  }, [loaded, enabled, layout])
 }
