@@ -4,16 +4,16 @@ description: Comandos da CLI, o arquivo de configuração, o serviço em segundo
 applies: 0.7+
 ---
 
-O daemon roda no computador: acompanha os transcripts das sessões, controla o tmux, recebe os hooks do Claude Code em `127.0.0.1` e atende o app por dois caminhos com a mesma criptografia de ponta a ponta: direto, num WebSocket que escuta em todas as interfaces (a rede de casa, uma tailnet), e pelo seu relay de conexão, onde mantém uma sala aberta. `remote-harness --help` é a fonte da verdade para os comandos.
+O daemon roda no computador: acompanha os transcripts das sessões, controla o tmux, recebe os hooks do Claude Code em `127.0.0.1` e atende o app por dois caminhos com a mesma criptografia de ponta a ponta: direto, num WebSocket que escuta em todas as interfaces (a rede de casa, ou qualquer endereço de VPN do computador), e pelo seu relay de conexão, onde mantém uma sala aberta. `remote-harness --help` é a fonte da verdade para os comandos.
 
 ## Comandos
 
 | Comando | O que faz |
 | --- | --- |
 | `remote-harness setup` | Instalação guiada: contas e aliases, hooks, serviço, pareamento. `--yes` mantém a configuração, `--lang` escolhe o idioma. |
-| `remote-harness start` | Roda o daemon em primeiro plano. `--dev` prende a `127.0.0.1`, `--host` define o endereço, `--wait-tailscale` espera a interface. |
+| `remote-harness start` | Roda o daemon em primeiro plano. `--dev` prende só a `127.0.0.1` e nunca usa relay, `--host` define o endereço direto. |
 | `remote-harness pair` | Pede ao daemon em execução um QR code de pareamento: ele pareia um celular e expira em 5 minutos. |
-| `remote-harness doctor` | Confere as ferramentas, o Tailscale, a configuração, os perfis e as chaves de provedor, a identidade do daemon, o serviço, o push e os celulares registrados. |
+| `remote-harness doctor` | Confere as ferramentas, a configuração, os perfis e as chaves de provedor, a identidade do daemon, se os relays de conexão respondem, o serviço, o push e os celulares registrados. |
 | `remote-harness install` / `uninstall` | Instala ou remove os atalhos, a entrada no `PATH`, os hooks e o wrapper da status line, sem perguntas. |
 | `remote-harness service install` / `uninstall` / `status` | O serviço em segundo plano: um LaunchAgent do launchd no macOS, uma unidade de usuário do systemd no Linux e no WSL. |
 | `remote-harness update` | Baixa a nova versão, recompila, atualiza os hooks e reinicia o serviço. `--ref <branch|tag>` escolhe a versão. |

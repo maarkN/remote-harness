@@ -39,6 +39,7 @@ import {
 } from './core/secrets.ts'
 import { DAEMON_VERSION } from './core/version.ts'
 import { agentFor } from './features/agents/index.ts'
+import { measureRelays } from './features/connectivity/measure.ts'
 import {
   existingRcFiles,
   hasOurHooks,
@@ -83,7 +84,6 @@ import { WslHost } from './features/wsl/host.ts'
 import { probeAutomation } from './infra/accessibility.ts'
 import { execaExecutor, runInteractive } from './infra/exec.ts'
 import { probeFolderAccess } from './infra/fs.ts'
-import { findTailscaleAddress } from './infra/network.ts'
 import {
   currentWsl,
   PLATFORM_NAMES,
@@ -250,8 +250,9 @@ program
   .description(m.cli.start.description)
   .option('--dev', m.cli.start.dev)
   .option('--host <host>', m.cli.start.host)
-  .option('--wait-tailscale', m.cli.start.waitTailscale)
-  .action(async (opts: { dev?: boolean; host?: string; waitTailscale?: boolean }) => {
+  // Services installed by older versions still pass flags this version no longer has.
+  .allowUnknownOption()
+  .action(async (opts: { dev?: boolean; host?: string }) => {
     const logger = createLogger({ pretty: process.stdout.isTTY })
     try {
       const { kind, store } = await selectStore()
@@ -269,7 +270,6 @@ program
         providerKey: (profileId) => providerKeyStore(kind, execaExecutor, profileId).get(),
         dev: opts.dev,
         host: opts.host,
-        waitForTailscale: opts.waitTailscale,
         // Update checks and the tray belong to the service daemon, not to development runs.
         // Restarting is exiting: launchd (KeepAlive) / systemd (Restart=always) start it again.
         desktop: opts.dev ? undefined : { cliPath: builtCliPath(), restart: () => void shutdown() },
@@ -330,7 +330,6 @@ program
           if (!cliPath) throw new SetupAborted(m.cli.buildMissing)
           return installServiceFromCli({ ...installOptions(), cliPath, service })
         },
-        tailscaleAddress: () => findTailscaleAddress(),
         pair: async () => {
           if (!(await printPairing(10))) console.log(`  ${m.cli.pair.notRunning}`)
         },
@@ -377,24 +376,27 @@ program
       const result = await execaExecutor('which', [bin])
       check(result.exitCode === 0, bin, d.notOnPath)
     }
-    const ip = findTailscaleAddress()
     if (wslHost) {
       const w = m.wsl
       check(true, w.detected(wslHost.distro ?? w.unknownDistro))
       const mode = await wslHost.networkingMode()
       console.log(`· ${w.networking(mode ?? w.networkingUnknown)}`)
-      const source = wslHost.tailscale(mode)
-      const label = source ? `Tailscale ${source.address} (${w.source[source.source]})` : 'Tailscale'
-      check(source !== null, label, w.tailscaleHint)
       const systemd = wslHost.systemdRunning()
       check(systemd, w.systemd, (await wslHost.systemdConfigured()) ? w.systemdPendingHint : w.systemdHint)
       check(await wslHost.logonTask.exists(), w.logonTask, w.logonTaskHint)
-    } else {
-      check(ip !== null, `Tailscale ${ip ?? ''}`.trim(), d.tailscaleMissing)
     }
     try {
       const config = await loadConfig(logger)
       check(true, `config ${paths.config()}`)
+      // The relay path: whether the configured connection relays answer from here.
+      if (config.relay === 'off') console.log(`· ${d.relayOff}`)
+      else
+        for (const relay of await measureRelays(config.relays))
+          check(
+            relay.rttMs !== null,
+            d.relay(relay.url, relay.rttMs === null ? null : Math.round(relay.rttMs)),
+            d.relayDown,
+          )
       for (const profile of config.profiles) {
         const result = await execaExecutor('test', [
           '-d',
@@ -562,7 +564,6 @@ service
     if (wslHost && !(await wslHost.logonTask.exists())) {
       console.log(`  ${m.wsl.logonTaskMissing}: ${wslHost.logonTask.command}`)
     }
-    if (!findTailscaleAddress()) console.log(`  ${m.cli.service.tailscaleWaiting}`)
     console.log(`  ${m.cli.service.logs(paths.logs())}`)
   })
 service

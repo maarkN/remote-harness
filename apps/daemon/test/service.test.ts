@@ -59,7 +59,6 @@ describe('launchd', () => {
           '    <string>/opt/node</string>',
           '    <string>/repo/cli.js</string>',
           '    <string>start</string>',
-          '    <string>--wait-tailscale</string>',
           '  </array>',
         ].join('\n'),
       )
@@ -271,7 +270,7 @@ describe('systemd user service', () => {
   test('renders a unit that restarts the daemon with the captured PATH and appends logs', () => {
     const text = renderSystemdUnit(unit)
     expect(text).toContain(
-      'ExecStart="/usr/bin/node" "/home/me/.claude-remote/src/apps/daemon/dist/cli.js" start --wait-tailscale',
+      'ExecStart="/usr/bin/node" "/home/me/.claude-remote/src/apps/daemon/dist/cli.js" start',
     )
     expect(text).toContain('Environment="PATH=/home/me/.local/bin:/usr/bin:/bin"')
     expect(text).toContain('Environment="HOME=/home/me"')

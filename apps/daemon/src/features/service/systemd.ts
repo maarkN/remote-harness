@@ -44,7 +44,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-ExecStart=${quoteArg(o.nodePath)} ${quoteArg(o.cliPath)} start --wait-tailscale
+ExecStart=${quoteArg(o.nodePath)} ${quoteArg(o.cliPath)} start
 Environment=${quote(`PATH=${dedupePath(o.path)}`)}
 Environment=${quote(`HOME=${o.home}`)}
 WorkingDirectory=${o.home.replaceAll('%', '%%')}

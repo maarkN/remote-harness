@@ -10,10 +10,8 @@ export const esES = {
       `Sistema no compatible (${platform}). Remote Harness funciona en ${supported}.`,
     start: {
       description: 'inicia el daemon',
-      dev: 'escucha en 127.0.0.1 en lugar de Tailscale',
+      dev: 'escucha solo en 127.0.0.1 y no usa el relay de conexión',
       host: 'dirección de escucha del WebSocket',
-      waitTailscale:
-        'espera a la interfaz de Tailscale en lugar de fallar (lo usa el servicio en segundo plano)',
     },
     pair: {
       description: 'muestra un código QR de emparejamiento de un solo uso (lo pide al daemon en ejecución)',
@@ -75,9 +73,13 @@ export const esES = {
     doctor: {
       description: 'comprueba las dependencias y la configuración',
       notOnPath: 'no se encuentra en el PATH',
-      tailscaleMissing: 'no se encontró la interfaz 100.x',
       profile: (id: string, configDir: string) => `perfil ${id} (${configDir})`,
       dirMissing: 'el directorio no existe',
+      relay: (url: string, ms: number | null) =>
+        `relay de conexión ${url}${ms === null ? '' : ` (${ms} ms)`}`,
+      relayDown: 'no responde desde aquí: los móviles solo alcanzan este ordenador directo',
+      relayOff:
+        'relay de conexión apagado (`"relay": "off"` en la configuración): los móviles solo alcanzan este ordenador directo',
       daemonRunning: 'daemon en ejecución',
       runStart: 'ejecuta `remote-harness start`',
       identity: (store: string) => `identidad del daemon ${store}`,
@@ -137,7 +139,6 @@ export const esES = {
         'instala e inicia el servicio en segundo plano (arranca al iniciar sesión y se reinicia si falla)',
       loaded: (path: string) => `servicio instalado: ${path}`,
       app: (path: string) => `app: ${path}`,
-      tailscaleWaiting: '⚠ No se encontró Tailscale: el daemon espera a la interfaz 100.x',
       logs: (path: string) => `logs en ${path}`,
       uninstall: 'detiene y elimina el servicio en segundo plano',
       removed: 'servicio eliminado',
@@ -278,7 +279,7 @@ export const esES = {
       accounts: 'Cuentas de Claude Code',
       installing: 'Instalando launchers, PATH y hooks',
       service: 'Servicio en segundo plano',
-      tailscale: 'Tailscale y móvil',
+      pair: 'Emparejar el móvil',
     },
     noAccounts:
       'No se encontró ninguna cuenta de Claude Code. Ejecuta `claude` una vez para iniciar sesión y después `remote-harness setup`.',
@@ -297,20 +298,8 @@ export const esES = {
       '  No se pudo activar el lingering. Ejecuta `sudo loginctl enable-linger $USER` para mantener el daemon en marcha tras cerrar sesión.',
     lingerSkipped:
       '  Sin lingering el daemon se detiene al cerrar sesión. Actívalo más tarde con `loginctl enable-linger $USER`.',
-    tailscaleIntro: (machine: string, install: string) =>
-      `  El ${machine} y el móvil se comunican por una red privada de Tailscale (gratis), desde cualquier lugar.\n` +
-      `  1. En el ${machine}: ${install}\n` +
-      '  2. En el móvil: instala "Tailscale" (App Store o Google Play) e inicia sesión con la misma cuenta',
-    tailscaleInstall: {
-      darwin:
-        'instálalo desde https://tailscale.com/download/mac (o `brew install --cask tailscale`) e inicia sesión',
-      linux: 'instálalo con `curl -fsSL https://tailscale.com/install.sh | sh` y ejecuta `sudo tailscale up`',
-    },
-    tailscaleQuestion: (machine: string) => `¿Tailscale está conectado en el ${machine}?`,
-    tailscaleRetry: 'Ya lo he conectado, comprobar de nuevo',
-    tailscaleSkip: 'Hacerlo más tarde',
-    tailscaleNotYet: '  Todavía no encuentro la interfaz de Tailscale (100.x).',
-    phoneHint: '  En el móvil: instala la app Remote Harness y Tailscale (misma cuenta) y toca "QR code".',
+    phoneHint:
+      '  En el móvil: instala la app Remote Harness y toca "Código QR". Alcanza este ordenador desde cualquier sitio.',
     showQr: '¿Mostrar ahora el código QR de emparejamiento?',
     done: {
       installed: 'Remote Harness instalado.',
@@ -318,7 +307,6 @@ export const esES = {
       useAliases: (aliases: string, claude: string) =>
         `2. Usa ${aliases} en lugar de ${claude}, con los mismos argumentos`,
       pairIfNeeded: (command: string) => `3. Empareja con ${command} si aún no lo has hecho`,
-      connectAndPair: (command: string) => `3. Conecta Tailscale y ejecuta ${command}`,
       footer: 'remote-harness doctor revisa todo · remote-harness setup cambia cuentas',
     },
     accounts: {
@@ -404,13 +392,6 @@ export const esES = {
       'ya activado en /etc/wsl.conf: ejecuta `wsl --shutdown` en PowerShell de Windows y vuelve a abrir la distribución',
     networking: (mode: string) => `red de WSL: ${mode}`,
     networkingUnknown: 'desconocida (no se encontró %UserProfile%\\.wslconfig)',
-    tailscaleHint:
-      'ejecuta Tailscale dentro de WSL o usa la red reflejada con Tailscale en Windows (`remote-harness setup` explica ambas)',
-    source: {
-      wsl: 'dentro de WSL',
-      mirrored: 'Windows, red reflejada',
-      unknown: 'WSL',
-    },
     logonTask: 'tarea de inicio de sesión de Windows "Remote Harness" (inicia WSL al iniciar sesión)',
     logonTaskHint: 'opcional: `remote-harness setup` la crea',
     logonTaskMissing:
@@ -439,12 +420,8 @@ export const esES = {
       `  No se pudo crear la tarea (${error}). En PowerShell (como administrador si se deniega el acceso):\n    ${command}`,
     logonTaskSkipped:
       '  Sin la tarea de inicio de sesión, WSL y el daemon arrancan cuando abres la distribución. Créala más tarde con `remote-harness setup`.',
-    tailscaleIntro:
-      '  El ordenador y el móvil se comunican por una red privada de Tailscale (gratuita). Dentro de WSL hay dos formas:\n' +
-      '  A. Tailscale dentro de WSL (cualquier Windows): `curl -fsSL https://tailscale.com/install.sh | sh` y `sudo tailscale up`\n' +
-      '  B. Tailscale en Windows + red reflejada de WSL (Windows 11 22H2+): networkingMode=mirrored en .wslconfig\n' +
-      '  En el móvil: instala "Tailscale" (App Store o Google Play) e inicia sesión con la misma cuenta',
-    tailscaleMirrored: 'Tailscale funciona en Windows: activar la red reflejada (.wslconfig)',
+    mirroredQuestion:
+      '¿Dejar que los móviles de tu red alcancen este ordenador directo? (red reflejada en .wslconfig; sin ella se conectan por el relay)',
     mirroredEnabled: (path: string) => `networkingMode=mirrored en ${path}`,
     mirroredAlready: (path: string) => `networkingMode=mirrored ya estaba en ${path}`,
     mirroredNoConfig:

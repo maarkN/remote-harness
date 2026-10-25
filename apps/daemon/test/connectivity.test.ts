@@ -77,7 +77,7 @@ describe('direct addresses', () => {
       scopeid: 0,
     }) as NetworkInterfaceInfo
 
-  test('LAN and tailnet addresses, IPv4 first, no loopback or link-local', () => {
+  test('LAN and VPN addresses, IPv4 first, no loopback or link-local', () => {
     const interfaces = {
       lo0: [v4('127.0.0.1', true), v6('::1')],
       en0: [v4('192.168.1.20'), v6('fe80::1'), v6('2804:14c::20')],

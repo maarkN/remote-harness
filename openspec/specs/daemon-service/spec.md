@@ -17,7 +17,7 @@ Keeps the daemon running as a user service on macOS, starting at login and recov
 - **THEN** launchd restarts it
 
 ### Requirement: Login item identity
-The LaunchAgent SHALL run the daemon through a `~/.remote-harness/Remote Harness.app` bundle (ad-hoc signed, with the app icon), so that macOS shows "Remote Harness" — and not Node's signer — in Login Items and in the background activity notice. The LaunchAgent's `ProgramArguments` SHALL be the bundle executable followed by node, `cli.js`, `start` and `--wait-tailscale`; the bundle MUST NOT contain those paths. Installing SHALL remove a `Claude Remote.app` left by older versions. `service uninstall` MUST remove the bundle.
+The LaunchAgent SHALL run the daemon through a `~/.remote-harness/Remote Harness.app` bundle (ad-hoc signed, with the app icon), so that macOS shows "Remote Harness" — and not Node's signer — in Login Items and in the background activity notice. The LaunchAgent's `ProgramArguments` SHALL be the bundle executable followed by node, `cli.js` and `start`; the bundle MUST NOT contain those paths. Installing SHALL remove a `Claude Remote.app` left by older versions. `service uninstall` MUST remove the bundle.
 
 #### Scenario: Background activity notice
 - **WHEN** the service is installed
@@ -26,13 +26,6 @@ The LaunchAgent SHALL run the daemon through a `~/.remote-harness/Remote Harness
 #### Scenario: Old bundle
 - **WHEN** the service is installed over an install that had `Claude Remote.app`
 - **THEN** only `Remote Harness.app` remains and the LaunchAgent runs it
-
-### Requirement: Waiting for Tailscale
-When running as a service, the daemon SHALL wait for the Tailscale interface to appear (polling periodically and logging a single warning) instead of exiting, avoiding a launchd restart loop. The hooks endpoint MUST stay available while waiting, so that Claude Code sessions never find the port closed.
-
-#### Scenario: Login before Tailscale connects
-- **WHEN** the service starts and there is no 100.x interface yet
-- **THEN** the daemon waits and starts listening as soon as Tailscale connects
 
 ### Requirement: tmux restart
 When the tmux server restarts, the daemon SHALL mark as ended the sessions whose panes disappeared and keep accepting new sessions without a restart.

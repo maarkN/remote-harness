@@ -4,16 +4,16 @@ description: CLI commands, the configuration file, the background service, updat
 applies: 0.7+
 ---
 
-The daemon runs on the computer: it tails the session transcripts, drives tmux, receives Claude Code's hooks on `127.0.0.1` and serves the app on two paths with the same end-to-end encryption: directly, on a WebSocket that listens on every interface (the home network, a tailnet), and through its connection relay, where it keeps a room open. `remote-harness --help` is the source of truth for the commands.
+The daemon runs on the computer: it tails the session transcripts, drives tmux, receives Claude Code's hooks on `127.0.0.1` and serves the app on two paths with the same end-to-end encryption: directly, on a WebSocket that listens on every interface (the home network, or any VPN address of the computer), and through its connection relay, where it keeps a room open. `remote-harness --help` is the source of truth for the commands.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `remote-harness setup` | Guided setup: accounts and aliases, hooks, service, pairing. `--yes` keeps the config, `--lang` picks the language. |
-| `remote-harness start` | Runs the daemon in the foreground. `--dev` binds to `127.0.0.1`, `--host` sets the address, `--wait-tailscale` waits for the interface. |
+| `remote-harness start` | Runs the daemon in the foreground. `--dev` binds to `127.0.0.1` only and never uses a relay, `--host` sets the direct address. |
 | `remote-harness pair` | Asks the running daemon for a pairing QR code: it pairs one phone and expires in 5 minutes. |
-| `remote-harness doctor` | Checks the tools, Tailscale, the config, the profiles and their provider keys, the daemon identity, the service, push and the registered phones. |
+| `remote-harness doctor` | Checks the tools, the config, the profiles and their provider keys, the daemon identity, whether the connection relays answer, the service, push and the registered phones. |
 | `remote-harness install` / `uninstall` | Installs or removes the launchers, the `PATH` entry, the hooks and the status line wrapper, without questions. |
 | `remote-harness service install` / `uninstall` / `status` | The background service: a launchd LaunchAgent on macOS, a systemd user unit on Linux and WSL. |
 | `remote-harness update` | Fetches the new version, rebuilds, refreshes the hooks and restarts the service. `--ref <branch|tag>` picks a version. |

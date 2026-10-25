@@ -92,7 +92,7 @@ const ptBR = {
     title: 'Parear com o computador',
     intro: 'No computador, rode <cmd>remote-harness pair</cmd> e aponte a câmera para o QR code.',
     guideTitle: 'Primeira vez? Configure o computador',
-    guideHint: 'Tailscale, instalação em uma linha e pareamento, passo a passo.',
+    guideHint: 'Instalação em uma linha e pareamento, passo a passo.',
     tabQr: 'QR code',
     tabManual: 'Colar link',
     invalidQr: 'QR inválido. Use o QR exibido por `remote-harness pair`.',
@@ -108,7 +108,7 @@ const ptBR = {
     linkLabel: 'link de pareamento',
     connect: 'Conectar',
     errors: {
-      timeout: 'Tempo esgotado. O computador está no Tailscale com o Remote Harness rodando?',
+      timeout: 'Tempo esgotado. O computador está ligado e com o Remote Harness rodando?',
       unauthorized: '{{Machine}} recusou o pareamento. Pareie de novo.',
       codeUsed: 'Este código já foi usado ou expirou. Rode `remote-harness pair` para gerar outro.',
       deviceLimit: '{{Machine}} já tem 10 aparelhos pareados.',
@@ -120,19 +120,9 @@ const ptBR = {
   setupGuide: {
     title: 'Configurar o computador',
     intro:
-      'Quatro passos, uns 5 minutos. Você vai precisar do computador em que o seu agente de código roda (macOS, Linux ou Windows com WSL).',
+      'Dois passos, uns 5 minutos. Você vai precisar do computador em que o seu agente de código roda (macOS, Linux ou Windows com WSL).',
     help: 'Dúvidas ou problemas: {{url}}',
     steps: {
-      tailscalePhone: {
-        title: 'Tailscale neste celular',
-        body: 'O app fala com o seu computador por uma rede privada do Tailscale, que funciona de qualquer lugar e é grátis para uso pessoal. Instale e entre com uma conta.',
-        action: 'Abrir na {{store}}',
-      },
-      tailscaleComputer: {
-        title: 'Tailscale no computador',
-        body: 'Instale o Tailscale no computador (no Windows, dentro do WSL ou com a rede espelhada) e entre com a mesma conta deste celular. Os dois aparecem como dispositivos da mesma rede.',
-        action: 'Enviar o link para o computador',
-      },
       install: {
         title: 'Remote Harness no computador',
         body: 'Num terminal do computador, rode o instalador (no Windows, no PowerShell: `{{windows}}`). Ele verifica os pré-requisitos, pergunta quais contas do Claude Code você quer controlar (ou cria uma nova, com login) e o comando (alias) de cada uma.',
@@ -850,12 +840,11 @@ const ptBR = {
       checklist: {
         computerAwake:
           'O computador está ligado e acordado — sem suspender, com a tela aberta ou configurado para não suspender.',
-        tailscaleComputer: 'O Tailscale está em execução e conectado no computador.',
-        tailscalePhone: 'O Tailscale está em execução e conectado neste celular, com a mesma conta.',
         daemonRunning: 'O daemon do Remote Harness está em execução no computador (`remote-harness status`).',
+        online:
+          'O computador e este celular estão on-line (qualquer rede: em casa eles falam direto, fora pelo relay de conexão).',
       },
       tryAgain: 'Tentar de novo',
-      openTailscale: 'Abrir o Tailscale',
       troubleshooting: 'Guia de solução de problemas',
     },
     emptyHint: 'Sessões abertas com o `claude` puro aparecem como somente leitura.',
