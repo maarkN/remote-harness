@@ -391,6 +391,16 @@ const esES = {
     enabled: 'Mostrar estado en vivo',
     channelName: 'Estado en vivo',
     channelDescription: 'Progreso de las sesiones mientras trabajan (silencioso).',
+    /** Small words around the card's timers, and its Open button. */
+    labels: {
+      working: 'trabajando',
+      waiting: 'esperando',
+      total: 'total',
+      notified: 'notificado',
+      finished: 'terminado',
+      open: 'Abrir',
+    },
+    finished: 'Terminado',
   },
   tools: {
     grepIn: '{{pattern}} en {{path}}',
@@ -979,6 +989,9 @@ const esES = {
     pushHint: 'Solo este teléfono · nunca la conversación',
     liveStatus: 'Estado en vivo',
     liveStatusHint: 'Pantalla de bloqueo y Dynamic Island',
+    liveTask: 'Mostrar la tarea actual en la pantalla de bloqueo',
+    liveTaskHint:
+      'Envía por push la tarea en curso de la lista de tareas de la sesión (hasta 48 caracteres). Desactivado: solo una frase fija como “Ejecutando pruebas…”.',
     muted: 'Silenciados',
     mutedNone: 'nada silenciado',
     mutedProfiles_one: '{{count}} perfil',

@@ -528,6 +528,18 @@ describe('client messages', () => {
       tasks: '2 subagents · 1 background task',
       current: 'Bash · pnpm test',
       progress: { done: 3, total: 7 },
+      activity: 'Running tests…',
+      task: 'Implementing the login screen',
+      notifiedAt: 4,
+      link: 'claude-remote://session/s1',
+      labels: {
+        working: 'working',
+        waiting: 'waiting',
+        total: 'total',
+        notified: 'notified',
+        finished: 'finished',
+        open: 'Open',
+      },
     }
     expect(LiveStatusPropsSchema.parse({ ...full, prompt: 'secret' })).toEqual(full)
     expect(LiveStatusPropsSchema.safeParse({ ...full, progress: { done: 1, total: 0 } }).success).toBe(false)
@@ -576,7 +588,22 @@ describe('client messages', () => {
       tasks: '',
       current: '',
       progress: null,
+      activity: '',
+      task: '',
+      notifiedAt: 0,
+      link: '',
+      labels: null,
     })
+  })
+
+  test('live.register carries the opt-in current task', () => {
+    const register = { type: 'live.register', id: '1', sessionId: 's', platform: 'ios', fcmToken: 'tok' }
+    expect(parseClientMessage({ ...register, showTask: true })).toMatchObject({
+      ok: true,
+      value: { showTask: true },
+    })
+    const parsed = parseClientMessage(register)
+    expect(parsed.ok && parsed.value.type === 'live.register' ? parsed.value.showTask : 'x').toBeUndefined()
   })
 
   test('Android data messages carry the event and validated props', () => {
@@ -609,6 +636,13 @@ describe('client messages', () => {
         tasks: '2 subagents',
       }).body,
     ).toBe('Bash · pnpm test · ☑ 3/7 · 2 subagents · 3 tools · ✎ ⌘')
+    // The phrase leads the body; an opted-in task replaces it.
+    expect(liveNotificationText({ ...props, activity: 'Running tests…' }).body).toBe(
+      'Running tests… · running a command · 3 tools · ✎ ⌘',
+    )
+    expect(liveNotificationText({ ...props, activity: 'Running tests…', task: 'Fix login' }).body).toBe(
+      'Fix login · running a command · 3 tools · ✎ ⌘',
+    )
     expect(liveNotificationText({ ...props, session: 'Fix login', step: '', tools: '', glyphs: [] })).toEqual(
       {
         title: 'Fix login · Working',

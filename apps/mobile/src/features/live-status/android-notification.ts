@@ -15,8 +15,11 @@ export type LiveNotification = {
   body: string
   /** Ongoing (cannot be swiped away) while the turn runs or waits. */
   sticky: boolean
-  /** Translated Allow / Deny labels when a permission waits; `null` = no buttons. */
-  actions: { allow: string; deny: string } | null
+  /**
+   * Translated Allow / Deny (and Open, from newer daemons) labels when a permission waits; `null` =
+   * no buttons.
+   */
+  actions: { allow: string; deny: string; open?: string } | null
   /** Identifiers only: a tap opens the session, an action answers the request. */
   data: { sessionId: string; event: 'live'; requestId?: string }
 }
@@ -47,7 +50,9 @@ export function liveNotification(push: LiveDataPush): LiveNotification {
     identifier: liveNotificationId(sessionId),
     ...liveNotificationText(props),
     sticky: open,
-    actions: pending ? { allow: pending.allow, deny: pending.deny } : null,
+    actions: pending
+      ? { allow: pending.allow, deny: pending.deny, ...(props.labels ? { open: props.labels.open } : {}) }
+      : null,
     data: { sessionId, event: 'live', ...(pending ? { requestId: pending.requestId } : {}) },
   }
 }

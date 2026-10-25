@@ -42,6 +42,16 @@
   .la .bar i { display: block; height: 100%; width: 38%; background: var(--st); border-radius: 2px; animation: slide 1.8s ease-in-out infinite alternate; }
   @keyframes slide { from { transform: translateX(-10%); } to { transform: translateX(170%); } }
   @media (prefers-reduced-motion: reduce) { .la .bar i { animation: none; width: 100%; opacity: .5; } }
+  .la .hd { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .la .hd .ic { width: 28px; height: 28px; border-radius: 8px; }
+  .la .hd .ic svg { width: 18px; height: 18px; }
+  .la .hd .who { flex: 1; min-width: 0; font-size: 11px; color: #8a8784; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .la .times { display: flex; align-items: baseline; gap: 8px; }
+  .la .times b { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--st); line-height: 1; font-family: var(--mono); }
+  .la .times small { font-size: 11px; color: #8a8784; }
+  .la .times .side { margin-left: auto; text-align: right; font-size: 11px; color: #8a8784; line-height: 1.35; }
+  .la .doing { font-size: 14px; font-weight: 600; color: #e8e6e3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .la .bar.det i { animation: none; }
   .la.waiting { --st: var(--warning); border-color: rgba(243,220,122,.35); }
   .la.done { --st: var(--success); }
   .la.closed { --st: #8a8784; }
@@ -130,31 +140,42 @@
           <div class="date">Saturday, 18 October</div>
           <div class="time">9:41</div>
           <div class="la">
-            <div class="top"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><div class="tx"><span class="who">Work · MacBook Pro</span><span class="ttl">Add rate limit on login</span><span class="path">~/projects/acme-api</span></div><div class="tm"><b>4:36</b><small>working</small></div></div>
-            <div class="row"><span class="st">Working</span><span class="step">running a command</span><span class="tools">6 tools</span></div>
-            <div class="recent"><i>⌕</i><i>✎</i><i>✎</i><i>⌘</i><i class="now">⌘</i></div>
-            <div class="bar"><i></i></div>
+            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Work · MacBook Pro</span><span class="st">Working</span></div>
+            <div class="tx"><span class="ttl">Add rate limit on login</span><span class="path">~/projects/acme-api</span></div>
+            <div class="times"><b>14:12</b><small>working</small><span class="side">notified<br>30 s ago</span></div>
+            <div class="doing">↳ Running tests…</div>
+            <div class="row"><span class="step">Bash · pnpm test</span><span class="tools">☑ 3/7 · 2 agents · 18 tools</span></div>
+            <div class="bar det"><i style="width:43%"></i></div>
+            <div class="recent"><i>⌕</i><i>⌕</i><i>✎</i><i>⌥</i><i class="now">⌘</i></div>
           </div>
           <div class="bottom"><span>🔦</span><span>📷</span></div>
           <div class="home"></div>
         </div>
-        <p class="cap"><b>Working.</b> Timer grande e tabular na cor do estado; a fileira "recent" mostra os últimos cinco passos; barra indeterminada enquanto roda.</p>
+        <p class="cap"><b>Working.</b> O timer grande conta o tempo no estado atual (trabalhando: o turno) com um rótulo pequeno; à direita, "notified … ago" é o tempo desde a última atualização que o celular recebeu, contando sozinho (<code>Text</code> relativo, sem push extra). A linha <code>↳</code> é a frase fixa do daemon ("Running tests…") ou, com o opt-in, a tarefa atual da lista de tarefas (até 48 caracteres). Barra determinada só com lista de tarefas.</p>
       </div>
       <div class="stack">
         <div class="la waiting">
-          <div class="top"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><div class="tx"><span class="who">Work · MacBook Pro</span><span class="ttl">Add rate limit on login</span><span class="path">~/projects/acme-api</span></div><div class="tm"><b>0:52</b><small>waiting</small></div></div>
-          <div class="row"><span class="st">Waiting for you</span><span class="step">permission · Bash</span><span class="tools">6 tools</span></div>
-          <div class="ans"><span class="no">Deny</span><span class="ok">Allow</span></div>
-        </div>
+            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Work · MacBook Pro</span><span class="st">Waiting for you</span></div>
+            <div class="tx"><span class="ttl">Add rate limit on login</span><span class="path">~/projects/acme-api</span></div>
+            <div class="times"><b>2:31</b><small>waiting</small><span class="side">working 14:12<br>notified 2 min ago</span></div>
+            <div class="doing">↳ Committing and pushing…</div>
+            <div class="row"><span class="step">Permission · Bash · git push</span><span class="tools">18 tools</span></div>
+            <div class="ans"><span class="no">Deny</span><span class="ok">Allow</span><span>Open</span></div>
+          </div>
         <div class="la done">
-          <div class="top"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><div class="tx"><span class="who">Personal · MacBook Pro</span><span class="ttl">Migrate landing to Tailwind 4</span><span class="path">~/projects/landing</span></div><div class="tm"><b>6:12</b><small>total</small></div></div>
-          <div class="row"><span class="st">Done</span><span class="step">14 files changed · build passed</span><span class="tools">11 tools</span></div>
-        </div>
+            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Personal · MacBook Pro</span><span class="st">Done</span></div>
+            <div class="tx"><span class="ttl">Migrate landing to Tailwind 4</span><span class="path">~/projects/landing</span></div>
+            <div class="times"><b>6:12</b><small>total</small><span class="side">finished<br>3 min ago</span></div>
+            <div class="doing">↳ Finished</div>
+            <div class="row"><span class="step"></span><span class="tools">☑ 7/7 · 31 tools</span></div>
+            
+          </div>
         <div class="la closed">
-          <div class="top"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><div class="tx"><span class="who">Codex · MacBook Pro</span><span class="ttl">Review deploy pipeline</span><span class="path">~/projects/acme-infra</span></div><div class="tm"><b>2 h</b><small>ago</small></div></div>
-          <div class="row"><span class="st">Session closed</span><span class="step">transcript kept · resume from the app</span></div>
-        </div>
-        <p class="cap"><b>Waiting / Done / Closed.</b> Em "waiting" os botões Deny/Allow respondem pela intent da Live Activity (hoje só o iOS oferece; no Android a notificação abre o app). "Done" fica 15 min e some (<code>DONE_DISMISS_MS</code>).</p>
+            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Codex · MacBook Pro</span><span class="st">Session closed</span></div>
+            <div class="tx"><span class="ttl">Review deploy pipeline</span><span class="path">~/projects/infra</span></div>
+            <div class="row"><span class="step">transcript kept · resume from the app</span></div>
+          </div>
+        <p class="cap"><b>Waiting / Done / Closed.</b> Esperando: o timer grande conta a espera e o tempo trabalhado do turno vai para o lado; Deny / Allow respondem em segundo plano e Open abre a sessão (link). Done: total congelado, "finished … ago", fica 15 min. Closed: cinza, com a dica de retomar pelo app.</p>
       </div>
     </div>
   </section>
@@ -193,19 +214,19 @@
         <div class="anotif">
           <div class="h"><svg><use href="#rh-mark-bold"/></svg><b>Remote Harness</b> · Work · MacBook Pro · now <span class="sil">Silent</span></div>
           <div class="t">Add rate limit on login</div>
-          <div class="x"><b>Working</b> · running a command · 6 tools · 4:36</div>
+          <div class="x"><b>Working</b> · Running tests… · Bash · pnpm test · ☑ 3/7 · 18 tools</div>
           <div class="bar"><i></i></div>
         </div>
         <div class="anotif waiting">
           <div class="h"><svg><use href="#rh-mark-bold"/></svg><b>Remote Harness</b> · Work · MacBook Pro · 52 s</div>
           <div class="t">Add rate limit on login</div>
-          <div class="x"><b>Waiting for you</b> · permission · Bash</div>
+          <div class="x"><b>Waiting for you</b> · Committing and pushing… · Bash · git push</div>
           <div class="acts"><span class="no">Deny</span><span class="ok">Allow</span><span>Open</span></div>
         </div>
         <div class="anotif done">
           <div class="h"><svg><use href="#rh-mark-bold"/></svg><b>Remote Harness</b> · Personal · MacBook Pro · 2 min</div>
           <div class="t">Migrate landing to Tailwind 4</div>
-          <div class="x"><b>Done</b> · 11 tools · 6:12</div>
+          <div class="x"><b>Done</b> · Finished · 11 tools</div>
         </div>
         <div class="other"><i></i>Tailscale · Connected</div>
       </div>
@@ -226,6 +247,9 @@
       <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>state</code>, <code>status</code></td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">working · "Working"</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>liveStateFor</code> + i18n</td></tr>
       <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>step</code>, <code>tools</code>, <code>recent[]</code></td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">running a command · 6 tools · ⌕ ✎ ✎ ⌘ ⌘</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">categoria traduzida pelo daemon; nunca argumentos</td></tr>
       <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>startedAt</code>, <code>changedAt</code>, <code>endedAt</code></td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">4:36 · "2 min ago"</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">timer do widget (<code>{time}</code>)</td></tr>
+      <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>activity</code></td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">Running tests…</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">frase de uma tabela fixa no daemon, a partir da ferramenta, extensão/pasta, programa e subcomando; só a frase sai</td></tr>
+      <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>task</code> (opt-in)</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">Implementing the login screen…</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">só com "Mostrar a tarefa atual" ligado: <code>activeForm</code> do item em andamento, 48 caracteres</td></tr>
+      <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)"><code>notifiedAt</code>, <code>labels</code>, <code>link</code></td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">notified 30 s ago · Open</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">hora do envio, rótulos traduzidos e o deep link da sessão</td></tr>
       <tr><td style="padding:8px 10px"><code>pending</code> (novo)</td><td style="padding:8px 10px">permission · Bash · request id</td><td style="padding:8px 10px">só a ferramenta e o id, para os botões Allow/Deny</td></tr>
     </table></div>
   </section>

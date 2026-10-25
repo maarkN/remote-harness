@@ -392,6 +392,16 @@ const enUS = {
     enabled: 'Show live status',
     channelName: 'Live status',
     channelDescription: 'Progress of sessions while they work (silent).',
+    /** Small words around the card's timers, and its Open button. */
+    labels: {
+      working: 'working',
+      waiting: 'waiting',
+      total: 'total',
+      notified: 'notified',
+      finished: 'finished',
+      open: 'Open',
+    },
+    finished: 'Finished',
   },
   tools: {
     grepIn: '{{pattern}} in {{path}}',
@@ -975,6 +985,9 @@ const enUS = {
     pushHint: 'Only this phone · never the conversation',
     liveStatus: 'Live status',
     liveStatusHint: 'Lock screen and Dynamic Island',
+    liveTask: 'Show the current task on the lock screen',
+    liveTaskHint:
+      'Sends the task in progress from the session’s todo list (up to 48 characters) through push. Off: only a fixed phrase such as “Running tests…”.',
     muted: 'Muted',
     mutedNone: 'nothing muted',
     mutedProfiles_one: '{{count}} profile',

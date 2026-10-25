@@ -495,6 +495,35 @@ export const enUS = {
     total: 'total',
     /** Under the state once the session closed. */
     closedHint: 'transcript kept · resume from the app',
+    /** What the session is doing: a fixed phrase per kind of step (never the step's input). */
+    activities: {
+      readingDocs: 'Reading docs…',
+      exploring: 'Exploring the code…',
+      updatingScripts: 'Updating scripts…',
+      editingCode: 'Editing code…',
+      creatingPdf: 'Creating a PDF…',
+      committing: 'Committing and pushing…',
+      testing: 'Running tests…',
+      building: 'Building…',
+      installing: 'Installing dependencies…',
+      command: 'Running commands…',
+      researching: 'Researching on the web…',
+      delegating: (count: number) =>
+        count === 1 ? 'Delegating to 1 agent…' : `Delegating to ${count} agents…`,
+      planning: 'Planning…',
+      thinking: 'Thinking…',
+      writing: 'Writing the answer…',
+      tool: 'Using tools…',
+      finished: 'Finished',
+    },
+    /** Small words around the card's timers, and its Open button. */
+    labels: {
+      working: 'working',
+      waiting: 'waiting',
+      notified: 'notified',
+      finished: 'finished',
+      open: 'Open',
+    },
   },
   updates: {
     available: (version: string) => `Remote Harness ${version} available`,
