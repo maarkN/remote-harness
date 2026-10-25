@@ -32,3 +32,26 @@ export function resolveAppIconName(preference: AppIconPreference, resolvedTheme:
   if (preference === 'matchTheme') return ICON_NAMES[resolvedTheme]
   return ICON_NAMES[preference]
 }
+
+export type IconApplyInput = {
+  /** Both saved preferences (theme and app icon) have been read; before that they are defaults. */
+  restored: boolean
+  preference: AppIconPreference
+  resolvedTheme: ThemeName
+  /** The icon the system shows now (`getAppIconName()`), `null` for the default icon. */
+  current: string | null
+  /** The icon this launch already asked for, `undefined` when none. */
+  requested: string | null | undefined
+}
+
+/**
+ * The icon to ask the system for, `undefined` when there is nothing to do. iOS shows an alert on
+ * every change, so nothing is applied from defaults (before the preferences are restored), to the
+ * icon already showing, or twice to the same icon in one launch (#345).
+ */
+export function iconToApply(input: IconApplyInput): string | null | undefined {
+  if (!input.restored) return undefined
+  const target = resolveAppIconName(input.preference, input.resolvedTheme)
+  if (target === input.current || target === input.requested) return undefined
+  return target
+}

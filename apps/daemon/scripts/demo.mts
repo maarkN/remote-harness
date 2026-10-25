@@ -4,13 +4,24 @@
  *   pnpm --filter @remote-harness/daemon demo            # start (Ctrl+C stops and cleans up)
  *   pnpm --filter @remote-harness/daemon demo --clean    # remove what an interrupted run left
  *   … demo --root <dir>                                  # another root (default /Users/Shared on macOS)
+ *   … demo --perf                                        # plus the performance scenario (long, bursty, busy terminal)
+ *   … demo --host <address>                              # listen there instead of 127.0.0.1 (pair a physical device)
  *
  * Isolation: its own data home, file token store, tmux server (`TMUX_TMPDIR`, no `TMUX`), ports,
  * `HOME` and host name; push off. Only the paths in its manifest are created and removed.
  */
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, openSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -27,12 +38,21 @@ import {
   type DemoSession,
   demoConfig,
   demoLayout,
+  entryLines,
   paneText,
   projectDirName,
   sessionCwd,
   statusLineBody,
   transcriptLines,
 } from './demo-data.ts'
+import {
+  burstEntries,
+  PERF_BURST_ID,
+  PERF_BURST_MS,
+  PERF_TERMINAL_ID,
+  perfPaneCommand,
+  perfSessions,
+} from './demo-perf.ts'
 
 const DAEMON_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -44,6 +64,10 @@ const root =
       ? '/Users/Shared'
       : join(tmpdir(), 'remote-harness-demo')
 const layout = demoLayout(root)
+const perf = args.includes('--perf')
+const hostArg = args.indexOf('--host')
+const host = hostArg >= 0 && args[hostArg + 1] ? args[hostArg + 1]! : '127.0.0.1'
+const sessions: DemoSession[] = perf ? [...DEMO_SESSIONS, ...perfSessions()] : DEMO_SESSIONS
 const manifestPath = join(root, '.remote-harness-demo.json')
 
 /** The environment of everything the demo runs: no way back to the user's tmux, home or daemon. */
@@ -202,7 +226,7 @@ function demoConfigDir(profileId: string): string {
 }
 
 function writeTranscripts(): void {
-  for (const session of DEMO_SESSIONS) {
+  for (const session of sessions) {
     const path = transcriptPath(session)
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, `${transcriptLines(session, sessionCwd(layout.code, session), now).join('\n')}\n`)
@@ -214,11 +238,14 @@ function writeTranscripts(): void {
 /** One tmux window per live session, showing its terminal; returns the pane of each session. */
 function startPanes(): Map<string, string> {
   const panes = new Map<string, string>()
-  const live = DEMO_SESSIONS.filter((s) => s.state !== 'ended')
+  const live = sessions.filter((s) => s.state !== 'ended')
   live.forEach((session, i) => {
     const file = join(layout.panesDir, `${session.id}.txt`)
     writeFileSync(file, paneText(session))
-    const command = `printf '\\033[2J\\033[H'; cat '${file}'; exec sleep 86400`
+    const command =
+      session.id === PERF_TERMINAL_ID
+        ? perfPaneCommand()
+        : `printf '\\033[2J\\033[H'; cat '${file}'; exec sleep 86400`
     const cwd = sessionCwd(layout.code, session)
     const pane =
       i === 0
@@ -260,15 +287,17 @@ function startPanes(): Map<string, string> {
 
 /** Idle sessions come back from `state.json` with their past activity time, like after a restart. */
 function writeLinks(panes: Map<string, string>): void {
-  const links = DEMO_SESSIONS.filter((s) => panes.has(s.id)).map((s) => ({
-    id: s.id,
-    profileId: s.profileId,
-    paneId: panes.get(s.id),
-    cwd: sessionCwd(layout.code, s),
-    title: s.title,
-    transcriptPath: transcriptPath(s),
-    updatedAt: new Date(now - s.minutesAgo * 60_000).toISOString(),
-  }))
+  const links = sessions
+    .filter((s) => panes.has(s.id))
+    .map((s) => ({
+      id: s.id,
+      profileId: s.profileId,
+      paneId: panes.get(s.id),
+      cwd: sessionCwd(layout.code, s),
+      title: s.title,
+      transcriptPath: transcriptPath(s),
+      updatedAt: new Date(now - s.minutesAgo * 60_000).toISOString(),
+    }))
   writeFileSync(join(layout.home, 'state.json'), `${JSON.stringify({ links }, null, 2)}\n`)
 }
 
@@ -348,17 +377,40 @@ async function holdPermission(session: DemoSession, pane: string): Promise<void>
   }
 }
 
+/** `--perf`: appends a tool-heavy batch to the bursty session's transcript every few seconds. */
+function startBursts(): void {
+  const burst = sessions.find((s) => s.id === PERF_BURST_ID)
+  if (!burst) return
+  const cwd = sessionCwd(layout.code, burst)
+  const at = () => new Date().toISOString()
+  let next = burst.entries.length
+  let { parent } = entryLines(burst, cwd, burst.entries, { startIndex: 0, parent: null, at })
+  let n = 1
+  const timer = setInterval(() => {
+    if (stopping) return clearInterval(timer)
+    const entries = burstEntries(n++)
+    const written = entryLines(burst, cwd, entries, { startIndex: next, parent, at })
+    appendFileSync(transcriptPath(burst), `${written.lines.join('\n')}\n`)
+    next += entries.length
+    parent = written.parent
+  }, PERF_BURST_MS)
+}
+
 writeSandbox(layout)
 writeTranscripts()
 const panes = startPanes()
 writeLinks(panes)
 
 const log = openSync(join(layout.home, 'daemon.log'), 'a')
-daemon = spawn(join(DAEMON_DIR, 'node_modules', '.bin', 'tsx'), ['src/cli.ts', 'start', '--dev'], {
-  cwd: DAEMON_DIR,
-  env,
-  stdio: ['ignore', log, log],
-})
+daemon = spawn(
+  join(DAEMON_DIR, 'node_modules', '.bin', 'tsx'),
+  ['src/cli.ts', 'start', '--dev', ...(host === '127.0.0.1' ? [] : ['--host', host])],
+  {
+    cwd: DAEMON_DIR,
+    env,
+    stdio: ['ignore', log, log],
+  },
+)
 daemon.on('exit', (code) => {
   if (stopping) return
   console.error(`The demo daemon exited (${code}); see ${join(layout.home, 'daemon.log')}.`)
@@ -366,7 +418,7 @@ daemon.on('exit', (code) => {
 })
 await waitForDaemon()
 
-for (const session of DEMO_SESSIONS) {
+for (const session of sessions) {
   const pane = panes.get(session.id)
   if (!pane) continue
   const status = statusLineBody(session, transcriptPath(session), now)
@@ -382,7 +434,11 @@ for (const session of DEMO_SESSIONS) {
   if (session.state === 'waiting') void holdPermission(session, pane)
 }
 
-const link = `remoteharness://pair?host=127.0.0.1&port=${DEMO_WS_PORT}&token=${token}`
+if (perf) startBursts()
+
+const link = `remoteharness://pair?host=${encodeURIComponent(host)}&port=${DEMO_WS_PORT}&token=${token}`
 console.log(`Remote Harness demo running in ${root} (machine "${DEMO_HOST_NAME}").`)
 console.log(`\nPair a simulator:\n  xcrun simctl openurl booted '${link}'\n\nOr open: ${link}`)
+if (perf)
+  console.log('\nPerformance scenario on: long, bursty and busy-terminal sessions (see CONTRIBUTING.md).')
 console.log(`\nDaemon log: ${join(layout.home, 'daemon.log')}\nCtrl+C stops the demo and removes it.`)

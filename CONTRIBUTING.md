@@ -89,7 +89,7 @@ pnpm --filter @remote-harness/mobile xterm              # regenerate the termina
 
 ### Push notifications in your own build
 
-1. In one Firebase project, create the apps you need with the id `tech.doctorx.clauderemote`: an iOS app (upload your APNs key) and/or an Android app. iOS needs a paid Apple Developer account.
+1. In one Firebase project, create the apps you need with the id `com.alvyntech.remoteharness`: an iOS app (upload your APNs key) and/or an Android app. iOS needs a paid Apple Developer account.
 2. Put `GoogleService-Info.plist` (iOS) and/or `google-services.json` (Android) in `apps/mobile/` (both git-ignored) and run `pnpm ios` / `pnpm android` again (after `npx expo prebuild --clean` when `ios/` already exists). Firebase is only linked on a platform when its file exists.
 3. Choose how the daemon sends:
    - **Push relay** (no credential on the computer): build the app with `REMOTE_HARNESS_PUSH_RELAY_URL` pointing to your relay (see below). The app gets a *grant* from the relay (its FCM token, sealed) and hands it to the daemon, which posts each notification to the relay. A daemon can only reach the phones paired with it.
@@ -153,6 +153,30 @@ Install a Release build on the simulator (`cd apps/mobile && npx expo run:ios --
 ```bash
 pnpm --filter @remote-harness/mobile screenshots <folder>   # half size, palette PNGs, into docs/screenshots
 ```
+
+### Performance numbers
+
+Performance PRs show before/after numbers from the same load on the same devices: the **iPad 9th gen** (iOS floor), the **Redmi 8** (Android floor) and an iPhone 11. The load is the demo's performance scenario:
+
+```bash
+pnpm --filter @remote-harness/daemon demo --perf --host <computer's LAN address>
+```
+
+On top of the screenshot sessions it adds "Perf: long conversation" (about 5,000 entries), "Perf: bursty session" (a tool-heavy batch of entries every 3 s) and "Perf: busy terminal" (a pane that prints five lines per second). `--host` makes the demo reachable from a phone on the same network; open the printed `remoteharness://pair` link there.
+
+Measure on a **release build** (a debug build is several times slower and its numbers mean nothing): `make install-ios`/`make install-android`, or a Release run from Xcode/Android Studio. For each device:
+
+1. Force-quit the app, open it (app ready), and wait for the session list.
+2. Open "Perf: long conversation" (conversation render), scroll up and down for about 10 seconds (scroll), go back.
+3. Open "Perf: bursty session" and leave it open for 30 seconds, then open the terminal of "Perf: busy terminal" for 30 seconds (JavaScript stalls).
+4. Settings → Performance (this run) → Copy as a table row, and paste it into the PR.
+
+The numbers stay on the device (in memory, never sent). Scroll frames are counted on the JavaScript thread, which is where the conversation's work happens; with "Send performance data" on, the same measurements also go to Firebase as `conversation_ready` and `conversation_scroll`. The PR description holds one table per change:
+
+| Build | Device | Layout | App ready (ms) | JS stalls (count / ≥5 s / max ms) | Conversation render (ms · entries) | Scroll (frames / dropped / max ms) |
+|---|---|---|---|---|---|---|
+| before (`development`) | … | … | … | … | … | … |
+| after (this PR) | … | … | … | … | … | … |
 
 ### Website
 

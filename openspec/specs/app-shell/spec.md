@@ -243,7 +243,7 @@ While the session list is the visible screen (the phone's list, or the tablet's 
 - **THEN** the Keyboard shortcuts sheet lists the shortcuts with translated labels, and Esc closes it
 
 ### Requirement: Edge swipe for the tablet sidebar
-In the two-column class in portrait (overlay sidebar), a rightward swipe starting at the left edge of the window, below the header, SHALL open the session list. The list follows the finger and, on release, stays open past half its width or after a quick rightward flick; otherwise it slides back. With the list open, a leftward swipe on the dimmed area SHALL close it, following the finger, and a tap there SHALL still close it. Opening and closing SHALL slide, instantly when the system's reduced motion is on.
+In the two-column class in portrait (overlay sidebar), a rightward swipe starting at the left edge of the window, below the header, SHALL open the session list. The list follows the finger and, on release, stays open past half its width or after a quick rightward flick; otherwise it slides back. With the list open, a leftward swipe on the dimmed area SHALL close it, following the finger, and a tap there SHALL still close it. Opening and closing SHALL slide, instantly when the system's reduced motion is on. ☰ SHALL open the list every time it is tapped while the list is closed, including the first tap after launch; a slide-out that finishes after the list was opened again MUST NOT hide it.
 
 The edge swipe SHALL only exist on the list and on a session's conversation, where ☰ replaces the back button; there, the stack's back swipe MUST be off in this layout. Deeper screens (terminal, subagent, settings) MUST keep their back swipe and get no edge swipe, and phones MUST NOT get it at all. Swipes on the list's rows MUST keep their swipe actions.
 
@@ -267,6 +267,10 @@ The edge swipe SHALL only exist on the list and on a session's conversation, whe
 - **WHEN** reduced motion is on and the user taps ☰
 - **THEN** the list appears without the slide animation
 
+#### Scenario: ☰ right after a close
+- **WHEN** an iPad in portrait just launched, the list closed and the user taps ☰ before the slide-out finished on the JS thread
+- **THEN** the list opens and stays open
+
 ### Requirement: Back navigation
 The session list SHALL always be the first screen of the app's main stack, including when a link, a Live Activity or a notification opens another screen, and it MUST NOT show a back button. Every other screen SHALL show the stack's back button, which returns to the previous screen. The only exception is the portrait tablet layout, where ☰ replaces it on the list and on a session's conversation only. Opening a session SHALL do nothing when its conversation is already shown, SHALL replace the conversation of another session when one is shown, and SHALL be pushed otherwise, so back from a conversation never walks through earlier sessions.
 
@@ -287,7 +291,7 @@ The session list SHALL always be the first screen of the app's main stack, inclu
 - **THEN** the terminal shows the back button, not ☰
 
 ### Requirement: App icon follows the theme
-The app SHALL offer one alternate app icon per theme (Dark, Light, Dracula, Catppuccin Mocha, Catppuccin Latte — the same flat, glow-free artwork as "App icon"), selectable independently of the in-app theme through a device-only preference: **Match theme** (default; the home-screen icon follows the resolved theme and switches when it changes), **Original** (the default icon, whatever the theme), or one specific theme's icon (**Custom**). Settings → App icon SHALL show an App icon row naming the current choice, opening a modal with a scrollable list of every choice (Match theme first, then Original and one per theme), each row showing a preview of the icon it applies and a check mark on the selected one; "Match theme"'s row previews the icon the resolved theme currently gives it. On iOS the icon SHALL change as soon as the preference or the resolved theme changes (the OS shows its own confirmation alert on every change, so the app MUST NOT change it on a timer or any other repeated trigger). On Android the change SHALL be deferred until the app goes to the background, since switching the active launcher activity can take a moment and may close the app on some launchers. Devices that do not support alternate icons SHALL keep the default icon regardless of the preference.
+The app SHALL offer one alternate app icon per theme (Dark, Light, Dracula, Catppuccin Mocha, Catppuccin Latte — the same flat, glow-free artwork as "App icon"), selectable independently of the in-app theme through a device-only preference: **Match theme** (default; the home-screen icon follows the resolved theme and switches when it changes), **Original** (the default icon, whatever the theme), or one specific theme's icon (**Custom**). Settings → App icon SHALL show an App icon row naming the current choice, opening a modal with a scrollable list of every choice (Match theme first, then Original and one per theme), each row showing a preview of the icon it applies and a check mark on the selected one; "Match theme"'s row previews the icon the resolved theme currently gives it. On iOS the icon SHALL change as soon as the preference or the resolved theme changes (the OS shows its own confirmation alert on every change, so the app MUST NOT change it on a timer or any other repeated trigger). The app MUST NOT change the icon before both the saved theme and the saved app icon preference have been read at launch, and MUST NOT ask again for the icon it already asked for in the same launch; opening the app with an unchanged preference and theme MUST NOT change the icon. On Android the change SHALL be deferred until the app goes to the background, since switching the active launcher activity can take a moment and may close the app on some launchers. Devices that do not support alternate icons SHALL keep the default icon regardless of the preference.
 
 #### Scenario: Default behavior
 - **WHEN** the app is installed and the user has not changed Settings → App icon
@@ -308,3 +312,7 @@ The app SHALL offer one alternate app icon per theme (Dark, Light, Dracula, Catp
 #### Scenario: Unsupported device
 - **WHEN** the device does not support alternate app icons
 - **THEN** Settings → App icon has no effect and the default icon keeps showing
+
+#### Scenario: Opening the app with a custom icon
+- **WHEN** the preference is "Dracula", the home-screen icon is already the Dracula icon and the user opens the app
+- **THEN** the icon is not changed and iOS shows no icon alert, even while the saved preferences are still being read

@@ -52,6 +52,20 @@ describe('site server', () => {
     expect(await head.text()).toBe('')
   })
 
+  test('privacy policy at its short address, in the visitor language', async () => {
+    const pt = await fetch(`${base}/privacy`, { headers: { 'accept-language': 'pt-BR,pt;q=0.9' } })
+    expect(pt.status).toBe(200)
+    expect(pt.headers.get('content-language')).toBe('pt-BR')
+    expect(pt.headers.get('vary')).toContain('Accept-Language')
+    const html = await pt.text()
+    expect(html).toContain('<title>Política de privacidade')
+    expect(html).toContain('<link rel="canonical" href="https://remoteharness.app/privacy">')
+    expect(html).toContain('privacy@remoteharness.app')
+    const en = await fetch(`${base}/privacy/`)
+    expect(en.headers.get('content-language')).toBe('en-US')
+    expect(await en.text()).toContain('<title>Privacy policy')
+  })
+
   test('updates round trip: upload, publish, manifest, asset', async () => {
     const bundle = new TextEncoder().encode('console.log(1)')
     const hash = await sha256Base64Url(bundle)

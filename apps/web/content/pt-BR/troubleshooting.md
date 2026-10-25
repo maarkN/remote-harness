@@ -64,7 +64,7 @@ O atalho se recusa a abrir uma janela quando o perfil não tem chave e imprime o
 
 ## Migrando de um development build para a build da loja
 
-Quando a build do TestFlight ou do Google Play estiver disponível, instale-a ao lado da build que você mesmo fez: ela tem outra assinatura, então começa vazia. Pareie de novo escaneando `remote-harness pair`; o pareamento antigo continua funcionando até você tocar em **Esquecer esta máquina** naquela build ou trocar o token. O push se registra sozinho na primeira abertura da nova build, e o computador descarta o registro antigo quando ele para de conectar. Depois apague o development build.
+Quando a build do TestFlight ou do Google Play estiver disponível, instale-a ao lado da build que você tem: ela é outro app (`com.alvyntech.remoteharness`; as builds até a v0.19 são `tech.doctorx.clauderemote`), então começa vazia. Pareie de novo escaneando `remote-harness pair`; o pareamento antigo continua funcionando até você tocar em **Esquecer esta máquina** naquela build ou trocar o token. O push se registra sozinho na primeira abertura da nova build, e o computador descarta o registro antigo quando ele para de conectar. Depois apague o development build.
 
 ## O app está lento ou trava
 

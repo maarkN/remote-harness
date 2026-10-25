@@ -1,6 +1,7 @@
+import { useIsFocused } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { StyleSheet, View } from 'react-native'
+import { AppState, StyleSheet, View } from 'react-native'
 import { useDaemonClient, useDaemonEvent } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
 import type { TFunction } from '@/core/i18n/create'
@@ -18,7 +19,21 @@ function terminalKeys(t: TFunction): KeySpec[] {
   ]
 }
 
-/** Live mirror of the session's tmux pane, for TUI menus and dialogs the transcript can't show. */
+/** Whether the app is in the foreground. */
+function useAppActive(): boolean {
+  const [active, setActive] = useState(AppState.currentState === 'active')
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setActive(state === 'active'))
+    return () => subscription.remove()
+  }, [])
+  return active
+}
+
+/**
+ * Live mirror of the session's tmux pane, for TUI menus and dialogs the transcript can't show. Frames
+ * stream only while it can be seen: its screen (or the session screen holding the tablet inspector)
+ * is focused and the app is in the foreground.
+ */
 export function TerminalScreen({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation()
   const keys = useMemo(() => terminalKeys(t), [t])
@@ -27,6 +42,9 @@ export function TerminalScreen({ sessionId }: { sessionId: string }) {
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const lastFrame = useRef<{ text: string; cols: number; rows: number } | null>(null)
+  const focused = useIsFocused()
+  const active = useAppActive()
+  const visible = focused && active
 
   useDaemonEvent('pane.frame', (frame) => {
     if (frame.sessionId !== sessionId) return
@@ -39,7 +57,7 @@ export function TerminalScreen({ sessionId }: { sessionId: string }) {
   }, [ready])
 
   useEffect(() => {
-    if (!client) return
+    if (!client || !visible) return
     const subscribe = () => {
       client.request({ type: 'pane.subscribe', sessionId }).then(
         () => setError(null),
@@ -52,7 +70,7 @@ export function TerminalScreen({ sessionId }: { sessionId: string }) {
       off()
       client.send({ type: 'pane.unsubscribe', sessionId })
     }
-  }, [client, sessionId, t])
+  }, [client, sessionId, t, visible])
 
   return (
     <Screen>

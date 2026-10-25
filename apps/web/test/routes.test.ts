@@ -58,6 +58,14 @@ describe('route', () => {
     expect(route('/docs/a/b/')).toEqual({ kind: 'not-found' })
   })
 
+  test('privacy: the short address serves the negotiated privacy policy', () => {
+    const privacy = { kind: 'doc', locale: null, slug: 'privacy', path: '/privacy' }
+    expect(route('/privacy')).toEqual(privacy)
+    expect(route('/privacy/')).toEqual(privacy)
+    expect(route('/privacy/x')).toEqual({ kind: 'not-found' })
+    expect(route('/pt-br/privacy')).toEqual({ kind: 'not-found' })
+  })
+
   test('site files, installer redirects and the rest', () => {
     expect(route('/sitemap.xml')).toEqual({ kind: 'sitemap' })
     expect(route('/robots.txt')).toEqual({ kind: 'robots' })

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useShallow } from 'zustand/react/shallow'
 import { selectProfiles, useConnectionStore, useDaemonClient } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
 import { makeStyles, radius, space, useTheme } from '@/core/theme'
@@ -179,7 +180,8 @@ function MutedSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
   const profiles = useConnectionStore(selectProfiles)
   const mutedProfiles = useMuteStore((s) => s.profiles)
   const mutedSessions = useMuteStore((s) => s.sessions)
-  const sessions = useSessionsStore((s) => s.sessions)
+  // Titles of the muted sessions only: other sessions working do not re-render the sheet.
+  const titles = useSessionsStore(useShallow((s) => mutedSessions.map((id) => s.sessions[id]?.title ?? '')))
   const change = (target: 'profile' | 'session', id: string, muted: boolean) => {
     if (!client) return
     setMuted(client, target, id, muted).catch((error: unknown) =>
@@ -218,10 +220,10 @@ function MutedSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
                 {t('settings.mutedSessionsTitle')}
               </Text>
             ) : null}
-            {mutedSessions.map((id) => (
+            {mutedSessions.map((id, index) => (
               <View key={id} style={layout.between}>
                 <Text size="sm" numberOfLines={1} style={layout.flex}>
-                  {sessions[id]?.title || t('common.session')}
+                  {titles[index] || t('common.session')}
                 </Text>
                 <Button
                   label={t('mute.unmute')}

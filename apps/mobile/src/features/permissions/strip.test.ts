@@ -1,7 +1,7 @@
 import type { PermissionRequestInfo, Session } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { formatElapsed } from '../../core/utils/time'
-import { pendingForStrip, stripSessionId } from './strip'
+import { pendingForStrip, stripCandidates, stripSessionId } from './strip'
 
 const session = (id: string, state: Session['state'], updatedAt: string, controllable = true) =>
   ({
@@ -86,4 +86,23 @@ test('formatElapsed', () => {
   expect(formatElapsed(-500)).toBe('0:00')
   expect(formatElapsed(276_000)).toBe('4:36')
   expect(formatElapsed(3_725_000)).toBe('1:02:05')
+})
+
+describe('stripCandidates', () => {
+  const running = session('run', 'running', '2026-10-25T12:00:00Z')
+  const waiting = session('wait', 'waiting', '2026-10-25T12:00:00Z')
+  const asked = session('ask', 'running', '2026-10-25T12:00:00Z')
+  const all = { run: running, wait: waiting, ask: asked }
+
+  test('keeps waiting sessions and sessions with a request', () => {
+    expect(stripCandidates(all, new Set(['ask'])).map((s) => s.id)).toEqual(['wait', 'ask'])
+  })
+
+  test('gives the strip the same model as all sessions', () => {
+    const requests = [request('r1', 'ask', '2026-10-25T11:59:00Z')]
+    const ids = new Set(requests.map((r) => r.sessionId))
+    expect(pendingForStrip(stripCandidates(all, ids), requests)).toEqual(
+      pendingForStrip(Object.values(all), requests),
+    )
+  })
 })

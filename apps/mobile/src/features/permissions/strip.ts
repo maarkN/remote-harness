@@ -52,6 +52,19 @@ export function pendingForStrip(
   return { sessions: ids.size, oldest, next: items[1] ?? null, more: items.length - 1 }
 }
 
+/**
+ * The only sessions `pendingForStrip` looks at: the waiting ones and those with a pending request.
+ * Selected with a shallow comparison, so the strip does not re-render when other sessions work.
+ */
+export function stripCandidates(
+  sessions: Readonly<Record<string, Session>>,
+  requestSessionIds: ReadonlySet<string>,
+): Session[] {
+  return Object.values(sessions).filter(
+    (session) => session.state === 'waiting' || requestSessionIds.has(session.id),
+  )
+}
+
 export function stripSessionId(item: StripItem): string {
   return item.kind === 'request' ? item.request.sessionId : item.session.id
 }

@@ -19,6 +19,23 @@ function toLines(oldText: string, newText: string): DiffLine[] {
   return out
 }
 
+const cache = new WeakMap<object, { t: TFunction; lines: DiffLine[] | null }>()
+
+/**
+ * `diffForTool` of a tool call, computed once per call object (and language): the conversation's
+ * cells are recycled as the list scrolls, which would otherwise diff the same edit again and again.
+ */
+export function cachedDiffForTool(
+  use: { name: string; input: Record<string, unknown> },
+  t: TFunction,
+): DiffLine[] | null {
+  const hit = cache.get(use)
+  if (hit && hit.t === t) return hit.lines
+  const lines = diffForTool(use.name, use.input, t)
+  cache.set(use, { t, lines })
+  return lines
+}
+
 /** Builds a line diff for Edit / MultiEdit / Write (and Codex's apply_patch) inputs; null for other tools. */
 export function diffForTool(name: string, input: Record<string, unknown>, t: TFunction): DiffLine[] | null {
   let lines: DiffLine[] | null = null

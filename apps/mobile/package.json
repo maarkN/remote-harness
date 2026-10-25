@@ -1,6 +1,6 @@
 {
   "name": "@remote-harness/mobile",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
@@ -76,7 +76,8 @@
     "icons": "tsx scripts/icons.mts",
     "store:metadata": "tsx scripts/store-metadata.mts",
     "doctor": "expo-doctor",
-    "xterm": "tsx scripts/build-xterm-html.mts"
+    "xterm": "tsx scripts/build-xterm-html.mts",
+    "compiler:report": "tsx scripts/compiler-report.mts"
   },
   "private": true,
   "expo": {

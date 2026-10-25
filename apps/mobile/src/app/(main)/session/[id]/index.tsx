@@ -32,7 +32,7 @@ import { sessionAgent } from '@/features/sessions/agent'
 import { CloseSessionSheet } from '@/features/sessions/components/CloseSessionSheet'
 import { SessionDetailsSheet } from '@/features/sessions/components/SessionDetailsSheet'
 import { StateBadge } from '@/features/sessions/components/StateBadge'
-import { useSessionsStore } from '@/features/sessions/store'
+import { useStableSession } from '@/features/sessions/use-stable-session'
 import { useShortcutRequest } from '@/features/shortcuts/use-shortcut-request'
 import { SubagentsSheet } from '@/features/subagents/SubagentsSheet'
 import { subagentCounts } from '@/features/subagents/sort'
@@ -43,7 +43,8 @@ export default function SessionRoute() {
   const { colors } = useTheme()
   const styles = useStyles()
   const { id, autofocus } = useLocalSearchParams<{ id: string; autofocus?: string }>()
-  const session = useSessionsStore((s) => s.sessions[id])
+  // Not re-rendered by status-line or activity ticks; the details read those fresh by id.
+  const session = useStableSession(id)
   const profile = useConnectionStore((s) => s.hello?.profiles.find((p) => p.id === session?.profileId))
   const provider = providerName(profile)
   // Absent on daemons without shell commands; `enabled` is the computer's opt-in.

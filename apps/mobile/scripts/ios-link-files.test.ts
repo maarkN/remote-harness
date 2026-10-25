@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import { buildManifest, buildPage, servedFile, tailnetHost } from './ios-link-files'
 
-const app = { bundleId: 'tech.doctorx.clauderemote', version: '0.6.0', build: '7', title: 'Remote & Harness' }
+const app = {
+  bundleId: 'com.alvyntech.remoteharness',
+  version: '0.6.0',
+  build: '7',
+  title: 'Remote & Harness',
+}
 
 describe('tailnetHost', () => {
   const status = (extra: object) => ({
@@ -30,7 +35,7 @@ describe('buildManifest', () => {
   test('points at the IPA and escapes the values', () => {
     const manifest = buildManifest(app, 'https://mac.tail1.ts.net/x/RemoteHarness.ipa?v=1&b=2')
     expect(manifest).toContain('<string>https://mac.tail1.ts.net/x/RemoteHarness.ipa?v=1&amp;b=2</string>')
-    expect(manifest).toContain('<string>tech.doctorx.clauderemote</string>')
+    expect(manifest).toContain('<string>com.alvyntech.remoteharness</string>')
     expect(manifest).toContain('<string>Remote &amp; Harness</string>')
     expect(manifest).toContain('<string>software-package</string>')
   })
