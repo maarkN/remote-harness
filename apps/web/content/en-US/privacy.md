@@ -16,14 +16,14 @@ Only the error reports and the performance data you agree to send. There is no a
 
 ## What stays on your devices
 
-- On the phone: the pairing token (in the system's secure storage), the app's preferences (theme, language, machine name, notification and error report choices), the log of the app's own errors, the unsent prompt drafts of each session (in the system's secure storage, never sent anywhere, deleted when sent, after 7 days or when you forget the machine), and nothing else from the conversations beyond what is on screen.
+- On the phone: the keys of the pairing (in the system's secure storage, on this device only), the app's preferences (theme, language, machine name, notification and error report choices), the log of the app's own errors, the unsent prompt drafts of each session (in the system's secure storage, never sent anywhere, deleted when sent, after 7 days or when you forget the machine), and nothing else from the conversations beyond what is on screen.
 - On the computer: the daemon's configuration, the list of known sessions, its logs, and the provider keys in the OS secret store.
 
 Deleting the app and running `remote-harness uninstall` remove them.
 
 ## What leaves your machine, and when
 
-- **Between your phone and your computer**: the conversation, the permissions you answer and the prompts you send travel only over your Tailscale network, authenticated with the pairing token. Nothing of it reaches us. Commands run from the app (**Run command…**, off by default) and their output take the same path, only to the phone that started them, and are never stored. With **Polish dictation** on (off by default), the transcript text of a dictation goes to your computer, where the session's own `claude` command rewrites it under your own Anthropic account, like any prompt you send; the audio never leaves the phone.
+- **Between your phone and your computer**: the conversation, the permissions you answer and the prompts you send travel only over your Tailscale network, encrypted end to end with the keys of the pairing. Nothing of it reaches us. Commands run from the app (**Run command…**, off by default) and their output take the same path, only to the phone that started them, and are never stored. With **Polish dictation** on (off by default), the transcript text of a dictation goes to your computer, where the session's own `claude` command rewrites it under your own Anthropic account, like any prompt you send; the audio never leaves the phone.
 - **Push notifications (optional)**: a title, the profile name, the session id and the event type go through Firebase Cloud Messaging (Google) to your phone; the live status adds the session title, the folder, the state, the current step (the tool and a short target: a file's base name, a command's program, a web address's host or a subagent type, never arguments, file contents or search terms) the progress of the todo list and a fixed phrase for what the session is doing (such as "Running tests…"). Only if you turn on Settings → Notifications → Show the current task on the lock screen (off by default), it also carries the task in progress from the session's todo list, up to 48 characters. The push relay is a small service we run that forwards those same messages and stores nothing; with your own Firebase project, nothing passes through us. Google's handling of Firebase Cloud Messaging is covered by Google's privacy policy.
 - **Updates**: the daemon checks the git remote of the installed source for new versions; the app checks the update server configured in its build for new JavaScript (the request carries the app version and platform, no personal data).
 - **OpenRouter profiles (optional)**: the model catalog and credits requests go from your computer to OpenRouter with your key; no model traffic passes through us.
@@ -37,7 +37,7 @@ Deleting the app and running `remote-harness uninstall` remove them.
 
 ## How your data is protected
 
-Traffic between the phone and the computer is encrypted end to end by Tailscale (WireGuard) and authenticated with the pairing token; the daemon only listens on the Tailscale interface. Error reports, performance data, push messages and updates travel over HTTPS. Updates are signed, and the app refuses one without a valid signature. The pairing token and the drafts are kept in the system's secure storage.
+Traffic between the phone and the computer is encrypted end to end with the Noise protocol, with keys only the phone and the computer hold, and runs over Tailscale (WireGuard), the only interface the daemon listens on. Error reports, performance data, push messages and updates travel over HTTPS. Updates are signed, and the app refuses one without a valid signature. The keys and the drafts are kept in the system's secure storage.
 
 ## Your choices and requests
 

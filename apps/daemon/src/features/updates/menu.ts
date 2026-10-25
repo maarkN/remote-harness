@@ -138,7 +138,6 @@ export const TRAY_ACTIONS = {
   pair: 'pair',
   docs: 'docs',
   prefs: 'prefs',
-  rotateToken: 'rotate-token',
   quitService: 'quit-service',
   prefPermissions: 'pref:permissions',
   prefPush: 'pref:push',
@@ -405,8 +404,8 @@ function buildPrefsWindow(s: TrayMenuState, t: Messages['updates']['tray']): Tra
     ? [
         ...(s.qr ? [{ kind: 'qr', text: s.pairing.url } as const] : []),
         { kind: 'value', label: t.pairMenu, value: s.pairing.address },
+        { kind: 'note', label: t.pairNote },
         { kind: 'button', id: TRAY_ACTIONS.pair, label: t.pairInTerminal },
-        { kind: 'button', id: TRAY_ACTIONS.rotateToken, label: t.rotateConfirm, style: 'destructive' },
       ]
     : [{ kind: 'button', id: TRAY_ACTIONS.pair, label: t.pair }]
   const advanced: PrefRow[] = [
@@ -427,7 +426,7 @@ function buildPrefsWindow(s: TrayMenuState, t: Messages['updates']['tray']): Tra
   }
 }
 
-/** Pair a phone: the QR (macOS), the address, the terminal fallback and the token rotation. */
+/** Pair a phone: the QR (macOS, a single-use code), the address and the terminal fallback. */
 function pairItem(s: TrayMenuState, t: Messages['updates']['tray']): TrayItem {
   if (!s.pairing) return { id: TRAY_ACTIONS.pair, label: t.pair }
   return {
@@ -436,14 +435,9 @@ function pairItem(s: TrayMenuState, t: Messages['updates']['tray']): TrayItem {
     items: [
       ...(s.qr ? [{ type: 'qr' as const, text: s.pairing.url }] : []),
       { id: 'pair-address', label: s.pairing.address, enabled: false },
+      { id: 'pair-note', label: t.pairNote, enabled: false },
       { type: 'separator' },
       { id: TRAY_ACTIONS.pair, label: t.pairInTerminal },
-      // A menu cannot ask for confirmation: the rotation is one level deeper.
-      {
-        type: 'submenu',
-        label: t.rotateToken,
-        items: [{ id: TRAY_ACTIONS.rotateToken, label: t.rotateConfirm }],
-      },
     ],
   }
 }

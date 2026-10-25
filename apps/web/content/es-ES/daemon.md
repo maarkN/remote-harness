@@ -12,9 +12,8 @@ El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, con
 | --- | --- |
 | `remote-harness setup` | Instalación guiada: cuentas y alias, hooks, servicio, emparejamiento. `--yes` mantiene la configuración, `--lang` elige el idioma. |
 | `remote-harness start` | Ejecuta el daemon en primer plano. `--dev` lo ata a `127.0.0.1`, `--host` fija la dirección, `--wait-tailscale` espera la interfaz. |
-| `remote-harness pair` | Muestra el código QR de emparejamiento (dirección y token). `--dev` para `127.0.0.1`. |
-| `remote-harness rotate-token` | Token nuevo; todos los móviles tienen que emparejarse de nuevo. |
-| `remote-harness doctor` | Comprueba las herramientas, Tailscale, la configuración, los perfiles y sus claves de proveedor, el almacén del token, el servicio, el push y los móviles registrados. |
+| `remote-harness pair` | Pide al daemon en ejecución un código QR de emparejamiento: empareja un móvil y caduca en 5 minutos. |
+| `remote-harness doctor` | Comprueba las herramientas, Tailscale, la configuración, los perfiles y sus claves de proveedor, la identidad del daemon, el servicio, el push y los móviles registrados. |
 | `remote-harness install` / `uninstall` | Instala o quita los lanzadores, la entrada en el `PATH`, los hooks y el envoltorio de la status line, sin preguntas. |
 | `remote-harness service install` / `uninstall` / `status` | El servicio en segundo plano: un LaunchAgent de launchd en macOS, una unidad de usuario de systemd en Linux y WSL. |
 | `remote-harness update` | Descarga la nueva versión, recompila, actualiza los hooks y reinicia el servicio. `--ref <rama|etiqueta>` elige la versión. |
@@ -84,7 +83,7 @@ A mano: añade un `provider` con `kind: "openrouter"` y, opcionalmente, `baseUrl
 }
 ```
 
-Después, `remote-harness install` regenera los lanzadores y `remote-harness provider key openrouter` guarda la clave en el mismo sitio que el token de emparejamiento (Llavero en macOS, Secret Service o archivo `0600` en Linux). El lanzador lee la clave solo dentro de la ventana de tmux, nunca en una línea de comandos, y el daemon solo la usa para mostrar tus créditos en la app. `doctor` informa de si cada perfil con proveedor tiene clave.
+Después, `remote-harness install` regenera los lanzadores y `remote-harness provider key openrouter` guarda la clave en el mismo almacén que las claves del propio daemon (Llavero en macOS, Secret Service o archivo `0600` en Linux). El lanzador lee la clave solo dentro de la ventana de tmux, nunca en una línea de comandos, y el daemon solo la usa para mostrar tus créditos en la app. `doctor` informa de si cada perfil con proveedor tiene clave.
 
 ## Perfiles de Codex
 
@@ -114,7 +113,7 @@ El servicio comprueba su canal en el remoto de git cada 6 horas y muestra una no
 
 ## Icono de la bandeja
 
-El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección, el emparejamiento en la terminal y **Cambiar el token…** (los móviles emparejados deben emparejarse de nuevo). **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, y en WSL, el daemon funciona sin interfaz.
+El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección y el emparejamiento en la terminal; cada código es de un solo uso y caduca en 5 minutos. **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, y en WSL, el daemon funciona sin interfaz.
 
 ## Alojar tu propio relay de conexión
 
@@ -139,4 +138,4 @@ Vuelve a emparejar el móvil después: el código de emparejamiento le dice a la
 
 Todo lo que guarda el daemon está en `~/.remote-harness/`: `config.json`, `state.json` (las sesiones conocidas), `secrets/` (claves de proveedor cuando el almacén es el archivo), `models-cache.json`, `bin/` (lanzadores), `logs/` y `src/` (el código que compiló el instalador). Adjunta los registros a un informe de error tras quitar tokens y contenido de sesiones.
 
-Variables de entorno: `REMOTE_HARNESS_HOME` cambia la carpeta de datos, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` fuerza el almacén del token, `REMOTE_HARNESS_LANG` fija el idioma.
+Variables de entorno: `REMOTE_HARNESS_HOME` cambia la carpeta de datos, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` fuerza el almacén de secretos (las claves del daemon y las de proveedor), `REMOTE_HARNESS_LANG` fija el idioma.

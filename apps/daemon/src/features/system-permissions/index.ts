@@ -77,12 +77,12 @@ export function registerSystemPermissionsFeature(
     }
     permissions.push({ id: 'desktopNotifications', status: 'not_available' })
     const { kind } = await selectTokenStore({ platform, exec: ctx.exec })
-    // The daemon's own pairing token already exists by the time it's running (`ensureToken` at
-    // boot); failing to read it back now means this store isn't actually usable right now.
-    const token = await createTokenStore(kind, ctx.exec)
+    // The daemon's identity already exists by the time it's running (`ensureIdentity` at boot);
+    // failing to read it back now means this store isn't actually usable right now.
+    const identity = await createTokenStore(kind, ctx.exec)
       .get()
       .catch(() => null)
-    permissions.push({ id: 'keychain', status: classifyKeychain(kind, token !== null) })
+    permissions.push({ id: 'keychain', status: classifyKeychain(kind, identity !== null) })
 
     return { type: 'machine.permissions.results', permissions }
   })

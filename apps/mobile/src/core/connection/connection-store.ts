@@ -1,9 +1,12 @@
 import { create } from 'zustand'
-import type { Credentials } from '../storage/credentials'
+import { noiseCrypto } from '../crypto'
+import type { Computer } from '../storage/credentials'
 import { type ConnectionStatus, DaemonClient, type Hello } from './daemon-client'
 
 type ConnectionState = {
-  credentials: Credentials | null
+  credentials: Computer | null
+  /** A protocol-1 pairing was found and dropped: the pairing screen says to pair again. */
+  pairAgain: boolean
   /** False until SecureStore has been read once. */
   credentialsLoaded: boolean
   client: DaemonClient | null
@@ -12,13 +15,14 @@ type ConnectionState = {
   /** The last attempt got no answer: the computer may be asleep or offline. */
   unreachable: boolean
   hello: Hello | null
-  /** Starts (or restarts) the connection for the given credentials; null disconnects. */
-  setCredentials(credentials: Credentials | null): void
+  /** Starts (or restarts) the connection for the given computer; null disconnects. */
+  setCredentials(credentials: Computer | null): void
 }
 
 /** Global connection state. Feature stores subscribe to `client` for their messages. */
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
   credentials: null,
+  pairAgain: false,
   credentialsLoaded: false,
   client: null,
   status: 'idle',
@@ -39,11 +43,16 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       })
       return
     }
-    const client = new DaemonClient({ ...credentials, clientName: 'claude-remote-ios' })
+    const client = new DaemonClient({
+      computer: credentials,
+      crypto: noiseCrypto,
+      clientName: 'claude-remote-ios',
+    })
     client.onStatus((status, error) => set({ status, error, unreachable: client.unreachable }))
     client.onReady((hello) => set({ hello }))
     set({
       credentials,
+      pairAgain: false,
       credentialsLoaded: true,
       client,
       status: client.status,

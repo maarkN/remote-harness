@@ -32,8 +32,7 @@ export function MachineCard() {
   const [draft, setDraft] = useState('')
   const meta = machineMeta(
     {
-      host: credentials?.host,
-      port: credentials?.port,
+      host: credentials?.addresses[0],
       daemonVersion: hello?.daemonVersion,
       protocolVersion: hello?.protocolVersion,
     },

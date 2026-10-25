@@ -4,13 +4,14 @@ description: Conexão, Tailscale, push, suspensão, sessões somente leitura, al
 applies: 0.7+
 ---
 
-Comece por `remote-harness doctor` no computador: ele confere as ferramentas, o Tailscale, a configuração, os perfis, o cofre do token, o serviço, o push e os celulares registrados, e imprime o comando que corrige cada verificação que falhou.
+Comece por `remote-harness doctor` no computador: ele confere as ferramentas, o Tailscale, a configuração, os perfis, a identidade do daemon, o serviço, o push e os celulares registrados, e imprime o comando que corrige cada verificação que falhou.
 
 ## O app não conecta
 
 - Os dois aparelhos precisam estar na mesma tailnet e o Tailscale conectado nos dois. Abra o app do Tailscale no celular e confira se o computador aparece.
 - O daemon precisa estar rodando: `remote-harness service status`, ou `remote-harness start` num terminal para ver o log.
-- Um token trocado no computador (`remote-harness rotate-token`) ou uma reinstalação exige parear de novo: **Esquecer esta máquina** nos Ajustes e escanear `remote-harness pair`.
+- Uma reinstalação que apagou as chaves do daemon exige parear de novo: **Esquecer esta máquina** nos Ajustes e escanear um novo `remote-harness pair`. Depois da atualização que trouxe a criptografia de ponta a ponta, todo celular pareia mais uma vez; a tela de pareamento avisa.
+- "Já foi usado ou expirou": um código de pareamento funciona uma vez, por 5 minutos. Rode `remote-harness pair` para gerar outro.
 - Num simulador ou emulador sem Tailscale, use `remote-harness start --dev` e `remote-harness pair --dev` (emulador Android: `adb reverse tcp:7337 tcp:7337`).
 
 ## O app diz que o computador não está respondendo
@@ -64,7 +65,7 @@ O atalho se recusa a abrir uma janela quando o perfil não tem chave e imprime o
 
 ## Migrando de um development build para a build da loja
 
-Quando a build do TestFlight ou do Google Play estiver disponível, instale-a ao lado da build que você tem: ela é outro app (`com.alvyntech.remoteharness`; as builds até a v0.19 são `tech.doctorx.clauderemote`), então começa vazia. Pareie de novo escaneando `remote-harness pair`; o pareamento antigo continua funcionando até você tocar em **Esquecer esta máquina** naquela build ou trocar o token. O push se registra sozinho na primeira abertura da nova build, e o computador descarta o registro antigo quando ele para de conectar. Depois apague o development build.
+Quando a build do TestFlight ou do Google Play estiver disponível, instale-a ao lado da build que você tem: ela é outro app (`com.alvyntech.remoteharness`; as builds até a v0.19 são `tech.doctorx.clauderemote`), então começa vazia. Pareie de novo escaneando `remote-harness pair`; o pareamento antigo continua funcionando até você tocar em **Esquecer esta máquina** naquela build. O push se registra sozinho na primeira abertura da nova build, e o computador descarta o registro antigo quando ele para de conectar. Depois apague o development build.
 
 ## O app está lento ou trava
 

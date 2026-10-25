@@ -4,13 +4,14 @@ description: Connection, Tailscale, push, sleep, read-only sessions, aliases, WS
 applies: 0.7+
 ---
 
-Start with `remote-harness doctor` on the computer: it checks the tools, Tailscale, the config, the profiles, the token store, the service, push and the registered phones, and prints the command that fixes each failed check.
+Start with `remote-harness doctor` on the computer: it checks the tools, Tailscale, the config, the profiles, the daemon identity, the service, push and the registered phones, and prints the command that fixes each failed check.
 
 ## The app cannot connect
 
 - Both devices must be on the same tailnet and Tailscale must be connected on both. Open the Tailscale app on the phone and check the computer appears.
 - The daemon must be running: `remote-harness service status`, or `remote-harness start` in a terminal to see the log.
-- A token rotated on the computer (`remote-harness rotate-token`) or a reinstall means pairing again: **Forget this machine** in Settings, then scan `remote-harness pair`.
+- A reinstall that removed the daemon's keys means pairing again: **Forget this machine** in Settings, then scan a new `remote-harness pair`. After the update that brought end-to-end encryption every phone pairs once more; the pairing screen says so.
+- "Already used or expired": a pairing code works once, for 5 minutes. Run `remote-harness pair` for a new one.
 - On a simulator or emulator without Tailscale, use `remote-harness start --dev` and `remote-harness pair --dev` (Android emulator: `adb reverse tcp:7337 tcp:7337`).
 
 ## The app says the computer isn't reachable
@@ -64,7 +65,7 @@ The launcher refuses to open a window when the profile has no key and prints the
 
 ## Moving from a development build to the store build
 
-When the TestFlight or Google Play build is available, install it next to the build you have: it is a separate app (`com.alvyntech.remoteharness`; builds up to v0.19 are `tech.doctorx.clauderemote`), so it starts empty. Pair it again by scanning `remote-harness pair`; the old pairing keeps working until you tap **Forget this machine** in that build or rotate the token. Push registers itself on the first launch of the new build, and the computer drops the old registration once it stops connecting. Then delete the development build.
+When the TestFlight or Google Play build is available, install it next to the build you have: it is a separate app (`com.alvyntech.remoteharness`; builds up to v0.19 are `tech.doctorx.clauderemote`), so it starts empty. Pair it again by scanning `remote-harness pair`; the old pairing keeps working until you tap **Forget this machine** in that build. Push registers itself on the first launch of the new build, and the computer drops the old registration once it stops connecting. Then delete the development build.
 
 ## The app is slow or freezes
 

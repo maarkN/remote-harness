@@ -63,11 +63,15 @@ The protocol SHALL define the client messages `auth`, `sessions.list`, `session.
 - **THEN** the daemon answers `session.started` with `paneId` and `sessionId: null`
 
 ### Requirement: Protocol version
-The `auth` handshake SHALL include `protocolVersion`; the daemon MUST reject versions with a different major with a `protocol_mismatch` error.
+The protocol version SHALL be 2. The connection preface carries the preface version and the device's `auth` (its first message in the encrypted channel, without any token) SHALL include `protocolVersion`; the daemon MUST close a connection whose preface version it does not speak with 4002, and answer an `auth` with a different major with a `protocol_mismatch` error and close the connection.
 
 #### Scenario: Incompatible version
-- **WHEN** the app sends `protocolVersion` 2 and the daemon speaks version 1
+- **WHEN** the app sends `protocolVersion` 3 and the daemon speaks version 2
 - **THEN** the daemon responds with `error` `protocol_mismatch` and closes the connection
+
+#### Scenario: Auth without token
+- **WHEN** a client sends `{"type":"auth","id":"1","protocolVersion":2}`
+- **THEN** the message is accepted by the parser
 
 ### Requirement: Image attachment messages
 `attachment.upload` SHALL carry `sessionId`, `mimeType` (`image/jpeg`, `image/png`, `image/webp` or `image/gif`) and non-empty base64 `data`, and is answered with `attachment.uploaded` carrying `attachmentId`. `session.input` SHALL accept optional `attachmentIds` (1 to 4 ids) and an empty `text`. The error codes SHALL include `unsupported_media`.

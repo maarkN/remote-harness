@@ -20,9 +20,9 @@ export interface SecretStore extends TokenStore {
 /** Keychain service / Secret Service attribute shared by every secret of ours (the launchers read it too). */
 export const SECRET_SERVICE = 'claude-remote'
 const SERVICE = SECRET_SERVICE
-const ACCOUNT = 'pairing-token'
+const ACCOUNT = 'daemon-identity'
 
-/** Stores a secret (the pairing token by default) in the macOS login Keychain via the `security` CLI. */
+/** Stores a secret (the daemon identity by default) in the macOS login Keychain via the `security` CLI. */
 export class KeychainTokenStore implements SecretStore {
   constructor(
     private readonly exec: Executor,
@@ -71,7 +71,7 @@ export class SecretToolTokenStore implements SecretStore {
   constructor(
     private readonly exec: Executor,
     private readonly account = ACCOUNT,
-    private readonly label = 'Remote Harness pairing token',
+    private readonly label = 'Remote Harness daemon identity',
   ) {}
 
   async get(): Promise<string | null> {
@@ -101,7 +101,7 @@ export class SecretToolTokenStore implements SecretStore {
 
 /** File-based store (0600): headless Linux without a Secret Service, tests and development. */
 export class FileTokenStore implements SecretStore {
-  constructor(private readonly path = paths.tokenFile()) {}
+  constructor(private readonly path = paths.identityFile()) {}
 
   async get(): Promise<string | null> {
     try {
@@ -121,18 +121,6 @@ export class FileTokenStore implements SecretStore {
   async delete(): Promise<void> {
     await rm(this.path, { force: true })
   }
-}
-
-export function generateToken(): string {
-  return randomBytes(32).toString('base64url')
-}
-
-export async function ensureToken(store: TokenStore): Promise<string> {
-  const existing = await store.get()
-  if (existing) return existing
-  const token = generateToken()
-  await store.set(token)
-  return token
 }
 
 /** Shared secret the hooks send in `X-Claude-Remote-Secret`; lives in a 0600 file. */
@@ -170,7 +158,7 @@ export type TokenStoreSelection = {
 export function createTokenStore(
   kind: TokenStoreKind,
   exec: Executor,
-  tokenFile = paths.tokenFile(),
+  tokenFile = paths.identityFile(),
 ): TokenStore {
   if (kind === 'keychain') return new KeychainTokenStore(exec)
   if (kind === 'secret-tool') return new SecretToolTokenStore(exec)
@@ -182,7 +170,7 @@ export function providerKeyAccount(profileId: string): string {
   return `provider-${profileId}`
 }
 
-/** A store for another secret of ours, in the same backend as the pairing token. */
+/** A store for another secret of ours, in the same backend as the daemon identity. */
 export function createSecretStore(
   kind: TokenStoreKind,
   exec: Executor,
@@ -217,7 +205,7 @@ async function readChoice(path: string): Promise<TokenStoreKind | null> {
 
 /**
  * Linux without a recorded choice: the Secret Service when `secret-tool` is installed and answers
- * (and the token is not already in the file), otherwise the `0600` file.
+ * (and the identity is not already in the file), otherwise the `0600` file.
  */
 async function probeLinux(exec: Executor, tokenFile: string): Promise<TokenStoreKind> {
   if ((await exec('which', ['secret-tool'])).exitCode !== 0) return 'file'
@@ -229,7 +217,7 @@ async function probeLinux(exec: Executor, tokenFile: string): Promise<TokenStore
 
 /** macOS: Keychain. Linux: the recorded choice, else probes `secret-tool` and records the result. */
 export async function selectTokenStore(o: TokenStoreSelection): Promise<SelectedTokenStore> {
-  const tokenFile = o.tokenFile ?? paths.tokenFile()
+  const tokenFile = o.tokenFile ?? paths.identityFile()
   const choiceFile = o.choiceFile ?? paths.tokenStoreChoice()
   let kind: TokenStoreKind
   if (isTokenStoreKind(o.forced)) kind = o.forced

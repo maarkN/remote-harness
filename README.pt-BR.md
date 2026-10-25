@@ -76,7 +76,7 @@ O **Codex CLI** funciona do mesmo jeito, pelos hooks de comando dele (`<CODEX_HO
 
 ## Segurança
 
-O daemon é, na prática, um shell remoto, então vem trancado: o WebSocket escuta **só na interface do Tailscale** (ou em `127.0.0.1` com `--dev` explícito) e toda conexão apresenta um token guardado no cofre de segredos do sistema; o endpoint dos hooks escuta só em `127.0.0.1` com um segredo local; o push não leva conteúdo da sessão; o `bypassPermissions` nunca é oferecido; e toda edição nos seus arquivos é mesclada, com backup, escrita atômica e desfeita pelo `remote-harness uninstall`. Os detalhes estão em [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/); para relatar uma vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
+O daemon é, na prática, um shell remoto, então vem trancado: o WebSocket escuta **só na interface do Tailscale** (ou em `127.0.0.1` com `--dev` explícito) e toda conexão é criptografada de ponta a ponta com o protocolo Noise, com chaves de cada celular pareado (códigos de pareamento de uso único) e do daemon (no cofre de segredos do sistema); o endpoint dos hooks escuta só em `127.0.0.1` com um segredo local; o push não leva conteúdo da sessão; o `bypassPermissions` nunca é oferecido; e toda edição nos seus arquivos é mesclada, com backup, escrita atômica e desfeita pelo `remote-harness uninstall`. Os detalhes estão em [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/); para relatar uma vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
 
 ## Início rápido
 
@@ -97,7 +97,7 @@ Depois instale o app e o Tailscale no celular, leia o QR e use o seu alias no lu
 | Notificações e silêncio | [Usando o app](https://remoteharness.app/pt-br/docs/using-the-app/#notificacoes-e-silencio) |
 | Comandos do CLI, o arquivo de configuração (`~/.remote-harness/config.json`), perfis do OpenRouter e do Codex | [O daemon](https://remoteharness.app/pt-br/docs/daemon/) |
 | Serviço em segundo plano, atualizações e canais, ícone na barra de menus / bandeja, logs | [O daemon](https://remoteharness.app/pt-br/docs/daemon/#servico-em-segundo-plano) |
-| O que sai da sua máquina, tokens, seus arquivos, relatórios de erro | [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/) · [Política de privacidade](https://remoteharness.app/pt-br/docs/privacy/) |
+| O que sai da sua máquina, chaves e pareamento, seus arquivos, relatórios de erro | [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/) · [Política de privacidade](https://remoteharness.app/pt-br/docs/privacy/) |
 | Serviço e lingering no Linux, WSL2 (systemd, tarefa de logon, Tailscale), suspensão, push, sessões somente leitura | [Solução de problemas](https://remoteharness.app/pt-br/docs/troubleshooting/) |
 | Desinstalar: `remote-harness service uninstall` e depois `remote-harness uninstall` | [O daemon](https://remoteharness.app/pt-br/docs/daemon/#comandos) |
 

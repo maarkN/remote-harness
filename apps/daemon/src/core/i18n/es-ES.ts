@@ -16,15 +16,14 @@ export const esES = {
         'espera a la interfaz de Tailscale en lugar de fallar (lo usa el servicio en segundo plano)',
     },
     pair: {
-      description: 'muestra el código QR de emparejamiento (dirección + token)',
-      dev: 'usa 127.0.0.1',
-      host: 'dirección que se anuncia en el QR',
-      tailscaleNotFound:
-        'No se encontró Tailscale (ninguna interfaz 100.x). Instala y conecta Tailscale, o usa --dev para 127.0.0.1.',
+      description: 'muestra un código QR de emparejamiento de un solo uso (lo pide al daemon en ejecución)',
+      notRunning:
+        'El daemon no está en ejecución. Inícialo (`remote-harness service install` o `remote-harness start`) y vuelve a ejecutar `remote-harness pair`.',
       simulatorHint: (port: number) =>
-        'Para probar en local (por ejemplo, en el simulador de iOS): `remote-harness start --dev` y `remote-harness pair --dev`' +
+        'Para probar en local (por ejemplo, en el simulador de iOS): `remote-harness start --dev`, luego `remote-harness pair` y pega el enlace en la app' +
         ` (emulador de Android: también \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Escanéalo con la app Remote Harness. No compartas este código.',
+      singleUse: (minutes: number) => `Empareja un móvil y caduca en ${minutes} minutos.`,
     },
     setup: {
       description: 'asistente: elige cuentas y alias, instala los hooks y el servicio, y empareja el móvil',
@@ -34,12 +33,6 @@ export const esES = {
       invalidLang: (value: string, codes: string) => `Idioma desconocido "${value}". Usa uno de: ${codes}.`,
       interrupted:
         'Instalación interrumpida. Lo que ya se mostró con ✓ quedó hecho; ejecuta `remote-harness setup` de nuevo cuando quieras.',
-    },
-    rotateToken: {
-      description: 'genera un token nuevo y cierra las conexiones existentes',
-      rotated: 'Token cambiado; conexiones cerradas.',
-      rotatedOffline: 'Token cambiado (el daemon no está en ejecución).',
-      pairAgain: 'Ejecuta `remote-harness pair` para volver a emparejar.',
     },
     provider: {
       description: 'proveedores de modelos de los perfiles (clave de OpenRouter)',
@@ -87,13 +80,12 @@ export const esES = {
       dirMissing: 'el directorio no existe',
       daemonRunning: 'daemon en ejecución',
       runStart: 'ejecuta `remote-harness start`',
-      token: (store: string) => `token ${store}`,
+      identity: (store: string) => `identidad del daemon ${store}`,
       tokenStores: {
         keychain: 'en el Llavero de macOS',
         secretTool: 'en el Secret Service (secret-tool)',
         file: (path: string) => `en el archivo ${path} (0600)`,
       },
-      runPair: 'ejecuta `remote-harness pair`',
       providerKey: (id: string, provider: string) => `clave de ${provider} del perfil ${id}`,
       runProviderKey: (id: string) => `ejecuta \`remote-harness provider key ${id}\``,
       codexHooks: (id: string, path: string) => `hooks de Codex del perfil ${id} (${path})`,
@@ -113,7 +105,7 @@ export const esES = {
       accessibilityHint:
         'permite "Remote Harness" en Ajustes del Sistema → Privacidad y seguridad → Automatización',
       keychain: 'Acceso al llavero',
-      keychainHint: 'el almacén de tokens no pudo volver a leer el token que acaba de escribir',
+      keychainHint: 'el almacén de secretos no pudo volver a leer la identidad del daemon',
       linger: 'lingering (el servicio sigue en marcha tras cerrar sesión)',
       lingerHint: 'ejecuta `loginctl enable-linger $USER`',
       keepAwake: (mode: string, state: string) => `mantener despierto: ${mode} (${state})`,
@@ -593,8 +585,7 @@ export const esES = {
       prefs: 'Preferencias…',
       pairMenu: 'Emparejar un móvil',
       pairInTerminal: 'Mostrar el emparejamiento en la terminal',
-      rotateToken: 'Cambiar el token…',
-      rotateConfirm: 'Cambiar y desconectar los móviles emparejados',
+      pairNote: 'Un solo uso · caduca en 5 minutos',
       prefsMenu: 'Preferencias',
       prefPermissions: 'Mostrar aquí las solicitudes de permiso',
       keepAwake: 'Mantener el ordenador despierto',

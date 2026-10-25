@@ -18,15 +18,14 @@ export const enUS = {
       waitTailscale: 'wait for the Tailscale interface instead of failing (used by the background service)',
     },
     pair: {
-      description: 'show the pairing QR code (address + token)',
-      dev: 'use 127.0.0.1',
-      host: 'address to announce in the QR code',
-      tailscaleNotFound:
-        'Tailscale not found (no 100.x interface). Install and connect Tailscale, or use --dev for 127.0.0.1.',
+      description: 'show a single-use pairing QR code (asks the running daemon)',
+      notRunning:
+        'The daemon is not running. Start it (`remote-harness service install` or `remote-harness start`) and run `remote-harness pair` again.',
       simulatorHint: (port: number) =>
-        'To test locally (e.g. in the iOS simulator): `remote-harness start --dev` and `remote-harness pair --dev`' +
+        'To test locally (e.g. in the iOS simulator): `remote-harness start --dev`, then `remote-harness pair` and paste the link in the app' +
         ` (Android emulator: also \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Scan it with the Remote Harness app. Do not share this code.',
+      singleUse: (minutes: number) => `It pairs one phone and expires in ${minutes} minutes.`,
     },
     setup: {
       description: 'wizard: choose accounts and aliases, install hooks and the service, pair the phone',
@@ -36,12 +35,6 @@ export const enUS = {
       invalidLang: (value: string, codes: string) => `Unknown language "${value}". Use one of: ${codes}.`,
       interrupted:
         'Setup interrupted. Everything shown with ✓ is done; run `remote-harness setup` again whenever you like.',
-    },
-    rotateToken: {
-      description: 'generate a new token and drop existing connections',
-      rotated: 'Token rotated; connections closed.',
-      rotatedOffline: 'Token rotated (the daemon is not running).',
-      pairAgain: 'Run `remote-harness pair` to pair again.',
     },
     provider: {
       description: 'model providers of the profiles (OpenRouter key)',
@@ -86,13 +79,12 @@ export const enUS = {
       dirMissing: 'directory does not exist',
       daemonRunning: 'daemon running',
       runStart: 'run `remote-harness start`',
-      token: (store: string) => `token ${store}`,
+      identity: (store: string) => `daemon identity ${store}`,
       tokenStores: {
         keychain: 'in the macOS Keychain',
         secretTool: 'in the Secret Service (secret-tool)',
         file: (path: string) => `in the file ${path} (0600)`,
       },
-      runPair: 'run `remote-harness pair`',
       providerKey: (id: string, provider: string) => `${provider} key for profile ${id}`,
       runProviderKey: (id: string) => `run \`remote-harness provider key ${id}\``,
       codexHooks: (id: string, path: string) => `Codex hooks for profile ${id} (${path})`,
@@ -111,7 +103,7 @@ export const enUS = {
       accessibility: 'Accessibility / Automation',
       accessibilityHint: 'allow "Remote Harness" under System Settings → Privacy & Security → Automation',
       keychain: 'Keychain access',
-      keychainHint: 'the token store could not read back the pairing token it just wrote',
+      keychainHint: 'the secret store could not read back the daemon identity',
       linger: 'lingering (the service keeps running after logout)',
       lingerHint: 'run `loginctl enable-linger $USER`',
       keepAwake: (mode: string, state: string) => `keep awake: ${mode} (${state})`,
@@ -589,8 +581,7 @@ export const enUS = {
       prefs: 'Preferences…',
       pairMenu: 'Pair a phone',
       pairInTerminal: 'Show the pairing in the terminal',
-      rotateToken: 'Rotate token…',
-      rotateConfirm: 'Rotate and sign out the paired phones',
+      pairNote: 'Single use · expires in 5 minutes',
       prefsMenu: 'Preferences',
       prefPermissions: 'Show permission requests here',
       keepAwake: 'Keep the computer awake',

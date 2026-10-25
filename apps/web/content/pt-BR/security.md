@@ -1,6 +1,6 @@
 ---
 title: Segurança e privacidade
-description: O que o daemon pode fazer, o que sai da sua máquina, tokens e chaves, e como relatar um problema.
+description: O que o daemon pode fazer, o que sai da sua máquina, chaves e pareamento, e como relatar um problema.
 applies: 0.7+
 ---
 
@@ -14,9 +14,10 @@ O daemon pode digitar nas suas sessões do Claude Code e aprovar chamadas de fer
 - Os hooks do Claude Code chegam ao daemon só por `127.0.0.1`, com um segredo local compartilhado.
 - Expor o daemon fora do Tailscale com `--host` está fora do escopo e não tem suporte.
 
-## Tokens e chaves
+## Chaves e pareamento
 
-- Toda conexão apresenta um token de pareamento guardado no Keychain do macOS, no Secret Service do Linux (`secret-tool`) ou num arquivo `0600`, e no armazenamento seguro do celular. `remote-harness rotate-token` o invalida e derruba todos os clientes.
+- Toda conexão é uma sessão do protocolo Noise (X25519, ChaCha20-Poly1305) criptografada de ponta a ponta entre o celular e o daemon. As chaves do daemon ficam no Keychain do macOS, no Secret Service do Linux (`secret-tool`) ou num arquivo `0600`; cada celular cria o seu par de chaves ao parear e o guarda no armazenamento seguro, só naquele aparelho.
+- Um código de pareamento (`remote-harness pair`, a instalação ou a bandeja) funciona uma vez e só por 5 minutos. O daemon guarda as chaves públicas dos celulares pareados (no máximo 10) e derruba qualquer conexão cuja chave não conhece, antes de enviar qualquer coisa.
 - Chaves de provedor (OpenRouter) ficam no mesmo cofre, numa conta própria. Nunca são gravadas em `config.json`, `settings.json`, arquivos do shell ou atalhos, nunca vão para o log e nunca são enviadas ao celular: o atalho lê a chave dentro da janela do tmux, e o daemon só a usa para pedir ao provedor os seus créditos.
 
 ## O que sai da sua máquina

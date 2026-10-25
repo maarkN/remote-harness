@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { pairingAddress, pairingUrl } from '../src/core/pairing.ts'
+import { pairingAddress } from '../src/core/pairing.ts'
 import { stopService, stopServiceCommand } from '../src/features/service/stop.ts'
 import { fakeExecutor } from './helpers.ts'
 
@@ -17,10 +17,7 @@ test('stopping the service keeps it installed: bootout on macOS, stop on Linux',
   await expect(stopService(exec, 'linux')).rejects.toThrow('no such job')
 })
 
-test('the pairing link and address', () => {
-  expect(pairingUrl('100.64.0.2', 7337, 'a b')).toBe(
-    'claude-remote://pair?host=100.64.0.2&port=7337&token=a+b',
-  )
+test('the pairing address', () => {
   expect(pairingAddress('100.64.0.2', 7337)).toBe('100.64.0.2:7337')
   expect(pairingAddress('fd7a:115c::1', 7337)).toBe('[fd7a:115c::1]:7337')
 })

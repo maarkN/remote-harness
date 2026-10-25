@@ -36,7 +36,7 @@ export function classifyAccessibility(platform: Platform, exitCode: number): Per
   return exitCode === 0 ? 'allowed' : 'denied'
 }
 
-/** `worked` is a live read/write probe of the token store currently selected for this platform. */
+/** `worked` is a live read of the secret store (the daemon identity) currently selected for this platform. */
 export function classifyKeychain(kind: TokenStoreKind, worked: boolean): PermissionStatus {
   if (kind === 'file') return 'not_available'
   return worked ? 'allowed' : 'denied'

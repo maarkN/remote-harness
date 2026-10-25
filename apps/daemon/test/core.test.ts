@@ -3,10 +3,17 @@ import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { ConfigError, loadConfig, profilesWithResolvableAgent, resolveProfiles } from '../src/core/config.ts'
 import { EventBus } from '../src/core/event-bus.ts'
+import {
+  daemonIdOf,
+  decodeIdentity,
+  encodeIdentity,
+  ensureIdentity,
+  generateIdentity,
+  signRelayChallenge,
+} from '../src/core/identity.ts'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import {
-  ensureToken,
   FileTokenStore,
   KeychainTokenStore,
   SecretToolTokenStore,
@@ -88,6 +95,36 @@ describe('profilesWithResolvableAgent', () => {
   })
 })
 
+describe('daemon identity', () => {
+  test('round trips and checks that the public keys match the private ones', () => {
+    const identity = generateIdentity()
+    expect(decodeIdentity(encodeIdentity(identity))).toEqual(identity)
+    const tampered = encodeIdentity({
+      ...identity,
+      noise: { ...identity.noise, publicKey: generateIdentity().noise.publicKey },
+    })
+    expect(decodeIdentity(tampered)).toBeNull()
+    expect(decodeIdentity('short')).toBeNull()
+  })
+
+  test('the daemon ID is computed like the connection relay does', () => {
+    // apps/relay: SHA-256 of 32 zero bytes starts with 66687aadf862bd776c8fc18b8e9f8e20.
+    expect(daemonIdOf(new Uint8Array(32))).toBe('66687aadf862bd776c8fc18b8e9f8e20')
+    const identity = generateIdentity()
+    expect(identity.daemonId).toMatch(/^[0-9a-f]{32}$/)
+  })
+
+  test('relay challenges are signed with the Ed25519 relay key', async () => {
+    const { createPublicKey, verify } = await import('node:crypto')
+    const identity = generateIdentity()
+    const message = new TextEncoder().encode('remote-harness relay v1\0challenge')
+    const signature = signRelayChallenge(identity, message)
+    const spki = Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), identity.relay.publicKey])
+    const key = createPublicKey({ key: spki, format: 'der', type: 'spki' })
+    expect(verify(null, message, key, signature)).toBe(true)
+  })
+})
+
 describe('token stores', () => {
   test('keychain store writes through security -i stdin, never in the arguments', async () => {
     let stored: string | null = null
@@ -97,12 +134,12 @@ describe('token stores', () => {
         return stored ? { stdout: `${stored}\n` } : { exitCode: 44, stdout: '' }
       return undefined
     })
-    const token = await ensureToken(new KeychainTokenStore(exec))
-    expect(token.length).toBeGreaterThan(30)
+    const token = encodeIdentity(await ensureIdentity(new KeychainTokenStore(exec)))
+    expect(token.length).toBe(171)
     expect(exec.calls.map((c) => c.args[0])).toEqual(['find-generic-password', '-i', 'find-generic-password'])
     expect(exec.calls.flatMap((c) => c.args)).not.toContain(token)
     expect(exec.calls[1]?.options?.input).toContain(
-      'add-generic-password -U -s claude-remote -a pairing-token',
+      'add-generic-password -U -s claude-remote -a daemon-identity',
     )
   })
 
@@ -113,26 +150,31 @@ describe('token stores', () => {
     await expect(new KeychainTokenStore(exec).set('abc')).rejects.toThrow(/keychain write failed/)
   })
 
-  test('keeps an existing token', async () => {
-    const exec = fakeExecutor(() => ({ stdout: 'abc\n' }))
-    expect(await ensureToken(new KeychainTokenStore(exec))).toBe('abc')
+  test('keeps an existing identity, and refuses a corrupt one instead of replacing it', async () => {
+    const stored = encodeIdentity(generateIdentity())
+    const exec = fakeExecutor(() => ({ stdout: `${stored}\n` }))
+    expect((await ensureIdentity(new KeychainTokenStore(exec))).daemonId).toBe(
+      decodeIdentity(stored)?.daemonId,
+    )
+    const corrupt = fakeExecutor(() => ({ stdout: 'abc\n' }))
+    await expect(ensureIdentity(new KeychainTokenStore(corrupt))).rejects.toThrow(/corrupt/)
   })
 
   test('file store persists with restricted permissions', async () => {
     const store = new FileTokenStore()
-    const token = await ensureToken(store)
+    const token = encodeIdentity(await ensureIdentity(store))
     expect(await new FileTokenStore().get()).toBe(token)
-    expect((await stat(paths.tokenFile())).mode & 0o777).toBe(0o600)
+    expect((await stat(paths.identityFile())).mode & 0o777).toBe(0o600)
   })
 })
 
 describe('secret-tool token store', () => {
   test('stores the token on stdin, never in the arguments', async () => {
     const exec = fakeExecutor((c) => (c.args[0] === 'lookup' ? { exitCode: 1 } : undefined))
-    const token = await ensureToken(new SecretToolTokenStore(exec))
+    const token = encodeIdentity(await ensureIdentity(new SecretToolTokenStore(exec)))
     expect(exec.calls.map((c) => [c.file, ...c.args].join(' '))).toEqual([
-      'secret-tool lookup service claude-remote account pairing-token',
-      'secret-tool store --label=Remote Harness pairing token service claude-remote account pairing-token',
+      'secret-tool lookup service claude-remote account daemon-identity',
+      'secret-tool store --label=Remote Harness daemon identity service claude-remote account daemon-identity',
     ])
     expect(exec.calls[1]?.options?.input).toBe(token)
     for (const call of exec.calls) expect(call.args).not.toContain(token)

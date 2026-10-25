@@ -72,11 +72,11 @@ Compilar desde el código con tu propia cuenta de desarrollador de Apple no tien
 
 ## Emparejar el móvil
 
-La instalación termina con un código QR; `remote-harness pair` lo vuelve a mostrar cuando quieras. Abre la app, escanéalo y listo: la app guarda el token en el almacenamiento seguro del móvil y se conecta por Tailscale.
+La instalación termina con un código QR; `remote-harness pair` pide uno nuevo al daemon en ejecución cuando quieras. Cada código empareja un móvil y caduca a los 5 minutos. Abre la app, escanéalo y listo: el móvil crea su propio par de claves, lo guarda en el almacenamiento seguro y se conecta por Tailscale, con todo cifrado de extremo a extremo.
 
 ¿Instalaste primero la app? Su pantalla de emparejamiento tiene una guía paso a paso para el lado del ordenador, con el comando de instalación para compartir.
 
-Probando en un simulador sin Tailscale: `remote-harness start --dev` ata el daemon a `127.0.0.1` y `remote-harness pair --dev` imprime un código compatible. En el emulador de Android ejecuta también `adb reverse tcp:7337 tcp:7337`.
+Probando en un simulador sin Tailscale: `remote-harness start --dev` ata el daemon a `127.0.0.1` y `remote-harness pair` imprime un código con esa dirección: pega el enlace en la pestaña **Pegar enlace** de la app. En el emulador de Android ejecuta también `adb reverse tcp:7337 tcp:7337`.
 
 ## Primera sesión
 

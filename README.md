@@ -80,7 +80,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 ```
 ┌──────────────┐  WebSocket over Tailscale   ┌─────────────────────────────────┐
 │  phone app   │ ◄─────────────────────────► │ remote-harness daemon (computer)│
-│ iOS / Android│       token-authenticated   │  ├─ tmux: send-keys / capture   │
+│ iOS / Android│   Noise, end to end (E2E)   │  ├─ tmux: send-keys / capture   │
 └──────▲───────┘                             │  ├─ tails transcript .jsonl     │
        │ push (FCM, no content)              │  └─ HTTP hooks on 127.0.0.1     │
        └─────────────────────────────────────┤                                 │
@@ -104,7 +104,7 @@ Sessions started with plain `claude` (outside tmux) still show up — read-only 
 
 ## Security model
 
-The daemon is effectively a remote shell, so it is locked down by default: the WebSocket listens **only on the Tailscale interface** (or `127.0.0.1` with an explicit `--dev`) and every connection presents a token kept in the OS secret store; the hooks endpoint listens only on `127.0.0.1` with a local secret; push carries no session content; `bypassPermissions` is never offered; and every edit to your files is merged, backed up, written atomically and reverted by `remote-harness uninstall`. The details are in [Security & privacy](https://remoteharness.app/docs/security/); report a vulnerability through [SECURITY.md](SECURITY.md).
+The daemon is effectively a remote shell, so it is locked down by default: the WebSocket listens **only on the Tailscale interface** (or `127.0.0.1` with an explicit `--dev`) and every connection is encrypted end to end with the Noise protocol, with keys of each paired phone (single-use pairing codes) and of the daemon (in the OS secret store); the hooks endpoint listens only on `127.0.0.1` with a local secret; push carries no session content; `bypassPermissions` is never offered; and every edit to your files is merged, backed up, written atomically and reverted by `remote-harness uninstall`. The details are in [Security & privacy](https://remoteharness.app/docs/security/); report a vulnerability through [SECURITY.md](SECURITY.md).
 
 ## Getting started
 
@@ -125,7 +125,7 @@ Then install the app and Tailscale on the phone, scan the code, and run your ali
 | Notifications and mute | [Using the app](https://remoteharness.app/docs/using-the-app/#notifications-and-mute) |
 | CLI commands, the config file (`~/.remote-harness/config.json`), OpenRouter and Codex profiles | [The daemon](https://remoteharness.app/docs/daemon/) |
 | Background service, updates and channels, menu bar / tray icon, logs | [The daemon](https://remoteharness.app/docs/daemon/#background-service) |
-| What leaves your machine, tokens, your files, error reports | [Security & privacy](https://remoteharness.app/docs/security/) · [Privacy policy](https://remoteharness.app/docs/privacy/) |
+| What leaves your machine, keys and pairing, your files, error reports | [Security & privacy](https://remoteharness.app/docs/security/) · [Privacy policy](https://remoteharness.app/docs/privacy/) |
 | Linux service and lingering, WSL2 (systemd, logon task, Tailscale), sleep, push, read-only sessions | [Troubleshooting](https://remoteharness.app/docs/troubleshooting/) |
 | Uninstall: `remote-harness service uninstall`, then `remote-harness uninstall` | [The daemon](https://remoteharness.app/docs/daemon/#commands) |
 

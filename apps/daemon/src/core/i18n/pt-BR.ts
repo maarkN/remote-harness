@@ -16,15 +16,14 @@ export const ptBR = {
         'aguarda a interface do Tailscale em vez de falhar (usado pelo serviço em segundo plano)',
     },
     pair: {
-      description: 'mostra o QR code de pareamento (endereço + token)',
-      dev: 'usa 127.0.0.1',
-      host: 'endereço a anunciar no QR',
-      tailscaleNotFound:
-        'Tailscale não encontrado (nenhuma interface 100.x). Instale e conecte o Tailscale, ou use --dev para 127.0.0.1.',
+      description: 'mostra um QR code de pareamento de uso único (pedido ao daemon em execução)',
+      notRunning:
+        'O daemon não está rodando. Inicie-o (`remote-harness service install` ou `remote-harness start`) e rode `remote-harness pair` de novo.',
       simulatorHint: (port: number) =>
-        'Para testar localmente (por exemplo, no simulador do iOS): `remote-harness start --dev` e `remote-harness pair --dev`' +
+        'Para testar localmente (por exemplo, no simulador do iOS): `remote-harness start --dev`, depois `remote-harness pair` e cole o link no app' +
         ` (emulador Android: também \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Escaneie com o app Remote Harness. Não compartilhe este código.',
+      singleUse: (minutes: number) => `Ele pareia um celular e expira em ${minutes} minutos.`,
     },
     setup: {
       description: 'assistente: escolhe contas e aliases, instala hooks, serviço e pareia o celular',
@@ -34,12 +33,6 @@ export const ptBR = {
       invalidLang: (value: string, codes: string) => `Idioma desconhecido "${value}". Use um de: ${codes}.`,
       interrupted:
         'Instalação interrompida. O que já foi mostrado como ✓ ficou feito; rode `remote-harness setup` de novo quando quiser.',
-    },
-    rotateToken: {
-      description: 'gera um novo token e derruba as conexões existentes',
-      rotated: 'Token trocado; conexões encerradas.',
-      rotatedOffline: 'Token trocado (daemon não está rodando).',
-      pairAgain: 'Rode `remote-harness pair` para parear de novo.',
     },
     provider: {
       description: 'provedores de modelo dos perfis (chave do OpenRouter)',
@@ -86,13 +79,12 @@ export const ptBR = {
       dirMissing: 'diretório não existe',
       daemonRunning: 'daemon rodando',
       runStart: 'rode `remote-harness start`',
-      token: (store: string) => `token ${store}`,
+      identity: (store: string) => `identidade do daemon ${store}`,
       tokenStores: {
         keychain: 'no Keychain do macOS',
         secretTool: 'no Secret Service (secret-tool)',
         file: (path: string) => `no arquivo ${path} (0600)`,
       },
-      runPair: 'rode `remote-harness pair`',
       providerKey: (id: string, provider: string) => `chave do ${provider} do perfil ${id}`,
       runProviderKey: (id: string) => `rode \`remote-harness provider key ${id}\``,
       codexHooks: (id: string, path: string) => `hooks do Codex do perfil ${id} (${path})`,
@@ -112,7 +104,7 @@ export const ptBR = {
       accessibilityHint:
         'permita "Remote Harness" em Ajustes do Sistema → Privacidade e Segurança → Automação',
       keychain: 'Acesso ao Keychain',
-      keychainHint: 'o armazenamento de token não conseguiu ler de volta o token que acabou de gravar',
+      keychainHint: 'o armazenamento de segredos não conseguiu ler de volta a identidade do daemon',
       linger: 'lingering (o serviço continua rodando após o logout)',
       lingerHint: 'rode `loginctl enable-linger $USER`',
       keepAwake: (mode: string, state: string) => `manter acordado: ${mode} (${state})`,
@@ -593,8 +585,7 @@ export const ptBR = {
       prefs: 'Preferências…',
       pairMenu: 'Parear um celular',
       pairInTerminal: 'Mostrar o pareamento no terminal',
-      rotateToken: 'Trocar o token…',
-      rotateConfirm: 'Trocar e desconectar os celulares pareados',
+      pairNote: 'Uso único · expira em 5 minutos',
       prefsMenu: 'Preferências',
       prefPermissions: 'Mostrar pedidos de permissão aqui',
       keepAwake: 'Manter o computador acordado',

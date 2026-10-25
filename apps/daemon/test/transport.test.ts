@@ -1,12 +1,21 @@
-import { PROTOCOL_VERSION, type ServerMessage } from '@remote-harness/protocol'
+import { readFile } from 'node:fs/promises'
+import {
+  CHANNEL_CLOSE,
+  DeviceHandshake,
+  PROTOCOL_VERSION,
+  parsePairingCode,
+  type ServerMessage,
+} from '@remote-harness/protocol'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import WebSocket from 'ws'
+import { noiseCrypto } from '../src/core/identity.ts'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import { FileTokenStore } from '../src/core/secrets.ts'
 import { type RunningDaemon, startDaemon } from '../src/main.ts'
 import { SECRET_HEADER } from '../src/transport/hooks-server.ts'
 import { fakeExecutor, useTempHome, writeTestConfig } from './helpers.ts'
+import { authedClient, noiseConnect, pairConnect, reconnectConnect } from './noise-client.ts'
 
 const home = useTempHome()
 let daemon: RunningDaemon | undefined
@@ -16,118 +25,227 @@ afterEach(async () => {
   daemon = undefined
 })
 
-async function boot(): Promise<{ daemon: RunningDaemon; token: string }> {
+async function boot(): Promise<{ daemon: RunningDaemon }> {
   await writeTestConfig(home.dir())
-  const store = new FileTokenStore()
-  await store.set('secret-token')
   daemon = await startDaemon({
     logger: silentLogger,
     exec: fakeExecutor(),
-    tokenStore: store,
+    secretStore: new FileTokenStore(),
     dev: true,
     wsPort: 0,
     hookPort: 0,
   })
-  return { daemon, token: 'secret-token' }
+  return { daemon }
 }
 
-type Client = { ws: WebSocket; next: () => Promise<ServerMessage>; closed: Promise<number> }
+const auth = { type: 'auth', id: 'a1', protocolVersion: PROTOCOL_VERSION } as const
 
-async function connect(port: number): Promise<Client> {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`)
-  const queue: ServerMessage[] = []
-  const waiters: Array<(m: ServerMessage) => void> = []
-  ws.on('message', (data) => {
-    const msg = JSON.parse(data.toString()) as ServerMessage
-    const waiter = waiters.shift()
-    if (waiter) waiter(msg)
-    else queue.push(msg)
-  })
-  const closed = new Promise<number>((resolve) => ws.on('close', (code) => resolve(code)))
-  await new Promise<void>((resolve, reject) => {
-    ws.once('open', () => resolve())
-    ws.once('error', reject)
-  })
-  return {
-    ws,
-    closed,
-    next: () => {
-      const queued = queue.shift()
-      return queued ? Promise.resolve(queued) : new Promise((resolve) => waiters.push(resolve))
-    },
-  }
-}
-
-describe('websocket handshake', () => {
-  test('accepts the right token and answers auth.ok', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
-    const reply = await client.next()
-    expect(reply).toMatchObject({ type: 'auth.ok', replyTo: 'a1', protocolVersion: PROTOCOL_VERSION })
-    client.ws.send(JSON.stringify({ type: 'ping', id: 'p1' }))
-    expect(await client.next()).toEqual({ type: 'pong', replyTo: 'p1' })
-    client.ws.close()
-  })
-
-  test('rejects a wrong token and closes', async () => {
+describe('noise channel', () => {
+  test('pairs with a fresh code, answers auth.ok and then requests', async () => {
     const { daemon } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(
-      JSON.stringify({ type: 'auth', id: 'a1', token: 'nope', protocolVersion: PROTOCOL_VERSION }),
+    const client = pairConnect(daemon, { info: { name: 'Pixel', platform: 'android' } })
+    await client.ready
+    client.send(auth)
+    expect(await client.next()).toMatchObject({
+      type: 'auth.ok',
+      replyTo: 'a1',
+      protocolVersion: PROTOCOL_VERSION,
+    })
+    client.send({ type: 'ping', id: 'p1' })
+    expect(await client.next()).toEqual({ type: 'pong', replyTo: 'p1' })
+    expect(daemon.pairing.devices.devices()).toMatchObject([{ name: 'Pixel', platform: 'android' }])
+    client.close()
+  })
+
+  test('a paired device reconnects with IK, also after a restart', async () => {
+    const { daemon: first } = await boot()
+    const paired = await authedClient(first)
+    paired.close()
+    const again = reconnectConnect(first, paired.deviceKey)
+    await again.ready
+    again.send(auth)
+    expect(await again.next()).toMatchObject({ type: 'auth.ok' })
+    again.close()
+    const key = first.identity.noise.publicKey
+    await first.stop()
+    daemon = undefined
+    const { daemon: second } = await boot()
+    expect(second.identity.noise.publicKey).toEqual(key)
+    const afterRestart = reconnectConnect(second, paired.deviceKey)
+    await afterRestart.ready
+    afterRestart.send(auth)
+    expect(await afterRestart.next()).toMatchObject({ type: 'auth.ok' })
+    afterRestart.close()
+  })
+
+  test('an unknown device key is dropped with 4001 before any message', async () => {
+    const { daemon } = await boot()
+    const client = reconnectConnect(daemon, noiseCrypto.generateKeyPair())
+    expect(await client.closed).toBe(CHANNEL_CLOSE.unauthorized)
+  })
+
+  test('a pairing code works once', async () => {
+    const { daemon } = await boot()
+    const url = daemon.pairing.create()?.url
+    const first = pairConnect(daemon, { url })
+    await first.ready
+    first.send(auth)
+    await first.until('auth.ok')
+    const second = pairConnect(daemon, { url })
+    expect(await second.closed).toBe(CHANNEL_CLOSE.pairingRefused)
+    first.close()
+  })
+
+  test('a code nobody issued is refused', async () => {
+    const { daemon } = await boot()
+    const url = daemon.pairing.create()?.url as string
+    const forged = url.replace(
+      /s=[^&]+/,
+      `s=${Buffer.from(noiseCrypto.randomBytes(32)).toString('base64url')}`,
     )
-    expect(await client.next()).toMatchObject({ type: 'error', code: 'unauthorized' })
-    expect(await client.closed).toBe(4001)
+    expect(await pairConnect(daemon, { url: forged }).closed).toBe(CHANNEL_CLOSE.pairingRefused)
+  })
+
+  test('the device refuses a daemon with another static key', async () => {
+    const { daemon } = await boot()
+    const parsed = parsePairingCode(daemon.pairing.create()?.url as string)
+    if (!parsed.ok) throw new Error('bad code')
+    const deviceKey = noiseCrypto.generateKeyPair()
+    const handshake = DeviceHandshake.pair(noiseCrypto, {
+      deviceKey,
+      daemonKey: noiseCrypto.generateKeyPair().publicKey,
+      secret: parsed.code.secret,
+      info: { name: '', platform: '' },
+    })
+    const errors: unknown[] = []
+    const client = noiseConnect(daemon.wsPort, handshake, deviceKey)
+    client.ws.on('error', (e) => errors.push(e))
+    await expect(
+      new Promise((_, reject) => {
+        client.ws.removeAllListeners('message')
+        client.ws.on('message', (data: Buffer) => {
+          try {
+            handshake.receive(new Uint8Array(data))
+          } catch (error) {
+            reject(error)
+          }
+        })
+      }),
+    ).rejects.toThrow('unexpected daemon key')
+    client.close()
+  })
+
+  test('a tampered frame closes the connection', async () => {
+    const { daemon } = await boot()
+    const client = await authedClient(daemon)
+    const garbage = noiseCrypto.randomBytes(64)
+    client.ws.send(garbage)
+    expect(await client.closed).toBe(CHANNEL_CLOSE.unauthorized)
+  })
+
+  test('an app speaking protocol 1 (JSON text) is told the protocol changed', async () => {
+    const { daemon } = await boot()
+    const ws = new WebSocket(`ws://127.0.0.1:${daemon.wsPort}`)
+    const replies: string[] = []
+    ws.on('message', (d) => replies.push(d.toString()))
+    await new Promise((r) => ws.once('open', r))
+    ws.send(JSON.stringify({ type: 'auth', id: '1', token: 'old', protocolVersion: 1 }))
+    const code = await new Promise<number>((r) => ws.on('close', (c) => r(c)))
+    expect(code).toBe(CHANNEL_CLOSE.protocolMismatch)
+    expect(replies).toEqual([])
+  })
+
+  test('a connection that never finishes the handshake is closed', async () => {
+    await writeTestConfig(home.dir())
+    const { startWsServer } = await import('../src/transport/ws-server.ts')
+    const { ClientHub } = await import('../src/transport/connection.ts')
+    const { MessageRouter } = await import('../src/transport/router.ts')
+    const wss = await startWsServer({
+      host: '127.0.0.1',
+      port: 0,
+      staticKey: noiseCrypto.generateKeyPair(),
+      hooks: { pairingSecret: () => null, isPaired: () => false, paired: async () => ({ ok: true }) },
+      router: new MessageRouter(silentLogger),
+      hub: new ClientHub(),
+      logger: silentLogger,
+      hello: () => ({}) as never,
+      authTimeoutMs: 100,
+    })
+    const address = wss.address()
+    const ws = new WebSocket(`ws://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`)
+    const code = await new Promise<number>((r) => ws.on('close', (c) => r(c)))
+    expect(code).toBe(CHANNEL_CLOSE.handshakeTimeout)
+    await new Promise<void>((r) => wss.close(() => r()))
+  })
+
+  test('nothing but auth is accepted first, and nothing is sent before it', async () => {
+    const { daemon } = await boot()
+    const client = pairConnect(daemon)
+    await client.ready
+    client.send({ type: 'sessions.list', id: 's1' })
+    expect(await client.closed).toBe(CHANNEL_CLOSE.unauthorized)
   })
 
   test('logs and records a malformed message after auth, instead of swallowing it', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
-    await client.next()
+    const { daemon } = await boot()
+    const client = await authedClient(daemon)
     const warn = vi.spyOn(silentLogger, 'warn')
-    client.ws.send(JSON.stringify({ type: 'session.input', id: 'm1' })) // missing required `sessionId`
+    client.send({ type: 'session.input', id: 'm1' } as never) // missing required `sessionId`
     expect(await client.next()).toMatchObject({ type: 'error', replyTo: 'm1', code: 'bad_request' })
     expect(warn).toHaveBeenCalledWith({ type: 'session.input', code: 'bad_request' }, 'request rejected')
-    client.ws.send(JSON.stringify({ type: 'diagnostics.errors', id: 'd1' }))
+    client.send({ type: 'diagnostics.errors', id: 'd1' })
     expect(await client.next()).toMatchObject({
       type: 'diagnostics.result',
       replyTo: 'd1',
       errors: [{ type: 'session.input', code: 'bad_request' }],
     })
-    client.ws.close()
-  })
-
-  test('rejects messages before auth', async () => {
-    const { daemon } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'sessions.list', id: 's1' }))
-    expect(await client.next()).toMatchObject({ type: 'error', code: 'unauthorized' })
-    expect(await client.closed).toBe(4001)
+    client.close()
   })
 
   test('rejects a different protocol major version', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION + 1 }))
+    const { daemon } = await boot()
+    const client = pairConnect(daemon)
+    await client.ready
+    client.send({ ...auth, protocolVersion: PROTOCOL_VERSION + 1 })
     expect(await client.next()).toMatchObject({ type: 'error', code: 'protocol_mismatch' })
-    expect(await client.closed).toBe(4002)
+    expect(await client.closed).toBe(CHANNEL_CLOSE.protocolMismatch)
   })
 
-  test('reload-token closes existing connections', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
-    await client.next()
-    const { readFile } = await import('node:fs/promises')
+  test('the CLI gets a single-use code from the admin route', async () => {
+    const { daemon } = await boot()
     const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
-    await new FileTokenStore().set('rotated')
-    const res = await fetch(`http://127.0.0.1:${daemon.hookPort}/admin/reload-token`, {
+    const res = await fetch(`http://127.0.0.1:${daemon.hookPort}/admin/pairing-code`, {
       method: 'POST',
       headers: { [SECRET_HEADER]: secret },
     })
-    expect(res.ok).toBe(true)
-    expect(await client.closed).toBe(4003)
+    const body = (await res.json()) as { url: string; expiresAt: number }
+    expect(parsePairingCode(body.url)).toMatchObject({
+      ok: true,
+      code: { daemonId: daemon.identity.daemonId, addresses: [`127.0.0.1:${daemon.wsPort}`] },
+    })
+    expect(body.expiresAt - Date.now()).toBeGreaterThan(4 * 60_000)
+    const client = pairConnect(daemon, { url: body.url })
+    await client.ready
+    client.send(auth)
+    await client.until('auth.ok')
+    client.close()
+  })
+
+  test('an 11th device is refused with 4006 and the code stays usable', async () => {
+    const { daemon } = await boot()
+    for (let i = 0; i < 10; i++) (await authedClient(daemon)).close()
+    const url = daemon.pairing.create()?.url
+    expect(await pairConnect(daemon, { url }).closed).toBe(CHANNEL_CLOSE.deviceLimit)
+    expect(daemon.pairing.devices.devices()).toHaveLength(10)
+  })
+
+  test('large messages cross the channel in chunks', async () => {
+    const { daemon } = await boot()
+    const client = await authedClient(daemon)
+    const data = Buffer.alloc(2 * 1024 * 1024).toString('base64')
+    client.send({ type: 'attachment.upload', id: 'u1', sessionId: 'nope', mimeType: 'image/png', data })
+    expect(await client.next()).toMatchObject({ type: 'error', replyTo: 'u1', code: 'not_found' })
+    client.close()
   })
 })
 
@@ -141,28 +259,26 @@ describe('hooks server', () => {
 
 describe('sessions.list', () => {
   test('returns a snapshot correlated by id', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
-    await client.next()
-    client.ws.send(JSON.stringify({ type: 'sessions.list', id: 'abc' }))
+    const { daemon } = await boot()
+    const client = await authedClient(daemon)
+    client.send({ type: 'sessions.list', id: 'abc' })
     expect(await client.next()).toEqual({ type: 'sessions.snapshot', replyTo: 'abc', sessions: [] })
-    client.ws.close()
+    client.close()
   })
 })
 
 describe('command.run end to end (#308)', () => {
   test('off until the CLI turns it on, then runs in the session folder and streams the output', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
+    const { daemon } = await boot()
+    const client = pairConnect(daemon)
+    await client.ready
+    client.send(auth)
     expect(await client.next()).toMatchObject({ type: 'auth.ok', commands: { enabled: false } })
-    client.ws.send(JSON.stringify({ type: 'command.run', id: 'c1', sessionId: 's', command: 'echo hi' }))
+    client.send({ type: 'command.run', id: 'c1', sessionId: 's', command: 'echo hi' })
     expect(await client.next()).toMatchObject({ type: 'error', replyTo: 'c1', code: 'commands_disabled' })
 
     // What `remote-harness commands on` does: write the config, then reload the running daemon.
     await writeTestConfig(home.dir(), ['claudin'], { shellCommands: { enabled: true } })
-    const { readFile } = await import('node:fs/promises')
     const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
     // Like the CLI's admin requests: no body, no content type.
     const post = (path: string, body?: unknown) =>
@@ -184,14 +300,12 @@ describe('command.run end to end (#308)', () => {
         if (message.type === type) return message
       }
     }
-    client.ws.send(
-      JSON.stringify({
-        type: 'command.run',
-        id: 'c2',
-        sessionId: 's',
-        command: 'pwd; echo oops >&2; exit 4',
-      }),
-    )
+    client.send({
+      type: 'command.run',
+      id: 'c2',
+      sessionId: 's',
+      command: 'pwd; echo oops >&2; exit 4',
+    })
     const started = await until('command.started')
     expect(started).toMatchObject({ replyTo: 'c2', cwd: home.dir() })
     const exit = await until('command.exit')
@@ -200,21 +314,6 @@ describe('command.run end to end (#308)', () => {
       messages.flatMap((m) => (m.type === 'command.output' && m.stream === stream ? [m.text] : [])).join('')
     expect(text('stdout')).toContain(home.dir().split('/').pop())
     expect(text('stderr')).toBe('oops\n')
-    client.ws.close()
-  })
-})
-
-describe('attachment.upload', () => {
-  test('accepts frames above 1 MB and checks the session before saving', async () => {
-    const { daemon, token } = await boot()
-    const client = await connect(daemon.wsPort)
-    client.ws.send(JSON.stringify({ type: 'auth', id: 'a1', token, protocolVersion: PROTOCOL_VERSION }))
-    await client.next()
-    const data = Buffer.alloc(2 * 1024 * 1024).toString('base64')
-    client.ws.send(
-      JSON.stringify({ type: 'attachment.upload', id: 'u1', sessionId: 'nope', mimeType: 'image/png', data }),
-    )
-    expect(await client.next()).toMatchObject({ type: 'error', replyTo: 'u1', code: 'not_found' })
-    client.ws.close()
+    client.close()
   })
 })

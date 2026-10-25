@@ -28,12 +28,9 @@ import {
 import { envVar } from './core/env.ts'
 import { type Messages, messagesFor } from './core/i18n/index.ts'
 import { createLogger } from './core/logger.ts'
-import { pairingUrl } from './core/pairing.ts'
 import { paths } from './core/paths.ts'
 import {
   ensureHookSecret,
-  ensureToken,
-  generateToken,
   providerKeyStore,
   type SelectedTokenStore,
   selectTokenStore,
@@ -94,7 +91,7 @@ import {
   UnsupportedPlatformError,
 } from './infra/platform.ts'
 import { ProcessSleepInhibitor, sleepHelperCommand } from './infra/power.ts'
-import { resolveWsHost, startDaemon } from './main.ts'
+import { startDaemon } from './main.ts'
 import { SECRET_HEADER } from './transport/hooks-server.ts'
 
 const PushTestReplySchema = z.object({ result: PushTestResultSchema, sent: z.number() })
@@ -146,19 +143,32 @@ async function tokenStore(): Promise<TokenStore> {
   return (await selectStore()).store
 }
 
-function tokenStoreLabel(kind: TokenStoreKind, file = paths.tokenFile()): string {
+function tokenStoreLabel(kind: TokenStoreKind, file = paths.identityFile()): string {
   const names = m.cli.doctor.tokenStores
   if (kind === 'keychain') return names.keychain
   if (kind === 'secret-tool') return names.secretTool
   return names.file(file)
 }
 
-/** Absolute path of the bundled CLI (dist/cli.js), whether running from source or from dist. */
-function printPairing(host: string, port: number, token: string): void {
-  const url = pairingUrl(host, port, token)
-  qrcode.generate(url, { small: true })
-  console.log(`\n${url}\n`)
-  console.log(m.cli.pair.scan)
+const PairingLinkSchema = z.object({ url: z.string(), expiresAt: z.number() })
+
+/**
+ * Asks the running daemon for a single-use pairing code and prints it; false when the daemon does
+ * not answer. `attempts` waits for a service that was just (re)started.
+ */
+async function printPairing(attempts = 1): Promise<boolean> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const parsed = PairingLinkSchema.safeParse(await adminRequest('/admin/pairing-code'))
+    if (parsed.success) {
+      qrcode.generate(parsed.data.url, { small: true })
+      console.log(`\n${parsed.data.url}\n`)
+      console.log(m.cli.pair.scan)
+      console.log(m.cli.pair.singleUse(Math.round((parsed.data.expiresAt - Date.now()) / 60_000)))
+      return true
+    }
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+  return false
 }
 
 function installOptions(): InstallOptions {
@@ -176,10 +186,6 @@ function builtCliPath(): string | null {
     new URL(import.meta.url.endsWith('.ts') ? '../dist/cli.js' : './cli.js', import.meta.url),
   )
   return existsSync(path) ? path : null
-}
-
-async function notifyDaemon(path: string): Promise<boolean> {
-  return (await adminRequest(path)) !== null
 }
 
 /** POSTs an admin route of the running daemon; its JSON reply, or null when it is not running. */
@@ -258,7 +264,7 @@ program
       const daemon = await startDaemon({
         logger,
         exec: execaExecutor,
-        tokenStore: store,
+        secretStore: store,
         providerKey: (profileId) => providerKeyStore(kind, execaExecutor, profileId).get(),
         dev: opts.dev,
         host: opts.host,
@@ -284,22 +290,12 @@ program
 program
   .command('pair')
   .description(m.cli.pair.description)
-  .option('--dev', m.cli.pair.dev)
-  .option('--host <host>', m.cli.pair.host)
-  .action(async (opts: { dev?: boolean; host?: string }) => {
-    const logger = createLogger({ level: 'silent' })
-    const config = await loadConfig(logger)
-    const token = await ensureToken(await tokenStore())
-    let host: string
-    try {
-      host = resolveWsHost(opts)
-    } catch {
-      // resolveWsHost only fails when there is no Tailscale interface.
-      console.error(`✗ ${m.cli.pair.tailscaleNotFound}`)
-      console.error(`  ${m.cli.pair.simulatorHint(config.wsPort)}`)
-      process.exit(1)
-    }
-    printPairing(host, config.wsPort, token)
+  .action(async () => {
+    if (await printPairing()) return
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    console.error(`✗ ${m.cli.pair.notRunning}`)
+    console.error(`  ${m.cli.pair.simulatorHint(config.wsPort)}`)
+    process.exit(1)
   })
 
 program
@@ -334,9 +330,8 @@ program
           return installServiceFromCli({ ...installOptions(), cliPath, service })
         },
         tailscaleAddress: () => findTailscaleAddress(),
-        pair: async (host) => {
-          const config = await loadConfig(createLogger({ level: 'silent' }))
-          printPairing(host, config.wsPort, await ensureToken(await tokenStore()))
+        pair: async () => {
+          if (!(await printPairing(10))) console.log(`  ${m.cli.pair.notRunning}`)
         },
         runClaude: (configDir) => {
           // Like the launcher: ~/.claude is the default and must not be passed as CLAUDE_CONFIG_DIR.
@@ -366,16 +361,6 @@ program
       }
       throw error
     }
-  })
-
-program
-  .command('rotate-token')
-  .description(m.cli.rotateToken.description)
-  .action(async () => {
-    await (await tokenStore()).set(generateToken())
-    const notified = await notifyDaemon('/admin/reload-token')
-    console.log(notified ? m.cli.rotateToken.rotated : m.cli.rotateToken.rotatedOffline)
-    console.log(m.cli.rotateToken.pairAgain)
   })
 
 program
@@ -454,11 +439,11 @@ program
       check(false, 'config', (error as Error).message)
     }
     const { kind, store } = await selectStore()
-    const token = await store.get().catch((error: Error) => {
-      check(false, d.token(tokenStoreLabel(kind)), error.message)
+    const identity = await store.get().catch((error: Error) => {
+      check(false, d.identity(tokenStoreLabel(kind)), error.message)
       return undefined
     })
-    if (token !== undefined) check(token !== null, d.token(tokenStoreLabel(kind)), d.runPair)
+    if (identity !== undefined) check(identity !== null, d.identity(tokenStoreLabel(kind)), d.runStart)
     const manager = serviceManager()
     const status = (await manager.available()) ? await manager.status() : null
     check(
@@ -498,8 +483,8 @@ program
       if (accessibility) check(accessibility === 'allowed', d.accessibility, d.accessibilityHint)
     }
     const { kind: storedKind } = await selectStore()
-    const storedToken = await (await tokenStore()).get().catch(() => null)
-    const keychain = classifyKeychain(storedKind, storedToken !== null)
+    const storedIdentity = await (await tokenStore()).get().catch(() => null)
+    const keychain = classifyKeychain(storedKind, storedIdentity !== null)
     if (keychain !== 'not_available') check(keychain === 'allowed', d.keychain, d.keychainHint)
     const devices = new DeviceRegistry(paths.devices())
     await devices.load()
