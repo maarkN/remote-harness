@@ -231,8 +231,10 @@ class LinkRenderer extends Renderer {
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
   const theme = useTheme()
   const options = optionsFor(theme)
-  // One per message: the renderer's key generator remembers every key it handed out.
-  const renderer = useMemo(() => new LinkRenderer(), [])
+  // One per text: the renderer's key generator remembers every key it handed out, so a cell the list
+  // recycles for other messages would otherwise keep growing it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new renderer for each new text is the point.
+  const renderer = useMemo(() => new LinkRenderer(), [text])
   const elements = useMarkdown(text, {
     colorScheme: theme.scheme,
     theme: options.theme,

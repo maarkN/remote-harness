@@ -355,7 +355,16 @@ describe('TranscriptFile', () => {
   test('returns entries after a cursor', async () => {
     const file = new TranscriptFile(fixture)
     await file.sync()
-    expect((await file.since(15)).map((e) => e.cursor)).toEqual([16, 19])
+    expect((await file.since(15)).entries.map((e) => e.cursor)).toEqual([16, 19])
+    expect((await file.since(15)).gap).toBe(false)
+  })
+
+  test('says when the cap left lines after the cursor out', async () => {
+    const file = new TranscriptFile(fixture)
+    await file.sync()
+    const capped = await file.since(0, 5)
+    expect(capped.gap).toBe(true)
+    expect(Math.min(...capped.entries.map((e) => e.cursor))).toBeGreaterThanOrEqual(file.lineCount - 5)
   })
 })
 

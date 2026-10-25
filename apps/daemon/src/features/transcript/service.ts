@@ -79,11 +79,13 @@ export class TranscriptService {
     }
     const { file } = stream
     if (sinceCursor !== undefined) {
+      const { entries, gap } = await file.since(sinceCursor)
+      // `hasMore` on a resume: lines after the cursor were left out, so the app replaces its entries.
       return {
         sessionId: target.sessionId,
         agentId: target.agentId,
-        entries: await file.since(sinceCursor),
-        hasMore: false,
+        entries,
+        hasMore: gap,
         lineCount: file.lineCount,
       }
     }

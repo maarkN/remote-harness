@@ -2,6 +2,7 @@ import type { ServerMessageOf, TranscriptEntry } from '@remote-harness/protocol'
 import { create } from 'zustand'
 import type { DaemonClient } from '@/core/connection/daemon-client'
 import { createBatcher } from './batch'
+import { streamsToEvict, touchRecent, trimEntries } from './retention'
 import { EMPTY_TIMELINE, extendTimeline, mergeEntries, type Timeline } from './timeline'
 
 export type StreamState = {
@@ -27,17 +28,59 @@ const EMPTY: StreamState = {
 
 type TranscriptStore = {
   streams: Record<string, StreamState>
+  /** Stream keys, oldest opened first (memory keeps only the most recent closed ones). */
+  recent: string[]
+  /** Subscriptions per open stream (a stream can be shown by two screens at once). */
+  open: Record<string, number>
   update(key: string, fn: (s: StreamState) => Partial<StreamState>): void
 }
 
 export const useTranscriptStore = create<TranscriptStore>((set) => ({
   streams: {},
+  recent: [],
+  open: {},
   update: (key, fn) =>
     set((state) => {
       const current = state.streams[key] ?? EMPTY
       return { streams: { ...state.streams, [key]: { ...current, ...fn(current) } } }
     }),
 }))
+
+function opened(key: string): void {
+  useTranscriptStore.setState((state) => ({
+    recent: touchRecent(state.recent, key),
+    open: { ...state.open, [key]: (state.open[key] ?? 0) + 1 },
+  }))
+}
+
+/**
+ * The last subscription of a stream ended: it keeps only its last entries (older ones page back on
+ * scroll), and closed streams beyond the most recent few leave memory altogether.
+ */
+function closed(key: string): void {
+  useTranscriptStore.setState((state) => {
+    const count = (state.open[key] ?? 1) - 1
+    const { [key]: _closed, ...others } = state.open
+    const open = count > 0 ? { ...others, [key]: count } : others
+    if (count > 0) return { open }
+    const streams = { ...state.streams }
+    const current = streams[key]
+    if (current) {
+      const { entries, trimmed } = trimEntries(current.entries)
+      if (trimmed)
+        streams[key] = {
+          ...current,
+          entries,
+          timeline: extendTimeline(EMPTY_TIMELINE, entries),
+          hasMore: true,
+        }
+    }
+    const evicted = streamsToEvict(state.recent, new Set(Object.keys(open)))
+    for (const evictedKey of evicted) delete streams[evictedKey]
+    const gone = new Set(evicted)
+    return { open, streams, recent: state.recent.filter((k) => !gone.has(k)) }
+  })
+}
 
 export function streamKey(sessionId: string, agentId?: string): string {
   return agentId ? `${sessionId}#${agentId}` : sessionId
@@ -89,6 +132,19 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
         ...(lastCursor !== null ? { sinceCursor: lastCursor } : {}),
       })
       if (reply.type !== 'transcript.page') return
+      // A resume that could not send everything since the cursor (too much was written meanwhile)
+      // says `hasMore`: what we had would leave a gap, so the reply replaces it.
+      if (lastCursor !== null && reply.hasMore) {
+        const entries = mergeEntries([], reply.entries)
+        useTranscriptStore.getState().update(key, () => ({
+          entries,
+          timeline: extendTimeline(EMPTY_TIMELINE, entries),
+          lastCursor: maxCursor(entries, lastCursor),
+          hasMore: true,
+          error: null,
+        }))
+        return
+      }
       applyEntries(key, reply.entries, lastCursor === null ? { hasMore: reply.hasMore } : {})
     } catch (error) {
       useTranscriptStore.getState().update(key, () => ({ error: error ?? null }))
@@ -100,6 +156,7 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
     batch.push(message.entry)
   }
 
+  opened(key)
   const offEntry = client.on('transcript.entry', onEntry)
   const offReady = client.onReady(() => void subscribe())
   if (client.status === 'open') void subscribe()
@@ -109,6 +166,7 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
     offReady()
     batch.flushNow()
     client.send({ type: 'session.unsubscribe', sessionId, agentId })
+    closed(key)
   }
 }
 
