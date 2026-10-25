@@ -116,10 +116,13 @@ export class TranscriptFile {
     return { entries: chunks.reverse().flat(), hasMore: end > 0 }
   }
 
-  /** Entries from lines strictly after `cursor`, capped to the last `maxLines` lines. */
-  async since(cursor: number, maxLines = 2_000): Promise<TranscriptEntry[]> {
+  /**
+   * Entries from lines strictly after `cursor`, capped to the last `maxLines` lines; `gap` when the
+   * cap left lines after `cursor` out (the client must then replace what it has instead of merging).
+   */
+  async since(cursor: number, maxLines = 2_000): Promise<{ entries: TranscriptEntry[]; gap: boolean }> {
     const from = Math.max(cursor + 1, this.lineCount - maxLines)
     const lines = await this.readLines(from, this.lineCount)
-    return lines.flatMap((l) => this.format.parseLine(l.text, l.cursor))
+    return { entries: lines.flatMap((l) => this.format.parseLine(l.text, l.cursor)), gap: from > cursor + 1 }
   }
 }

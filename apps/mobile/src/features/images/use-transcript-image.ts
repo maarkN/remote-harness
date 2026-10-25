@@ -8,8 +8,8 @@ import { CancelledError, dataUri, FetchQueue, ImageCache, imageTimeoutMs } from 
 export type ImageSource = { sessionId: string; agentId?: string }
 export const TranscriptImagesContext = createContext<ImageSource | null>(null)
 
-/** About 24 MB of images, as base64. */
-const cache = new ImageCache(32 * 1024 * 1024)
+/** About 9 MB of images, as base64: the iPad 9th gen and the Redmi 8 (3 GB) set the limit. */
+const cache = new ImageCache(12 * 1024 * 1024)
 const queue = new FetchQueue(2)
 
 export type ImageState =
