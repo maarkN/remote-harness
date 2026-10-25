@@ -21,6 +21,16 @@ export function settlesOpen(progress: number, velocityX: number): boolean {
 }
 
 /**
+ * Whether the overlay sidebar is rendered: always while open, and while it is still dragged or
+ * sliding out (`mounted`). A finished slide-out hops to the JS thread before it unmounts, so it can
+ * land after ☰ opened the list again; the list then stays, instead of vanishing with `open` still
+ * true and leaving ☰ with nothing to change (#346).
+ */
+export function overlayRendered(mounted: boolean, open: boolean): boolean {
+  return open || mounted
+}
+
+/**
  * The edge swipe exists only for the overlay sidebar, while it is closed, on the list and on a
  * session's conversation: there ☰ replaces the back button, so the stack's back swipe is off.
  * Deeper screens (terminal, subagent, settings) keep their back swipe.

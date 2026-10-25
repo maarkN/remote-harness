@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { scheduleOnRN } from 'react-native-worklets'
-import { dragProgress, EDGE_SWIPE_WIDTH, settlesOpen } from '@/core/layout'
+import { dragProgress, EDGE_SWIPE_WIDTH, overlayRendered, settlesOpen } from '@/core/layout'
 import { useTheme } from '@/core/theme'
 
 export const SIDEBAR_WIDTH = 340
@@ -32,7 +32,7 @@ function slideTo(progress: SharedValue<number>, open: boolean, onHidden: () => v
  * The session list sliding over the dimmed conversation (tablet portrait). `open` slides it in and
  * out; a rightward swipe from the left edge (`edgeSwipe`) opens it following the finger, and a
  * leftward swipe or a tap on the dimmed area closes it. Swipes on the list stay with its rows. The
- * list is mounted only while open, dragged or closing.
+ * list is mounted only while open, dragged or closing, and always while `open` is true.
  */
 export function OverlaySidebar({
   open,
@@ -51,14 +51,19 @@ export function OverlaySidebar({
   const insets = useSafeAreaInsets()
   const progress = useSharedValue(open ? 1 : 0)
   const [mounted, setMounted] = useState(open)
-  const hide = () => setMounted(false)
+  const openRef = useRef(open)
+  // A slide-out that finishes after the list was opened again leaves it mounted (#346).
+  const hide = useCallback(() => {
+    if (!openRef.current) setMounted(false)
+  }, [])
 
   useEffect(() => {
+    openRef.current = open
     if (open) setMounted(true)
     progress.value = withTiming(open ? 1 : 0, SLIDE, (finished) => {
-      if (finished && !open) scheduleOnRN(setMounted, false)
+      if (finished && !open) scheduleOnRN(hide)
     })
-  }, [open, progress])
+  }, [open, progress, hide])
 
   const openPan = Gesture.Pan()
     .activeOffsetX(12)
@@ -100,7 +105,7 @@ export function OverlaySidebar({
           <View collapsable={false} style={[styles.edge, { top: insets.top + HEADER_CLEARANCE }]} />
         </GestureDetector>
       ) : null}
-      {mounted ? (
+      {overlayRendered(mounted, open) ? (
         <>
           <GestureDetector gesture={closePan}>
             <Animated.View style={[styles.fill, backdropStyle]}>

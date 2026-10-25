@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { dragProgress, edgeSwipeEnabled, settlesOpen } from './sidebar-drag'
+import { dragProgress, edgeSwipeEnabled, overlayRendered, settlesOpen } from './sidebar-drag'
 
 describe('sidebar drag', () => {
   test('progress follows the finger from where the drag started, within 0..1', () => {
@@ -27,5 +27,17 @@ describe('sidebar drag', () => {
     expect(edgeSwipeEnabled('overlay', false, '/settings')).toBe(false)
     expect(edgeSwipeEnabled('inline', false, '/')).toBe(false)
     expect(edgeSwipeEnabled('none', false, '/session/abc')).toBe(false)
+  })
+})
+
+describe('overlayRendered', () => {
+  test('always rendered while open, even after a late slide-out unmounted it', () => {
+    expect(overlayRendered(false, true)).toBe(true)
+    expect(overlayRendered(true, true)).toBe(true)
+  })
+
+  test('closed: rendered only while it is still dragged or sliding out', () => {
+    expect(overlayRendered(true, false)).toBe(true)
+    expect(overlayRendered(false, false)).toBe(false)
   })
 })
