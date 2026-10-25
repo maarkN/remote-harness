@@ -6,10 +6,10 @@ import {
 } from 'expo-alternate-app-icons'
 import * as SecureStore from 'expo-secure-store'
 import { useEffect, useRef } from 'react'
-import { AppState, Platform } from 'react-native'
+import { DeviceEventEmitter, Platform } from 'react-native'
 import { create } from 'zustand'
 import { resolveThemeName, useThemeStore } from '@/core/theme'
-import { type AppIconPreference, iconToApply, isAppIconPreference } from './app-icon'
+import { type AppIconPreference, iconToApply, isAppIconPreference, USER_LEAVE_HINT_EVENT } from './app-icon'
 
 const KEY = 'remote-harness.app-icon'
 
@@ -48,8 +48,9 @@ async function applyIcon(name: string | null): Promise<void> {
  * Applies the preference to the real app icon (root layout, once). iOS shows a system alert on
  * every change, so it only ever applies right when the preference or the resolved theme changes —
  * never on a timer or in the background, and never from the defaults before both saved preferences
- * are read (#345). Android instead waits for the app to background, since the launcher can take a
- * moment and may close the app on some devices (#233).
+ * are read (#345). Android instead waits for the user to leave the app (Home, Recents): switching the
+ * launcher activity removes the app's task, so doing it while a permission dialog, the camera or a
+ * picker merely pauses the app would throw the user back to the launcher (#233, #342).
  */
 export function useApplyAppIcon(): void {
   const preference = useAppIconStore((s) => s.preference)
@@ -71,7 +72,7 @@ export function useApplyAppIcon(): void {
       requested: requested.current,
     })
     if (Platform.OS === 'android') {
-      // Waits for the background; going back to the icon already showing cancels a pending change.
+      // Waits for the user to leave; going back to the icon already showing cancels a pending change.
       pendingAndroid.current = next
       return
     }
@@ -82,8 +83,7 @@ export function useApplyAppIcon(): void {
 
   useEffect(() => {
     if (Platform.OS !== 'android') return
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'background') return
+    const subscription = DeviceEventEmitter.addListener(USER_LEAVE_HINT_EVENT, () => {
       const target = pendingAndroid.current
       if (target === undefined || target === getAppIconName()) return
       pendingAndroid.current = undefined
