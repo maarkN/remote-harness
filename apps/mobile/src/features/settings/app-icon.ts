@@ -2,6 +2,12 @@
 // (ThemeProvider), which Vitest cannot parse (Flow syntax) — this module stays plain-TS testable.
 import { THEME_NAMES, type ThemeName } from '@/core/theme/palettes'
 
+/**
+ * Device event Android's `MainActivity` emits when the user leaves the app on purpose (Home, Recents),
+ * added by `app.config.ts` (`withUserLeaveHintMainActivity`, same name).
+ */
+export const USER_LEAVE_HINT_EVENT = 'remoteHarnessUserLeaveHint'
+
 /** What the user picked in Settings → Appearance → App icon. */
 export type AppIconPreference = 'matchTheme' | 'original' | ThemeName
 

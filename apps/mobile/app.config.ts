@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { join } from 'node:path'
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import {
+  type AndroidConfig,
   type ConfigPlugin,
   type ExportedConfig,
   withAndroidManifest,
@@ -249,6 +250,96 @@ const withKeyCommandMainActivity: ConfigPlugin = (config) =>
     return activity
   })
 
+/** Device event `MainActivity` emits from `onUserLeaveHint`; same name in `src/features/settings/app-icon.ts`. */
+export const USER_LEAVE_HINT_EVENT = 'remoteHarnessUserLeaveHint'
+
+/**
+ * Android: tells JS when the user leaves the app on purpose (Home, Recents), which `AppState` cannot
+ * tell apart from a permission dialog, the camera or a picker pausing the activity. Switching the
+ * app icon removes the app's task, so it only happens then (#342). `onUserLeaveHint` alone also
+ * fires for activities the app starts itself (camera, pickers, links, permission dialogs), so it
+ * only counts when the app started none since it was resumed and the activity then stops (a
+ * permission dialog only pauses it; turning the screen off gives no hint).
+ */
+const withUserLeaveHintMainActivity: ConfigPlugin = (config) =>
+  withMainActivity(config, (activity) => {
+    let source = activity.modResults.contents
+    if (activity.modResults.language === 'kt' && !source.includes(USER_LEAVE_HINT_EVENT)) {
+      source = source.replace(/^(package .+)$/m, '$1\n\nimport android.content.Intent')
+      source = source.replace(
+        /class MainActivity : ReactActivity\(\) \{\n/,
+        (head) =>
+          `${head}  private var startedOwnActivity = false\n` +
+          '  private var userLeaving = false\n\n' +
+          '  @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")\n' +
+          '  override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {\n' +
+          '    startedOwnActivity = true\n' +
+          '    super.startActivityForResult(intent, requestCode, options)\n' +
+          '  }\n\n' +
+          '  override fun onResume() {\n' +
+          '    super.onResume()\n' +
+          '    startedOwnActivity = false\n' +
+          '    userLeaving = false\n' +
+          '  }\n\n' +
+          '  override fun onUserLeaveHint() {\n' +
+          '    super.onUserLeaveHint()\n' +
+          '    userLeaving = !startedOwnActivity\n' +
+          '  }\n\n' +
+          '  override fun onStop() {\n' +
+          '    super.onStop()\n' +
+          `    if (userLeaving) reactHost?.currentReactContext?.emitDeviceEvent("${USER_LEAVE_HINT_EVENT}")\n` +
+          '    userLeaving = false\n' +
+          '  }\n\n',
+      )
+    }
+    activity.modResults.contents = source
+    return activity
+  })
+
+type ManifestIntentFilter = AndroidConfig.Manifest.ManifestIntentFilter
+
+const MAIN_ACTIVITY = '.MainActivity'
+
+function isLauncherFilter(filter: ManifestIntentFilter): boolean {
+  return (
+    (filter.action ?? []).some((a) => a.$['android:name'] === 'android.intent.action.MAIN') &&
+    (filter.category ?? []).some((c) => c.$['android:name'] === 'android.intent.category.LAUNCHER')
+  )
+}
+
+/**
+ * Gives every activity alias of `MainActivity` (one per alternate app icon) the same intent filters
+ * as `MainActivity` besides its own launcher one. Once an alternate icon is on, `MainActivity` is
+ * disabled and only the alias resolves intents, so without them no `remoteharness://` link opens
+ * the app (#342). Idempotent: an alias's non-launcher filters are replaced, not appended.
+ */
+export function copyMainActivityFiltersToAliases(
+  application: AndroidConfig.Manifest.ManifestApplication,
+): void {
+  const main = application.activity?.find((activity) => activity.$['android:name'] === MAIN_ACTIVITY)
+  const filters = (main?.['intent-filter'] ?? []).filter((filter) => !isLauncherFilter(filter))
+  for (const alias of application['activity-alias'] ?? []) {
+    if (alias.$?.['android:targetActivity'] !== MAIN_ACTIVITY) continue
+    alias['intent-filter'] = [
+      ...(alias['intent-filter'] ?? []).filter(isLauncherFilter),
+      ...structuredClone(filters),
+    ]
+  }
+}
+
+/**
+ * Deep links on the alternate-icon aliases (#342). `expo-alternate-app-icons` only copies
+ * `android.intentFilters`, not the scheme filter Expo adds to `MainActivity`. Applied before the
+ * `plugins` list, so its mod runs after both.
+ */
+const withIconAliasDeepLinks: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (mod) => {
+    for (const application of mod.modResults.manifest.application ?? []) {
+      copyMainActivityFiltersToAliases(application)
+    }
+    return mod
+  })
+
 /** Target `expo-widgets` creates (and recreates on every prebuild) for the Live Activity. */
 const WIDGET_TARGET = 'ExpoWidgetsTarget'
 /** Asset the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`). */
@@ -368,11 +459,15 @@ const withFirebase: ConfigPlugin = (config) => {
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const expo = withIosOnlyLocaleStrings(
-    withLiveActivityIcon(
-      withKeyCommandMainActivity(
-        withKeyCommandAppDelegate(
-          withKeyCommandBridgingHeader(withPerIdiomOrientation(withSceneLifecycle(appConfig(config)))),
+  const expo = withIconAliasDeepLinks(
+    withIosOnlyLocaleStrings(
+      withLiveActivityIcon(
+        withUserLeaveHintMainActivity(
+          withKeyCommandMainActivity(
+            withKeyCommandAppDelegate(
+              withKeyCommandBridgingHeader(withPerIdiomOrientation(withSceneLifecycle(appConfig(config)))),
+            ),
+          ),
         ),
       ),
     ),
