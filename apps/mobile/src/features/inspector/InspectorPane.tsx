@@ -80,7 +80,7 @@ export function InspectorPane({ sessionId, mode }: { sessionId: string; mode: Ex
           {t('sessions.detailEmptyBody')}
         </Text>
       ) : tab === 'terminal' ? (
-        <TerminalScreen sessionId={sessionId} />
+        <TerminalScreen sessionId={sessionId} wrapKeys />
       ) : tab === 'subagents' ? (
         <ScrollView contentContainerStyle={styles.content}>
           {subagents.length === 0 ? (

@@ -1,7 +1,7 @@
 import type { Key } from '@remote-harness/protocol'
 import * as Haptics from 'expo-haptics'
 import { useTranslation } from 'react-i18next'
-import { Alert, Pressable, ScrollView } from 'react-native'
+import { Alert, Pressable, ScrollView, View } from 'react-native'
 import { makeStyles, radius, space } from '@/core/theme'
 import { Text } from '@/ui'
 
@@ -23,14 +23,20 @@ export const DEFAULT_KEYS: KeySpec[] = [
   { key: '3', label: '3' },
 ]
 
+/**
+ * One scrolling row of keys, or with `wrap` every key at once in as many rows as the width needs
+ * (the narrow tablet inspector, where a scrolling row left a key cut at the screen edge, #344).
+ */
 export function KeyBar({
   onKey,
   disabled,
   keys = DEFAULT_KEYS,
+  wrap = false,
 }: {
   onKey: (key: Key) => void
   disabled?: boolean
   keys?: KeySpec[]
+  wrap?: boolean
 }) {
   const { t } = useTranslation()
   const styles = useStyles()
@@ -42,6 +48,27 @@ export function KeyBar({
       { text: t('common.send'), style: 'destructive', onPress: () => onKey(spec.key) },
     ])
   }
+  const buttons = keys.map((spec) => (
+    <Pressable
+      key={spec.key}
+      disabled={disabled}
+      onPress={() => press(spec)}
+      style={({ pressed }) => [
+        styles.key,
+        spec.key === 'Escape' && styles.esc,
+        { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 },
+      ]}
+    >
+      <Text
+        size="sm"
+        weight="medium"
+        color={spec.key === 'Escape' || spec.key === 'C-c' ? 'accentText' : 'text'}
+      >
+        {spec.label}
+      </Text>
+    </Pressable>
+  ))
+  if (wrap) return <View style={[styles.row, styles.wrap]}>{buttons}</View>
   return (
     <ScrollView
       horizontal
@@ -50,26 +77,7 @@ export function KeyBar({
       style={styles.bar}
       contentContainerStyle={styles.row}
     >
-      {keys.map((spec) => (
-        <Pressable
-          key={spec.key}
-          disabled={disabled}
-          onPress={() => press(spec)}
-          style={({ pressed }) => [
-            styles.key,
-            spec.key === 'Escape' && styles.esc,
-            { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 },
-          ]}
-        >
-          <Text
-            size="sm"
-            weight="medium"
-            color={spec.key === 'Escape' || spec.key === 'C-c' ? 'accentText' : 'text'}
-          >
-            {spec.label}
-          </Text>
-        </Pressable>
-      ))}
+      {buttons}
     </ScrollView>
   )
 }
@@ -77,6 +85,7 @@ export function KeyBar({
 const useStyles = makeStyles((theme) => ({
   bar: { flexGrow: 0 },
   row: { gap: space.xs, paddingHorizontal: space.sm, paddingVertical: space.xs },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
   key: {
     minWidth: 40,
     height: 32,

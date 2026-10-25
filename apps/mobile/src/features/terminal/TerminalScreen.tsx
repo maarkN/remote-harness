@@ -32,9 +32,9 @@ function useAppActive(): boolean {
 /**
  * Live mirror of the session's tmux pane, for TUI menus and dialogs the transcript can't show. Frames
  * stream only while it can be seen: its screen (or the session screen holding the tablet inspector)
- * is focused and the app is in the foreground.
+ * is focused and the app is in the foreground. `wrapKeys` shows every key at once (the inspector).
  */
-export function TerminalScreen({ sessionId }: { sessionId: string }) {
+export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: string; wrapKeys?: boolean }) {
   const { t } = useTranslation()
   const keys = useMemo(() => terminalKeys(t), [t])
   const client = useDaemonClient()
@@ -83,7 +83,11 @@ export function TerminalScreen({ sessionId }: { sessionId: string }) {
       <View style={styles.flex}>
         <TerminalView ref={terminal} onReady={() => setReady(true)} />
       </View>
-      <KeyBar keys={keys} onKey={(key) => client?.send({ type: 'session.key', sessionId, key })} />
+      <KeyBar
+        keys={keys}
+        wrap={wrapKeys}
+        onKey={(key) => client?.send({ type: 'session.key', sessionId, key })}
+      />
     </Screen>
   )
 }
