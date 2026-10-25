@@ -1,5 +1,5 @@
 import type { LivePalette, LiveStatusProps, Session, SessionState } from '@remote-harness/protocol'
-import { addUserInteractionListener, type LiveActivity } from 'expo-widgets'
+import type { LiveActivity } from 'expo-widgets'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppState, Platform } from 'react-native'
@@ -11,7 +11,6 @@ import { currentTheme } from '@/core/theme'
 import { useMuteStore } from '../mute/store'
 import { loadMessaging } from '../push/firebase'
 import { relayFor } from '../push/push-relay'
-import { respondInBackground } from '../push/respond-in-background'
 import { useSessionsStore } from '../sessions/store'
 import { loadActivityMap, saveActivityMap } from './activity-store'
 import { followsLoaded, useLiveFollowStore } from './follow-store'
@@ -20,7 +19,6 @@ import {
   DONE_DISMISS_MS,
   isMutedSession,
   type LocalLiveInfo,
-  liveAction,
   livePalette,
   localLiveProps,
   reconcileActivities,
@@ -83,15 +81,7 @@ export function useLiveStatus() {
   const tRef = useRef<TFunction>(t)
   tRef.current = t
 
-  // Deny / Allow tapped on the activity (lock screen or Dynamic Island): answered like a
-  // notification action, over a short-lived connection, whether or not the app is in front.
-  useEffect(() => {
-    const subscription = addUserInteractionListener((event) => {
-      const action = liveAction(event.target)
-      if (action) void respondInBackground(action.requestId, action.decision)
-    })
-    return () => subscription.remove()
-  }, [])
+  // Deny / Allow on the activity is answered from the entry file (push/background.ts).
 
   useEffect(() => {
     if (!client) return
@@ -125,6 +115,7 @@ export function useLiveStatus() {
           platform,
           fcmToken,
           palette,
+          showTask: useLiveStatusSettings.getState().showTask,
           ...(activityToken ? { activityToken } : {}),
           ...(relay ? { relay } : {}),
           // The app draws the Android notification itself, with Allow / Deny (see push/background.ts).
@@ -381,7 +372,15 @@ export function useLiveStatus() {
         if (session.state === 'running' || session.state === 'waiting') start(session)
       }
     })
-    const offSettings = useLiveStatusSettings.subscribe(resync)
+    const offSettings = useLiveStatusSettings.subscribe((settings, previous) => {
+      resync()
+      if (settings.showTask === previous.showTask) return
+      // The current task opt-in changed: the daemon learns it with a new registration.
+      for (const [sessionId, entry] of tracked) {
+        if (entry.instance) registerActivity(sessionId, entry)
+        else void register(sessionId, entry.palette ?? livePalette(currentTheme()))
+      }
+    })
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active' && ready) void reconcile()
     })

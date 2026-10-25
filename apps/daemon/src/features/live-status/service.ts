@@ -26,6 +26,8 @@ export type LiveRegistration = {
   palette?: LivePalette
   /** Android: the app draws the notification from data messages. */
   androidDataMessages?: boolean
+  /** The phone opted in to see the in-progress todo item on the lock screen. */
+  showTask?: boolean
   /**
    * iOS: a Live Activity started by push whose own token the app has not sent yet. The status is
    * kept up to date, but nothing is sent until the app registers the activity (which replaces this).
@@ -97,6 +99,9 @@ export class LiveStatusService {
     const kept = previous && !isFinal(previous.status) ? previous.status : null
     const status = kept ?? initialLiveStatus(this.now())
     const entry: Entry = {
+      // A registration without colors or the task choice (the app in the background) keeps them.
+      ...(previous?.palette ? { palette: previous.palette } : {}),
+      ...(previous?.showTask !== undefined ? { showTask: previous.showTask } : {}),
       ...registration,
       status: { ...status, tasks: this.options.tasksOf?.(registration.sessionId) ?? status.tasks },
       sent: null,
@@ -230,7 +235,10 @@ export class LiveStatusService {
         ...(start ? { url: start.url, alert: start.alert } : {}),
         ...(entry.androidDataMessages ? { androidDataMessages: true } : {}),
         props: {
-          ...liveProps(entry.status, this.options.info(entry.sessionId, profileId), this.options.messages),
+          ...liveProps(entry.status, this.options.info(entry.sessionId, profileId), this.options.messages, {
+            showTask: entry.showTask ?? false,
+            notifiedAt: now,
+          }),
           ...(entry.palette ? { palette: entry.palette } : {}),
         },
         event,

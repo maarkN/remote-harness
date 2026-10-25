@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { LiveFollowDevice } from '@remote-harness/protocol'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { messagesFor } from '../src/core/i18n/index.ts'
 import { silentLogger } from '../src/core/logger.ts'
 import {
@@ -24,7 +24,7 @@ import {
   upsertDevice,
 } from '../src/features/live-status/follows.ts'
 import { LiveStatusService } from '../src/features/live-status/service.ts'
-import { initialLiveStatus, liveProps } from '../src/features/live-status/status.ts'
+import { DONE_DISMISS_MS, initialLiveStatus, liveProps } from '../src/features/live-status/status.ts'
 import { buildLiveMessage, type LiveMessage, type PushSender } from '../src/features/push/sender.ts'
 
 const iphone: LiveFollowDevice = { platform: 'ios', fcmToken: 'fcm-ios', startToken: 'start' }
@@ -112,6 +112,10 @@ describe('FollowStore', () => {
 })
 
 describe('push-to-start', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   const props = liveProps(
     initialLiveStatus(1_000),
     { title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' },
@@ -137,6 +141,7 @@ describe('push-to-start', () => {
     expect(aps['attributes-type']).toBe('LiveActivityAttributes')
     expect(aps.attributes).toEqual({ url: 'claude-remote://session/s1' })
     expect(aps.alert).toEqual({ title: 'Fix login', body: 'Working' })
+    expect(aps['input-push-token']).toBe(1)
   })
 
   test('updates carry no start fields', () => {
@@ -152,6 +157,7 @@ describe('push-to-start', () => {
     const aps = built.apns?.payload.aps as Record<string, unknown>
     expect(aps['attributes-type']).toBeUndefined()
     expect(aps.alert).toBeUndefined()
+    expect(aps['input-push-token']).toBeUndefined()
   })
 
   test('the service sends the start, then waits for the app to register the activity', async () => {
@@ -188,6 +194,102 @@ describe('push-to-start', () => {
     // ...which the app sends once it adopts the activity: the turn's status goes out with it.
     await service.register({ sessionId: 's1', platform: 'ios', fcmToken: 'fcm', activityToken: 'act' })
     expect(sent.at(-1)).toMatchObject({ event: 'update', activityToken: 'act', props: { state: 'waiting' } })
+    service.dispose()
+  })
+
+  test('a push-started activity registered from the background gets every update', async () => {
+    vi.useFakeTimers()
+    let now = 1_000
+    const sent: LiveMessage[] = []
+    const sender: PushSender = {
+      async send() {
+        return { invalidTokens: [] }
+      },
+      async sendLive(message) {
+        sent.push(message)
+        return { invalid: false }
+      },
+    }
+    const service = new LiveStatusService(sender, silentLogger, {
+      messages: messagesFor('en-US').live,
+      profileOf: () => 'p1',
+      info: () => ({ title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' }),
+      isMuted: () => false,
+      follow: async () => () => undefined,
+      now: () => now,
+    })
+    const palette = {
+      background: '#0D0D0D',
+      text: '#E8E6E3',
+      textMuted: '#8A8784',
+      accent: '#E8A33D',
+      success: '#7FB069',
+      warning: '#F3DC7A',
+    }
+    await service.startByPush(
+      { sessionId: 's1', platform: 'ios', fcmToken: 'fcm', palette },
+      {
+        startToken: 'start',
+        url: 'claude-remote://session/s1',
+        alert: { title: 'Fix login', body: 'Working' },
+      },
+    )
+    // The background registration has no theme: the follow's colors stay.
+    await service.register({ sessionId: 's1', platform: 'ios', fcmToken: 'fcm', activityToken: 'act' })
+    expect(sent.at(-1)).toMatchObject({ event: 'update', activityToken: 'act', props: { palette } })
+
+    service.handle('s1', {
+      type: 'waiting',
+      permission: true,
+      pending: { requestId: 'r1', tool: 'Bash' },
+    })
+    expect(sent.at(-1)).toMatchObject({
+      event: 'update',
+      activityToken: 'act',
+      props: { state: 'waiting', pending: { requestId: 'r1' } },
+    })
+
+    service.handle('s1', { type: 'resumed' })
+    service.handle('s1', { type: 'stop' })
+    expect(sent.at(-1)).toMatchObject({ event: 'update', activityToken: 'act', props: { state: 'done' } })
+    now += DONE_DISMISS_MS
+    await vi.advanceTimersByTimeAsync(DONE_DISMISS_MS)
+    expect(sent.at(-1)).toMatchObject({ event: 'end', activityToken: 'act' })
+    expect(service.has('s1')).toBe(false)
+    service.dispose()
+  })
+
+  test('a push-started activity whose session closes ends at once', async () => {
+    const sent: LiveMessage[] = []
+    const sender: PushSender = {
+      async send() {
+        return { invalidTokens: [] }
+      },
+      async sendLive(message) {
+        sent.push(message)
+        return { invalid: false }
+      },
+    }
+    const service = new LiveStatusService(sender, silentLogger, {
+      messages: messagesFor('en-US').live,
+      profileOf: () => 'p1',
+      info: () => ({ title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' }),
+      isMuted: () => false,
+      follow: async () => () => undefined,
+      now: () => 1_000,
+    })
+    await service.startByPush(
+      { sessionId: 's1', platform: 'ios', fcmToken: 'fcm' },
+      {
+        startToken: 'start',
+        url: 'claude-remote://session/s1',
+        alert: { title: 'Fix login', body: 'Working' },
+      },
+    )
+    await service.register({ sessionId: 's1', platform: 'ios', fcmToken: 'fcm', activityToken: 'act' })
+    service.handle('s1', { type: 'end' })
+    await Promise.resolve()
+    expect(sent.at(-1)).toMatchObject({ event: 'end', activityToken: 'act', props: { state: 'closed' } })
     service.dispose()
   })
 })

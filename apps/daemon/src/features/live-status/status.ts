@@ -1,11 +1,14 @@
 import type {
+  LiveLabels,
   LiveProgress,
   LiveState,
   LiveStatusProps,
   Session,
   TranscriptEntry,
 } from '@remote-harness/protocol'
+import { LIVE_TASK_MAX } from '@remote-harness/protocol'
 import type { Messages } from '../../core/i18n/index.ts'
+import { type ActivityKind, activityKind } from './activity.ts'
 
 export type LiveStep = keyof Messages['live']['steps']
 
@@ -23,9 +26,19 @@ export type TaskCounts = { subagents: number; background: number }
 
 /**
  * The session's todo list as counts: from the latest `TodoWrite` snapshot, or built up from
- * `TaskCreate` / `TaskUpdate` calls (`completed` keeps the task ids already counted as done).
+ * `TaskCreate` / `TaskUpdate` calls (`completed` keeps the task ids already counted as done). `active`
+ * is the in-progress item's present-tense form (sent only when the user opted in); `forms` the forms
+ * of the created tasks in creation order (task id `n` is `forms[n - 1]`).
  */
-export type TodoProgress = { done: number; total: number; completed: string[] }
+export type TodoProgress = {
+  done: number
+  total: number
+  completed: string[]
+  active: string | null
+  /** Task id of `active` when it came from `TaskUpdate`. */
+  activeId: string | null
+  forms: string[]
+}
 
 /** Live status of one registered session. Only categories and counts: never session content. */
 export type LiveStatus = {
@@ -50,11 +63,13 @@ export type LiveStatus = {
   current: CurrentStep | null
   /** The session's todo list, `null` without one. */
   todo: TodoProgress | null
+  /** What the session is doing (a key of the fixed phrase table), `null` before the first step. */
+  activity: ActivityKind | null
 }
 
 export type LiveEvent =
   | { type: 'prompt' }
-  | { type: 'step'; step: LiveStep; tool: string | null; target?: string | null }
+  | { type: 'step'; step: LiveStep; tool: string | null; target?: string | null; activity?: ActivityKind }
   /** A todo list change: a full snapshot (`TodoWrite`), a new task or a task's new status. */
   | { type: 'todo'; change: TodoChange }
   /** `pending: null` drops the lock-screen answer (the request moved to the terminal). */
@@ -65,9 +80,14 @@ export type LiveEvent =
   | { type: 'tasks'; counts: TaskCounts }
 
 export type TodoChange =
-  | { kind: 'snapshot'; done: number; total: number }
-  | { kind: 'created' }
-  | { kind: 'updated'; taskId: string; status: 'completed' | 'deleted' | 'open' }
+  | { kind: 'snapshot'; done: number; total: number; active?: string | null }
+  | { kind: 'created'; form?: string | null }
+  | {
+      kind: 'updated'
+      taskId: string
+      status: 'completed' | 'deleted' | 'in_progress' | 'open'
+      form?: string | null
+    }
 
 /** Step-only changes are sent at most this often (state changes go out at once). */
 export const STEP_INTERVAL_MS = 15_000
@@ -211,6 +231,19 @@ export function stepTarget(name: string, input: Readonly<Record<string, unknown>
   return target ? clip(target) : null
 }
 
+/** A todo item's text on one line, clipped to LIVE_TASK_MAX; `null` when empty. */
+export function taskText(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const clean = value.replace(/\s+/g, ' ').trim()
+  if (!clean) return null
+  return clean.length > LIVE_TASK_MAX ? `${clean.slice(0, LIVE_TASK_MAX - 1)}…` : clean
+}
+
+/** The present-tense form of a todo item (`activeForm`), else its text. */
+function formOf(item: Readonly<Record<string, unknown>>): string | null {
+  return taskText(item.activeForm) ?? taskText(item.content) ?? taskText(item.subject)
+}
+
 /** The todo list change a tool call stands for (`TodoWrite`, `TaskCreate`, `TaskUpdate`), if any. */
 export function todoChange(name: string, input: Readonly<Record<string, unknown>>): TodoChange | null {
   switch (name) {
@@ -219,20 +252,25 @@ export function todoChange(name: string, input: Readonly<Record<string, unknown>
       const items = input.todos.filter(
         (todo): todo is Record<string, unknown> => !!todo && typeof todo === 'object',
       )
+      const active = items.find((todo) => todo.status === 'in_progress')
       return {
         kind: 'snapshot',
         done: items.filter((todo) => todo.status === 'completed').length,
         total: items.length,
+        active: active ? formOf(active) : null,
       }
     }
     case 'TaskCreate':
-      return { kind: 'created' }
+      return { kind: 'created', form: formOf(input) }
     case 'TaskUpdate': {
       const taskId = input.taskId ?? input.task_id ?? input.id
       if ((typeof taskId !== 'string' && typeof taskId !== 'number') || typeof input.status !== 'string')
         return null
-      const status = input.status === 'completed' || input.status === 'deleted' ? input.status : 'open'
-      return { kind: 'updated', taskId: String(taskId), status }
+      const status =
+        input.status === 'completed' || input.status === 'deleted' || input.status === 'in_progress'
+          ? input.status
+          : 'open'
+      return { kind: 'updated', taskId: String(taskId), status, form: taskText(input.activeForm) }
     }
     default:
       return null
@@ -243,26 +281,46 @@ export function todoChange(name: string, input: Readonly<Record<string, unknown>
 export function applyTodo(todo: TodoProgress | null, change: TodoChange): TodoProgress | null {
   switch (change.kind) {
     case 'snapshot':
-      return change.total > 0 ? { done: change.done, total: change.total, completed: [] } : null
+      return change.total > 0
+        ? {
+            done: change.done,
+            total: change.total,
+            completed: [],
+            active: change.active ?? null,
+            activeId: null,
+            forms: [],
+          }
+        : null
     case 'created': {
-      const current = todo ?? { done: 0, total: 0, completed: [] }
-      return { ...current, total: current.total + 1 }
+      const current = todo ?? { done: 0, total: 0, completed: [], active: null, activeId: null, forms: [] }
+      return { ...current, total: current.total + 1, forms: [...current.forms, change.form ?? ''] }
     }
     case 'updated': {
       if (!todo || todo.total === 0) return todo
+      const form = change.form ?? (todo.forms[Number(change.taskId) - 1] || null)
+      // The task in progress becomes the current one; finishing or deleting it clears it.
+      const ended =
+        change.status !== 'in_progress' && change.status !== 'open' && change.taskId === todo.activeId
+      const current =
+        change.status === 'in_progress'
+          ? { active: form ?? todo.active, activeId: change.taskId }
+          : ended
+            ? { active: null, activeId: null }
+            : { active: todo.active, activeId: todo.activeId }
+      const { active } = current
       const wasDone = todo.completed.includes(change.taskId)
       if (change.status === 'completed') {
         return wasDone
-          ? todo
-          : { ...todo, done: todo.done + 1, completed: [...todo.completed, change.taskId] }
+          ? { ...todo, ...current }
+          : { ...todo, ...current, done: todo.done + 1, completed: [...todo.completed, change.taskId] }
       }
       const completed = wasDone ? todo.completed.filter((id) => id !== change.taskId) : todo.completed
       const done = wasDone ? todo.done - 1 : todo.done
       if (change.status === 'deleted') {
         const total = todo.total - 1
-        return total > 0 ? { done, total, completed } : null
+        return total > 0 ? { ...todo, ...current, done, total, completed } : null
       }
-      return wasDone ? { ...todo, done, completed } : todo
+      return wasDone || active !== todo.active ? { ...todo, ...current, done, completed } : todo
     }
   }
 }
@@ -292,11 +350,12 @@ export function stepForEntry(entry: TranscriptEntry): LiveEvent | null {
         step: toolStep(entry.name),
         tool: entry.name,
         target: stepTarget(entry.name, entry.input),
+        activity: activityKind(entry.name, entry.input),
       }
     case 'thinking':
-      return { type: 'step', step: 'thinking', tool: null }
+      return { type: 'step', step: 'thinking', tool: null, activity: 'thinking' }
     case 'assistant_text':
-      return { type: 'step', step: 'writing', tool: null }
+      return { type: 'step', step: 'writing', tool: null, activity: 'writing' }
     default:
       return null
   }
@@ -322,6 +381,7 @@ export function initialLiveStatus(
     tasks,
     current: null,
     todo,
+    activity: null,
   }
 }
 
@@ -380,6 +440,7 @@ export function reduceLiveStatus(status: LiveStatus, event: LiveEvent, now: numb
         ...withState(status, 'working', now),
         step: event.step,
         current: event.tool ? { tool: event.tool, target: event.target ?? null } : null,
+        activity: event.activity ?? status.activity,
         toolCount: status.toolCount + (event.tool ? 1 : 0),
         recent: pushRecent(status.recent, event.step, event.tool),
         glyphs: pushGlyph(status.glyphs, event.step),
@@ -453,6 +514,30 @@ export type LiveSessionInfo = {
   host: string
   session: string
   path: string
+  /** Deep link that opens the session. */
+  link?: string
+}
+
+/** How one registration wants its props: the opt-in task and when the update goes out. */
+export type LivePropsOptions = { showTask?: boolean; notifiedAt?: number }
+
+/** The translated phrase of what the session is doing: "Finished" once done, none when closed. */
+export function activityText(status: LiveStatus, messages: Messages['live']): string {
+  if (status.state === 'done') return messages.activities.finished
+  if (status.state === 'closed' || !status.activity) return ''
+  if (status.activity === 'delegating')
+    return messages.activities.delegating(Math.max(1, status.tasks.subagents))
+  return messages.activities[status.activity]
+}
+
+/** The opted-in current task, only while the turn runs or waits. */
+export function taskLine(status: LiveStatus, showTask: boolean): string {
+  if (!showTask || (status.state !== 'working' && status.state !== 'waiting')) return ''
+  return status.todo?.active ?? ''
+}
+
+function labelsOf(messages: Messages['live']): LiveLabels {
+  return { ...messages.labels, total: messages.total }
 }
 
 /** Short tool name: MCP tools (`mcp__server__tool`) keep only the tool. */
@@ -491,6 +576,7 @@ export function liveProps(
   status: LiveStatus,
   info: LiveSessionInfo,
   messages: Messages['live'],
+  options: LivePropsOptions = {},
 ): LiveStatusProps {
   return {
     title: info.title,
@@ -519,5 +605,10 @@ export function liveProps(
     tasks: tasksLine(status.tasks, messages),
     current: currentLine(status.current),
     progress: todoProgress(status.todo),
+    activity: activityText(status, messages),
+    task: taskLine(status, options.showTask ?? false),
+    notifiedAt: options.notifiedAt ?? 0,
+    link: info.link ?? '',
+    labels: labelsOf(messages),
   }
 }

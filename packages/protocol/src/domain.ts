@@ -348,6 +348,20 @@ export function liveProgressText(progress: LiveProgress | null): string {
   return progress ? `☑ ${progress.done}/${progress.total}` : ''
 }
 
+/** Short translated words the card shows around its timers and on the Open button. */
+export const LiveLabelsSchema = z.object({
+  working: z.string(),
+  waiting: z.string(),
+  total: z.string(),
+  notified: z.string(),
+  finished: z.string(),
+  open: z.string(),
+})
+export type LiveLabels = z.infer<typeof LiveLabelsSchema>
+
+/** Longest current task (opt-in) sent with the live status. */
+export const LIVE_TASK_MAX = 48
+
 export const LiveStatusPropsSchema = z.object({
   /** Profile name. */
   title: z.string(),
@@ -385,6 +399,16 @@ export const LiveStatusPropsSchema = z.object({
   current: z.string().default(''),
   /** Progress of the session's todo list, `null` without one. */
   progress: LiveProgressSchema.nullable().default(null),
+  /** What the session is doing, as a translated phrase from the daemon's fixed table ("Running tests…"), empty when none. */
+  activity: z.string().default(''),
+  /** The in-progress todo item (opt-in, at most LIVE_TASK_MAX characters), empty otherwise. */
+  task: z.string().default(''),
+  /** When this update was sent, epoch milliseconds (0 when unknown). */
+  notifiedAt: z.number().default(0),
+  /** Deep link that opens the session (`claude-remote://session/<id>`), empty when unknown. */
+  link: z.string().default(''),
+  /** Translated labels of the card, `null` from older senders (the card then shows none). */
+  labels: LiveLabelsSchema.nullable().default(null),
   /** Theme colors of the app that registered; absent from older daemons (the widget uses dark). */
   palette: LivePaletteSchema.optional(),
 })
@@ -405,6 +429,8 @@ export const LiveFollowDeviceSchema = z.object({
   palette: LivePaletteSchema.optional(),
   /** Android: the app draws the live status itself from data messages. */
   androidDataMessages: z.boolean().optional(),
+  /** Show the in-progress todo item on the lock screen (opt-in). */
+  showTask: z.boolean().optional(),
 })
 export type LiveFollowDevice = z.infer<typeof LiveFollowDeviceSchema>
 
@@ -419,13 +445,14 @@ export const LiveDataMessageSchema = z.object({
 export type LiveDataMessage = z.infer<typeof LiveDataMessageSchema>
 
 /**
- * Title and body of the Android live status notification: "<session> · <state>" and the current
- * step (else the step category), the progress, the counts and the glyph row (oldest → newest). The
- * same text whether the system or the app draws it.
+ * Title and body of the Android live status notification: "<session> · <state>", then the current
+ * task or the phrase, the current step (else the step category), the progress, the counts and the
+ * glyph row (oldest → newest). The same text whether the system or the app draws it.
  */
 export function liveNotificationText(props: LiveStatusProps): { title: string; body: string } {
   const glyphs = [...props.glyphs].reverse().join(' ')
   const details = [
+    props.task || props.activity,
     props.current || props.step,
     liveProgressText(props.progress),
     props.tasks,

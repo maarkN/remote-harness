@@ -123,6 +123,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
      * absent = the system draws it from the push's notification block.
      */
     androidDataMessages: z.boolean().optional(),
+    /** Show the in-progress todo item on the lock screen (opt-in); absent keeps the session's previous choice. */
+    showTask: z.boolean().optional(),
   }),
   z.object({ type: z.literal('live.unregister'), id, sessionId }),
   /** This phone follows the session: later turns start its live status in the background. */

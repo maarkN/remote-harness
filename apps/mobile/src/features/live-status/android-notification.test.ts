@@ -69,6 +69,23 @@ describe('Android live status data messages', () => {
       actions: { allow: 'Permitir', deny: 'Negar' },
       data: { sessionId: 's1', event: 'live', requestId: 'r1' },
     })
+    // Newer daemons send the card labels: the notification also gets Open.
+    const labels = {
+      working: 'trabalhando',
+      waiting: 'esperando',
+      total: 'total',
+      notified: 'notificado',
+      finished: 'concluído',
+      open: 'Abrir',
+    }
+    const withLabels = parseLiveData(
+      push({
+        event: 'update',
+        props: { ...props, state: 'waiting', status: 'Aguardando você', pending, labels },
+      }),
+    )
+    if (!withLabels) throw new Error('not parsed')
+    expect(liveNotification(withLabels).actions).toEqual({ allow: 'Permitir', deny: 'Negar', open: 'Abrir' })
   })
 
   test('done and ended statuses can be swiped away and never show buttons', () => {

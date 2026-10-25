@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
 import { dark } from '@/core/theme/palettes'
 import {
+  activityTokenKey,
+  backgroundRegistration,
   liveAction,
   liveActionTarget,
   livePalette,
@@ -45,7 +47,7 @@ describe('localLiveProps', () => {
   test('maps the session state and translates it', () => {
     expect(liveStateFor('idle')).toBe('done')
     const info = { title: 'Work', host: 'mac', startedAt: 5, changedAt: 6, endedAt: null }
-    expect(localLiveProps(session('a', 'waiting'), info, createI18n('pt-BR').t)).toEqual({
+    expect(localLiveProps(session('a', 'waiting'), info, createI18n('pt-BR').t, 9)).toEqual({
       title: 'Work',
       state: 'waiting',
       status: 'Esperando você',
@@ -65,6 +67,23 @@ describe('localLiveProps', () => {
       tasks: '',
       current: '',
       progress: null,
+      activity: '',
+      task: '',
+      notifiedAt: 9,
+      link: 'claude-remote://session/a',
+      labels: {
+        working: 'trabalhando',
+        waiting: 'esperando',
+        total: 'total',
+        notified: 'notificado',
+        finished: 'concluído',
+        open: 'Abrir',
+      },
+    })
+    // A finished turn reads "Finished"; the app never sends a task of its own.
+    expect(localLiveProps(session('a', 'idle'), info, createI18n('en-US').t, 9)).toMatchObject({
+      activity: 'Finished',
+      task: '',
     })
   })
 
@@ -87,5 +106,30 @@ describe('localLiveProps', () => {
     expect(shortenHome('/home/me')).toBe('~')
     expect(shortenHome('/srv/app')).toBe('/srv/app')
     expect(shortenHome('/Users')).toBe('/Users')
+  })
+})
+
+describe('backgroundRegistration', () => {
+  const token = { activityId: 'a1', pushToken: 'tok', url: 'claude-remote://session/s1' }
+  const idle = { appActive: false, sent: new Set<string>() }
+
+  test('a push-started activity registers its session from the background', () => {
+    expect(backgroundRegistration(token, idle)).toBe('s1')
+  })
+
+  test('the app in front registers its own activities', () => {
+    expect(backgroundRegistration(token, { ...idle, appActive: true })).toBeNull()
+  })
+
+  test('each token of an activity goes once; a new token goes again', () => {
+    const sent = new Set([activityTokenKey(token)])
+    expect(backgroundRegistration(token, { appActive: false, sent })).toBeNull()
+    expect(backgroundRegistration({ ...token, pushToken: 'tok2' }, { appActive: false, sent })).toBe('s1')
+  })
+
+  test('activities without a session deep link or token are left alone', () => {
+    expect(backgroundRegistration({ activityId: 'a1', pushToken: 'tok' }, idle)).toBeNull()
+    expect(backgroundRegistration({ ...token, url: 'https://example.com' }, idle)).toBeNull()
+    expect(backgroundRegistration({ ...token, pushToken: '' }, idle)).toBeNull()
   })
 })

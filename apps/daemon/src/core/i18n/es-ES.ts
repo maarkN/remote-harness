@@ -499,6 +499,35 @@ export const esES = {
     deny: 'Denegar',
     total: 'total',
     closedHint: 'transcripción guardada · reanuda desde la app',
+    /** What the session is doing: a fixed phrase per kind of step (never the step's input). */
+    activities: {
+      readingDocs: 'Leyendo documentación…',
+      exploring: 'Explorando el código…',
+      updatingScripts: 'Actualizando scripts…',
+      editingCode: 'Editando código…',
+      creatingPdf: 'Creando un PDF…',
+      committing: 'Haciendo commits y push…',
+      testing: 'Ejecutando pruebas…',
+      building: 'Compilando…',
+      installing: 'Instalando dependencias…',
+      command: 'Ejecutando comandos…',
+      researching: 'Investigando en la web…',
+      delegating: (count: number) =>
+        count === 1 ? 'Delegando a 1 agente…' : `Delegando a ${count} agentes…`,
+      planning: 'Planificando…',
+      thinking: 'Pensando…',
+      writing: 'Escribiendo la respuesta…',
+      tool: 'Usando herramientas…',
+      finished: 'Terminado',
+    },
+    /** Small words around the card's timers, and its Open button. */
+    labels: {
+      working: 'trabajando',
+      waiting: 'esperando',
+      notified: 'notificado',
+      finished: 'terminado',
+      open: 'Abrir',
+    },
   },
   updates: {
     available: (version: string) => `Remote Harness ${version} disponible`,

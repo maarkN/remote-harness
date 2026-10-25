@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { carriedStyles, frameLines, frameWrite } from './frame-write'
+import { carriedStyles, frameLines, frameWrite, GLYPH_SUBSTITUTES } from './frame-write'
 
 const frame = (lines: string[], cols = 20, rows = 4) => ({ text: `${lines.join('\n')}\n`, cols, rows })
 const ESC = '\x1b'
@@ -54,5 +54,21 @@ describe('carriedStyles', () => {
 describe('frameLines', () => {
   test('drops the trailing newline and swaps the bullet glyph', () => {
     expect(frameLines({ text: '⏺ done\n', cols: 10, rows: 1 })).toEqual(['● done'])
+  })
+
+  test("swaps the glyphs Android can't draw in Claude Code's mode line and tool results", () => {
+    const text = '  ⎿  Read 12 lines\n  ⏵⏵ accept edits on (shift+tab to cycle)\n'
+    expect(frameLines({ text, cols: 40, rows: 2 })).toEqual([
+      '  └  Read 12 lines',
+      '  ►► accept edits on (shift+tab to cycle)',
+    ])
+  })
+
+  test('every substitute is a single text (non-emoji) code point', () => {
+    for (const [glyph, substitute] of Object.entries(GLYPH_SUBSTITUTES)) {
+      expect([...glyph]).toHaveLength(1)
+      expect([...substitute]).toHaveLength(1)
+      expect(substitute).not.toMatch(/\p{Extended_Pictographic}/u)
+    }
   })
 })

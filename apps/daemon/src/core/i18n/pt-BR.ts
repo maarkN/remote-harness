@@ -500,6 +500,35 @@ export const ptBR = {
     deny: 'Negar',
     total: 'total',
     closedHint: 'transcrição mantida · retome pelo app',
+    /** What the session is doing: a fixed phrase per kind of step (never the step's input). */
+    activities: {
+      readingDocs: 'Lendo documentação…',
+      exploring: 'Explorando o código…',
+      updatingScripts: 'Atualizando scripts…',
+      editingCode: 'Editando código…',
+      creatingPdf: 'Criando PDF…',
+      committing: 'Fazendo commits e push…',
+      testing: 'Rodando testes…',
+      building: 'Compilando…',
+      installing: 'Instalando dependências…',
+      command: 'Rodando comandos…',
+      researching: 'Pesquisando na web…',
+      delegating: (count: number) =>
+        count === 1 ? 'Delegando para 1 agente…' : `Delegando para ${count} agentes…`,
+      planning: 'Planejando…',
+      thinking: 'Pensando…',
+      writing: 'Escrevendo a resposta…',
+      tool: 'Usando ferramentas…',
+      finished: 'Concluído',
+    },
+    /** Small words around the card's timers, and its Open button. */
+    labels: {
+      working: 'trabalhando',
+      waiting: 'esperando',
+      notified: 'notificado',
+      finished: 'concluído',
+      open: 'Abrir',
+    },
   },
   updates: {
     available: (version: string) => `Remote Harness ${version} disponível`,

@@ -8,7 +8,11 @@ import { useShallow } from 'zustand/react/shallow'
 import { selectProfiles, useConnectionStore, useDaemonClient } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
 import { makeStyles, radius, space, useTheme } from '@/core/theme'
-import { setLiveStatusEnabled, useLiveStatusSettings } from '@/features/live-status/settings-store'
+import {
+  setLiveStatusEnabled,
+  setLiveStatusShowTask,
+  useLiveStatusSettings,
+} from '@/features/live-status/settings-store'
 import { setMuted, useMuteStore } from '@/features/mute/store'
 import { setPushEnabled, usePushSettings } from '@/features/push/push-settings-store'
 import { usePushState } from '@/features/push/push-state'
@@ -19,7 +23,8 @@ import { mutedSummary } from './summary'
 
 /**
  * Settings → Notifications: the per-phone push toggle (with the push status and test while on),
- * the live status toggle and the Muted row that opens the profiles and sessions sheet.
+ * the live status toggle (with its opt-in current task while on) and the Muted row that opens the
+ * profiles and sessions sheet.
  */
 export function NotificationsCard() {
   const { t } = useTranslation()
@@ -27,6 +32,7 @@ export function NotificationsCard() {
   const styles = useStyles()
   const pushEnabled = usePushSettings((s) => s.enabled)
   const liveEnabled = useLiveStatusSettings((s) => s.enabled)
+  const liveShowTask = useLiveStatusSettings((s) => s.showTask)
   const mutedProfiles = useMuteStore((s) => s.profiles)
   const mutedSessions = useMuteStore((s) => s.sessions)
   const [mutedOpen, setMutedOpen] = useState(false)
@@ -47,6 +53,14 @@ export function NotificationsCard() {
           value={liveEnabled}
           onChange={(value) => void setLiveStatusEnabled(value)}
         />
+        {liveEnabled ? (
+          <ToggleRow
+            title={t('settings.liveTask')}
+            hint={t('settings.liveTaskHint')}
+            value={liveShowTask}
+            onChange={(value) => void setLiveStatusShowTask(value)}
+          />
+        ) : null}
         <Pressable
           accessibilityRole="button"
           onPress={() => setMutedOpen(true)}

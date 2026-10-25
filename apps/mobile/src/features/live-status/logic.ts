@@ -97,9 +97,11 @@ export function tasksLine(counts: { subagents: number; background: number }, t: 
 
 /** Props for an update made by the app itself (no steps: only the daemon follows the transcript). */
 export function localLiveProps(
-  session: Pick<Session, 'state' | 'title' | 'cwd'> & Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>,
+  session: Pick<Session, 'id' | 'state' | 'title' | 'cwd'> &
+    Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>,
   info: LocalLiveInfo,
   t: TFunction,
+  now: number = Date.now(),
 ): LiveStatusProps {
   const state = liveStateFor(session.state)
   return {
@@ -122,6 +124,18 @@ export function localLiveProps(
     tasks: tasksLine(taskCounts(session), t),
     current: '',
     progress: null,
+    activity: state === 'done' ? t('liveStatus.finished') : '',
+    task: '',
+    notifiedAt: now,
+    link: `claude-remote://session/${session.id}`,
+    labels: {
+      working: t('liveStatus.labels.working'),
+      waiting: t('liveStatus.labels.waiting'),
+      total: t('liveStatus.labels.total'),
+      notified: t('liveStatus.labels.notified'),
+      finished: t('liveStatus.labels.finished'),
+      open: t('liveStatus.labels.open'),
+    },
     ...(info.palette ? { palette: info.palette } : {}),
   }
 }
@@ -147,6 +161,27 @@ export type Reconciled = {
 export function sessionIdFromActivityUrl(url: string | null | undefined): string | null {
   const match = /^(?:claude-remote|remoteharness):\/\/session\/([^/?#]+)/.exec(url ?? '')
   return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
+/** An activity's update token, as iOS hands it to the app (also with the app in the background). */
+export type ActivityToken = { activityId: string; pushToken: string; url?: string | null }
+
+/** Identifies one token of one activity, so each is registered once. */
+export function activityTokenKey(token: ActivityToken): string {
+  return `${token.activityId}|${token.pushToken}`
+}
+
+/**
+ * The session to register from the background for an activity's update token, or `null`: with the
+ * app in front its own screens register their activities, the deep link must name a session (an
+ * activity the daemon started by push for a followed session has one), and each token goes once.
+ */
+export function backgroundRegistration(
+  token: ActivityToken,
+  state: { appActive: boolean; sent: ReadonlySet<string> },
+): string | null {
+  if (state.appActive || !token.pushToken || state.sent.has(activityTokenKey(token))) return null
+  return sessionIdFromActivityUrl(token.url)
 }
 
 /** Activities no record names: their deep links, and the sessions this phone follows. */

@@ -1,7 +1,7 @@
 # live-status Specification
 
 ## Purpose
-TBD - created by archiving change 36-live-status. Update Purpose after archive.
+Shows what a working session is doing on the phone outside the app (iOS Live Activity and Dynamic Island, Android ongoing notification), kept up to date by the daemon through push, including sessions followed from the computer while the app is closed.
 
 ## Requirements
 
@@ -25,7 +25,13 @@ The app SHALL start a live status for a session when it sees the session change 
 - **THEN** the same activity turns back to working with a new timer and no second activity appears
 
 ### Requirement: Live status content
-The live status SHALL show, on the iOS lock screen: the app mark as the only icon; `<profile> · <machine>` (the computer's host name, falling back to the profile name); the session name; the session folder (home shortened to `~`); a large tabular timer of the turn in the state color; a state line with the state name and the current step category; a row with the glyphs of the last five step categories (`⌘` command, `✎` edit, `⌕` search, `⇄` web, `⌥` subagent, `?` permission, `·` other), the current one in the state color; a line with the current step (the tool and its short target, e.g. `Bash · pnpm test`, `Edit · app.ts`) next to the task progress (`☑ 3/7`) when the session has a todo list, the running subagents and background tasks as separate translated counts ("2 subagents · 1 background task") and the tool count; and, only while working with a todo list, a determinate bar of that progress. The live status MUST NOT show an indeterminate progress indicator (widgets don't animate it). Color MUST encode only the state (working = accent, waiting = warning, done = success, closed = muted text), on the border, the timer, the state line, the progress bar and the current glyph, with the colors coming from the `palette` in the props and falling back to the dark theme values. While a tool permission waits, the banner SHALL show Deny and Allow buttons that answer it (see Live status updates). When the turn is done, the timer MUST freeze at the turn's duration with the "total" hint; when the session closed, the banner stays muted with the hint that the transcript is kept. In the Dynamic Island the compact view SHALL show the mark and the timer (or the current glyph), the minimal view the mark and a state dot, and the expanded view the lock screen content. Tapping it MUST open the session. Push payloads for the live status MAY contain the session title, its working directory and the current step's tool with a target sanitized by the daemon from a fixed table (a file's base name, a command's program and, for a short list of programs, its subcommand, a URL's host name, a subagent type; nothing for any other tool), and MUST NOT contain any other session content: only the profile and host names, the state, step categories from a fixed table derived from the tool name (with the tool name), glyphs, the tool and task counts, the todo progress counts, the pending request id and tool name with the button labels, timestamps and the palette. Texts SHALL be translated (pt-BR, en-US, es-ES). On Android the notification body SHALL carry the current step (or the step category when there is none), the progress, the subagent and background task counts, the tool count and the glyph row.
+The live status SHALL show, on the iOS lock screen: the app mark as the only icon; `<profile> · <machine>` (the computer's host name, falling back to the profile name); a state pill with the state name in the state color; the session name; the session folder (home shortened to `~`); a large tabular timer of the time in the current state in the state color (working: the turn; waiting: the wait; done: the turn's total, frozen) with a small label ("working", "waiting", "total"); on the right, "notified … ago" (the time since the daemon sent that update, counting by itself) and, while waiting, the turn's working time; once done, "finished … ago" instead; a "what it's doing now" line with a translated phrase the daemon picks from a fixed table (see below), or the current task when the user opted in; a row with the glyphs of the last five step categories (`⌘` command, `✎` edit, `⌕` search, `⇄` web, `⌥` subagent, `?` permission, `·` other), the current one in the state color; a line with the current step (the tool and its short target, e.g. `Bash · pnpm test`, `Edit · app.ts`) next to the task progress (`☑ 3/7`) when the session has a todo list, the running subagents and background tasks as separate translated counts ("2 subagents · 1 background task") and the tool count; and, only while working with a todo list, a determinate bar of that progress. The live status MUST NOT show an indeterminate progress indicator (widgets don't animate it). Color MUST encode only the state (working = accent, waiting = warning, done = success, closed = muted text), on the border, the timer, the state line, the progress bar and the current glyph, with the colors coming from the `palette` in the props and falling back to the dark theme values. While a tool permission waits, the banner SHALL show Deny and Allow buttons that answer it (see Live status updates) and an Open button that opens the session. When the turn is done, the timer MUST freeze at the turn's duration with the "total" label and the phrase line reads "Finished"; when the session closed, the banner stays muted with the hint that the transcript is kept. In the Dynamic Island the compact view SHALL show the mark and the timer (or the current glyph), the minimal view the mark and a state dot, and the expanded view the lock screen content. Tapping it MUST open the session. Push payloads for the live status MAY contain the session title, its working directory and the current step's tool with a target sanitized by the daemon from a fixed table (a file's base name, a command's program and, for a short list of programs, its subcommand, a URL's host name, a subagent type; nothing for any other tool), and MUST NOT contain any other session content, except the current task below: only the profile and host names, the state, step categories from a fixed table derived from the tool name (with the tool name), glyphs, the tool and task counts, the todo progress counts, the pending request id and tool name with the button labels, timestamps, the session's deep link, the phrase and the translated labels, and the palette.
+
+The phrase SHALL come from a fixed table the daemon applies to signals it already has (the tool name, a file's extension or a directory name, a command's program and subcommand, a URL's host), and only the phrase leaves the daemon: Reading docs… (Read of Markdown or text files or under `docs/`, WebFetch of a docs host), Exploring the code… (Read, Grep, Glob otherwise), Updating scripts… (Edit / Write of shell scripts, under `scripts/`, a Makefile), Editing code… (Edit / Write otherwise), Creating a PDF… (Write of a `.pdf`, a PDF tool in Bash), Committing and pushing… (`git commit`, `git push`, `gh pr`), Running tests…, Building…, Installing dependencies…, Running commands… (other commands), Researching on the web… (WebSearch, other WebFetch), Delegating to N agents… (Task / Agent, N the running subagents, at least 1), Planning… (todo list tools), Thinking…, Writing the answer…, Using tools… (any other tool).
+
+The setting **Show the current task on the lock screen** (Settings → Notifications, under Live status) SHALL be off by default and kept per phone. When on, and only while working or waiting, the payload SHALL also carry the in-progress todo item's present-tense form (from `TodoWrite`, or `TaskCreate` / `TaskUpdate`) on one line, clipped to 48 characters, and the card shows it instead of the phrase. Settings and the privacy policy SHALL explain that this sends text from the session through push.
+
+Texts SHALL be translated (pt-BR, en-US, es-ES). On Android the notification title SHALL carry the session and the state, and the body the task or phrase, the current step (or the step category when there is none), the progress, the subagent and background task counts, the tool count and the glyph row; while a permission waits it SHALL have Allow, Deny and Open actions.
 
 #### Scenario: Running a command
 - **WHEN** Claude Code calls the Bash tool with `pnpm test --filter daemon`
@@ -53,11 +59,27 @@ The live status SHALL show, on the iOS lock screen: the app mark as the only ico
 
 #### Scenario: Turn finished
 - **WHEN** a turn that started 4 minutes ago finishes
-- **THEN** the timer shows 4 minutes with the "total" hint and stops counting, and the colors turn to the done color
+- **THEN** the timer shows 4 minutes with the "total" label and stops counting, the line reads "Finished" with "finished … ago" counting, and the colors turn to the done color
+
+#### Scenario: Waiting shows the wait and the work
+- **WHEN** a session worked for 14 minutes and has been waiting for a permission for 2 minutes
+- **THEN** the big timer shows about 2:00 labelled "waiting", the side shows "working 14:00" and "notified … ago", and Deny, Allow and Open are visible
+
+#### Scenario: Phrase from a fixed table
+- **WHEN** Claude Code runs `pnpm vitest run src/login.test.ts` in Bash
+- **THEN** the card shows "Running tests…", and neither the arguments nor the file name of the command are sent
+
+#### Scenario: Current task off by default
+- **WHEN** the session's todo list has "Implementing the login screen" in progress and the setting is off
+- **THEN** the payload carries no task and the card shows the phrase
+
+#### Scenario: Current task on
+- **WHEN** the user turned on Show the current task on the lock screen and the in-progress todo reads "Implementing the login screen with the new rate limit rules"
+- **THEN** the card shows the first 48 characters of it, ending with an ellipsis
 
 #### Scenario: Older payload
 - **WHEN** the widget receives props without the new fields (older daemon)
-- **THEN** it renders with the profile name as header and no session, folder, steps, current step, progress, glyphs or buttons, in the dark colors
+- **THEN** it renders with the profile name as header and no session, folder, steps, current step, progress, glyphs, labels, phrase or buttons, in the dark colors
 
 #### Scenario: Theme palette
 - **WHEN** the app starts a live status while rendering the dark theme
@@ -98,7 +120,7 @@ The daemon MUST NOT send live status updates for a muted session or profile; whe
 - **THEN** the live status ends at the next update and no further updates are sent
 
 ### Requirement: Live status protocol
-The protocol SHALL have `live.register { sessionId, platform, fcmToken, activityToken?, relay?, palette? }` (replies `ack`, replacing an earlier registration of the same session) and `live.unregister { sessionId }` (replies `ack`). `palette` carries the app theme colors used by the live status (`background`, `text`, `textMuted`, `accent`, `success`, `warning`); the daemon SHALL keep it with the registration and include it as `palette` in the props of every update it sends for that registration. The props SHALL also carry `glyphs` (newest first, at most five), `pending` (`{ requestId, tool, allow, deny }` or `null`), `hint`, `tasks` (the translated counts of running subagents and background tasks, empty when none), `current` (the current step's tool and sanitized target, empty when none) and `progress` (`{ done, total }` of the todo list, or `null`), all with defaults so older daemons and apps interoperate. A worst-case update MUST stay under the APNs 4 KB payload limit. Registrations MAY be kept in memory only.
+The protocol SHALL have `live.register { sessionId, platform, fcmToken, activityToken?, relay?, palette?, showTask? }` (replies `ack`, replacing an earlier registration of the same session) and `live.unregister { sessionId }` (replies `ack`). `palette` carries the app theme colors used by the live status (`background`, `text`, `textMuted`, `accent`, `success`, `warning`); the daemon SHALL keep it with the registration and include it as `palette` in the props of every update it sends for that registration. The props SHALL also carry `glyphs` (newest first, at most five), `pending` (`{ requestId, tool, allow, deny }` or `null`), `hint`, `tasks` (the translated counts of running subagents and background tasks, empty when none), `current` (the current step's tool and sanitized target, empty when none) `progress` (`{ done, total }` of the todo list, or `null`), `activity` (the translated phrase, empty when none), `task` (the opted-in current task, empty otherwise), `notifiedAt` (when the update was sent, epoch milliseconds, 0 when unknown), `link` (the session's deep link, empty when unknown) and `labels` (`{ working, waiting, total, notified, finished, open }` translated, or `null`), all with defaults so older daemons and apps interoperate. A worst-case update MUST stay under the APNs 4 KB payload limit. `showTask` (also in the follow device) turns the current task on for that phone; a registration without `palette` or `showTask` SHALL keep the values the session's registration already had. Registrations MAY be kept in memory only.
 
 #### Scenario: New activity for the same session
 - **WHEN** the app registers a second live status for a session
@@ -119,6 +141,10 @@ The protocol SHALL have `live.register { sessionId, platform, fcmToken, activity
 #### Scenario: Older daemon without current or progress
 - **WHEN** the app parses props without `current` or `progress`
 - **THEN** they default to `''` and `null`
+
+#### Scenario: Older app without showTask
+- **WHEN** an app that does not know the setting registers a live status
+- **THEN** no task is sent and the props carry the phrase only
 
 ### Requirement: One live status per session
 The app SHALL keep at most one Live Activity per session across app restarts, reconnects and over-the-air reloads. It SHALL persist which activity belongs to which session and, when it connects and when it returns to the foreground, SHALL compare that record with the activities iOS still has: it adopts the activity of each session that is working, waiting or inside its done window (updating it and registering it again with the daemon). It SHALL also adopt an activity that no record names when its deep link names a followed session that is working or waiting and has no activity yet (one started by push). It MUST end every other activity of the app, including any it cannot match to a session.
@@ -167,7 +193,7 @@ When the daemon announces `live.follow` and "Live status" is on, the session's M
 
 While a session is followed, each new turn (`UserPromptSubmit`) SHALL start its live status on that phone, even with the app in the background or closed. This happens only when the session has no live status yet, no app is in the foreground (the app in front starts its own), and neither the session nor its profile is muted. It starts:
 - on Android, as the app-drawn notification, with the updates that follow;
-- on iOS 17.2 or later, as a Live Activity started by push with the phone's push-to-start token. Its updates resume once the app registers the activity's own token;
+- on iOS 17.2 or later, as a Live Activity started by push with the phone's push-to-start token. The start payload SHALL ask iOS for the activity's update token right away (iOS 18+). When iOS hands the app that token in the background, the app SHALL register it with the daemon without opening its screens, over a short-lived authenticated connection, so the activity gets the same updates (steps, counts, waiting with Deny / Allow, done, end) as one started from the app. Until a token arrives the daemon keeps the status but sends no update. A registration without theme colors SHALL keep the colors the session's live status already had;
 - on older iOS, or before the app sent a push-to-start token, as a regular push "Session working" with the profile name, like the other notifications.
 
 A session SHALL stop being followed when the user taps Stop following, when it ends, or after 12 hours without a turn. Turning "Live status" off SHALL stop following every session and turn auto-follow off. Follows MUST survive daemon restarts. The push-to-start payload follows the live status content rules. The fallback push carries only the state, the profile name and the session id. Texts MUST be translated.
@@ -183,6 +209,22 @@ A session SHALL stop being followed when the user taps Stop following, when it e
 #### Scenario: Desktop turn with the app in the background (iOS)
 - **WHEN** a followed session gets a prompt from the computer, the iPhone runs iOS 18 and the app is in the background
 - **THEN** a Live Activity for that session starts from the push, and the next time the app runs it adopts that activity instead of starting another
+
+#### Scenario: Push-started activity keeps updating with the app closed (iOS)
+- **WHEN** a followed session gets a prompt from the computer while the iPhone app is closed, and iOS hands the new activity's token to the app in the background
+- **THEN** the activity shows the current step, glyphs and counts within the usual throttle, without the app being opened
+
+#### Scenario: Permission on a push-started activity
+- **WHEN** a session whose Live Activity was started by push asks for a tool permission
+- **THEN** the activity turns to "Waiting for you" with Deny / Allow, and tapping Allow answers the request without opening the app
+
+#### Scenario: Push-started activity ends
+- **WHEN** the turn of a push-started activity finishes, or its session closes
+- **THEN** the activity shows done (and is dismissed after 15 minutes without a new turn) or ends at once, like one started from the app
+
+#### Scenario: Colors kept
+- **WHEN** the app registers a push-started activity's token from the background without theme colors
+- **THEN** the updates keep the colors the follow carried
 
 #### Scenario: Older iOS
 - **WHEN** a followed session starts a turn on an iPhone without a push-to-start token

@@ -10,10 +10,10 @@ import type { Logger } from '../../core/logger.ts'
 import type { TmuxClient } from '../../infra/tmux.ts'
 import { type AgentAdapter, adapterOf, profileAgentId, type TranscriptSummary } from '../agents/index.ts'
 import type { HookEvent } from '../hooks/payloads.ts'
+import { isMarkupTitle, promptTitle } from './prompt-title.ts'
 import { scanRecentTranscripts } from './recent-scan.ts'
 import { acceptsHook, hookState } from './state.ts'
 import type { SessionStore } from './store.ts'
-import { oneLine } from './transcript-meta.ts'
 import type { SessionRecord } from './types.ts'
 
 export type SessionServiceOptions = {
@@ -124,9 +124,9 @@ export class SessionService {
       case 'UserPromptSubmit': {
         const current = this.store.get(id)
         const prompt = hook.payload.prompt
-        if (typeof prompt === 'string' && (!current || current.title === basename(current.cwd))) {
-          patch.title = oneLine(prompt)
-        }
+        const untitled = !current || current.title === basename(current.cwd) || isMarkupTitle(current.title)
+        const title = typeof prompt === 'string' && untitled ? promptTitle(prompt) : null
+        if (title) patch.title = title
         break
       }
       case 'SessionEnd':
