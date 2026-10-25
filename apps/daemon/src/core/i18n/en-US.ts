@@ -216,6 +216,17 @@ export const enUS = {
         failed: 'sending failed: see the daemon logs',
       },
     },
+    devices: {
+      description: 'the devices paired with this computer',
+      list: 'list the paired devices (ID, name, platform, paired, last seen)',
+      revoke: 'unpair a device: it is disconnected and must pair again',
+      empty: 'No paired devices. Run `remote-harness pair` to pair one.',
+      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
+        `${id}  ${name}  ${platform}  paired ${paired}  last seen ${seen}`,
+      never: 'never',
+      revoked: (id: string) => `Device ${id} revoked.`,
+      notFound: (id: string) => `No paired device ${id}.`,
+    },
     rules: {
       description: '"always allow" rules created by the app',
       list: 'list the rules created by the app',

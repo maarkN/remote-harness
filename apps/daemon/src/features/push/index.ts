@@ -21,6 +21,14 @@ export async function registerPushFeature(
 ) {
   const devices = new DeviceRegistry(paths.devices())
   await devices.load()
+  // Push follows the paired devices: nothing for a device that was revoked or never paired.
+  if (ctx.pairedDeviceIds) await devices.prune(ctx.pairedDeviceIds())
+  ctx.bus.on('device.revoked', ({ deviceId }) => {
+    devices
+      .removeDevice(deviceId)
+      .then((tokens) => ctx.bus.emit('push.tokens.dropped', { tokens }))
+      .catch((error: unknown) => ctx.logger.warn({ err: error }, 'push registration not removed'))
+  })
   const relay = createRelaySender(ctx.logger)
   let firebase: Promise<PushSender | null> | undefined
   /** Inner sender for a mode; the Firebase one is created once (firebase-admin is heavy). */
@@ -48,8 +56,8 @@ export async function registerPushFeature(
     host: displayHostName(ctx.config),
   })
 
-  ctx.router.register('device.register', async (msg) => {
-    await devices.register(msg.fcmToken, msg.platform, msg.relay)
+  ctx.router.register('device.register', async (msg, connection) => {
+    await devices.register(msg.fcmToken, msg.platform, msg.relay, connection.deviceId)
     return undefined
   })
   // The phone turned push off: it is no longer counted or targeted.

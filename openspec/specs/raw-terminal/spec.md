@@ -6,15 +6,23 @@ Mirrors the raw content of the session's tmux pane in the app, as a fallback for
 ## Requirements
 
 ### Requirement: Pane stream
-After `pane.subscribe`, the daemon SHALL send `pane.frame { sessionId, text, cols, rows }` with the visible pane content including color sequences, only when the content changes, at most 4 times per second. `pane.unsubscribe` or disconnection MUST stop the capture.
+After `pane.subscribe`, the daemon SHALL send the visible pane content including color sequences only when it changes, at most 4 times per second: a full `pane.frame { sessionId, text, cols, rows }` to a new viewer and whenever the size changes or most lines changed, and otherwise `pane.diff { sessionId, cols, rows, lineCount, scroll?, lines }` with how many lines the screen scrolled up (a growing log) and only the lines that still differ (`[index, text]`), which the app applies to its last frame. `pane.unsubscribe` or disconnection MUST stop the capture.
 
 #### Scenario: Menu open
 - **WHEN** the TUI opens the `/model` menu
-- **THEN** the app receives a frame with the menu
+- **THEN** the app receives a frame or diff with the menu
 
 #### Scenario: Idle pane
 - **WHEN** the content does not change
 - **THEN** no new frame is sent
+
+#### Scenario: One line of output
+- **WHEN** a running command prints one new line in a 40-line pane
+- **THEN** the viewers receive a `pane.diff` with the changed lines instead of the whole screen
+
+#### Scenario: Second viewer
+- **WHEN** another device subscribes to a pane that is already streaming
+- **THEN** that device first receives a full `pane.frame`
 
 ### Requirement: Terminal in the app
 The Terminal tab SHALL render the frames in a terminal emulator using the app theme, with a key bar (arrows, Enter, Esc, Tab, Shift+Tab, Ctrl+C, 1-9). The app SHALL be subscribed to the pane only while the terminal can be seen: its screen, or the session screen that holds the tablet inspector showing it, is focused and the app is in the foreground. It SHALL draw at most one frame per display frame, the latest, and redraw only the rows that changed unless the pane size changed. Characters a platform cannot draw as a one-column text glyph SHALL be drawn as a same-width substitute from one table (`⏺` as `●`, `⏵` as `►`, `⎿` as `└`). In the tablet inspector the key bar SHALL show every key at once, wrapping into as many rows as its width needs; the full-screen terminal keeps one scrolling row.

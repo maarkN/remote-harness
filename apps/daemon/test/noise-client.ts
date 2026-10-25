@@ -29,9 +29,13 @@ export type NoiseClient = {
   close(): void
 }
 
-/** Opens a socket and runs the handshake; messages are decrypted into a queue. */
-export function noiseConnect(port: number, handshake: DeviceHandshake, deviceKey: KeyPair): NoiseClient {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`)
+/** Opens a socket (a local port, or a full URL such as a relay's device endpoint) and runs the handshake. */
+export function noiseConnect(
+  target: number | string,
+  handshake: DeviceHandshake,
+  deviceKey: KeyPair,
+): NoiseClient {
+  const ws = new WebSocket(typeof target === 'number' ? `ws://127.0.0.1:${target}` : target)
   const queue: ServerMessage[] = []
   const waiters: Array<(message: ServerMessage) => void> = []
   let session: ChannelSession | null = null
@@ -96,7 +100,7 @@ export function noiseConnect(port: number, handshake: DeviceHandshake, deviceKey
 /** Pairs a new device with a fresh code from the daemon (XXpsk3), without sending `auth`. */
 export function pairConnect(
   daemon: RunningDaemon,
-  options: { deviceKey?: KeyPair; info?: DeviceInfo; url?: string } = {},
+  options: { deviceKey?: KeyPair; info?: DeviceInfo; url?: string; via?: string } = {},
 ): NoiseClient {
   const url = options.url ?? daemon.pairing.create()?.url
   const parsed = url ? parsePairingCode(url) : null
@@ -108,16 +112,16 @@ export function pairConnect(
     secret: parsed.code.secret,
     info: options.info ?? { name: 'Test phone', platform: 'ios' },
   })
-  return noiseConnect(daemon.wsPort, handshake, deviceKey)
+  return noiseConnect(options.via ?? daemon.wsPort, handshake, deviceKey)
 }
 
-/** Reconnects a paired device (IK), without sending `auth`. */
-export function reconnectConnect(daemon: RunningDaemon, deviceKey: KeyPair): NoiseClient {
+/** Reconnects a paired device (IK), without sending `auth`; `via` is a relay device URL. */
+export function reconnectConnect(daemon: RunningDaemon, deviceKey: KeyPair, via?: string): NoiseClient {
   const handshake = DeviceHandshake.reconnect(noiseCrypto, {
     deviceKey,
     daemonKey: daemon.identity.noise.publicKey,
   })
-  return noiseConnect(daemon.wsPort, handshake, deviceKey)
+  return noiseConnect(via ?? daemon.wsPort, handshake, deviceKey)
 }
 
 /** Pairs a device, sends `auth` and waits for `auth.ok`: the usual start of an integration test. */

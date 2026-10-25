@@ -223,6 +223,17 @@ export const esES = {
         failed: 'el envío falló: mira los logs del daemon',
       },
     },
+    devices: {
+      description: 'los dispositivos emparejados con este ordenador',
+      list: 'lista los dispositivos emparejados (ID, nombre, plataforma, emparejado, visto por última vez)',
+      revoke: 'desempareja un dispositivo: se desconecta y debe volver a emparejarse',
+      empty: 'No hay dispositivos emparejados. Ejecuta `remote-harness pair` para emparejar uno.',
+      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
+        `${id}  ${name}  ${platform}  emparejado ${paired}  visto por última vez ${seen}`,
+      never: 'nunca',
+      revoked: (id: string) => `Dispositivo ${id} revocado.`,
+      notFound: (id: string) => `No hay ningún dispositivo emparejado ${id}.`,
+    },
     rules: {
       description: 'reglas de "permitir siempre" creadas por la app',
       list: 'lista las reglas creadas por la app',

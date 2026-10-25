@@ -6,11 +6,19 @@ Alerts the paired device when a session needs attention, without exposing sessio
 ## Requirements
 
 ### Requirement: Device registration
-The app SHALL request notification permission, obtain the FCM token and send `device.register`; the daemon MUST store only tokens received over authenticated connections.
+The app SHALL request notification permission, obtain the FCM token and send `device.register`; the daemon MUST store only tokens received over authenticated connections, keep at most one registration per paired device (the latest), and drop the registrations of devices that are revoked or no longer paired.
 
 #### Scenario: Token refreshed
 - **WHEN** FCM refreshes the token
-- **THEN** the app sends the new token and the daemon replaces the old one
+- **THEN** the app sends the new token and the daemon replaces that device's old one
+
+#### Scenario: Ten devices
+- **WHEN** ten paired devices each register their token
+- **THEN** all ten receive pushes
+
+#### Scenario: Revoked device
+- **WHEN** a device is revoked
+- **THEN** its push registration is removed and it receives no further pushes
 
 ### Requirement: Push delivery
 The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.

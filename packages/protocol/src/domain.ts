@@ -274,6 +274,28 @@ export type RuleScope = z.infer<typeof RuleScopeSchema>
 export const DevicePlatformSchema = z.enum(['ios', 'android'])
 export type DevicePlatform = z.infer<typeof DevicePlatformSchema>
 
+/** A device paired with the daemon, as `devices.list` shows it (times as ISO strings). */
+export const PairedDeviceInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  platform: z.string(),
+  pairedAt: z.string(),
+  lastSeen: z.string().nullable(),
+  /** The device that asked. */
+  current: z.boolean(),
+})
+export type PairedDeviceInfo = z.infer<typeof PairedDeviceInfoSchema>
+
+/** Where devices reach the daemon: direct `host:port` addresses and the home connection relay. */
+export const DaemonPathsSchema = z.object({
+  addresses: z.array(z.string()),
+  /** The home relay (`wss://…`), null while the daemon has none (off, or none answers). */
+  relay: z.string().nullable(),
+  /** The relays the daemon may use, to find it when its home relay changed. */
+  relays: z.array(z.string()),
+})
+export type DaemonPaths = z.infer<typeof DaemonPathsSchema>
+
 /**
  * Where a daemon without a Firebase service account sends this phone's pushes: the push relay and
  * the grant it issued to the app (the FCM token, sealed; only the relay can open it).

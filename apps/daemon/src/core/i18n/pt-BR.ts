@@ -221,6 +221,17 @@ export const ptBR = {
         failed: 'o envio falhou: veja os logs do daemon',
       },
     },
+    devices: {
+      description: 'os aparelhos pareados com este computador',
+      list: 'lista os aparelhos pareados (ID, nome, plataforma, pareado em, visto por último)',
+      revoke: 'despareia um aparelho: ele é desconectado e precisa parear de novo',
+      empty: 'Nenhum aparelho pareado. Rode `remote-harness pair` para parear um.',
+      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
+        `${id}  ${name}  ${platform}  pareado em ${paired}  visto por último ${seen}`,
+      never: 'nunca',
+      revoked: (id: string) => `Aparelho ${id} revogado.`,
+      notFound: (id: string) => `Nenhum aparelho pareado ${id}.`,
+    },
     rules: {
       description: 'regras de "permitir sempre" criadas pelo app',
       list: 'lista as regras criadas pelo app',

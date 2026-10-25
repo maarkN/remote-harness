@@ -1,3 +1,4 @@
+import { applyPaneDiff } from '@remote-harness/protocol'
 import { useIsFocused } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -48,6 +49,14 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
 
   useDaemonEvent('pane.frame', (frame) => {
     if (frame.sessionId !== sessionId) return
+    lastFrame.current = frame
+    if (ready) terminal.current?.render(frame)
+  })
+
+  // Only the changed lines: rebuilt on the last full frame (the daemon always sends one first).
+  useDaemonEvent('pane.diff', (diff) => {
+    if (diff.sessionId !== sessionId || !lastFrame.current) return
+    const frame = applyPaneDiff(lastFrame.current, diff)
     lastFrame.current = frame
     if (ready) terminal.current?.render(frame)
   })

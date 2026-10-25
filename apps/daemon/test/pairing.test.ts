@@ -85,6 +85,7 @@ describe('paired devices', () => {
         name: 'iPhone',
         platform: 'ios',
         pairedAt: 42,
+        lastSeen: 42,
       },
     ])
     expect((await readFile(path, 'utf8')).includes('privateKey')).toBe(false)

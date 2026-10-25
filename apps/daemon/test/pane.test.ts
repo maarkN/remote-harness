@@ -53,4 +53,22 @@ describe('PaneStreamer', () => {
     await wait(50)
     expect(exec.calls.length).toBe(calls)
   })
+
+  test('sends changed lines as diffs, and a full frame to a new viewer', async () => {
+    const lines = Array.from({ length: 10 }, (_, i) => `line ${i}`)
+    const exec = fakeExecutor(() => ({ stdout: `80 10\n${lines.join('\n')}` }))
+    streamer = new PaneStreamer(new TmuxClient(exec), silentLogger, 20)
+    const first = fakeConnection()
+    streamer.subscribe('s', '%1', first)
+    await wait(50)
+    lines[9] = '$ done'
+    await wait(50)
+    expect(first.sent.map((m) => m.type)).toEqual(['pane.frame', 'pane.diff'])
+    expect(first.sent[1]).toMatchObject({ type: 'pane.diff', lineCount: 10, lines: [[9, '$ done']] })
+    const second = fakeConnection()
+    streamer.subscribe('s', '%1', second)
+    await wait(50)
+    expect(second.sent).toEqual([expect.objectContaining({ type: 'pane.frame', text: lines.join('\n') })])
+    expect(first.sent).toHaveLength(2)
+  })
 })

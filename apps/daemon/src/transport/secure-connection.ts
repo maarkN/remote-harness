@@ -12,7 +12,7 @@ import {
   type ServerMessage,
   type ServerMessageOf,
 } from '@remote-harness/protocol'
-import { noiseCrypto } from '../core/identity.ts'
+import { deviceIdOf, noiseCrypto } from '../core/identity.ts'
 import type { Logger } from '../core/logger.ts'
 import type { ClientHub, Connection } from './connection.ts'
 import type { MessageRouter } from './router.ts'
@@ -37,6 +37,8 @@ export type SecureConnectionDeps = {
   hooks: DaemonHandshakeHooks & {
     /** A pairing handshake succeeded: use the code up and record the device. */
     paired(pairingId: Uint8Array, deviceKey: Uint8Array, device: DeviceInfo): Promise<PairingResult>
+    /** A device authenticated (its last-seen time). */
+    seen?(deviceKey: Uint8Array): void
   }
   router: MessageRouter
   hub: ClientHub
@@ -50,6 +52,7 @@ export type SecureConnectionDeps = {
 class SecureConnection implements Connection {
   readonly id = randomUUID()
   foreground = false
+  deviceId: string | undefined
   session: ChannelSession | null = null
   private readonly closeHandlers: Array<() => void> = []
   private closed = false
@@ -113,6 +116,7 @@ export function acceptSecureConnection(
     link.send(step.send)
     if (step.session) {
       connection.session = step.session
+      connection.deviceId = deviceIdOf(step.session.remoteStatic)
       stage = 'auth'
     } else {
       stage = 'finish'
@@ -127,6 +131,7 @@ export function acceptSecureConnection(
     if (!result.ok) return refuse(result.code, result.reason)
     log.info({ platform: step.device.platform }, 'device paired')
     connection.session = step.session
+    connection.deviceId = deviceIdOf(step.session.remoteStatic)
     stage = 'auth'
   }
 
@@ -167,6 +172,7 @@ export function acceptSecureConnection(
       }
       stage = 'open'
       clearTimeout(timer)
+      deps.hooks.seen?.(session.remoteStatic)
       deps.hub.add(connection)
       connection.send({ type: 'auth.ok', replyTo: message.id, ...deps.hello() })
       deps.onAuthenticated?.(connection)

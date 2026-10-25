@@ -206,6 +206,12 @@ export async function registerLiveStatusFeature(
   )
   sweep.unref?.()
 
+  // A revoked device's tokens: no more live status for it.
+  ctx.bus.on('push.tokens.dropped', ({ tokens }) => {
+    if (tokens.length === 0) return
+    service.unregisterTokens(tokens)
+    void follows.update((state) => ({ devices: state.devices.filter((d) => !tokens.includes(d.fcmToken)) }))
+  })
   ctx.bus.on('hook', (hook) => {
     const sessionId = hook.payload.session_id
     // Late hooks of an ended session (the registry already applied any revival) update nothing.

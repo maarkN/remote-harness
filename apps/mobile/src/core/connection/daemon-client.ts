@@ -7,6 +7,7 @@ import {
   type ErrorCode,
   type KeyPair,
   type NoiseCrypto,
+  normalizeChannelClose,
   PROTOCOL_VERSION,
   parseServerMessage,
   type ServerMessage,
@@ -90,6 +91,7 @@ const FATAL_CLOSE_CODES: ReadonlySet<number> = new Set([
   CHANNEL_CLOSE.protocolMismatch,
   CHANNEL_CLOSE.pairingRefused,
   CHANNEL_CLOSE.deviceLimit,
+  CHANNEL_CLOSE.revoked,
 ])
 /** Ours: the daemon that answered does not have the pinned static key. */
 export const WRONG_DAEMON_CLOSE = 4090
@@ -358,8 +360,10 @@ export class DaemonClient {
       if (this.connectTimer) this._unreachable = false
       this.clearConnectTimer()
       this.failPending('disconnected')
-      if (FATAL_CLOSE_CODES.has(event.code)) {
-        this._closeCode = event.code
+      // Through the connection relay the daemon's codes arrive as 41xx.
+      const code = normalizeChannelClose(event.code)
+      if (FATAL_CLOSE_CODES.has(code)) {
+        this._closeCode = code
         this.stopped = true
         this.setStatus('unauthorized', event.reason || 'connection refused by the daemon')
         return

@@ -3,7 +3,6 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { createLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import { MuteStore } from '../src/features/mute/store.ts'
 import {
@@ -34,7 +33,6 @@ import {
 } from '../src/features/service/systemd.ts'
 import { execaExecutor } from '../src/infra/exec.ts'
 import { buildC, launcherSourcePath } from '../src/infra/native-build.ts'
-import { TAILSCALE_NOT_FOUND, waitForWsHost } from '../src/main.ts'
 import { fakeExecutor, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -390,24 +388,5 @@ describe('MuteStore', () => {
     const reloaded = new MuteStore(paths.mute())
     await reloaded.load()
     expect(reloaded.get()).toEqual({ profiles: [], sessions: ['s1'] })
-  })
-})
-
-describe('waitForWsHost', () => {
-  const logger = createLogger({ level: 'silent' })
-
-  test('fails fast without Tailscale unless asked to wait', async () => {
-    await expect(waitForWsHost({ logger }, 1, () => null)).rejects.toThrow(TAILSCALE_NOT_FOUND)
-  })
-
-  test('polls until the Tailscale interface shows up', async () => {
-    const answers = [null, null, '100.101.1.2']
-    const host = await waitForWsHost({ logger, waitForTailscale: true }, 1, () => answers.shift() ?? null)
-    expect(host).toBe('100.101.1.2')
-  })
-
-  test('--dev and --host skip discovery', async () => {
-    expect(await waitForWsHost({ logger, dev: true }, 1, () => null)).toBe('127.0.0.1')
-    expect(await waitForWsHost({ logger, host: '10.0.0.5' }, 1, () => null)).toBe('10.0.0.5')
   })
 })

@@ -49,6 +49,7 @@ import {
   uninstallStatusLine,
 } from './features/hooks/installer.ts'
 import { isDefaultConfigDir } from './features/hooks/launcher.ts'
+import { deviceInfoOf, PairedDevices } from './features/pairing/devices.ts'
 import { RulesLog } from './features/permissions/rules-log.ts'
 import type { PowerState } from './features/power/index.ts'
 import { DeviceRegistry, describeDevices } from './features/push/devices.ts'
@@ -928,6 +929,73 @@ provider
     const { kind } = await selectStore()
     await providerKeyStore(kind, execaExecutor, profileId).set(key)
     console.log(p.saved(profileId, tokenStoreLabel(kind, paths.providerKey(profileId))))
+  })
+
+const DevicesReplySchema = z.object({
+  devices: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      platform: z.string(),
+      pairedAt: z.string(),
+      lastSeen: z.string().nullable(),
+    }),
+  ),
+})
+
+/** The paired devices from the running daemon, else from its file. */
+async function pairedDevices(): Promise<z.infer<typeof DevicesReplySchema>['devices']> {
+  const live = DevicesReplySchema.safeParse(await daemonGet('/admin/devices'))
+  if (live.success) return live.data.devices
+  const store = new PairedDevices(paths.pairedDevices())
+  await store.load()
+  return store.devices().map((d) => deviceInfoOf(d))
+}
+
+const shortTime = (iso: string) => iso.slice(0, 16).replace('T', ' ')
+
+const devicesCommand = program.command('devices').description(m.cli.devices.description)
+devicesCommand
+  .command('list')
+  .description(m.cli.devices.list)
+  .action(async () => {
+    const list = await pairedDevices()
+    if (list.length === 0) console.log(m.cli.devices.empty)
+    for (const d of list)
+      console.log(
+        m.cli.devices.row(
+          d.id,
+          d.name || '—',
+          d.platform || '—',
+          shortTime(d.pairedAt),
+          d.lastSeen ? shortTime(d.lastSeen) : m.cli.devices.never,
+        ),
+      )
+  })
+devicesCommand
+  .command('revoke <id>')
+  .description(m.cli.devices.revoke)
+  .action(async (id: string) => {
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    let revoked: boolean
+    try {
+      // The running daemon also closes the device's connections and drops its push registration.
+      const response = await fetch(`http://127.0.0.1:${config.hookPort}/admin/devices/revoke`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [SECRET_HEADER]: await ensureHookSecret() },
+        body: JSON.stringify({ id }),
+      })
+      revoked = response.ok
+    } catch {
+      const store = new PairedDevices(paths.pairedDevices())
+      await store.load()
+      revoked = (await store.revoke(id)) !== null
+    }
+    if (!revoked) {
+      console.error(m.cli.devices.notFound(id))
+      process.exit(1)
+    }
+    console.log(m.cli.devices.revoked(id))
   })
 
 const rules = program.command('rules').description(m.cli.rules.description)

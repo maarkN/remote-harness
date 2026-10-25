@@ -14,6 +14,9 @@ import {
 const clientSamples: ClientMessage[] = [
   { type: 'auth', id: '1', protocolVersion: 2 },
   { type: 'ping', id: '1' },
+  { type: 'devices.list', id: '1' },
+  { type: 'devices.revoke', id: '1', deviceId: 'abcd' },
+  { type: 'pairing.create', id: '1' },
   { type: 'sessions.list', id: '1' },
   { type: 'session.subscribe', id: '1', sessionId: 's', sinceCursor: 3 },
   { type: 'session.unsubscribe', id: '1', sessionId: 's' },
@@ -199,23 +202,52 @@ const serverSamples: ServerMessage[] = [
   { type: 'session.started', replyTo: '1', paneId: '%1', sessionId: null },
   { type: 'session.state', sessionId: 's', state: 'running', permissionMode: 'plan' },
   {
-    type: 'transcript.entry',
+    type: 'transcript.entries',
     sessionId: 's',
-    cursor: 2,
-    entry: {
-      key: 'u:0',
-      cursor: 2,
-      index: 0,
-      uuid: 'u',
-      timestamp: null,
-      isSidechain: false,
-      kind: 'user',
-      text: 'oi',
-      images: [],
-    },
+    entries: [
+      {
+        key: 'u:0',
+        cursor: 2,
+        index: 0,
+        uuid: 'u',
+        timestamp: null,
+        isSidechain: false,
+        kind: 'user',
+        text: 'oi',
+        images: [],
+      },
+    ],
   },
   { type: 'transcript.page', replyTo: '1', sessionId: 's', entries: [], hasMore: false, lineCount: 0 },
   { type: 'pane.frame', sessionId: 's', text: '>', cols: 80, rows: 24 },
+  { type: 'pane.diff', sessionId: 's', cols: 80, rows: 24, lineCount: 2, lines: [[1, '$ ls']] },
+  { type: 'session.changed', sessionId: 's', set: { state: 'running' }, unset: ['statusLine'] },
+  {
+    type: 'daemon.paths',
+    addresses: ['192.168.1.20:7337'],
+    relay: 'wss://br.relay.remoteharness.app',
+    relays: [],
+  },
+  {
+    type: 'devices.result',
+    replyTo: '1',
+    devices: [
+      {
+        id: 'abcd',
+        name: 'iPhone',
+        platform: 'ios',
+        pairedAt: '2026-10-25T10:00:00.000Z',
+        lastSeen: null,
+        current: true,
+      },
+    ],
+  },
+  {
+    type: 'pairing.code',
+    replyTo: '1',
+    url: 'remoteharness://pair?v=2',
+    expiresAt: '2026-10-25T10:05:00.000Z',
+  },
   {
     type: 'permission.request',
     request: {
@@ -744,22 +776,23 @@ describe('server messages', () => {
   test('keeps image refs on prompts and tool results', () => {
     const ref = { id: '3.0', mediaType: 'image/png', bytes: 1024 }
     const result = parseServerMessage({
-      type: 'transcript.entry',
+      type: 'transcript.entries',
       sessionId: 's',
-      cursor: 3,
-      entry: {
-        cursor: 3,
-        index: 0,
-        uuid: 'u',
-        key: 'u:0',
-        timestamp: null,
-        isSidechain: false,
-        kind: 'user',
-        text: '',
-        images: [ref],
-      },
+      entries: [
+        {
+          cursor: 3,
+          index: 0,
+          uuid: 'u',
+          key: 'u:0',
+          timestamp: null,
+          isSidechain: false,
+          kind: 'user',
+          text: '',
+          images: [ref],
+        },
+      ],
     })
-    expect(result).toMatchObject({ ok: true, value: { entry: { images: [ref] } } })
+    expect(result).toMatchObject({ ok: true, value: { entries: [{ images: [ref] }] } })
     expect(
       parseServerMessage({ type: 'transcript.image', replyTo: '1', imageId: '3.0', mediaType: 'image/png' })
         .ok,

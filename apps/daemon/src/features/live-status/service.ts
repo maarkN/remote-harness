@@ -145,6 +145,11 @@ export class LiveStatusService {
     this.drop(entry)
   }
 
+  /** Stops the live status of every session registered with one of these FCM tokens. */
+  unregisterTokens(tokens: readonly string[]): void {
+    for (const entry of [...this.entries.values()]) if (tokens.includes(entry.fcmToken)) this.drop(entry)
+  }
+
   /** Applies an event to a registered session and sends it now or later (throttle). */
   handle(sessionId: string, event: LiveEvent): void {
     const entry = this.entries.get(sessionId)

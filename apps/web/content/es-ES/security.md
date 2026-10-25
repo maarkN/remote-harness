@@ -10,9 +10,9 @@ El daemon puede escribir en tus sesiones de Claude Code y aprobar llamadas a her
 
 ## Red
 
-- El WebSocket al que se conecta la app escucha **solo en la interfaz de Tailscale** (100.64.0.0/10), o en `127.0.0.1` con un `--dev` explícito. No hay ningún puerto en internet ni servidor de relay leyendo tus sesiones.
+- La app llega al daemon directo (un WebSocket en todas las interfaces del ordenador, o solo en `127.0.0.1` con `--dev`) o a través de un relay de conexión. En los dos caminos cada byte va cifrado de extremo a extremo, y una conexión que no completa el handshake con una clave emparejada no recibe nada; el relay solo reenvía texto cifrado y no puede leer tus sesiones.
 - Los hooks de Claude Code llegan al daemon solo por `127.0.0.1`, con un secreto local compartido.
-- Exponer el daemon fuera de Tailscale con `--host` queda fuera del alcance y no tiene soporte.
+- `relay: off` o `direct: off` en la configuración apagan un camino; `remote-harness devices revoke <id>` desempareja un móvil al momento.
 
 ## Claves y emparejamiento
 

@@ -5,17 +5,6 @@ Ensures that only the paired device controls the sessions, since the daemon is e
 
 ## Requirements
 
-### Requirement: Restricted network interface
-The WebSocket SHALL listen only on the Mac's Tailscale address (range 100.64.0.0/10) or, in explicit development mode, on `127.0.0.1`. The hooks endpoint MUST listen only on `127.0.0.1` and require the local secret.
-
-#### Scenario: Tailscale missing
-- **WHEN** the daemon is started manually without a Tailscale interface and without dev mode
-- **THEN** it exits with an error explaining that Tailscale is required (as a service, it waits for the interface)
-
-#### Scenario: Hook without secret
-- **WHEN** a request reaches the hooks endpoint without the secret
-- **THEN** it responds 401 and does not process the event
-
 ### Requirement: End-to-end encrypted channel
 Every WebSocket connection to the daemon SHALL be a Noise Protocol Framework session (X25519, ChaCha20-Poly1305, SHA-256) and carry only binary messages. The device's first message MUST be the connection preface — the bytes `0x52 0x48`, the preface version `0x02`, the mode (`0x01` pair, followed by the 16-byte pairing ID; `0x02` reconnect) — followed by the first handshake message. Pairing SHALL use `Noise_XXpsk3_25519_ChaChaPoly_SHA256` with the pairing secret as PSK, reconnecting `Noise_IK_25519_ChaChaPoly_SHA256` with the daemon's static key from the pairing code. The prologue SHALL be the ASCII `remote-harness noise v1`, a zero byte and the preface, so the preface cannot be altered. After the handshake every WebSocket message SHALL be one Noise transport message of at most 65,535 bytes whose plaintext is a flag byte (`0x00` last chunk, `0x01` more follow) and a chunk of one protocol message (UTF-8 JSON) of at most 8 MB. The daemon MUST NOT send any protocol message before it has received and decrypted the device's `auth`, MUST close a connection that has not completed the handshake within 5 seconds (4008), that sends text or a preface it does not know (4002), whose handshake or any frame fails to decrypt (4001) or whose reconnecting key is not a paired device (4001).
 
@@ -59,11 +48,19 @@ A pairing code SHALL be the link `remoteharness://pair?v=2&id=<daemon ID>&k=<dae
 - **THEN** the command says the daemon must be running and shows no code
 
 ### Requirement: Paired devices
-The daemon SHALL keep each paired device's static public key, a short ID derived from it, its name, platform and pairing time in `~/.remote-harness/paired-devices.json`, at most 10 devices, and accept a reconnecting device only when its static key is in that list.
+The daemon SHALL keep each paired device's static public key, a short ID derived from it, its name, platform, pairing time and last connection time in `~/.remote-harness/paired-devices.json`, at most 10 devices, and accept a reconnecting device only when its static key is in that list. `devices.list` SHALL answer `devices.result` with each device's ID, name, platform, `pairedAt`, `lastSeen` and whether it is the asking device; `devices.revoke` SHALL remove a device, close its open connections with 4007 and refuse its key from then on; `remote-harness devices list` and `remote-harness devices revoke <id>` SHALL do the same from the computer.
 
 #### Scenario: Restart
 - **WHEN** the daemon restarts
 - **THEN** devices paired before reconnect with IK without pairing again
+
+#### Scenario: Revoke from another device
+- **WHEN** a phone revokes the tablet's device ID while the tablet is connected
+- **THEN** the tablet's connection is closed with 4007 and its next IK is refused with 4001
+
+#### Scenario: List from the CLI
+- **WHEN** the user runs `remote-harness devices list`
+- **THEN** each paired device is printed with its ID, name, platform, paired and last seen times
 
 ### Requirement: Key storage
 The daemon's identity — its Noise static key pair and its Ed25519 connection relay key pair, whose daemon ID is the first 16 bytes of SHA-256 of the relay public key in hex — SHALL be created at first start and stored in the secret store (macOS Keychain, Linux Secret Service, or a 0600 file where neither exists), never in plain text elsewhere. `remote-harness doctor` SHALL report whether the identity exists.
@@ -71,3 +68,21 @@ The daemon's identity — its Noise static key pair and its Ed25519 connection r
 #### Scenario: Persisted identity
 - **WHEN** the daemon restarts
 - **THEN** it has the same static key and daemon ID, so paired devices keep working
+
+### Requirement: Listening for devices
+The device WebSocket SHALL listen on all interfaces (or only on `127.0.0.1` in explicit development mode, or on the `--host` address), and every connection on it MUST complete the Noise channel with a paired key before receiving anything; with `direct: "off"` it SHALL not listen at all. The hooks endpoint MUST listen only on `127.0.0.1` and require the local secret.
+
+#### Scenario: Stranger on the network
+- **WHEN** a host on the same network opens the daemon's port and sends anything but a valid handshake from a paired device
+- **THEN** the connection is closed without any protocol message
+
+#### Scenario: Hook without secret
+- **WHEN** a request reaches the hooks endpoint without the secret
+- **THEN** it responds 401 and does not process the event
+
+### Requirement: Pairing code for another device
+A paired device SHALL be able to send `pairing.create` and receive `pairing.code` with a fresh single-use pairing code (its link and expiry), the same as `remote-harness pair` prints, so a second device can be added from the first.
+
+#### Scenario: Add a device from the phone
+- **WHEN** a paired phone sends `pairing.create`
+- **THEN** it receives a `remoteharness://pair?v=2&…` link that pairs one new device within 5 minutes

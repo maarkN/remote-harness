@@ -31,46 +31,63 @@ export const ShellCommandsConfigSchema = z.object({
 })
 export type ShellCommandsConfig = z.infer<typeof ShellCommandsConfigSchema>
 
-export const ConfigSchema = z.object({
-  profiles: z.array(ProfileSchema).min(1),
-  wsPort: z.number().int().positive().default(7337),
-  hookPort: z.number().int().positive().default(7338),
-  defaultRuleScope: RuleScopeSchema.default('project'),
-  /** How long the daemon waits for the phone before letting the TUI show the dialog. */
-  permissionTimeoutSec: z.number().int().positive().default(280),
-  /** Same, for questions and plan approvals (`AskUserQuestion`, `ExitPlanMode`). */
-  questionTimeoutSec: z.number().int().positive().default(3300),
-  /** Lower bound of the PermissionRequest hook timeout (see `hookTimeoutSec`). */
-  hookPermissionTimeoutSec: z.number().int().positive().default(300),
-  inputStrategy: z.enum(['paste', 'type']).default('paste'),
-  pasteEnterDelayMs: z.number().int().nonnegative().default(80),
-  recentDays: z.number().int().positive().default(7),
-  tmuxSession: z.string().min(1).default('claude-remote'),
-  /** Language of the CLI, setup and push texts; absent = the system language. */
-  language: LocaleSchema.optional(),
-  /** `off` sends no push nor live status; `auto` = Firebase service account if present, else the relay. */
-  push: z.enum(['auto', 'off']).default('auto'),
-  /** Branch `remote-harness update` and the background check follow; `auto` applies updates by itself. */
-  update: z
-    .object({
-      channel: z.enum(['main', 'development']).default('main'),
-      auto: z.boolean().default(false),
-    })
-    .default({ channel: 'main', auto: false }),
-  /** Menu bar / tray icon of the service daemon (where a helper is available). */
-  tray: z.boolean().default(true),
-  /** The tray offers Allow / Always allow / Deny for the waiting permission. */
-  trayPermissions: z.boolean().default(true),
-  /** When the service daemon prevents idle sleep: never, while sessions are active, or always. */
-  keepAwake: KeepAwakeModeSchema.default('sessions'),
-  /** Overrides the OS host name shown in the app and the live status; unset = the host name. */
-  machineName: z.string().trim().min(1).max(60).optional(),
-  /**
-   * Shell commands run from the app in a session's folder. Off by default: only `remote-harness
-   * commands on` (on the computer) turns them on.
-   */
-  shellCommands: ShellCommandsConfigSchema.default(SHELL_COMMANDS_DEFAULTS),
-})
+/** The project's connection relays (ADR-0003); `relays` in the config replaces them for self-hosting. */
+export const DEFAULT_RELAYS = ['wss://us.relay.remoteharness.app', 'wss://br.relay.remoteharness.app']
+
+export const ConfigSchema = z
+  .object({
+    profiles: z.array(ProfileSchema).min(1),
+    wsPort: z.number().int().positive().default(7337),
+    hookPort: z.number().int().positive().default(7338),
+    defaultRuleScope: RuleScopeSchema.default('project'),
+    /** How long the daemon waits for the phone before letting the TUI show the dialog. */
+    permissionTimeoutSec: z.number().int().positive().default(280),
+    /** Same, for questions and plan approvals (`AskUserQuestion`, `ExitPlanMode`). */
+    questionTimeoutSec: z.number().int().positive().default(3300),
+    /** Lower bound of the PermissionRequest hook timeout (see `hookTimeoutSec`). */
+    hookPermissionTimeoutSec: z.number().int().positive().default(300),
+    inputStrategy: z.enum(['paste', 'type']).default('paste'),
+    pasteEnterDelayMs: z.number().int().nonnegative().default(80),
+    recentDays: z.number().int().positive().default(7),
+    tmuxSession: z.string().min(1).default('claude-remote'),
+    /** Language of the CLI, setup and push texts; absent = the system language. */
+    language: LocaleSchema.optional(),
+    /** `off` sends no push nor live status; `auto` = Firebase service account if present, else the relay. */
+    push: z.enum(['auto', 'off']).default('auto'),
+    /** Branch `remote-harness update` and the background check follow; `auto` applies updates by itself. */
+    update: z
+      .object({
+        channel: z.enum(['main', 'development']).default('main'),
+        auto: z.boolean().default(false),
+      })
+      .default({ channel: 'main', auto: false }),
+    /** Menu bar / tray icon of the service daemon (where a helper is available). */
+    tray: z.boolean().default(true),
+    /** The tray offers Allow / Always allow / Deny for the waiting permission. */
+    trayPermissions: z.boolean().default(true),
+    /** When the service daemon prevents idle sleep: never, while sessions are active, or always. */
+    keepAwake: KeepAwakeModeSchema.default('sessions'),
+    /** Overrides the OS host name shown in the app and the live status; unset = the host name. */
+    machineName: z.string().trim().min(1).max(60).optional(),
+    /**
+     * Shell commands run from the app in a session's folder. Off by default: only `remote-harness
+     * commands on` (on the computer) turns them on.
+     */
+    shellCommands: ShellCommandsConfigSchema.default(SHELL_COMMANDS_DEFAULTS),
+    /** Connection relays the daemon picks its home relay from (the fastest that answers). */
+    relays: z
+      .array(z.string().regex(/^wss?:\/\/[^\s/]+(\/[^\s]*)?$/, 'a ws:// or wss:// URL'))
+      .min(1)
+      .default(DEFAULT_RELAYS),
+    /** `off`: no relay path, devices reach this computer only directly. */
+    relay: z.enum(['on', 'off']).default('on'),
+    /** `off`: no direct path, devices reach this computer only through the relay. */
+    direct: z.enum(['on', 'off']).default('on'),
+  })
+  .refine((config) => config.relay === 'on' || config.direct === 'on', {
+    message: 'relay and direct cannot both be off: at least one path must stay on',
+    path: ['direct'],
+  })
 export type Config = z.infer<typeof ConfigSchema>
 
 /** Used only when no config exists; `remote-harness setup` picks the real profiles and aliases. */
