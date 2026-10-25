@@ -391,6 +391,16 @@ const ptBR = {
     enabled: 'Mostrar status ao vivo',
     channelName: 'Status ao vivo',
     channelDescription: 'Progresso das sessões enquanto trabalham (silencioso).',
+    /** Small words around the card's timers, and its Open button. */
+    labels: {
+      working: 'trabalhando',
+      waiting: 'esperando',
+      total: 'total',
+      notified: 'notificado',
+      finished: 'concluído',
+      open: 'Abrir',
+    },
+    finished: 'Concluído',
   },
   tools: {
     grepIn: '{{pattern}} em {{path}}',
@@ -977,6 +987,9 @@ const ptBR = {
     pushHint: 'Só este celular · nunca a conversa',
     liveStatus: 'Status ao vivo',
     liveStatusHint: 'Tela bloqueada e Dynamic Island',
+    liveTask: 'Mostrar a tarefa atual na tela bloqueada',
+    liveTaskHint:
+      'Envia por push a tarefa em andamento da lista de tarefas da sessão (até 48 caracteres). Desligado: só uma frase fixa como “Rodando testes…”.',
     muted: 'Silenciados',
     mutedNone: 'nada silenciado',
     mutedProfiles_one: '{{count}} perfil',

@@ -27,6 +27,7 @@ async function followDevice(): Promise<LiveFollowDevice | null> {
     platform,
     fcmToken,
     palette: livePalette(currentTheme()),
+    showTask: useLiveStatusSettings.getState().showTask,
     ...(relay ? { relay } : {}),
     ...(startToken ? { startToken } : {}),
     ...(startRelay ? { startRelay } : {}),
@@ -103,6 +104,10 @@ export function useLiveFollow() {
     const offReady = client.onReady(ready)
     // Live status off: stop following everything, auto-follow included.
     const offSettings = useLiveStatusSettings.subscribe((settings, previous) => {
+      // The current task opt-in travels with this phone's delivery data.
+      if (settings.showTask !== previous.showTask && settings.enabled) {
+        void request({ type: 'live.follows' }).catch(() => undefined)
+      }
       if (settings.enabled || !previous.enabled) return
       const { sessionIds, autoFollowProfiles } = useLiveFollowStore.getState()
       for (const sessionId of sessionIds) void unfollowSession(sessionId).catch(() => undefined)

@@ -115,6 +115,7 @@ export function useLiveStatus() {
           platform,
           fcmToken,
           palette,
+          showTask: useLiveStatusSettings.getState().showTask,
           ...(activityToken ? { activityToken } : {}),
           ...(relay ? { relay } : {}),
           // The app draws the Android notification itself, with Allow / Deny (see push/background.ts).
@@ -371,7 +372,15 @@ export function useLiveStatus() {
         if (session.state === 'running' || session.state === 'waiting') start(session)
       }
     })
-    const offSettings = useLiveStatusSettings.subscribe(resync)
+    const offSettings = useLiveStatusSettings.subscribe((settings, previous) => {
+      resync()
+      if (settings.showTask === previous.showTask) return
+      // The current task opt-in changed: the daemon learns it with a new registration.
+      for (const [sessionId, entry] of tracked) {
+        if (entry.instance) registerActivity(sessionId, entry)
+        else void register(sessionId, entry.palette ?? livePalette(currentTheme()))
+      }
+    })
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active' && ready) void reconcile()
     })

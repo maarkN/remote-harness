@@ -45,11 +45,18 @@ describe('live status reducer', () => {
       input: { command: 'rm -rf x' },
     }
     // Only the program leaves the daemon, never its arguments.
-    expect(stepForEntry(use)).toEqual({ type: 'step', step: 'command', tool: 'Bash', target: 'rm' })
+    expect(stepForEntry(use)).toEqual({
+      type: 'step',
+      step: 'command',
+      tool: 'Bash',
+      target: 'rm',
+      activity: 'command',
+    })
     expect(stepForEntry({ ...base, kind: 'thinking', text: 'secret' })).toEqual({
       type: 'step',
       step: 'thinking',
       tool: null,
+      activity: 'thinking',
     })
     expect(stepForEntry({ ...use, isSidechain: true })).toBeNull()
     expect(stepForEntry({ ...base, kind: 'user', text: 'prompt', images: [] })).toBeNull()
@@ -139,6 +146,18 @@ describe('live status reducer', () => {
       tasks: '',
       current: '',
       progress: null,
+      activity: '',
+      task: '',
+      notifiedAt: 0,
+      link: '',
+      labels: {
+        working: 'working',
+        waiting: 'waiting',
+        total: 'total',
+        notified: 'notified',
+        finished: 'finished',
+        open: 'Open',
+      },
     })
     const tasks = (subagents: number, background: number) => ({ ...status, tasks: { subagents, background } })
     expect(liveProps(tasks(1, 0), info, en).tasks).toBe('1 subagent')
@@ -267,12 +286,12 @@ describe('todo progress', () => {
       { content: 'b', status: 'in_progress' },
       { content: 'c', status: 'pending' },
     ]
-    expect(todoChange('TodoWrite', { todos })).toEqual({ kind: 'snapshot', done: 1, total: 3 })
+    expect(todoChange('TodoWrite', { todos })).toEqual({ kind: 'snapshot', done: 1, total: 3, active: 'b' })
     expect(todoChange('TodoWrite', { todos: 'nope' })).toBeNull()
     expect(todoChange('Bash', { command: 'ls' })).toBeNull()
     expect(eventsForEntry(tool('TodoWrite', { todos }))).toEqual([
-      { type: 'step', step: 'planning', tool: 'TodoWrite', target: null },
-      { type: 'todo', change: { kind: 'snapshot', done: 1, total: 3 } },
+      { type: 'step', step: 'planning', tool: 'TodoWrite', target: null, activity: 'planning' },
+      { type: 'todo', change: { kind: 'snapshot', done: 1, total: 3, active: 'b' } },
     ])
     expect(eventsForEntry({ ...tool('TodoWrite', { todos }), isSidechain: true })).toEqual([])
     expect(applyTodo(null, { kind: 'snapshot', done: 0, total: 0 })).toBeNull()
@@ -511,7 +530,16 @@ describe('buildLiveMessage', () => {
         toolCount: 99,
         tasks: { subagents: 12, background: 12 },
         current: { tool: 'mcp__some_server__some_long_tool_name', target: 'x'.repeat(40) },
-        todo: { done: 999, total: 999, completed: [] },
+        todo: {
+          done: 999,
+          total: 999,
+          completed: [],
+          active: `${'ã'.repeat(47)}…`,
+          activeId: '999',
+          forms: [],
+        },
+        activity: 'installing',
+        state: 'waiting',
         pending: { requestId: 'a'.repeat(36), tool: 'mcp__some_server__some_long_tool_name' },
       },
       {
@@ -519,8 +547,10 @@ describe('buildLiveMessage', () => {
         host: 'a-long-host-name.local',
         session: 'x'.repeat(120),
         path: `~/${'p'.repeat(120)}`,
+        link: `claude-remote://session/${'s'.repeat(36)}`,
       },
       pt,
+      { showTask: true, notifiedAt: 1_800_000_000_000 },
     )
   const palette = {
     background: '#0D0D0D',
@@ -611,6 +641,21 @@ describe('LiveStatusService', () => {
     // Older apps register without one: the widget then falls back to its dark colors.
     await service.register({ ...register, sessionId: 's2' })
     expect(sent.at(-1)?.props.palette).toBeUndefined()
+  })
+
+  test('the opt-in task follows the registration and survives a re-register without it', async () => {
+    const { service, sent } = setup()
+    const todo = { kind: 'snapshot' as const, done: 0, total: 1, active: 'Fixing login' }
+    await service.register({ ...register, showTask: true })
+    service.handle('s1', { type: 'todo', change: todo })
+    service.handle('s1', { type: 'waiting', permission: true })
+    expect(sent.at(-1)?.props.task).toBe('Fixing login')
+    // The background registration of a push-started activity carries no choice: it stays on.
+    await service.register(register)
+    expect(sent.at(-1)?.props.task).toBe('Fixing login')
+    await service.register({ ...register, showTask: false })
+    expect(sent.at(-1)?.props.task).toBe('')
+    expect(sent.at(-1)?.props.notifiedAt).toBe(1_000)
   })
 
   test('passes androidDataMessages of the registration to every update', async () => {

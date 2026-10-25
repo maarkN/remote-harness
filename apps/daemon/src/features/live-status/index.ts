@@ -54,6 +54,7 @@ export async function registerLiveStatusFeature(
         host,
         session: session?.title ?? '',
         path: session ? shortenHome(session.cwd) : '',
+        link: `claude-remote://session/${sessionId}`,
       }
     },
     isMuted: options.isMuted,
@@ -76,6 +77,7 @@ export async function registerLiveStatusFeature(
       ...(msg.relay ? { relay: msg.relay } : {}),
       ...(msg.palette ? { palette: msg.palette } : {}),
       ...(msg.androidDataMessages ? { androidDataMessages: true } : {}),
+      ...(msg.showTask !== undefined ? { showTask: msg.showTask } : {}),
     })
     return undefined
   })
@@ -134,6 +136,7 @@ export async function registerLiveStatusFeature(
     ...(device.relay ? { relay: device.relay } : {}),
     ...(device.palette ? { palette: device.palette } : {}),
     ...(device.androidDataMessages ? { androidDataMessages: true } : {}),
+    ...(device.showTask !== undefined ? { showTask: device.showTask } : {}),
   })
 
   /** Starts a followed session's live status on one phone, the way that phone allows. */

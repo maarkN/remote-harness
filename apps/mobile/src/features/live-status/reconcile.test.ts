@@ -143,7 +143,7 @@ describe('one live status per session', () => {
 })
 
 describe('tasks in parallel', () => {
-  const session = { state: 'running', title: 'Fix login', cwd: '/Users/me/app' } as const
+  const session = { id: 's1', state: 'running', title: 'Fix login', cwd: '/Users/me/app' } as const
   const info = { title: 'Work', host: 'mac', startedAt: 1, changedAt: 1, endedAt: null }
   const subagents = [{ state: 'running' }, { state: 'done' }, { state: 'running' }] as Session['subagents']
 

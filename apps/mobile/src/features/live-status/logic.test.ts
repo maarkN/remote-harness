@@ -47,7 +47,7 @@ describe('localLiveProps', () => {
   test('maps the session state and translates it', () => {
     expect(liveStateFor('idle')).toBe('done')
     const info = { title: 'Work', host: 'mac', startedAt: 5, changedAt: 6, endedAt: null }
-    expect(localLiveProps(session('a', 'waiting'), info, createI18n('pt-BR').t)).toEqual({
+    expect(localLiveProps(session('a', 'waiting'), info, createI18n('pt-BR').t, 9)).toEqual({
       title: 'Work',
       state: 'waiting',
       status: 'Esperando você',
@@ -67,6 +67,23 @@ describe('localLiveProps', () => {
       tasks: '',
       current: '',
       progress: null,
+      activity: '',
+      task: '',
+      notifiedAt: 9,
+      link: 'claude-remote://session/a',
+      labels: {
+        working: 'trabalhando',
+        waiting: 'esperando',
+        total: 'total',
+        notified: 'notificado',
+        finished: 'concluído',
+        open: 'Abrir',
+      },
+    })
+    // A finished turn reads "Finished"; the app never sends a task of its own.
+    expect(localLiveProps(session('a', 'idle'), info, createI18n('en-US').t, 9)).toMatchObject({
+      activity: 'Finished',
+      task: '',
     })
   })
 

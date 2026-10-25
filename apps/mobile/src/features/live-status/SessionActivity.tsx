@@ -1,4 +1,4 @@
-import { Button, HStack, Image, ProgressView, Spacer, Text, VStack } from '@expo/ui/swift-ui'
+import { Button, HStack, Image, Link, ProgressView, Spacer, Text, VStack } from '@expo/ui/swift-ui'
 import {
   activityBackgroundTint,
   clipShape,
@@ -23,10 +23,14 @@ import { createLiveActivity } from 'expo-widgets'
  * the props, the colors arrive in `props.palette` (the app theme; the literals below are the dark
  * theme, used when an older daemon sends none) and props from older daemons may lack the fields
  * after `startedAt`. The mark (`LiveActivityIcon`, from the widget extension's asset catalog) is the
- * only icon; color encodes only the state (border, timer, state line, progress bar, current glyph).
+ * only icon; color encodes only the state (border, state pill, timer, progress bar, current glyph).
+ * The big timer counts the time in the current state (working: the turn; waiting: the wait; done:
+ * the frozen total); the right side says how long ago the phone was notified (and, waiting, the
+ * turn's working time; done, when it finished), all self-updating `Text` dates, so no extra pushes.
  * Nothing spins: widgets don't animate an indeterminate `ProgressView`, so progress is only the
  * ticking timer and, with a todo list, a determinate bar. The Deny and Allow buttons carry
- * `deny:<requestId>` / `allow:<requestId>` as their target; the app answers them.
+ * `deny:<requestId>` / `allow:<requestId>` as their target; the app answers them. Open is a link to
+ * the session (a button would run in the background and could not open the app).
  */
 function SessionActivityLayout(props: LiveStatusProps) {
   'widget'
@@ -52,6 +56,17 @@ function SessionActivityLayout(props: LiveStatusProps) {
   const tasks = props.tasks ?? ''
   const current = props.current ?? ''
   const progress = props.progress ?? null
+  // Newer daemons: the phrase (or the opted-in task), the card labels, the notify time and the link.
+  const labels = props.labels ?? null
+  const doing = props.task || props.activity || ''
+  const notifiedAt = props.notifiedAt ?? 0
+  const link = props.link ?? ''
+  const changedAt = props.changedAt ?? 0
+  const waiting = state === 'waiting'
+  // "{time} ago" / "há {time}": the words around the live relative time.
+  const agoParts = (props.ago ?? '').split('{time}')
+  const agoBefore = agoParts.length === 2 ? (agoParts[0] ?? '') : ''
+  const agoAfter = agoParts.length === 2 ? (agoParts[1] ?? '') : ''
   const stateLine = [props.status, props.step].filter((part) => part.length > 0).join(' · ')
   const meta = [progress ? `☑ ${progress.done}/${progress.total}` : '', tasks, props.tools]
     .filter((part) => part.length > 0)
@@ -83,17 +98,71 @@ function SessionActivityLayout(props: LiveStatusProps) {
     monospacedDigit(),
     foregroundStyle(stateColor),
   ]
-  // Running or waiting: ticks on its own. Ended: frozen at the turn's duration, with the hint.
+  // Running: the turn; waiting (newer daemons): the wait. Ticks on its own. Ended: frozen at the
+  // turn's duration.
+  const timerStart = waiting && labels && changedAt > 0 ? changedAt : props.startedAt
   const timer = (size: number, maxWidth: number) =>
     !finished ? (
       <Text
-        date={new Date(props.startedAt)}
+        date={new Date(timerStart)}
         dateStyle="timer"
         modifiers={[...timerStyle(size), frame({ maxWidth })]}
       />
     ) : endedAt !== null ? (
       <Text modifiers={timerStyle(size)}>{duration(endedAt - props.startedAt)}</Text>
     ) : null
+  const small = (content: string) => (
+    <Text modifiers={[font({ size: 11 }), foregroundStyle(textMuted), lineLimit(1)]}>{content}</Text>
+  )
+  /** "<label> 30 min ago", the time counting by itself. */
+  const since = (label: string, at: number) => (
+    <HStack spacing={3}>
+      {small(agoBefore ? `${label} ${agoBefore.trim()}` : label)}
+      <Text
+        date={new Date(at)}
+        dateStyle="relative"
+        modifiers={[font({ size: 11 }), monospacedDigit(), foregroundStyle(textMuted), lineLimit(1)]}
+      />
+      {agoAfter.trim() ? small(agoAfter.trim()) : null}
+    </HStack>
+  )
+  const timerLabel = labels ? (finished ? labels.total : waiting ? labels.waiting : labels.working) : ''
+  // Big timer with its label on the left; how fresh the card is on the right.
+  const timesRow = labels ? (
+    <HStack spacing={8}>
+      {timer(30, 140)}
+      {small(timerLabel)}
+      <Spacer />
+      <VStack alignment="trailing" spacing={1}>
+        {waiting && changedAt > props.startedAt
+          ? small(`${labels.working} ${duration(changedAt - props.startedAt)}`)
+          : null}
+        {finished && endedAt !== null
+          ? since(labels.finished, endedAt)
+          : notifiedAt > 0
+            ? since(labels.notified, notifiedAt)
+            : null}
+      </VStack>
+    </HStack>
+  ) : null
+  const statePill = (
+    <Text
+      modifiers={[
+        font({ size: 11, weight: 'semibold' }),
+        foregroundStyle(stateColor),
+        lineLimit(1),
+        padding({ horizontal: 8, vertical: 3 }),
+        strokeBorder({ content: stateColor, style: { lineWidth: 1 }, shape: 'capsule' }),
+      ]}
+    >
+      {`● ${props.status}`}
+    </Text>
+  )
+  const doingLine = doing ? (
+    <Text modifiers={[font({ size: 14, weight: 'semibold' }), foregroundStyle(text), lineLimit(1)]}>
+      {`↳ ${doing}`}
+    </Text>
+  ) : null
   const sessionName = props.session ? (
     <Text modifiers={[font({ size: 16, weight: 'bold' }), foregroundStyle(text), lineLimit(1)]}>
       {props.session}
@@ -179,6 +248,9 @@ function SessionActivityLayout(props: LiveStatusProps) {
         target={`allow:${pending.requestId}`}
         modifiers={[foregroundStyle(success)]}
       />
+      {labels && link ? (
+        <Link label={labels.open} destination={link} modifiers={[foregroundStyle(textMuted)]} />
+      ) : null}
     </HStack>
   ) : null
   const hintText =
@@ -191,8 +263,39 @@ function SessionActivityLayout(props: LiveStatusProps) {
     ) : null
   const stateDot = <Text modifiers={[font({ size: 10 }), foregroundStyle(stateColor)]}>●</Text>
 
+  // Newer daemons: header with the state pill, times row, phrase; older ones keep the first layout.
+  const card = labels ? (
+    <VStack
+      alignment="leading"
+      spacing={6}
+      modifiers={[
+        padding({ all: 14 }),
+        activityBackgroundTint(background),
+        strokeBorder({ content: stateColor, style: { lineWidth: 2 }, shape: 'containerRelativeShape' }),
+      ]}
+    >
+      <HStack spacing={10}>
+        {mark(24)}
+        <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(textMuted), lineLimit(1)]}>
+          {header}
+        </Text>
+        <Spacer />
+        {statePill}
+      </HStack>
+      {sessionName}
+      {folder}
+      {timesRow}
+      {doingLine}
+      {detailRow}
+      {progressBar}
+      {glyphRow}
+      {hintText}
+      {actions}
+    </VStack>
+  ) : null
+
   return {
-    banner: (
+    banner: card ?? (
       <VStack
         alignment="leading"
         spacing={6}
@@ -257,11 +360,20 @@ function SessionActivityLayout(props: LiveStatusProps) {
       <VStack alignment="leading" spacing={4}>
         {sessionName}
         {folder}
-        <HStack spacing={8}>
-          {stateText}
-          <Spacer />
-          {glyphRow}
-        </HStack>
+        {labels ? (
+          <HStack spacing={8}>
+            {statePill}
+            <Spacer />
+            {glyphRow}
+          </HStack>
+        ) : (
+          <HStack spacing={8}>
+            {stateText}
+            <Spacer />
+            {glyphRow}
+          </HStack>
+        )}
+        {doingLine}
         {detailRow}
         {progressBar}
         {hintText}

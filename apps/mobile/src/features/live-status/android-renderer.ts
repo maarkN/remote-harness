@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications'
-import { ACTION_ALLOW, ACTION_DENY } from '../push/payload'
+import { ACTION_ALLOW, ACTION_DENY, ACTION_OPEN } from '../push/payload'
 import { LIVE_STATUS_CHANNEL_ID } from '../push/platform'
 import { LIVE_PERMISSION_CATEGORY, type LiveNotification } from './android-notification'
 
@@ -18,6 +18,10 @@ export async function presentLiveNotification(
     await Notifications.setNotificationCategoryAsync(LIVE_PERMISSION_CATEGORY, [
       { identifier: ACTION_ALLOW, buttonTitle: actions.allow, options },
       { identifier: ACTION_DENY, buttonTitle: actions.deny, options: { ...options, isDestructive: true } },
+      // Any other action opens the session (push/use-push.ts).
+      ...(actions.open
+        ? [{ identifier: ACTION_OPEN, buttonTitle: actions.open, options: { opensAppToForeground: true } }]
+        : []),
     ])
   }
   await Notifications.scheduleNotificationAsync({

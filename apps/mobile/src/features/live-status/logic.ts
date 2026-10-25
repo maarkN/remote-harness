@@ -97,9 +97,11 @@ export function tasksLine(counts: { subagents: number; background: number }, t: 
 
 /** Props for an update made by the app itself (no steps: only the daemon follows the transcript). */
 export function localLiveProps(
-  session: Pick<Session, 'state' | 'title' | 'cwd'> & Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>,
+  session: Pick<Session, 'id' | 'state' | 'title' | 'cwd'> &
+    Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>,
   info: LocalLiveInfo,
   t: TFunction,
+  now: number = Date.now(),
 ): LiveStatusProps {
   const state = liveStateFor(session.state)
   return {
@@ -122,6 +124,18 @@ export function localLiveProps(
     tasks: tasksLine(taskCounts(session), t),
     current: '',
     progress: null,
+    activity: state === 'done' ? t('liveStatus.finished') : '',
+    task: '',
+    notifiedAt: now,
+    link: `claude-remote://session/${session.id}`,
+    labels: {
+      working: t('liveStatus.labels.working'),
+      waiting: t('liveStatus.labels.waiting'),
+      total: t('liveStatus.labels.total'),
+      notified: t('liveStatus.labels.notified'),
+      finished: t('liveStatus.labels.finished'),
+      open: t('liveStatus.labels.open'),
+    },
     ...(info.palette ? { palette: info.palette } : {}),
   }
 }

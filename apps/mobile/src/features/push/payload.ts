@@ -4,6 +4,8 @@ export type PushData = { sessionId: string; profileId?: string; event?: string; 
 export const PERMISSION_CATEGORY = 'PERMISSION'
 export const ACTION_ALLOW = 'ALLOW'
 export const ACTION_DENY = 'DENY'
+/** Opens the session (the live status while a permission waits); routed like a tap. */
+export const ACTION_OPEN = 'OPEN'
 
 function pick(source: unknown): PushData | null {
   if (!source || typeof source !== 'object') return null
