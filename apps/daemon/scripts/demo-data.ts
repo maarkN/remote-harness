@@ -349,13 +349,31 @@ export function transcriptLines(session: DemoSession, cwd: string, now: number):
   const end = now - session.minutesAgo * 60_000
   // Entries 20 s apart, ending at the last activity.
   const at = (i: number) => new Date(end - (session.entries.length - 1 - i) * 20_000).toISOString()
-  const base = { isSidechain: false, cwd, sessionId: session.id, gitBranch: session.branch }
-  const lines: object[] = [
+  const head = [
     { type: 'custom-title', customTitle: session.title, sessionId: session.id },
     { type: 'permission-mode', permissionMode: session.permissionMode, sessionId: session.id },
   ]
-  let parent: string | null = null
-  session.entries.forEach((entry, i) => {
+  const { lines } = entryLines(session, cwd, session.entries, { startIndex: 0, parent: null, at })
+  return [...head.map((line) => JSON.stringify(line)), ...lines]
+}
+
+/**
+ * Transcript lines of `entries`, numbered from `startIndex` and chained to `parent`, with the
+ * timestamp of each entry from `at`. Returns the lines and the uuid the next entry chains to, so a
+ * running demo session can keep appending to its transcript.
+ */
+export function entryLines(
+  session: Pick<DemoSession, 'id' | 'branch'>,
+  cwd: string,
+  entries: readonly DemoEntry[],
+  options: { startIndex: number; parent: string | null; at: (index: number) => string },
+): { lines: string[]; parent: string | null } {
+  const { at } = options
+  const base = { isSidechain: false, cwd, sessionId: session.id, gitBranch: session.branch }
+  const lines: object[] = []
+  let parent = options.parent
+  entries.forEach((entry, offset) => {
+    const i = options.startIndex + offset
     const uuid = `${session.id.slice(0, 8)}-e${i}`
     const common = { ...base, parentUuid: parent, uuid, timestamp: at(i) }
     const message = `msg-${session.id.slice(0, 8)}-${i}`
@@ -419,7 +437,7 @@ export function transcriptLines(session: DemoSession, cwd: string, now: number):
     }
     parent = uuid
   })
-  return lines.map((line) => JSON.stringify(line))
+  return { lines: lines.map((line) => JSON.stringify(line)), parent }
 }
 
 /** The `/statusline` body the wrapper would post for the session. */
