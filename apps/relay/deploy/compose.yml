@@ -1,0 +1,29 @@
+# us.relay.remoteharness.app behind the server's Traefik (external `web` network, `websecure`
+# entry point, `le` certificate resolver), next to the site. `make deploy-relay` copies the sources
+# and this file; the image is built on the server. Limits: RELAY_* variables (see the daemon docs).
+name: remote-harness-relay
+
+services:
+  relay:
+    build: .
+    image: remote-harness/relay:latest
+    restart: unless-stopped
+    environment:
+      RELAY_ADDR: ":8080"
+      # Set by Traefik from the peer address (it drops forwarding headers from untrusted clients).
+      RELAY_CLIENT_IP_HEADER: X-Real-Ip
+    read_only: true
+    mem_limit: 256m
+    stop_grace_period: 15s
+    networks: [web]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: web
+      traefik.http.routers.remote-harness-relay.rule: Host(`us.relay.remoteharness.app`)
+      traefik.http.routers.remote-harness-relay.entrypoints: websecure
+      traefik.http.routers.remote-harness-relay.tls.certresolver: le
+      traefik.http.services.remote-harness-relay.loadbalancer.server.port: "8080"
+
+networks:
+  web:
+    external: true

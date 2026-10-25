@@ -21,6 +21,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      # The connection relay (apps/relay) is Go; its vet and tests run inside `pnpm check`.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/relay/go.mod
+          cache-dependency-path: apps/relay/go.sum
       - run: brew install ripgrep tmux
       - run: pnpm install --frozen-lockfile
       - run: pnpm check

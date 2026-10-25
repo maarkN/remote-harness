@@ -9,6 +9,7 @@ apps/daemon        Daemon Node/TS (WebSocket p/ app, HTTP p/ hooks, tmux, transc
 apps/mobile        App Expo (Expo Router, Zustand, TanStack Query)
 apps/push-relay    Cloud Function (Firebase) que envia push por daemons sem conta de serviço, via grants
 apps/push-edge     Worker do Cloudflare em push.remoteharness.app (endereço fixo do push-relay nas builds); deploy com `cf deploy`
+apps/relay         Relay de conexão em Go (WebSocket binário): repassa o tráfego cifrado de ponta a ponta entre daemon e devices sem poder lê-lo; deploy com `make deploy-relay` (us, Traefik) e `make deploy-relay-br` (Fly.io gru)
 apps/web           Site remoteharness.app: servidor Node em Docker atrás do Traefik do servidor (landing, docs, instaladores, servidor OTA, links de instalação), dados em volume; deploy com `make deploy-web`
 packages/protocol  Schemas Zod + tipos do protocolo WebSocket (fonte única da verdade)
 openspec/          Changes numerados (proposal, specs, design, tasks), sempre em en-US

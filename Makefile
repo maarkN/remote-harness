@@ -12,6 +12,7 @@
 #   REMOTE_HARNESS_UPDATES_TOKEN (or the older CLAUDE_REMOTE_UPDATES_TOKEN) must be in the environment for publish-ota (never stored here).
 #   REMOTE_HARNESS_WEB_SSH=<user@host> server of remoteharness.app for deploy-web and the web install links
 #   REMOTE_HARNESS_WEB_DIR=<path>      its folder on that server (default /srv/remote-harness-web)
+#   REMOTE_HARNESS_RELAY_DIR=<path>    deploy-relay's folder on that server (default /srv/remote-harness-relay)
 #   APP_INSTALL_URL=/app/<token>/      deploy-web writes it to the server's .env: the landing's iPhone & iPad card opens it
 
 SHELL := /bin/bash
@@ -35,7 +36,7 @@ CHANNEL ?= production
 	daemon-dev daemon-build \
 	start ios-dev android-dev prebuild ios-devices install-ios install-ios-link install-android install-android-link \
 	publish-ota publish-ota-dry \
-	deploy-push-relay
+	deploy-push-relay deploy-relay deploy-relay-br
 
 help: ## List the targets
 	@if [ -t 1 ]; then c=$$'\033[38;2;217;119;87m'; r=$$'\033[0m'; b=$$'\033[1m'; fi; \
@@ -133,6 +134,14 @@ publish-ota-dry: ## Export and sign without uploading (checks the key and the co
 
 deploy-web: ## Build remoteharness.app and run it on its server behind Traefik (REMOTE_HARNESS_WEB_SSH=user@host)
 	pnpm --filter @remote-harness/web run deploy
+
+## Connection relay
+
+deploy-relay: ## Build us.relay.remoteharness.app on the site's server behind Traefik (REMOTE_HARNESS_WEB_SSH=user@host)
+	pnpm --filter @remote-harness/relay run deploy
+
+deploy-relay-br: ## Deploy br.relay.remoteharness.app to Fly.io (gru); needs `fly auth login`
+	cd apps/relay && fly deploy --config fly.toml
 
 ## Push relay
 
