@@ -1,18 +1,13 @@
-// Firebase (push, error reports) is optional: without GoogleService-Info.plist its native pods are not linked,
-// so the iOS build works without a Firebase project. Keep in sync with app.config.ts.
+// Firebase (push, error reports, performance) is optional: a platform without its Google services file
+// (GoogleService-Info.plist, google-services.json) does not link the native Firebase modules, so it
+// builds without a Firebase project. Keep in sync with app.config.ts.
 const { existsSync } = require('node:fs')
 const { join } = require('node:path')
-
-const firebaseEnabled = existsSync(join(__dirname, 'GoogleService-Info.plist'))
-const disabled = { platforms: { ios: null, android: null } }
+const { firebaseDependencies, firebaseModules } = require('./scripts/firebase-linking.cjs')
 
 module.exports = {
-  dependencies: firebaseEnabled
-    ? {}
-    : {
-        '@react-native-firebase/app': disabled,
-        '@react-native-firebase/messaging': disabled,
-        '@react-native-firebase/app-check': disabled,
-        '@react-native-firebase/crashlytics': disabled,
-      },
+  dependencies: firebaseDependencies(firebaseModules(require('./package.json')), {
+    ios: existsSync(join(__dirname, 'GoogleService-Info.plist')),
+    android: existsSync(join(__dirname, 'google-services.json')),
+  }),
 }
