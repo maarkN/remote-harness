@@ -531,5 +531,6 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     ...(PUSH_RELAY_URL ? { pushRelay: PUSH_RELAY_URL } : {}),
     ...(EAS_PROJECT_ID ? { eas: { projectId: EAS_PROJECT_ID } } : {}),
   },
-  experiments: { typedRoutes: true },
+  // React Compiler (babel-preset-expo wires it): automatic memoization; `pnpm compiler:report` lists what it skips.
+  experiments: { typedRoutes: true, reactCompiler: true },
 })

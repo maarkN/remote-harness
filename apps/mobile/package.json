@@ -76,7 +76,8 @@
     "icons": "tsx scripts/icons.mts",
     "store:metadata": "tsx scripts/store-metadata.mts",
     "doctor": "expo-doctor",
-    "xterm": "tsx scripts/build-xterm-html.mts"
+    "xterm": "tsx scripts/build-xterm-html.mts",
+    "compiler:report": "tsx scripts/compiler-report.mts"
   },
   "private": true,
   "expo": {
