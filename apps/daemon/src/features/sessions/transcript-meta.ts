@@ -1,5 +1,6 @@
 import { open } from 'node:fs/promises'
 import { type PermissionMode, PermissionModeSchema } from '@remote-harness/protocol'
+import { isCommandPrompt, oneLine, promptTitle } from './prompt-title.ts'
 
 export type TranscriptMeta = {
   title: string | null
@@ -97,14 +98,12 @@ function userText(entry: Record<string, unknown>): string | null {
   return null
 }
 
-export function oneLine(text: string, max = 80): string {
-  const clean = text.replace(/\s+/g, ' ').trim()
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
-}
+export { oneLine }
 
 /**
  * Extracts title, cwd and permission mode from the transcript's tail and head. The title is the
- * latest name (from the tail, else `earlierTitle`), then the first prompt, then the last prompt.
+ * latest name (from the tail, else `earlierTitle`), then the first prompt (a question before a slash
+ * command), then the last prompt, each without markup (`promptTitle`).
  */
 export function extractMeta(
   tailLines: Record<string, unknown>[],
@@ -125,12 +124,21 @@ export function extractMeta(
     }
   }
   let firstPrompt: string | null = null
+  let firstCommand: string | null = null
   for (const entry of headLines) {
     if (!cwd && typeof entry.cwd === 'string') cwd = entry.cwd
     const text = userText(entry)
-    if (!firstPrompt && text && !text.startsWith('<')) firstPrompt = text
+    if (!text || firstPrompt) continue
+    const title = promptTitle(text)
+    if (title && isCommandPrompt(text)) firstCommand ??= title
+    else if (title) firstPrompt = title
   }
-  const title = customTitle ?? earlierTitle ?? firstPrompt ?? lastPrompt
+  const title =
+    customTitle ??
+    earlierTitle ??
+    firstPrompt ??
+    firstCommand ??
+    (lastPrompt ? promptTitle(lastPrompt) : null)
   return { title: title ? oneLine(title) : null, cwd, permissionMode }
 }
 
