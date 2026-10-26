@@ -44,6 +44,8 @@ The **mode** chip switches the permission mode: default, accept edits, plan and 
 
 **Review changes** (session menu) lists the files of the session's checkout (or worktree) that differ from `HEAD`: added, modified, deleted, renamed and untracked files with their `+added −deleted` counts, without asking the agent. Tap a file for its diff; lockfiles, generated files (`dist/`, `*.generated.ts`) and big diffs start collapsed, binary files only say "binary changed", and long diffs load 2,000 lines at a time with **Show the rest**. The list refreshes while the session works and on pull, whatever the session is doing.
 
+From the same screen you can close the loop: untick the files to leave out, type the commit message or tap **Generate** (the session's own Claude Code writes it from the diff, with a small model and no tools), then **Commit**, **Push** and **Open PR**. Each one first shows what it touches: the files, the branch and the remote. On the default branch the commit offers to create a new branch first, named from the message; a push straight to `main` or `master` gets a warning. **Open PR** uses `gh` when it is installed on the computer (title and body can be generated too); without it, **Push & compare** pushes and opens GitHub's "compare & open PR" page. While the agent is working these buttons wait for it, with a **Do it anyway** after a warning. They are fixed operations of the daemon, not shell commands, so they work with `remote-harness commands` off.
+
 ## Subagents
 
 While the agent delegates work, the header's menu shows **Subagents (N · M running)**; the sheet lists each one with its description, state, tool count and start time, plus the background tasks.

@@ -8,6 +8,8 @@ const GIT_TIMEOUT_MS = 5_000
 const PUSH_TIMEOUT_MS = 60_000
 /** Diffs of a whole working tree can take a while on a big repository. */
 const DIFF_TIMEOUT_MS = 15_000
+/** A reviewed commit runs the repository's hooks, which may lint or test. */
+const COMMIT_TIMEOUT_MS = 2 * 60_000
 /** git's empty tree: the base of a repository without commits. */
 export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 /** `git worktree remove` deletes the whole folder (node_modules included): only the cross-device fallback uses it. */
@@ -166,6 +168,25 @@ export function isGeneratedPath(path: string): boolean {
   if (LOCKFILES.has(name)) return true
   if (/\.generated\.[^.]+$/.test(name) || /\.min\.(js|css)$/.test(name) || name.endsWith('.map')) return true
   return parts.slice(0, -1).some((dir) => GENERATED_DIRS.has(dir))
+}
+
+/** A remote URL without the `user:password@` part an https remote may carry. */
+export function stripCredentials(url: string): string {
+  return url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]*@/i, '$1')
+}
+
+/**
+ * GitHub's "compare & open PR" page for a branch, from an `https://`, `ssh://` or scp-like
+ * (`git@github.com:owner/repo.git`) remote; null for any other host.
+ */
+export function githubCompareUrl(remote: string, branch: string): string | null {
+  const url = stripCredentials(remote.trim())
+  const match =
+    /^(?:https?|ssh|git):\/\/(?:[^@/]+@)?github\.com(?::\d+)?\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i.exec(url) ??
+    /^[^@/:]+@github\.com:([^/]+)\/([^/]+?)(?:\.git)?\/?$/i.exec(url)
+  if (!match?.[1] || !match[2]) return null
+  const ref = branch.split('/').map(encodeURIComponent).join('/')
+  return `https://github.com/${match[1]}/${match[2]}/compare/${ref}?expand=1`
 }
 
 /** A changed path with its counts, before the feature counts untracked files. */
@@ -336,6 +357,74 @@ export class GitClient {
     }
     const paths = file.oldPath ? [file.oldPath, file.path] : [file.path]
     return this.must(root, ['diff', base, '-M', ...options, '--', ...paths], DIFF_TIMEOUT_MS)
+  }
+
+  /**
+   * Commits exactly `paths` (relative to `root`): stages them (untracked and deleted ones too), then
+   * `git commit --only` so whatever else is staged stays staged. Runs the repository's hooks.
+   * Returns the new commit's short hash.
+   */
+  async commitPaths(root: string, paths: readonly string[], message: string): Promise<string> {
+    await this.must(root, ['add', '-A', '--', ...paths])
+    await this.must(root, ['commit', '-q', '-m', message, '--only', '--', ...paths], COMMIT_TIMEOUT_MS)
+    return (await this.must(root, ['rev-parse', '--short', 'HEAD'])).trim()
+  }
+
+  /** Whether `name` is a valid new branch name (`git check-ref-format --branch`) not taken yet. */
+  async canCreateBranch(root: string, name: string): Promise<boolean> {
+    const format = await this.run(root, ['check-ref-format', '--branch', name])
+    if (format.exitCode !== 0 || format.stdout.trim() !== name) return false
+    return !(await this.hasBranch(root, name))
+  }
+
+  /** Creates `name` at HEAD and switches to it; the working tree and the index come along. */
+  async createBranch(root: string, name: string): Promise<void> {
+    await this.must(root, ['switch', '-q', '-c', name])
+  }
+
+  /** `origin`'s URL, or null when there is no `origin`. */
+  async remoteUrl(root: string): Promise<string | null> {
+    const result = await this.run(root, ['remote', 'get-url', 'origin'])
+    return result.exitCode === 0 ? result.stdout.trim() || null : null
+  }
+
+  /** The branch `origin/HEAD` points to (`main`), or null when the remote never said. */
+  async defaultBranch(root: string): Promise<string | null> {
+    const result = await this.run(root, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD'])
+    const ref = result.exitCode === 0 ? result.stdout.trim() : ''
+    return ref.startsWith('origin/') ? ref.slice('origin/'.length) || null : null
+  }
+
+  /** Commits reachable from HEAD and from no remote ref (0 when git fails). */
+  async unpushed(root: string): Promise<number> {
+    const result = await this.run(root, ['rev-list', '--count', 'HEAD', '--not', '--remotes'])
+    return result.exitCode === 0 ? Number(result.stdout.trim()) || 0 : 0
+  }
+
+  /** The subjects of the last commits, newest first: the style a generated message follows. */
+  async recentSubjects(root: string, count = 10): Promise<string[]> {
+    const result = await this.run(root, ['log', `-${count}`, '--no-color', '--format=%s'])
+    return result.exitCode === 0 ? result.stdout.split('\n').filter(Boolean) : []
+  }
+
+  /**
+   * What a pull request would carry against `base` (`origin/<base>` when the remote has it): the
+   * commits' subjects and bodies and the diff stat. Without a base, the last 20 commits.
+   */
+  async branchSummary(root: string, base: string | null): Promise<{ log: string; stat: string }> {
+    const upstream =
+      base && (await this.hasRef(root, `refs/remotes/origin/${base}`)) ? `origin/${base}` : base
+    const range = upstream ? [`${upstream}..HEAD`] : ['-20', 'HEAD']
+    const log = await this.must(root, ['log', '--no-color', '--format=%s%n%n%b', ...range], DIFF_TIMEOUT_MS)
+    const stat = upstream
+      ? await this.must(root, ['diff', '--no-color', '--stat', `${upstream}...HEAD`], DIFF_TIMEOUT_MS)
+      : ''
+    return { log, stat }
+  }
+
+  private async hasRef(dir: string, ref: string): Promise<boolean> {
+    const result = await this.run(dir, ['rev-parse', '--verify', '--quiet', ref])
+    return result.exitCode === 0 && !result.timedOut
   }
 
   /** Stages everything and commits it (hooks skipped: this is a save, not a review); no-op when clean. */

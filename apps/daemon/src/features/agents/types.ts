@@ -75,6 +75,10 @@ export type AgentAdapter = {
    * a failed hook, so its requests get Allow / Deny only.
    */
   permissionRules: boolean
-  /** Rewrites a dictated transcript in one non-interactive call; `null` when the CLI has no such mode. */
-  polish: { args(text: string): string[] } | null
+  /**
+   * One non-interactive call with a small model and no tools: rewrites a dictated transcript, or
+   * (with its own system prompt, the material on stdin) writes a commit message. `null` when the CLI
+   * has no such mode. Its stdout is read with `parseOneShotResult`.
+   */
+  polish: { args(text: string, systemPrompt?: string): string[] } | null
 }
