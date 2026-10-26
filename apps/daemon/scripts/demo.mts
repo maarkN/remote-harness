@@ -128,8 +128,15 @@ function clean(): void {
   const manifest = readManifest()
   for (const path of manifest) rmSync(path, { recursive: true, force: true })
   rmSync(manifestPath, { force: true })
+  // The data home is the demo's alone: one left by an older run without a manifest goes too.
+  const leftover = existsSync(layout.home)
+  rmSync(layout.home, { recursive: true, force: true })
   console.log(
-    manifest.length > 0 ? `Removed ${manifest.length} demo folders from ${root}.` : 'Nothing to clean.',
+    manifest.length > 0
+      ? `Removed ${manifest.length} demo folders from ${root}.`
+      : leftover
+        ? `Removed what an earlier demo left in ${layout.home}.`
+        : 'Nothing to clean.',
   )
 }
 
@@ -143,7 +150,9 @@ if (conflicts.length > 0) {
   console.error(
     `These already exist and are not the demo's, so nothing was created:\n  ${conflicts.join('\n  ')}`,
   )
-  console.error('Pick another root with --root <dir>.')
+  if (conflicts.length === 1 && conflicts[0] === layout.home)
+    console.error('Left by an earlier demo? Remove it with `demo --clean`.')
+  else console.error('Pick another root with --root <dir>.')
   process.exit(1)
 }
 // Leftovers of an interrupted run start over.
@@ -399,9 +408,11 @@ const panes = startPanes()
 writeLinks(panes)
 
 const log = openSync(join(layout.home, 'daemon.log'), 'a')
+// Node itself with the tsx loader, not the `tsx` wrapper: the wrapper exits before the daemon has
+// finished shutting down (it writes `state.json` then), so `stop` would clean up too early (#385).
 daemon = spawn(
-  join(DAEMON_DIR, 'node_modules', '.bin', 'tsx'),
-  ['src/cli.ts', 'start', '--dev', ...(host === '127.0.0.1' ? [] : ['--host', host])],
+  process.execPath,
+  ['--import', 'tsx', 'src/cli.ts', 'start', '--dev', ...(host === '127.0.0.1' ? [] : ['--host', host])],
   {
     cwd: DAEMON_DIR,
     env,
