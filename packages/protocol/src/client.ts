@@ -234,6 +234,38 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('permissions.list'), id }),
   /** The session's working-tree changes against `HEAD`; answered with `changes.result`. */
   z.object({ type: z.literal('changes.list'), id, sessionId }),
+  /**
+   * Commits exactly `paths` of the change list (after creating `newBranch` when given); answered with
+   * `changes.committed`. Refused with `session_busy` while the session runs, unless `force`.
+   */
+  z.object({
+    type: z.literal('changes.commit'),
+    id,
+    sessionId,
+    paths: z.array(z.string().min(1)).min(1),
+    message: z.string().trim().min(1).max(10_000),
+    newBranch: z.string().min(1).max(200).optional(),
+    force: z.boolean().optional(),
+  }),
+  /** Pushes the current branch to `origin`; answered with `changes.pushed`. Same gate as commit. */
+  z.object({ type: z.literal('changes.push'), id, sessionId, force: z.boolean().optional() }),
+  /** Pushes, then opens a PR with `gh` against the default branch; answered with `changes.prOpened`. */
+  z.object({
+    type: z.literal('changes.pr'),
+    id,
+    sessionId,
+    title: z.string().trim().min(1).max(500),
+    body: z.string().max(50_000),
+    force: z.boolean().optional(),
+  }),
+  /** A commit message (from `paths`' diff) or a PR title and body, written by the profile's agent CLI. */
+  z.object({
+    type: z.literal('changes.generate'),
+    id,
+    sessionId,
+    kind: z.enum(['commit', 'pr']),
+    paths: z.array(z.string().min(1)).optional(),
+  }),
   /** A page of one changed file's diff (only a path of the change list); answered with `changes.diffResult`. */
   z.object({
     type: z.literal('changes.diff'),

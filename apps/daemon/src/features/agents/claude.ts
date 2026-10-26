@@ -66,7 +66,7 @@ export const claudeCode: AgentAdapter = {
   modes: true,
   permissionRules: true,
   polish: {
-    args: (text) => [
+    args: (text, systemPrompt = POLISH_SYSTEM_PROMPT) => [
       '-p',
       text,
       '--model',
@@ -76,7 +76,7 @@ export const claudeCode: AgentAdapter = {
       '--allowedTools',
       '',
       '--append-system-prompt',
-      POLISH_SYSTEM_PROMPT,
+      systemPrompt,
     ],
   },
 }

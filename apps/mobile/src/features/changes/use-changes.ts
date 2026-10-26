@@ -1,4 +1,4 @@
-import type { ChangedFile } from '@remote-harness/protocol'
+import type { ChangedFile, ServerMessageOf } from '@remote-harness/protocol'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DaemonRequestError, useDaemonClient, useIsConnected } from '@/core/connection'
@@ -11,7 +11,8 @@ const REFRESH_INTERVAL_MS = 3000
 
 export type FileDiff = { lines: string[]; total: number; loading: boolean; error: string | null }
 
-type ChangesState = { root: string | null; branch: string | null; files: ChangedFile[] }
+/** `changes.result` without the envelope. */
+export type ChangesState = Omit<ServerMessageOf<'changes.result'>, 'type' | 'replyTo'>
 
 /**
  * A session's working-tree changes (`changes.list`) and the diffs loaded so far (`changes.diff`, a
@@ -57,7 +58,15 @@ export function useChanges(sessionId: string) {
       }
       filesRef.current = reply.files
       setDiffs((current) => Object.fromEntries(Object.entries(current).filter(([path]) => unchanged(path))))
-      setChanges({ root: reply.root, branch: reply.branch, files: reply.files })
+      setChanges({
+        root: reply.root,
+        branch: reply.branch,
+        files: reply.files,
+        remote: reply.remote,
+        defaultBranch: reply.defaultBranch,
+        unpushed: reply.unpushed,
+        gh: reply.gh,
+      })
       setError(null)
     } catch (e) {
       if (e instanceof DaemonRequestError && e.code === 'unknown_type') setSupported(false)
