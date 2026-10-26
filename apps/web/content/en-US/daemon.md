@@ -23,6 +23,7 @@ The daemon runs on the computer: it tails the session transcripts, drives tmux, 
 | `remote-harness provider key <profile>` | Stores a profile's provider key (OpenRouter) in the OS secret store. `--stdin` reads it from a pipe. |
 | `remote-harness devices list` / `revoke <id>` | The phones and tablets paired with this computer (ID, name, platform, paired, last seen); `revoke` disconnects one, which must pair again. |
 | `remote-harness rules list` / `undo <id>` | The "always allow" rules created from the phone. |
+| `remote-harness approvals list` | The approval log: what devices allowed, denied, undid and deleted (last 30 days). |
 | `remote-harness commands [on|off]` | Shows, allows or forbids running shell commands from the app in a session's folder (off by default), applied to the running daemon. |
 
 The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for installs made before the rename.

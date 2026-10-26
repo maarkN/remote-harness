@@ -23,6 +23,7 @@ O daemon roda no computador: acompanha os transcripts das sessões, controla o t
 | `remote-harness provider key <perfil>` | Guarda a chave do provedor (OpenRouter) de um perfil no cofre do sistema. `--stdin` lê de um pipe. |
 | `remote-harness devices list` / `revoke <id>` | Os celulares e tablets pareados com este computador (ID, nome, plataforma, pareado em, visto por último); `revoke` desconecta um, que precisa parear de novo. |
 | `remote-harness rules list` / `undo <id>` | As regras "permitir sempre" criadas pelo celular. |
+| `remote-harness approvals list` | O registro de aprovações: o que os aparelhos permitiram, negaram, desfizeram e apagaram (últimos 30 dias). |
 | `remote-harness commands [on|off]` | Mostra, permite ou proíbe rodar comandos de shell pelo app na pasta de uma sessão (desligado por padrão), aplicado ao daemon em execução. |
 
 O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam funcionando em instalações feitas antes da mudança de nome.

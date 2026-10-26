@@ -244,6 +244,19 @@ export const esES = {
       removed: (rule: string, file: string) => `Regla ${rule} eliminada de ${file}.`,
       alreadyGone: 'La regla ya no estaba en el archivo.',
     },
+    approvals: {
+      description: 'lo que los dispositivos permitieron, denegaron, deshicieron y borraron (últimos 30 días)',
+      list: 'lista el registro de aprobaciones, lo más reciente primero',
+      empty: 'Nada en el registro de aprobaciones de los últimos 30 días.',
+      actions: {
+        allow: 'permitió',
+        allowAlways: 'permitió siempre',
+        deny: 'denegó',
+        undo: 'deshizo regla',
+        delete: 'borró regla',
+      },
+      thisComputer: 'este ordenador',
+    },
   },
   install: {
     missingProviderKey: (id: string, provider: string) =>

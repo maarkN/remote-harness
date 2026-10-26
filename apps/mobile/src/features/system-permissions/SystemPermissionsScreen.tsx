@@ -1,7 +1,9 @@
 import type { MachinePermissionId, SettingsPane } from '@remote-harness/protocol'
+import { router } from 'expo-router'
+import { ChevronRight } from 'lucide-react-native'
 import { useTranslation } from 'react-i18next'
-import { Linking, ScrollView, View } from 'react-native'
-import { makeStyles, space } from '@/core/theme'
+import { Linking, Pressable, ScrollView, View } from 'react-native'
+import { makeStyles, space, useTheme } from '@/core/theme'
 import { shortPath } from '@/core/utils/time'
 import { Badge, type BadgeTone, Button, Card, Screen, Text } from '@/ui'
 import type { PermissionStatus } from './status.ts'
@@ -39,6 +41,18 @@ export function SystemPermissionsScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
+        <Card>
+          <LinkRow
+            label={t('permissionRules.title')}
+            hint={t('permissionRules.hint')}
+            onPress={() => router.push('/permission-rules')}
+          />
+          <LinkRow
+            label={t('approvals.title')}
+            hint={t('approvals.hint')}
+            onPress={() => router.push('/permission-activity')}
+          />
+        </Card>
         <Card>
           <Text weight="bold">{t('systemPermissions.onThisPhone')}</Text>
           {PHONE_ROWS.map((id) => {
@@ -121,6 +135,27 @@ export function SystemPermissionsScreen() {
   )
 }
 
+/** Opens Rules or Activity. */
+function LinkRow({ label, hint, onPress }: { label: string; hint: string; onPress: () => void }) {
+  const { colors } = useTheme()
+  const styles = useStyles()
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <View style={styles.flex}>
+        <Text size="sm">{label}</Text>
+        <Text size="xs" color="textMuted">
+          {hint}
+        </Text>
+      </View>
+      <ChevronRight size={16} color={colors.textDim} />
+    </Pressable>
+  )
+}
+
 function PermissionRow({
   label,
   reason,
@@ -173,4 +208,5 @@ const useStyles = makeStyles(() => ({
     paddingBottom: space.xs,
   },
   flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
 }))
