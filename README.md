@@ -62,7 +62,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 | 🤖 **Claude Code and Codex** | Claude Code profiles — on your Anthropic accounts or [OpenRouter](https://openrouter.ai) models — and Codex CLI profiles side by side, each with its own launcher. |
 | 💬 **Live conversation** | The same history you see on the computer: markdown, thinking, tool calls, diffs, results — streamed in real time and paginated. |
 | ⌨️ **Send prompts** | Type into the very same process that is open on the computer, `Esc` and `Ctrl+C` included. Queue follow-ups while the agent works (or send now), keep a draft per session, dictate on-device and attach photos. |
-| ✅ **Approve permissions** | Allow, deny or **always allow** (written as a rule by Claude Code itself, undoable with `remote-harness rules undo`). Answer the agent's questions and approve its plans. |
+| ✅ **Approve permissions** | Allow, deny or **always allow** (written as a rule by Claude Code itself, undoable in Settings → Permissions → Rules or with `remote-harness rules undo`); every answer from a device lands in the approval log (Settings → Permissions → Activity, `remote-harness approvals list`). Answer the agent's questions and approve its plans. |
 | 🔀 **Switch permission mode** | Default, accept edits, plan, auto. `bypassPermissions` is intentionally never offered. |
 | 🔎 **Autocomplete** | `@files` (git/ripgrep + fuzzy search) and every `/command` (built-ins, project, profile and plugins), with your recent ones first. |
 | 🖥️ **Raw terminal** | An xterm.js view of the tmux pane for TUI menus and anything the structured view does not cover. |

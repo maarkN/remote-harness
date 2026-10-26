@@ -53,7 +53,7 @@ O Remote Harness resolve isso com ferramentas em que você já confia: as sessõ
 - **Claude Code e Codex** — perfis do Claude Code (nas suas contas da Anthropic ou com modelos do OpenRouter) e do Codex CLI lado a lado, cada um com o seu launcher.
 - **Conversa em tempo real** — markdown, raciocínio, tool calls, diffs e resultados, paginados.
 - **Enviar prompts** — para o mesmo processo aberto no computador, com `Esc` e `Ctrl+C`; enfileire mensagens enquanto o agente trabalha (ou envie na hora), mantenha um rascunho por sessão, dite no próprio aparelho e anexe fotos.
-- **Aprovar permissões** — permitir, negar ou **permitir sempre** (a regra é gravada pelo próprio Claude Code e pode ser desfeita com `remote-harness rules undo`); responda às perguntas do agente e aprove planos.
+- **Aprovar permissões** — permitir, negar ou **permitir sempre** (a regra é gravada pelo próprio Claude Code e pode ser desfeita em Ajustes → Permissões → Regras ou com `remote-harness rules undo`; cada resposta de um aparelho entra no registro de aprovações, em Ajustes → Permissões → Atividade e `remote-harness approvals list`); responda às perguntas do agente e aprove planos.
 - **Trocar o modo de permissão** — padrão, aceitar edições, plano, auto. O `bypassPermissions` nunca é oferecido.
 - **Autocomplete** — `@arquivos` e todos os `/comandos` (nativos, projeto, perfil e plugins), com os recentes primeiro.
 - **Terminal bruto** — xterm.js com o painel do tmux para menus da TUI.

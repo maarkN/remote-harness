@@ -270,6 +270,60 @@ export type TranscriptEntryKind = TranscriptEntry['kind']
 export const RuleScopeSchema = z.enum(['profile', 'project'])
 export type RuleScope = z.infer<typeof RuleScopeSchema>
 
+/**
+ * An always-allow rule of a settings file: `app` when a device created it ("allow always", in the
+ * daemon's rules log, undone by `ruleId`), `hand` when it was written on the computer.
+ */
+export const ListedRuleSchema = z.discriminatedUnion('origin', [
+  z.object({ origin: z.literal('app'), rule: z.string(), ruleId: z.string(), createdAt: z.string() }),
+  z.object({ origin: z.literal('hand'), rule: z.string() }),
+])
+export type ListedRule = z.infer<typeof ListedRuleSchema>
+
+/** A settings file with always-allow rules: a profile's `settings.json` or a project's `settings.local.json`. */
+export const RuleFileSchema = z.object({
+  /** Absolute path; `rules.delete` only accepts a path the daemon listed. */
+  file: z.string(),
+  scope: RuleScopeSchema,
+  /** Scope `profile`: the profile the file belongs to. */
+  profileId: z.string().nullable(),
+  /** Scope `project`: the project folder. */
+  project: z.string().nullable(),
+  rules: z.array(ListedRuleSchema),
+})
+export type RuleFile = z.infer<typeof RuleFileSchema>
+
+/** Most entries `approvals.result` carries. */
+export const APPROVALS_LIST_LIMIT = 500
+
+/** What an approval log entry records. */
+export const ApprovalActionSchema = z.enum(['allow', 'deny', 'undo', 'delete'])
+export type ApprovalAction = z.infer<typeof ApprovalActionSchema>
+
+/**
+ * One entry of the daemon's approval log: a decision answered from a device or a rule undone or
+ * deleted. `target` is the live status's short sanitized target; never the tool input.
+ */
+export const ApprovalEntrySchema = z.object({
+  id: z.string(),
+  at: z.string(),
+  action: ApprovalActionSchema,
+  /** An `allow` that also created an always-allow rule. */
+  always: z.boolean().optional(),
+  /** `null` when the action came from the computer (CLI). */
+  device: z.object({ id: z.string(), name: z.string() }).nullable(),
+  sessionId: z.string().nullable(),
+  /** Base name of the session's folder. */
+  folder: z.string().nullable(),
+  tool: z.string().nullable(),
+  target: z.string().nullable(),
+  /** Rule actions and an `always` allow: the rule text (it is in the settings file anyway). */
+  rule: z.string().nullable(),
+  /** The rules log ID of that rule, for undo. */
+  ruleId: z.string().nullable(),
+})
+export type ApprovalEntry = z.infer<typeof ApprovalEntrySchema>
+
 /** Platform of a paired phone; picks the push payload block (APNs or Android). */
 export const DevicePlatformSchema = z.enum(['ios', 'android'])
 export type DevicePlatform = z.infer<typeof DevicePlatformSchema>

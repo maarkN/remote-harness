@@ -228,6 +228,14 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pairing.create'), id }),
   /** The permission requests waiting now; answered with `permissions.result`. */
   z.object({ type: z.literal('permissions.list'), id }),
+  /** The always-allow rules of the computer's settings files; answered with `rules.result`. */
+  z.object({ type: z.literal('rules.list'), id }),
+  /** Removes an app-created rule from its file (by its rules log ID); answered with `ack`. */
+  z.object({ type: z.literal('rules.undo'), id, ruleId: z.string().min(1) }),
+  /** Removes a rule from a file `rules.list` lists (any other path: `not_found`); answered with `ack`. */
+  z.object({ type: z.literal('rules.delete'), id, file: z.string().min(1), rule: z.string().min(1) }),
+  /** The approval log (last 30 days, most recent first); answered with `approvals.result`. */
+  z.object({ type: z.literal('approvals.list'), id }),
 ])
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>

@@ -521,6 +521,40 @@ const esES = {
       cancel: 'Cancelar',
     },
   },
+  permissionRules: {
+    title: 'Reglas',
+    hint: 'Reglas de "permitir siempre" de este ordenador, para deshacer o borrar',
+    intro:
+      'Las reglas dejan que el agente use las herramientas que coinciden sin preguntar. Las reglas creadas desde un dispositivo se pueden deshacer; las escritas en el ordenador solo se pueden borrar aquí.',
+    unsupported: 'El daemon de este ordenador es demasiado antiguo para esta pantalla.',
+    loading: 'Cargando…',
+    empty: 'No hay reglas de "permitir siempre" en este ordenador.',
+    scope: { profile: 'Perfil', project: 'Proyecto' },
+    fromApp: 'Creada desde un dispositivo · {{when}}',
+    handWritten: 'Escrita en el ordenador',
+    undo: 'Deshacer',
+    undoTitle: '¿Deshacer esta regla?',
+    delete: 'Borrar',
+    deleteTitle: '¿Borrar esta regla?',
+    deleteBody:
+      '{{rule}} se escribió en el ordenador. Se quitará de {{file}} (queda una copia de seguridad al lado).',
+    identityPrompt: 'Confirma para borrar la regla',
+  },
+  approvals: {
+    title: 'Actividad',
+    hint: 'Lo que los dispositivos permitieron, denegaron, deshicieron y borraron',
+    intro:
+      'Respuestas dadas desde dispositivos y cambios de reglas de los últimos 30 días. La entrada de las herramientas nunca se guarda.',
+    empty: 'Nada en los últimos 30 días.',
+    thisComputer: 'Este ordenador',
+    action: {
+      allow: 'Permitido',
+      allowAlways: 'Siempre',
+      deny: 'Denegado',
+      undo: 'Deshecha',
+      delete: 'Borrada',
+    },
+  },
   systemPermissions: {
     title: 'Permisos',
     onThisPhone: 'En este teléfono',

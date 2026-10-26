@@ -33,7 +33,7 @@ Rodar comandos pelo app (**Rodar comando…**) vem desligado e só pode ser liga
 
 ## Permissões
 
-O app nunca oferece o modo "bypass permissions" do agente. O "permitir sempre" grava uma regra nas configurações do próprio Claude Code, para o projeto ou para o seu usuário, e `remote-harness rules undo` a desfaz. Um pedido sem resposta volta para o diálogo do terminal depois de alguns minutos.
+O app nunca oferece o modo "bypass permissions" do agente. O "permitir sempre" grava uma regra nas configurações do próprio Claude Code, para o projeto ou para o seu usuário, e Ajustes → Permissões → Regras (ou `remote-harness rules undo`) a desfaz; apagar uma regra escrita no computador pede Face ID ou a senha do aparelho. O registro de aprovações guarda qual aparelho permitiu ou negou o quê, só com a ferramenta e um alvo curto (o nome base de um arquivo, o programa de um comando), nunca o input, e mantém 30 dias. Um pedido sem resposta volta para o diálogo do terminal depois de alguns minutos.
 
 ## Os seus arquivos
 

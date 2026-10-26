@@ -33,7 +33,7 @@ Ejecutar comandos desde la app (**Ejecutar comando…**) viene desactivado y sol
 
 ## Permisos
 
-La app nunca ofrece el modo "bypass permissions" del agente. "Permitir siempre" escribe una regla en los ajustes del propio Claude Code, para el proyecto o para tu usuario, y `remote-harness rules undo` la revierte. Una petición sin responder vuelve al diálogo del terminal pasados unos minutos.
+La app nunca ofrece el modo "bypass permissions" del agente. "Permitir siempre" escribe una regla en los ajustes del propio Claude Code, para el proyecto o para tu usuario, y Ajustes → Permisos → Reglas (o `remote-harness rules undo`) la revierte; borrar una regla escrita en el ordenador pide Face ID o el código del dispositivo. El registro de aprobaciones guarda qué dispositivo permitió o denegó qué, solo con la herramienta y un objetivo corto (el nombre base de un archivo, el programa de un comando), nunca la entrada, y conserva 30 días. Una petición sin responder vuelve al diálogo del terminal pasados unos minutos.
 
 ## Tus archivos
 
