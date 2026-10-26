@@ -61,6 +61,7 @@ const SYSTEM_PROMPTS = {
     NSMicrophoneUsageDescription: 'The microphone is used to record voice messages for the prompt.',
     NSSpeechRecognitionUsageDescription:
       'Speech recognition turns your voice messages into text, on this device.',
+    NSFaceIDUsageDescription: 'Face ID confirms that it is you before a permission rule is deleted.',
   },
   'pt-BR': {
     NSCameraUsageDescription:
@@ -71,6 +72,7 @@ const SYSTEM_PROMPTS = {
     NSMicrophoneUsageDescription: 'O microfone é usado para gravar mensagens de voz do prompt.',
     NSSpeechRecognitionUsageDescription:
       'O reconhecimento de voz transforma suas mensagens de voz em texto, neste aparelho.',
+    NSFaceIDUsageDescription: 'O Face ID confirma que é você antes de apagar uma regra de permissão.',
   },
   es: {
     NSCameraUsageDescription:
@@ -81,6 +83,7 @@ const SYSTEM_PROMPTS = {
     NSMicrophoneUsageDescription: 'El micrófono se usa para grabar mensajes de voz del mensaje.',
     NSSpeechRecognitionUsageDescription:
       'El reconocimiento de voz convierte tus mensajes de voz en texto, en este dispositivo.',
+    NSFaceIDUsageDescription: 'Face ID confirma que eres tú antes de borrar una regla de permiso.',
   },
 }
 /** Languages the system offers for the app (matching the catalogs pt-BR, en-US and es-ES). */
@@ -587,6 +590,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
         microphonePermission: SYSTEM_PROMPTS.en.NSMicrophoneUsageDescription,
       },
     ],
+    ['expo-local-authentication', { faceIDPermission: SYSTEM_PROMPTS.en.NSFaceIDUsageDescription }],
     [
       'expo-speech-recognition',
       {

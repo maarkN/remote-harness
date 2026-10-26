@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   AccountLimitsSchema,
+  ApprovalEntrySchema,
   ChangedFileSchema,
   CheckoutPeerSchema,
   CheckoutSchema,
@@ -27,6 +28,7 @@ import {
   PushTestResultSchema,
   QueuedMessageSchema,
   RejectedRequestSchema,
+  RuleFileSchema,
   RuleScopeSchema,
   SessionSchema,
   SessionStateSchema,
@@ -147,6 +149,10 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     replyTo,
     requests: z.array(PermissionRequestInfoSchema),
   }),
+  /** Reply to `rules.list`: the settings files that hold always-allow rules, one entry per file. */
+  z.object({ type: z.literal('rules.result'), replyTo, files: z.array(RuleFileSchema) }),
+  /** Reply to `approvals.list`: most recent first, at most `APPROVALS_LIST_LIMIT`. */
+  z.object({ type: z.literal('approvals.result'), replyTo, entries: z.array(ApprovalEntrySchema) }),
   z.object({
     type: z.literal('permission.resolved'),
     requestId: z.string(),

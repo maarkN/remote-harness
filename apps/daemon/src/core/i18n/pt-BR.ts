@@ -241,6 +241,19 @@ export const ptBR = {
       removed: (rule: string, file: string) => `Regra ${rule} removida de ${file}.`,
       alreadyGone: 'A regra já não estava no arquivo.',
     },
+    approvals: {
+      description: 'o que os aparelhos permitiram, negaram, desfizeram e apagaram (últimos 30 dias)',
+      list: 'lista o registro de aprovações, mais recentes primeiro',
+      empty: 'Nada no registro de aprovações nos últimos 30 dias.',
+      actions: {
+        allow: 'permitiu',
+        allowAlways: 'permitiu sempre',
+        deny: 'negou',
+        undo: 'desfez regra',
+        delete: 'apagou regra',
+      },
+      thisComputer: 'este computador',
+    },
   },
   install: {
     missingProviderKey: (id: string, provider: string) =>

@@ -51,6 +51,7 @@ import {
 } from './features/hooks/installer.ts'
 import { isDefaultConfigDir } from './features/hooks/launcher.ts'
 import { deviceInfoOf, PairedDevices } from './features/pairing/devices.ts'
+import { ApprovalLog } from './features/permissions/approval-log.ts'
 import { RulesLog } from './features/permissions/rules-log.ts'
 import type { PowerState } from './features/power/index.ts'
 import { DeviceRegistry, describeDevices } from './features/push/devices.ts'
@@ -1018,9 +1019,36 @@ rules
       console.error(m.cli.rules.notFound(id))
       process.exit(1)
     }
+    if (result.removed) {
+      await new ApprovalLog(paths.approvalLog()).add({
+        action: 'undo',
+        device: null,
+        sessionId: result.entry.sessionId,
+        cwd: null,
+        tool: null,
+        rule: result.entry.rule,
+        ruleId: result.entry.id,
+      })
+    }
     console.log(
       result.removed ? m.cli.rules.removed(result.entry.rule, result.entry.file) : m.cli.rules.alreadyGone,
     )
+  })
+
+const approvals = program.command('approvals').description(m.cli.approvals.description)
+approvals
+  .command('list')
+  .description(m.cli.approvals.list)
+  .action(async () => {
+    const entries = await new ApprovalLog(paths.approvalLog()).list()
+    if (entries.length === 0) console.log(m.cli.approvals.empty)
+    const actions = m.cli.approvals.actions
+    for (const e of entries) {
+      const action = e.action === 'allow' && e.always ? actions.allowAlways : actions[e.action]
+      const what = e.rule ?? [e.tool, e.target].filter(Boolean).join(' ')
+      const device = e.device?.name ?? m.cli.approvals.thisComputer
+      console.log(`${e.at}  ${action.padEnd(16)}  ${device}  ${e.folder ?? '-'}  ${what}`)
+    }
   })
 
 await program.parseAsync()

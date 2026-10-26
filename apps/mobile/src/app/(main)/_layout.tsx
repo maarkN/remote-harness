@@ -149,6 +149,8 @@ export default function MainLayout() {
         <Stack.Screen name="new" options={{ title: t('nav.newSession'), presentation: 'modal' }} />
         <Stack.Screen name="report" options={{ title: t('errorReports.problem.title') }} />
         <Stack.Screen name="permissions" options={{ title: t('systemPermissions.title') }} />
+        <Stack.Screen name="permission-rules" options={{ title: t('permissionRules.title') }} />
+        <Stack.Screen name="permission-activity" options={{ title: t('approvals.title') }} />
         <Stack.Screen
           name="session/[id]/index"
           options={{ title: '', gestureEnabled: !overlayEdge, ...menuButton }}

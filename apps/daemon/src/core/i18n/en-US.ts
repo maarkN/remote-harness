@@ -237,6 +237,19 @@ export const enUS = {
       removed: (rule: string, file: string) => `Rule ${rule} removed from ${file}.`,
       alreadyGone: 'The rule was no longer in the file.',
     },
+    approvals: {
+      description: 'what devices allowed, denied, undid and deleted (last 30 days)',
+      list: 'list the approval log, most recent first',
+      empty: 'Nothing in the approval log for the last 30 days.',
+      actions: {
+        allow: 'allowed',
+        allowAlways: 'allowed always',
+        deny: 'denied',
+        undo: 'undid rule',
+        delete: 'deleted rule',
+      },
+      thisComputer: 'this computer',
+    },
   },
   install: {
     missingProviderKey: (id: string, provider: string) =>
