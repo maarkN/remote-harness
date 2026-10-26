@@ -18,5 +18,5 @@
 
 ## 4. Verify
 
-- [ ] 4.1 `turbo run typecheck test` and Biome green
-- [ ] 4.2 `npx expo export --platform ios` bundles
+- [x] 4.1 `turbo run typecheck test` and Biome green
+- [x] 4.2 `npx expo export --platform ios` bundles
