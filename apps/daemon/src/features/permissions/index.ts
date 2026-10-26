@@ -77,6 +77,8 @@ export function registerPermissionsFeature(ctx: DaemonContext, follow?: FollowTr
     broker.answer(msg.requestId, msg.answer)
     return undefined
   })
+  // The app asks again once its stores listen, so a replay sent before that is not lost (#384).
+  ctx.router.register('permissions.list', () => ({ type: 'permissions.result', requests: broker.list() }))
   // A phone that connects late still sees requests that are waiting.
   ctx.onClientConnected((connection) => {
     for (const request of broker.list()) connection.send({ type: 'permission.request', request })

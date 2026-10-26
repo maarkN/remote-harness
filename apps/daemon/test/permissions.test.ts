@@ -468,6 +468,12 @@ describe('integration: hook HTTP + WebSocket', () => {
       body: JSON.stringify({ session_id: 's', cwd: '/w', tool_name: 'Bash', tool_input: { command: 'ls' } }),
     })
     const request = await client.until('permission.request')
+    // The app asks for the waiting requests once its stores listen (#384).
+    client.send({ type: 'permissions.list', id: '1' })
+    expect(await client.until('permissions.result')).toMatchObject({
+      replyTo: '1',
+      requests: [{ requestId: request.request.requestId, tool: 'Bash' }],
+    })
     client.send({
       type: 'permission.respond',
       id: '2',

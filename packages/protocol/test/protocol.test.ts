@@ -17,6 +17,7 @@ const clientSamples: ClientMessage[] = [
   { type: 'devices.list', id: '1' },
   { type: 'devices.revoke', id: '1', deviceId: 'abcd' },
   { type: 'pairing.create', id: '1' },
+  { type: 'permissions.list', id: '1' },
   { type: 'sessions.list', id: '1' },
   { type: 'session.subscribe', id: '1', sessionId: 's', sinceCursor: 3 },
   { type: 'session.unsubscribe', id: '1', sessionId: 's' },
@@ -242,6 +243,7 @@ const serverSamples: ServerMessage[] = [
       },
     ],
   },
+  { type: 'permissions.result', replyTo: '1', requests: [] },
   {
     type: 'pairing.code',
     replyTo: '1',

@@ -226,6 +226,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('devices.revoke'), id, deviceId: z.string().min(1) }),
   /** A single-use pairing code to add another device; answered with `pairing.code`. */
   z.object({ type: z.literal('pairing.create'), id }),
+  /** The permission requests waiting now; answered with `permissions.result`. */
+  z.object({ type: z.literal('permissions.list'), id }),
 ])
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>
