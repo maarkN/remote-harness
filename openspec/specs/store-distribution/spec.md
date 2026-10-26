@@ -1,7 +1,7 @@
 # store-distribution Specification
 
 ## Purpose
-TBD - created by archiving change 70-store-distribution. Update Purpose after archive.
+What the app stores need, kept in the repository: the listing texts and assets, the policy pages, the app identifier, the move from development builds and the instructions that let reviewers in without an account.
 
 ## Requirements
 
@@ -47,3 +47,10 @@ The app SHALL use `com.alvyntech.remoteharness` as its iOS bundle identifier and
 #### Scenario: Phone with an older build
 - **WHEN** a user with a `tech.doctorx.clauderemote` build installs the new one
 - **THEN** both apps exist side by side and the troubleshooting page tells them to pair the new one and delete the old
+
+### Requirement: Store review access
+The repository SHALL keep, at `apps/mobile/store/app-access.md`, the instructions given to store reviewers in the "App access" declaration: the app has no accounts, and every feature can be reviewed with **Try the demo** on the pairing screen, without a computer, credentials or network. The declaration in the store consoles SHALL be copied from that file.
+
+#### Scenario: Reviewer opens the app
+- **WHEN** a reviewer follows the App access instructions
+- **THEN** they reach the session list through **Try the demo** without any sign-in

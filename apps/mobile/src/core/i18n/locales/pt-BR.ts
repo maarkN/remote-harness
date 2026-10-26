@@ -8,6 +8,17 @@ const ptBR = {
     session: 'Sessão',
     readOnly: 'somente leitura',
   },
+  demo: {
+    tryTitle: 'Experimentar a demonstração',
+    tryHint: 'Veja o app com sessões fictícias. Sem computador, conta ou rede.',
+    banner: 'Demonstração: sessões fictícias, nada sai deste celular.',
+    leave: 'Sair da demonstração',
+    cardTitle: 'Demonstração',
+    cardBody: 'Você está vendo um computador fictício. Saia da demonstração para parear o seu.',
+    unavailable: 'Não disponível na demonstração.',
+    reply:
+      'Isto é a demonstração, então nada foi executado. No seu computador, o agente trabalharia neste prompt agora, e você acompanharia tudo aqui ao vivo.',
+  },
   agents: {
     generic: 'o agente',
     genericSentence: 'O agente',

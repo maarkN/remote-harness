@@ -74,3 +74,43 @@ describe('several computers', () => {
     expect(saved).toContain(laptop.daemonId)
   })
 })
+
+describe('offline demo', () => {
+  const demo = computer('d', 'studio')
+  /** Stands in for the demo's in-memory sockets; nothing here reaches the network. */
+  const urls: string[] = []
+  const socketFactory = (url: string) => {
+    urls.push(url)
+    return {
+      readyState: 0,
+      send: () => undefined,
+      close: () => undefined,
+      onopen: null,
+      onmessage: null,
+      onclose: null,
+      onerror: null,
+    }
+  }
+
+  test('connects through the demo sockets without saving or listing the demo computer', () => {
+    urls.length = 0
+    useConnectionStore.getState().enterDemo(demo, socketFactory)
+    const state = useConnectionStore.getState()
+    expect(state.demo).toBe(true)
+    expect(state.credentials?.name).toBe('studio')
+    expect(state.computers).toEqual([])
+    expect(saved).toEqual([])
+    expect(urls).toHaveLength(1)
+    useConnectionStore.getState().leaveDemo()
+    expect(useConnectionStore.getState()).toMatchObject({ demo: false, credentials: null, client: null })
+  })
+
+  test('pairing a computer ends the demo; leaving afterwards keeps it', async () => {
+    useConnectionStore.getState().enterDemo(demo, socketFactory)
+    await useConnectionStore.getState().addComputer(laptop)
+    expect(useConnectionStore.getState()).toMatchObject({ demo: false, activeId: laptop.daemonId })
+    useConnectionStore.getState().leaveDemo()
+    expect(useConnectionStore.getState().activeId).toBe(laptop.daemonId)
+    expect(saved).toEqual([laptop.daemonId])
+  })
+})

@@ -1,6 +1,6 @@
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera'
 import { router, useLocalSearchParams } from 'expo-router'
-import { ChevronRight, Keyboard, QrCode, Rocket } from 'lucide-react-native'
+import { ChevronRight, CirclePlay, Keyboard, QrCode, Rocket } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
@@ -15,6 +15,7 @@ import {
 import { useConnectionStore } from '@/core/connection'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
+import { startDemo } from '@/features/demo/demo-mode'
 import { Button, Card, Screen, Text } from '@/ui'
 import { type ParsedPairingCode, pairingCodeFromRoute, parsePairingLink } from './parse-pairing-url'
 import { usePairing } from './use-pairing'
@@ -30,6 +31,8 @@ export function PairScreen() {
   const [mode, setMode] = useState<Mode>('scan')
   const { pair, busy, error, setError } = usePairing()
   const pairAgain = useConnectionStore((s) => s.pairAgain)
+  // Only before the first pairing, so the demo never mixes with real computers.
+  const canDemo = useConnectionStore((s) => s.computers.length === 0)
   const locked = useRef(false)
 
   /** Pairs with a parsed code, or explains why it cannot be used. */
@@ -98,6 +101,30 @@ export function PairScreen() {
               </View>
             </Card>
           </Pressable>
+
+          {canDemo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('demo.tryTitle')}
+              onPress={() => {
+                startDemo({ unavailable: t('demo.unavailable'), reply: t('demo.reply') })
+                router.replace('/')
+              }}
+            >
+              <Card>
+                <View style={styles.guide}>
+                  <CirclePlay size={20} color={colors.accentText} />
+                  <View style={styles.flex}>
+                    <Text weight="bold">{t('demo.tryTitle')}</Text>
+                    <Text size="sm" color="textMuted">
+                      {t('demo.tryHint')}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.textMuted} />
+                </View>
+              </Card>
+            </Pressable>
+          ) : null}
 
           <View style={styles.tabs}>
             <Button

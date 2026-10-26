@@ -10,6 +10,7 @@ import {
   didCrashLastRun,
   discardUnsent,
   initCrashlytics,
+  pauseReports,
   sendReport,
 } from './crashlytics'
 import { buildReport, errorFromEntry, type Report } from './format'
@@ -106,6 +107,11 @@ export function installErrorCapture(): void {
     onHandled: () => undefined,
   })
   void startErrorReports()
+  // Nothing of the offline demo is reported.
+  useConnectionStore.subscribe((state, previous) => {
+    if (state.demo !== previous.demo)
+      void pauseReports(state.demo, useErrorReportsStore.getState().preference)
+  })
 }
 
 /** Loads the preference and deals with the previous run's crash according to it. */

@@ -33,25 +33,32 @@ export function usePerformanceMonitoring(): void {
   const enabled = usePerformanceSettings((s) => s.enabled)
   const loaded = usePerformanceSettings((s) => s.loaded)
   const status = useConnectionStore((s) => s.status)
+  // Nothing of the offline demo is sent, whatever the choice says.
+  const demo = useConnectionStore((s) => s.demo)
+  const sending = enabled && !demo
   const { layout } = useLayout()
 
   useEffect(() => {
-    if (loaded) setPerformanceCollection(enabled)
-  }, [loaded, enabled])
+    if (loaded) setPerformanceCollection(sending)
+  }, [loaded, sending])
 
   useEffect(() => {
     if (!loaded || appReadyRecorded) return
     // Sent only when collection is on at that moment: turning it on later never sends this run's start.
-    if (status === 'open') return recordAppReady('connected', enabled)
+    if (status === 'open') return recordAppReady('connected', sending)
     const timer = setTimeout(
-      () => recordAppReady('timeout', usePerformanceSettings.getState().enabled),
+      () =>
+        recordAppReady(
+          'timeout',
+          usePerformanceSettings.getState().enabled && !useConnectionStore.getState().demo,
+        ),
       Math.max(0, APP_READY_TIMEOUT_MS - (Date.now() - STARTED_AT)),
     )
     return () => clearTimeout(timer)
-  }, [loaded, enabled, status])
+  }, [loaded, sending, status])
 
-  // `enabled` restarts the stretch so the trace starts or stops with the choice.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `enabled` is read by `startTrace`, not here.
+  // `sending` restarts the stretch so the trace starts or stops with the choice.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `sending` is read by `startTrace`, not here.
   useEffect(() => {
     if (!loaded) return
     let stop: (() => void) | null = null
@@ -82,5 +89,5 @@ export function usePerformanceMonitoring(): void {
       subscription.remove()
       stop?.()
     }
-  }, [loaded, enabled, layout])
+  }, [loaded, sending, layout])
 }

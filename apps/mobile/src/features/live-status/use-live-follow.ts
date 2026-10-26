@@ -74,6 +74,8 @@ export function setAutoFollow(profileId: string, enabled: boolean): Promise<void
  */
 export function useLiveFollow() {
   const client = useConnectionStore((s) => s.client)
+  // The offline demo follows nothing.
+  const demo = useConnectionStore((s) => s.demo)
 
   // iOS 17.2+: the token that lets the daemon start a Live Activity while the app is closed.
   useEffect(() => {
@@ -82,6 +84,7 @@ export function useLiveFollow() {
       const subscription = addPushToStartTokenListener(({ activityPushToStartToken }) => {
         if (useLiveFollowStore.getState().startToken === activityPushToStartToken) return
         useLiveFollowStore.setState({ startToken: activityPushToStartToken })
+        if (useConnectionStore.getState().demo) return
         void request({ type: 'live.follows' }).catch(() => undefined)
       })
       return () => subscription.remove()
@@ -91,7 +94,7 @@ export function useLiveFollow() {
   }, [])
 
   useEffect(() => {
-    if (!client) return
+    if (!client || demo) return
     // Every (re)connect: what the daemon supports, fresh tokens and the follows it kept.
     const ready = (hello: Hello) => {
       const supported = hello.live?.follow === true
@@ -117,5 +120,5 @@ export function useLiveFollow() {
       offReady()
       offSettings()
     }
-  }, [client])
+  }, [client, demo])
 }
