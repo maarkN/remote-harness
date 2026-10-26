@@ -140,6 +140,12 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     lines: z.array(z.tuple([z.number().int().nonnegative(), z.string()])),
   }),
   z.object({ type: z.literal('permission.request'), request: PermissionRequestInfoSchema }),
+  /** Reply to `permissions.list`: every request waiting now (the same ones `permission.request` sent). */
+  z.object({
+    type: z.literal('permissions.result'),
+    replyTo,
+    requests: z.array(PermissionRequestInfoSchema),
+  }),
   z.object({
     type: z.literal('permission.resolved'),
     requestId: z.string(),
