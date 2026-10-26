@@ -130,9 +130,13 @@ view="$SESSION-view-$$"
 "$TMUX_BIN" new-session -d -t "=$SESSION" -s "$view" \\; set-option -t "$view" destroy-unattached on \\; select-window -t "=$view:$window"
 if [[ -n "$TMUX" ]]; then
   exec "$TMUX_BIN" switch-client -t "=$view"
-else
-  exec "$TMUX_BIN" attach-session -t "=$view"
 fi
+# tmux refuses to attach to a terminal this computer has no terminfo entry for ("missing or
+# unsuitable terminal"), e.g. Ghostty or kitty over SSH: fall back to an entry every system has.
+if (( $+commands[infocmp] )) && ! infocmp -- "$TERM" >/dev/null 2>&1; then
+  export TERM=xterm-256color
+fi
+exec "$TMUX_BIN" attach-session -t "=$view"
 `
 }
 

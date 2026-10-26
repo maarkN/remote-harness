@@ -203,6 +203,28 @@ describe('launcher script quoting', () => {
     expect(script).not.toContain('-e "CLAUDE_CONFIG_DIR')
     expect(isDefaultConfigDir('/Users/u/.claude-work', '/Users/u')).toBe(false)
   })
+
+  test('attaches with xterm-256color when the terminal has no terminfo entry here', async () => {
+    // Fake tmux: no session yet, prints ids on new-session and records TERM on attach-session.
+    const fake = join(home.dir(), 'tmux')
+    const seen = join(home.dir(), 'term')
+    await writeFile(
+      fake,
+      `#!/bin/sh\ncase "$1" in\nhas-session) exit 1 ;;\nnew-session) [ "$3" = -P ] && echo '%1 @1'; exit 0 ;;\nattach-session) printf '%s' "$TERM" > '${seen}' ;;\nesac\n`,
+      { mode: 0o755 },
+    )
+    const script = renderLauncher(
+      { id: 'p', name: 'P', configDir: '/Users/u/.claude', color: '' },
+      { tmuxSession: 's', tmuxBin: fake, home: '/Users/u' },
+    )
+    const { TMUX: _, ...env } = process.env
+    const attach = async (term: string) => {
+      execFileSync('zsh', ['-c', script], { env: { ...env, TERM: term }, cwd: home.dir() })
+      return readFile(seen, 'utf8')
+    }
+    expect(await attach('xterm-not-installed-anywhere')).toBe('xterm-256color')
+    expect(await attach('vt100')).toBe('vt100')
+  })
 })
 
 describe('hook receiver', () => {
