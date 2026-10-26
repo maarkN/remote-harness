@@ -5,7 +5,12 @@ import { afterEach, describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import { FileTokenStore } from '../src/core/secrets.ts'
-import { type BrokerOptions, buildHookOutput, PermissionBroker } from '../src/features/permissions/broker.ts'
+import {
+  type BrokerOptions,
+  buildHookOutput,
+  type DecidedRequest,
+  PermissionBroker,
+} from '../src/features/permissions/broker.ts'
 import { parseInteraction } from '../src/features/permissions/interaction.ts'
 
 const DENY = 'Denied by Remote Harness'
@@ -106,6 +111,7 @@ describe('PermissionBroker', () => {
   ) {
     const sent: ServerMessage[] = []
     const rules: unknown[] = []
+    const decided: DecidedRequest[] = []
     const handovers: string[] = []
     const reminders: string[] = []
     const watching = new Map<string, () => void>()
@@ -127,7 +133,10 @@ describe('PermissionBroker', () => {
         profiles: [{ id: 'claudin', name: 'P', configDir: '/cfg', color: '' }],
         denyMessage: DENY,
         keepPlanningMessage: KEEP_PLANNING,
-        onRuleCreated: (r) => rules.push(r),
+        onDecided: (d) => {
+          decided.push(d)
+          if (d.rule) rules.push({ ...d.rule, sessionId: d.info.sessionId })
+        },
       },
     )
     const hook = hookEvent('PermissionRequest', {
@@ -143,7 +152,7 @@ describe('PermissionBroker', () => {
           { type: 'permission.request' }
         >
       ).request.requestId
-    return { sent, broker, hook, requestId, rules, handovers, reminders, watching, move }
+    return { sent, broker, hook, requestId, rules, decided, handovers, reminders, watching, move }
   }
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -279,6 +288,18 @@ describe('PermissionBroker', () => {
     expect(rules).toEqual([
       { rule: 'Bash(pnpm test:*)', scope: 'project', file: '/w/.claude/settings.local.json', sessionId: 's' },
     ])
+  })
+
+  test('the decision reports who answered, and none when the daemon denies on close', async () => {
+    const { broker, hook, requestId, decided } = setup()
+    const first = broker.handle(hook, new AbortController().signal)
+    broker.respond(requestId(), { behavior: 'deny' }, 'dev1')
+    await first
+    expect(decided).toMatchObject([{ behavior: 'deny', by: 'dev1', cwd: '/w', rule: null }])
+    const second = broker.handle(hook, new AbortController().signal)
+    broker.denyAll('s')
+    await second
+    expect(decided[1]?.by).toBeUndefined()
   })
 
   test('a project rule approved in a worktree session is recorded in the main checkout', async () => {

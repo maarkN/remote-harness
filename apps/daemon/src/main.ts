@@ -123,6 +123,8 @@ export type DaemonContext = {
   providerKey: (profileId: string) => Promise<string | null>
   /** IDs of the paired devices (push registrations follow them); absent in tests that build a context. */
   pairedDeviceIds?: () => ReadonlySet<string>
+  /** A paired device's name (approval log); absent in tests that build a context. */
+  deviceName?: (deviceId: string) => string | undefined
   /** This daemon's ID, which pushes and live status links carry; absent in tests that build a context. */
   daemonId?: string
 }
@@ -189,6 +191,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     pushSender: options.pushSender,
     providerKey: options.providerKey ?? (async () => null),
     pairedDeviceIds: () => pairing.devices.ids(),
+    deviceName: (deviceId) => pairing.devices.devices().find((d) => d.id === deviceId)?.name,
     daemonId: identity.daemonId,
   }
 
@@ -302,7 +305,9 @@ async function registerFeatures(
   registerStatusLineFeature(ctx, sessions.store)
   const sessionLock = new KeyedMutex()
   const attachments = registerAttachmentsFeature(ctx, sessions.store)
-  const permissions = registerPermissionsFeature(ctx, transcript.follow)
+  const permissions = registerPermissionsFeature(ctx, transcript.follow, () =>
+    sessions.store.all().map((s) => s.cwd),
+  )
   const hasPendingPermission = (id: string) => permissions.broker.hasPending(id)
   const input = registerInputFeature(ctx, sessions.store, sessionLock, attachments.store)
   const queue = registerQueueFeature(ctx, sessions.store, input.service, hasPendingPermission)

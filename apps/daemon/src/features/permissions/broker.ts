@@ -26,9 +26,24 @@ export type Decision = {
   /** Deny message for Claude instead of the default one (plan feedback). */
   message?: string
 }
+/**
+ * Who answered: the paired device of the connection (`null` when it has none), absent when the
+ * daemon itself decided (denying on close).
+ */
+export type DecidedBy = string | null | undefined
+
+/** A decision sent to the agent, with the file Claude Code writes an always-allow rule to. */
+export type DecidedRequest = {
+  info: PermissionRequestInfo
+  behavior: Decision['behavior']
+  cwd: string
+  by: DecidedBy
+  rule: { rule: string; scope: RuleScope; file: string } | null
+}
+
 /** `aborted`: the agent closed the hook; `cancelled`: the session ended. */
 type Outcome =
-  | { kind: 'decision'; decision: Decision }
+  | { kind: 'decision'; decision: Decision; by?: DecidedBy }
   | { kind: 'expired' }
   | { kind: 'aborted' }
   | { kind: 'cancelled' }
@@ -65,8 +80,8 @@ export type BrokerOptions = {
   watch?: (sessionId: string, onMove: () => void) => () => void
   defaultScope: RuleScope
   profiles: readonly Profile[]
-  /** Called after a decision is sent, with the file Claude Code will write the rule to (if any). */
-  onRuleCreated?: (rule: { rule: string; scope: RuleScope; file: string; sessionId: string }) => void
+  /** Called after a decision is sent to the agent (with the rule file, for an always-allow). */
+  onDecided?: (decided: DecidedRequest) => void
   onResolved?: (info: PermissionRequestInfo, outcome: PermissionOutcome) => void
   onRequested?: (info: PermissionRequestInfo) => void
   /** The request was handed over to the terminal (sent again with `terminal`). */
@@ -230,20 +245,20 @@ export class PermissionBroker {
           behavior: outcome.decision.behavior,
           ...(outcome.decision.message ? { message: outcome.decision.message } : {}),
         }
-    if (decision.behavior === 'allow' && decision.always) {
-      const file = this.ruleFile(info, payload.cwd ?? '', decision.always.scope)
-      if (file)
-        this.options.onRuleCreated?.({
-          rule: decision.always.rule,
-          scope: decision.always.scope,
-          file,
-          sessionId: info.sessionId,
-        })
-    }
+    const cwd = payload.cwd ?? ''
+    const always = decision.behavior === 'allow' ? decision.always : undefined
+    const file = always ? this.ruleFile(info, cwd, always.scope) : null
+    this.options.onDecided?.({
+      info,
+      behavior: decision.behavior,
+      cwd,
+      by: outcome.by,
+      rule: always && file ? { rule: always.rule, scope: always.scope, file } : null,
+    })
     return buildHookOutput(decision, this.options.denyMessage)
   }
 
-  respond(requestId: string, decision: Decision): void {
+  respond(requestId: string, decision: Decision, by?: DecidedBy): void {
     const pending = this.open(requestId)
     if (decision.always && !pending.rules)
       throw new DaemonError('bad_request', 'this agent does not take permission rules')
@@ -252,14 +267,14 @@ export class PermissionBroker {
     // Allowing a menu without its answer would only show it again in the terminal.
     if (decision.behavior === 'allow' && pending.info.interaction)
       throw new DaemonError('bad_request', 'interactive requests take permission.answer')
-    pending.settle({ kind: 'decision', decision })
+    pending.settle({ kind: 'decision', decision, by })
   }
 
   /** Answers a question or plan approval; the first answer (phone or terminal) wins. */
-  answer(requestId: string, answer: PermissionAnswer): void {
+  answer(requestId: string, answer: PermissionAnswer, by?: DecidedBy): void {
     const pending = this.open(requestId)
     const decision = answerDecision(pending.info, answer, this.options.keepPlanningMessage)
-    pending.settle({ kind: 'decision', decision })
+    pending.settle({ kind: 'decision', decision, by })
   }
 
   private ruleFile(info: PermissionRequestInfo, cwd: string, scope: RuleScope): string | null {

@@ -33,7 +33,7 @@ Running commands from the app (**Run command…**) is off by default and can onl
 
 ## Permissions
 
-The app never offers the agent's "bypass permissions" mode. "Always allow" writes a rule in Claude Code's own settings, for the project or for your user, and `remote-harness rules undo` reverts it. An unanswered request falls back to the terminal dialog after a few minutes.
+The app never offers the agent's "bypass permissions" mode. "Always allow" writes a rule in Claude Code's own settings, for the project or for your user, and Settings → Permissions → Rules (or `remote-harness rules undo`) reverts it; deleting a rule written on the computer asks for Face ID or the device passcode. The approval log records which device allowed or denied what, with only the tool and a short target (a file's base name, a command's program), never the input, and keeps 30 days. An unanswered request falls back to the terminal dialog after a few minutes.
 
 ## Your files
 

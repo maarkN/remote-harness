@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { RuleScope } from '@remote-harness/protocol'
-import { readJsonFile, writeJsonAtomic } from '../../infra/fs.ts'
+import { removeAllowRule } from './settings-rules.ts'
 
 export type RuleLogEntry = {
   id: string
@@ -48,12 +48,6 @@ export class RulesLog {
   async undo(id: string): Promise<{ entry: RuleLogEntry; removed: boolean } | null> {
     const entry = (await this.list()).find((e) => e.id === id)
     if (!entry) return null
-    const settings = ((await readJsonFile(entry.file)) ?? {}) as Record<string, unknown>
-    const permissions = (settings.permissions ?? {}) as Record<string, unknown>
-    const allow = Array.isArray(permissions.allow) ? (permissions.allow as unknown[]) : []
-    const next = allow.filter((r) => r !== entry.rule)
-    if (next.length === allow.length) return { entry, removed: false }
-    await writeJsonAtomic(entry.file, { ...settings, permissions: { ...permissions, allow: next } })
-    return { entry, removed: true }
+    return { entry, removed: await removeAllowRule(entry.file, entry.rule) }
   }
 }
