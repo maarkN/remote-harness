@@ -173,6 +173,8 @@ function listenToLiveMessages(): () => void {
 /** Registers the FCM token with the daemon, reports foreground state and routes notification taps. */
 export function usePush() {
   const client = useConnectionStore((s) => s.client)
+  // The offline demo never registers for push (no permission prompt, no token).
+  const demo = useConnectionStore((s) => s.demo)
   const { t } = useTranslation()
 
   // Notification buttons and the Android channel follow the app language.
@@ -196,7 +198,7 @@ export function usePush() {
   }, [])
 
   useEffect(() => {
-    if (!client) return
+    if (!client || demo) return
     const report = () =>
       client.send({ type: 'app.visibility', foreground: AppState.currentState === 'active' })
     const appState = AppState.addEventListener('change', report)
@@ -271,5 +273,5 @@ export function usePush() {
       offReady()
       offToken?.()
     }
-  }, [client])
+  }, [client, demo])
 }

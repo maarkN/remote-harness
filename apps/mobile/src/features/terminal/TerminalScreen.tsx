@@ -7,6 +7,7 @@ import { useDaemonClient, useDaemonEvent } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
 import type { TFunction } from '@/core/i18n/create'
 import { space } from '@/core/theme'
+import { DemoBanner } from '@/features/demo/components/DemoBanner'
 import { ConnectionBanner, Screen, Text } from '@/ui'
 import { DEFAULT_KEYS, KeyBar, type KeySpec } from '../conversation/components/KeyBar'
 import { TerminalView, type TerminalViewHandle } from './TerminalView'
@@ -84,6 +85,7 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
   return (
     <Screen>
       <ConnectionBanner />
+      <DemoBanner />
       {error ? (
         <Text size="sm" color="danger" style={styles.error}>
           {error}

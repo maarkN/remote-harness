@@ -21,6 +21,7 @@ function clearComputerState(): void {
 export function useDaemonSync() {
   const client = useDaemonClient()
   const activeId = useConnectionStore((s) => s.activeId)
+  const demo = useConnectionStore((s) => s.demo)
   const shown = useRef(activeId)
   useEffect(() => {
     if (shown.current !== activeId) clearComputerState()
@@ -34,11 +35,12 @@ export function useDaemonSync() {
       bindLimits(client),
       bindQueue(client),
       bindDaemonUpdate(client),
-      bindErrorReports(client),
+      // The offline demo's refusals are not the app's errors.
+      ...(demo ? [] : [bindErrorReports(client)]),
       bindPermissions(client, () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
     ]
     return () => {
       for (const unbind of unbinders) unbind()
     }
-  }, [client])
+  }, [client, demo])
 }

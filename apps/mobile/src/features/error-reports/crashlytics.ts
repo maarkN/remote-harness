@@ -10,6 +10,8 @@ type Crashlytics = ReturnType<CrashlyticsModule['getCrashlytics']>
 let module: CrashlyticsModule | null = null
 let instance: Crashlytics | null = null
 let loaded = false
+/** The offline demo runs: nothing is sent and native collection stays off until it ends. */
+let paused = false
 
 /** `recordError` parses the stack before reaching the SDK; give each record time to land. */
 const RECORD_SETTLE_MS = 300
@@ -53,6 +55,17 @@ export async function applyPreference(preference: ReportPreference): Promise<voi
   }
 }
 
+/**
+ * Turns reporting off while the offline demo runs (nothing sent, native collection off, waiting
+ * reports kept), and back to the user's preference after it.
+ */
+export async function pauseReports(on: boolean, preference: ReportPreference): Promise<void> {
+  paused = on
+  if (!module || !instance) return
+  if (!on) return applyPreference(preference)
+  await module.setCrashlyticsCollectionEnabled(instance, false).catch(() => undefined)
+}
+
 /** A native crash (or a JS crash turned native by React Native) in the previous run. */
 export async function didCrashLastRun(): Promise<boolean> {
   if (!module || !instance) return false
@@ -72,7 +85,7 @@ export async function discardUnsent(): Promise<void> {
  * `sendUnsentReports` while collection is on, so it is turned on just for the upload.
  */
 export async function sendReport(report: Report): Promise<boolean> {
-  if (!module || !instance) return false
+  if (paused || !module || !instance) return false
   const crashlytics = instance
   const firebase = module
   try {

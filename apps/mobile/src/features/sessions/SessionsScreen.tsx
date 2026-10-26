@@ -23,6 +23,7 @@ import { useWidthClass } from '@/core/layout'
 import { makeStyles, space, useTheme } from '@/core/theme'
 import { useDebounced } from '@/core/utils/use-debounced'
 import { useStableCallback } from '@/core/utils/use-stable-callback'
+import { DemoBanner } from '@/features/demo/components/DemoBanner'
 import {
   Button,
   ConnectionBanner,
@@ -350,6 +351,7 @@ export function SessionsScreen({
     // On compact width the list draws its own title row (the stack header is hidden): it keeps the top inset.
     <Screen edges={collapsible ? ['top', 'bottom'] : ['bottom']}>
       <ConnectionBanner />
+      <DemoBanner />
       <DaemonUpdateBanner />
       <Animated.View style={[collapsible && styles.headerContainer, collapsible && containerStyle]}>
         <Animated.View

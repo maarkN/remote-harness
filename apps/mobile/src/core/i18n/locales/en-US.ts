@@ -10,6 +10,17 @@ const enUS = {
     session: 'Session',
     readOnly: 'read-only',
   },
+  demo: {
+    tryTitle: 'Try the demo',
+    tryHint: 'See the app with fictional sessions. No computer, account or network needed.',
+    banner: 'Demo: fictional sessions, nothing leaves this phone.',
+    leave: 'Leave demo',
+    cardTitle: 'Demo',
+    cardBody: 'You are looking at a fictional computer. Leave the demo to pair your own.',
+    unavailable: 'Not available in the demo.',
+    reply:
+      'This is the demo, so nothing ran. On your own computer the agent would work on this prompt now, and you would follow it here live.',
+  },
   agents: {
     /** How copy names the agent of a session when it is not known. */
     generic: 'the agent',

@@ -8,6 +8,17 @@ const esES = {
     session: 'Sesión',
     readOnly: 'solo lectura',
   },
+  demo: {
+    tryTitle: 'Probar la demo',
+    tryHint: 'Mira la app con sesiones ficticias. Sin ordenador, cuenta ni red.',
+    banner: 'Demo: sesiones ficticias, nada sale de este teléfono.',
+    leave: 'Salir de la demo',
+    cardTitle: 'Demo',
+    cardBody: 'Estás viendo un ordenador ficticio. Sal de la demo para vincular el tuyo.',
+    unavailable: 'No disponible en la demo.',
+    reply:
+      'Esto es la demo, así que no se ejecutó nada. En tu ordenador, el agente trabajaría ahora en este prompt y lo seguirías aquí en directo.',
+  },
   agents: {
     generic: 'el agente',
     genericSentence: 'El agente',

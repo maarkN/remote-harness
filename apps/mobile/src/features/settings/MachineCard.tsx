@@ -26,6 +26,8 @@ export function MachineCard() {
   const status = useConnectionStore((s) => s.status)
   const forgetComputer = useConnectionStore((s) => s.forgetComputer)
   const path = useConnectionStore((s) => s.path)
+  // The demo computer is left with the Demo card, and its name is the demo's.
+  const demo = useConnectionStore((s) => s.demo)
   const name = useMachineName()
   const alias = useMachineAlias()
   const [editing, setEditing] = useState(false)
@@ -81,22 +83,26 @@ export function MachineCard() {
           <Text size="lg" weight="bold" numberOfLines={1} style={layout.flex}>
             {name ?? hello?.host ?? '—'}
           </Text>
-          <IconButton
-            icon={Pencil}
-            size={16}
-            label={t('settings.editName')}
-            onPress={() => {
-              setDraft(alias ?? '')
-              setEditing(true)
-            }}
-          />
+          {demo ? null : (
+            <IconButton
+              icon={Pencil}
+              size={16}
+              label={t('settings.editName')}
+              onPress={() => {
+                setDraft(alias ?? '')
+                setEditing(true)
+              }}
+            />
+          )}
         </View>
         {meta ? (
           <Text size="xs" color="textMuted" selectable>
             {meta}
           </Text>
         ) : null}
-        <Button label={t('settings.forgetButton')} variant="danger" compact onPress={forget} />
+        {demo ? null : (
+          <Button label={t('settings.forgetButton')} variant="danger" compact onPress={forget} />
+        )}
       </View>
       <Modal visible={editing} transparent animationType="slide" onRequestClose={() => setEditing(false)}>
         <Pressable style={styles.backdrop} onPress={() => setEditing(false)}>

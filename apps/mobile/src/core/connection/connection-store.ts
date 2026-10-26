@@ -2,7 +2,13 @@ import { CHANNEL_CLOSE, type DaemonPaths } from '@remote-harness/protocol'
 import { create } from 'zustand'
 import { noiseCrypto } from '../crypto'
 import { type Computer, withPaths } from '../storage/computer'
-import { type ConnectionPath, type ConnectionStatus, DaemonClient, type Hello } from './daemon-client'
+import {
+  type ConnectionPath,
+  type ConnectionStatus,
+  DaemonClient,
+  type Hello,
+  type SocketFactory,
+} from './daemon-client'
 
 /** Where computers are saved: SecureStore in the app (`ConnectionProvider`), memory in tests. */
 export type ComputerStorage = {
@@ -36,6 +42,8 @@ type ConnectionState = {
   revokedFrom: string | null
   /** False until SecureStore has been read once. */
   credentialsLoaded: boolean
+  /** The active computer is the offline demo's (in memory only, never saved). */
+  demo: boolean
   client: DaemonClient | null
   status: ConnectionStatus
   error: string | undefined
@@ -57,6 +65,13 @@ type ConnectionState = {
   dismissRevoked(): void
   /** Starts (or restarts) the connection for the given computer; null disconnects. */
   setCredentials(credentials: Computer | null): void
+  /**
+   * Connects to the offline demo's computer through its in-memory sockets. Nothing is saved and the
+   * paired computers are left alone; any other connection (pairing, switching) ends the demo.
+   */
+  enterDemo(computer: Computer, socketFactory: SocketFactory): void
+  /** Closes the demo connection: back to no computer (the pairing screen). */
+  leaveDemo(): void
 }
 
 /** The display name of a computer: its alias, else the name it was paired with. */
@@ -83,10 +98,11 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       credentials: state.credentials?.daemonId === computer.daemonId ? computer : state.credentials,
     }))
 
-  const connect = (computer: Computer | null) => {
+  const connect = (computer: Computer | null, demo?: { socketFactory: SocketFactory }) => {
     get().client?.close()
     if (!computer) {
       set({
+        demo: false,
         credentials: null,
         activeId: null,
         credentialsLoaded: true,
@@ -99,7 +115,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       })
       return
     }
-    const client = new DaemonClient({ computer, crypto: noiseCrypto, clientName: 'claude-remote-ios' })
+    const client = new DaemonClient({
+      computer,
+      crypto: noiseCrypto,
+      clientName: 'claude-remote-ios',
+      ...(demo ? { socketFactory: demo.socketFactory } : {}),
+    })
     client.onStatus((status, error) => {
       set({ status, error, unreachable: client.unreachable })
       // This device was revoked from another one: that computer is gone for it.
@@ -119,6 +140,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     })
     client.on('daemon.paths', (paths) => notePaths(computer.daemonId, paths))
     set({
+      demo: demo !== undefined,
       credentials: computer,
       activeId: computer.daemonId,
       pairAgain: false,
@@ -140,6 +162,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     pairAgain: false,
     revokedFrom: null,
     credentialsLoaded: false,
+    demo: false,
     client: null,
     status: 'idle',
     error: undefined,
@@ -186,6 +209,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     },
     setCredentials(credentials) {
       connect(credentials)
+    },
+    enterDemo(computer, socketFactory) {
+      connect(computer, { socketFactory })
+    },
+    leaveDemo() {
+      if (get().demo) connect(null)
     },
   }
 })
