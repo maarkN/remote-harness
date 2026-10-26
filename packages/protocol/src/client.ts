@@ -228,6 +228,16 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pairing.create'), id }),
   /** The permission requests waiting now; answered with `permissions.result`. */
   z.object({ type: z.literal('permissions.list'), id }),
+  /** The session's working-tree changes against `HEAD`; answered with `changes.result`. */
+  z.object({ type: z.literal('changes.list'), id, sessionId }),
+  /** A page of one changed file's diff (only a path of the change list); answered with `changes.diffResult`. */
+  z.object({
+    type: z.literal('changes.diff'),
+    id,
+    sessionId,
+    path: z.string().min(1),
+    offset: z.number().int().nonnegative().optional(),
+  }),
 ])
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>

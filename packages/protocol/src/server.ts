@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   AccountLimitsSchema,
+  ChangedFileSchema,
   CheckoutPeerSchema,
   CheckoutSchema,
   CommandEndReasonSchema,
@@ -219,6 +220,24 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     peers: z.array(CheckoutPeerSchema),
     /** Inside a checkout: what an isolated copy (worktree) would inherit. */
     worktreeCopy: WorktreeCopySchema.optional(),
+  }),
+  /** Reply to `changes.list`; `root: null` when the session's folder is outside git. */
+  z.object({
+    type: z.literal('changes.result'),
+    replyTo,
+    root: z.string().nullable(),
+    branch: z.string().nullable(),
+    files: z.array(ChangedFileSchema),
+  }),
+  /** Reply to `changes.diff`: unified diff lines from `offset`, at most `CHANGES_DIFF_PAGE`. */
+  z.object({
+    type: z.literal('changes.diffResult'),
+    replyTo,
+    path: z.string(),
+    offset: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+    lines: z.array(z.string()),
+    binary: z.boolean(),
   }),
   /** `null` when the session's folder is not inside a linked git worktree. */
   z.object({ type: z.literal('worktree.info'), replyTo, worktree: WorktreeInfoSchema.nullable() }),

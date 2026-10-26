@@ -23,6 +23,7 @@ import { ensureHookSecret, type TokenStore } from './core/secrets.ts'
 import { DAEMON_VERSION } from './core/version.ts'
 import { registerAttachmentsFeature } from './features/attachments/index.ts'
 import { registerAutocompleteFeature } from './features/autocomplete/index.ts'
+import { registerChangesFeature } from './features/changes/index.ts'
 import { registerCheckoutFeature } from './features/checkout/index.ts'
 import { type ConnectivityOptions, registerConnectivityFeature } from './features/connectivity/index.ts'
 import { registerDiagnosticsFeature } from './features/diagnostics/index.ts'
@@ -314,6 +315,7 @@ async function registerFeatures(
   registerPaneFeature(ctx, sessions.store)
   registerProvidersFeature(ctx, { key: ctx.providerKey })
   const checkout = registerCheckoutFeature(ctx, sessions.store)
+  registerChangesFeature(ctx, sessions.store)
   const lifecycle = registerLifecycleFeature(ctx, sessions.store, sessions.service, checkout.resolver, {
     lock: sessionLock,
     denyPending: (id) => void permissions.broker.denyAll(id),

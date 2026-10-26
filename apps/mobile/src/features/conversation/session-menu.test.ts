@@ -55,6 +55,7 @@ describe('sessionMenu', () => {
       ['terminal', false],
       ['toggleKeyBar', false],
       ['history', false],
+      ['changes', false],
       ['toggleFollow', false],
       ['close', false],
     ])
