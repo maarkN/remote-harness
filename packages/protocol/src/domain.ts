@@ -182,6 +182,30 @@ export const WorktreeInfoSchema = z.object({
 })
 export type WorktreeInfo = z.infer<typeof WorktreeInfoSchema>
 
+/** How a file differs from `HEAD`; an untracked file is `added`. */
+export const ChangeStatusSchema = z.enum(['added', 'modified', 'deleted', 'renamed'])
+export type ChangeStatus = z.infer<typeof ChangeStatusSchema>
+
+/** A file of a session's working tree that differs from `HEAD` (`changes.result`). */
+export const ChangedFileSchema = z.object({
+  /** Relative to the checkout root. */
+  path: z.string(),
+  /** `renamed` only: the path in `HEAD`. */
+  oldPath: z.string().nullable(),
+  status: ChangeStatusSchema,
+  /** `null` when unknown (binary, or an untracked file too big to count). */
+  added: z.number().int().nonnegative().nullable(),
+  deleted: z.number().int().nonnegative().nullable(),
+  binary: z.boolean(),
+  /** A lockfile or generated output: the app starts it collapsed. */
+  generated: z.boolean(),
+  untracked: z.boolean(),
+})
+export type ChangedFile = z.infer<typeof ChangedFileSchema>
+
+/** Lines of a file's diff per `changes.diffResult`. */
+export const CHANGES_DIFF_PAGE = 2000
+
 /**
  * What to do with a session's worktree: `delete` only when clean and pushed; `push-delete` commits
  * and pushes first; `discard-delete` throws the work away (asked twice in the app).

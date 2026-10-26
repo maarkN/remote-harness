@@ -228,6 +228,16 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pairing.create'), id }),
   /** The permission requests waiting now; answered with `permissions.result`. */
   z.object({ type: z.literal('permissions.list'), id }),
+  /** The session's working-tree changes against `HEAD`; answered with `changes.result`. */
+  z.object({ type: z.literal('changes.list'), id, sessionId }),
+  /** A page of one changed file's diff (only a path of the change list); answered with `changes.diffResult`. */
+  z.object({
+    type: z.literal('changes.diff'),
+    id,
+    sessionId,
+    path: z.string().min(1),
+    offset: z.number().int().nonnegative().optional(),
+  }),
   /** The always-allow rules of the computer's settings files; answered with `rules.result`. */
   z.object({ type: z.literal('rules.list'), id }),
   /** Removes an app-created rule from its file (by its rules log ID); answered with `ack`. */

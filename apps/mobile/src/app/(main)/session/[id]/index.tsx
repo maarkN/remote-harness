@@ -108,6 +108,7 @@ export default function SessionRoute() {
   }
   const actions: Record<SessionMenuAction, () => void> = {
     terminal: () => router.push({ pathname: '/session/[id]/terminal', params: { id } }),
+    changes: () => router.push({ pathname: '/session/[id]/changes', params: { id } }),
     runCommand: () => {
       Keyboard.dismiss()
       setCommandOpen(true)

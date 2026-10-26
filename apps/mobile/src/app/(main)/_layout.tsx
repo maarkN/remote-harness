@@ -156,6 +156,7 @@ export default function MainLayout() {
           options={{ title: '', gestureEnabled: !overlayEdge, ...menuButton }}
         />
         <Stack.Screen name="session/[id]/terminal" options={{ title: t('nav.terminal') }} />
+        <Stack.Screen name="session/[id]/changes" options={{ title: t('nav.changes') }} />
         <Stack.Screen name="session/[id]/agent/[agentId]" options={{ title: t('nav.subagent') }} />
       </Stack>
       <KeyboardShortcutsSheet />

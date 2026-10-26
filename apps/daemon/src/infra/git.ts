@@ -1,11 +1,15 @@
 import * as nodeFs from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, normalize } from 'node:path'
-import type { Checkout, WorktreeInfo } from '@remote-harness/protocol'
+import type { ChangeStatus, Checkout, WorktreeInfo } from '@remote-harness/protocol'
 import type { Executor } from './exec.ts'
 
 const GIT_TIMEOUT_MS = 5_000
 /** Pushes talk to the network. */
 const PUSH_TIMEOUT_MS = 60_000
+/** Diffs of a whole working tree can take a while on a big repository. */
+const DIFF_TIMEOUT_MS = 15_000
+/** git's empty tree: the base of a repository without commits. */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 /** `git worktree remove` deletes the whole folder (node_modules included): only the cross-device fallback uses it. */
 const REMOVE_TIMEOUT_MS = 10 * 60_000
 /** Inside the repository's git dir: never shown by `git status`, and on the worktree's file system in the usual layout. */
@@ -72,6 +76,100 @@ function defaultIsAlive(pid: number): boolean {
     return (error as NodeJS.ErrnoException).code === 'EPERM'
   }
 }
+
+/** A path of `git diff --name-status`: its status and, for a rename, where it came from. */
+export type NameStatus = { path: string; oldPath: string | null; status: ChangeStatus }
+/** Line counts of `git diff --numstat`; `null` counts for a binary file. */
+export type NumStat = { added: number | null; deleted: number | null; binary: boolean }
+
+/**
+ * `git diff --name-status -z`: `M\0path\0`, `R100\0old\0new\0`. Copies count as additions, type
+ * changes and unmerged paths as modifications.
+ */
+export function parseNameStatus(output: string): NameStatus[] {
+  const fields = output.split('\0')
+  const entries: NameStatus[] = []
+  for (let i = 0; i < fields.length; ) {
+    const code = fields[i++] ?? ''
+    if (!code) continue
+    const letter = code[0]
+    if (letter === 'R' || letter === 'C') {
+      const from = fields[i++] ?? ''
+      const to = fields[i++] ?? ''
+      if (to)
+        entries.push({
+          path: to,
+          oldPath: letter === 'R' ? from : null,
+          status: letter === 'R' ? 'renamed' : 'added',
+        })
+      continue
+    }
+    const path = fields[i++] ?? ''
+    if (!path) continue
+    entries.push({
+      path,
+      oldPath: null,
+      status: letter === 'A' ? 'added' : letter === 'D' ? 'deleted' : 'modified',
+    })
+  }
+  return entries
+}
+
+/** `git diff --numstat -z`: `3\t1\tpath\0`, a rename as `0\t0\t\0old\0new\0`, `-\t-\t` for binary. Keyed by the new path. */
+export function parseNumstat(output: string): Map<string, NumStat> {
+  const fields = output.split('\0')
+  const stats = new Map<string, NumStat>()
+  for (let i = 0; i < fields.length; ) {
+    const head = fields[i++] ?? ''
+    const match = /^(-|\d+)\t(-|\d+)\t(.*)$/s.exec(head)
+    if (!match) continue
+    // An empty path after the counts means a rename: the old and the new path follow.
+    let path = match[3] ?? ''
+    if (!path) {
+      i++
+      path = fields[i++] ?? ''
+    }
+    if (!path) continue
+    const binary = match[1] === '-' && match[2] === '-'
+    stats.set(path, {
+      added: binary ? null : Number(match[1]),
+      deleted: binary ? null : Number(match[2]),
+      binary,
+    })
+  }
+  return stats
+}
+
+const LOCKFILES = new Set([
+  'pnpm-lock.yaml',
+  'package-lock.json',
+  'npm-shrinkwrap.json',
+  'yarn.lock',
+  'bun.lockb',
+  'bun.lock',
+  'Cargo.lock',
+  'Gemfile.lock',
+  'poetry.lock',
+  'uv.lock',
+  'Pipfile.lock',
+  'composer.lock',
+  'go.sum',
+  'Podfile.lock',
+  'flake.lock',
+])
+const GENERATED_DIRS = new Set(['dist', 'build'])
+
+/** Lockfiles and generated output, which a review starts collapsed. */
+export function isGeneratedPath(path: string): boolean {
+  const parts = path.split('/')
+  const name = parts.at(-1) ?? ''
+  if (LOCKFILES.has(name)) return true
+  if (/\.generated\.[^.]+$/.test(name) || /\.min\.(js|css)$/.test(name) || name.endsWith('.map')) return true
+  return parts.slice(0, -1).some((dir) => GENERATED_DIRS.has(dir))
+}
+
+/** A changed path with its counts, before the feature counts untracked files. */
+export type GitChange = NameStatus & NumStat & { untracked: boolean }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
@@ -170,6 +268,74 @@ export class GitClient {
     } catch {
       return null
     }
+  }
+
+  /**
+   * The working tree of the checkout that contains `dir` against `HEAD` (the empty tree before the
+   * first commit): tracked changes with their counts, then untracked files (counts unknown here).
+   * `null` outside git.
+   */
+  async changes(
+    dir: string,
+  ): Promise<{ root: string; branch: string | null; base: string; files: GitChange[] } | null> {
+    const checkout = await this.checkout(dir)
+    if (!checkout) return null
+    const { root } = checkout
+    const base = await this.diffBase(root)
+    const diff = ['diff', base, '-M', '--no-color', '--no-ext-diff', '-z']
+    const names = parseNameStatus(await this.must(root, [...diff, '--name-status'], DIFF_TIMEOUT_MS))
+    const counts = parseNumstat(await this.must(root, [...diff, '--numstat'], DIFF_TIMEOUT_MS))
+    const others = await this.must(
+      root,
+      ['ls-files', '--others', '--exclude-standard', '-z'],
+      DIFF_TIMEOUT_MS,
+    )
+    const tracked: GitChange[] = names.map((entry) => ({
+      ...entry,
+      ...(counts.get(entry.path) ?? { added: null, deleted: null, binary: false }),
+      untracked: false,
+    }))
+    const untracked: GitChange[] = others
+      .split('\0')
+      .filter(Boolean)
+      .map((path) => ({
+        path,
+        oldPath: null,
+        status: 'added',
+        added: null,
+        deleted: null,
+        binary: false,
+        untracked: true,
+      }))
+    return { root, branch: checkout.branch, base, files: [...tracked, ...untracked] }
+  }
+
+  /** `HEAD`, or git's empty tree when the repository has no commit yet. */
+  private async diffBase(root: string): Promise<string> {
+    const head = await this.run(root, ['rev-parse', '--verify', '--quiet', 'HEAD'])
+    return head.exitCode === 0 && !head.timedOut ? 'HEAD' : EMPTY_TREE
+  }
+
+  /** The unified diff of one changed file; an untracked file is diffed against nothing. */
+  async fileDiff(
+    root: string,
+    base: string,
+    file: Pick<GitChange, 'path' | 'oldPath' | 'untracked'>,
+  ): Promise<string> {
+    const options = ['--no-color', '--no-ext-diff']
+    if (file.untracked) {
+      // `--no-index` exits 1 when the files differ, which they always do here.
+      const result = await this.run(
+        root,
+        ['diff', '--no-index', ...options, '--', '/dev/null', file.path],
+        DIFF_TIMEOUT_MS,
+      )
+      if (result.exitCode > 1 || result.timedOut)
+        throw new GitError(result.stderr.trim() || 'git diff failed')
+      return result.stdout
+    }
+    const paths = file.oldPath ? [file.oldPath, file.path] : [file.path]
+    return this.must(root, ['diff', base, '-M', ...options, '--', ...paths], DIFF_TIMEOUT_MS)
   }
 
   /** Stages everything and commits it (hooks skipped: this is a save, not a review); no-op when clean. */

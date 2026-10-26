@@ -40,6 +40,10 @@ The **mode** chip switches the permission mode: default, accept edits, plan and 
 
 **Run command…** (session menu) runs a shell command in the session's folder on the computer, like Claude Code's `!`, and streams its output: `git status`, `ls`, `pnpm test`. The app asks before every command; **Stop** kills it, **Copy output** copies it and **Add to prompt** puts the command and its output in the composer as a code block for the agent, without sending it. It is off until you run `remote-harness commands on` on the computer; commands have a time limit and an output limit, and nothing interactive works (there is no keyboard input).
 
+## Reviewing changes
+
+**Review changes** (session menu) lists the files of the session's checkout (or worktree) that differ from `HEAD`: added, modified, deleted, renamed and untracked files with their `+added −deleted` counts, without asking the agent. Tap a file for its diff; lockfiles, generated files (`dist/`, `*.generated.ts`) and big diffs start collapsed, binary files only say "binary changed", and long diffs load 2,000 lines at a time with **Show the rest**. The list refreshes while the session works and on pull, whatever the session is doing.
+
 ## Subagents
 
 While the agent delegates work, the header's menu shows **Subagents (N · M running)**; the sheet lists each one with its description, state, tool count and start time, plus the background tasks.

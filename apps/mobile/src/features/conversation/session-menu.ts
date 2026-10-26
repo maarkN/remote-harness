@@ -2,6 +2,7 @@ import type { TFunction } from '../../core/i18n/create'
 
 export type SessionMenuAction =
   | 'terminal'
+  | 'changes'
   | 'runCommand'
   | 'model'
   | 'subagents'
@@ -18,7 +19,7 @@ export type SubagentCounts = { count: number; running: number }
 /**
  * Items of the session "More options" menu. Without a tmux pane nothing can be sent to the session,
  * so the terminal, the model switch, the key bar and Close are disabled (with `disabledReason`); the
- * history and the follow toggle only affect the app. "Change model…" appears only for sessions whose
+ * history and the follow toggle only affect the app, and Changes (the working tree, read by the daemon) works anyway. "Change model…" appears only for sessions whose
  * profile has a model provider (it sends `/model <id>`); subagents only when the session has some,
  * with their counts in the label. "Follow live status" appears when the daemon can follow sessions
  * (`liveFollow` is the current state), labeled by the action it takes. "Run command…" appears when
@@ -77,6 +78,7 @@ export function sessionMenu(
         disabled: !controllable,
       },
       { key: 'history', label: t('sessionMenu.history'), disabled: false },
+      { key: 'changes', label: t('sessionMenu.changes'), disabled: false },
       {
         key: 'toggleFollow',
         label: following ? t('sessionMenu.stopFollowing') : t('sessionMenu.follow'),

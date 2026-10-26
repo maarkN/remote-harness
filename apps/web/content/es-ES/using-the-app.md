@@ -40,6 +40,10 @@ El chip de **modo** cambia el modo de permisos: predeterminado, aceptar edicione
 
 **Ejecutar comando…** (menú de la sesión) ejecuta un comando de shell en la carpeta de la sesión en el ordenador, como el `!` de Claude Code, y muestra la salida en directo: `git status`, `ls`, `pnpm test`. La app pide confirmación antes de cada comando; **Detener** lo termina, **Copiar salida** la copia y **Añadir al prompt** pone el comando y su salida en el compositor como bloque de código para el agente, sin enviarlo. Está desactivado hasta que ejecutes `remote-harness commands on` en el ordenador; los comandos tienen límite de tiempo y de salida, y nada interactivo funciona (no hay entrada de teclado).
 
+## Revisar cambios
+
+**Revisar cambios** (menú de la sesión) lista los archivos del checkout (o worktree) de la sesión que difieren de `HEAD`: añadidos, modificados, borrados, renombrados y sin seguimiento, con los recuentos `+añadidas −borradas`, sin preguntar al agente. Toca un archivo para ver su diff; los lockfiles, los archivos generados (`dist/`, `*.generated.ts`) y los diffs grandes empiezan plegados, los binarios solo dicen "binario modificado", y los diffs largos cargan 2.000 líneas cada vez con **Mostrar el resto**. La lista se actualiza mientras la sesión trabaja y al deslizar, haga lo que haga la sesión.
+
 ## Subagentes
 
 Mientras el agente delega trabajo, el menú de la cabecera muestra **Subagentes (N · M en marcha)**; la hoja lista cada uno con su descripción, estado, número de herramientas y hora de inicio, además de las tareas en segundo plano.
