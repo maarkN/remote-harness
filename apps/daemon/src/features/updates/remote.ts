@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises'
 import type {
   DaemonUpdateBlocker,
   DaemonUpdateChannel,
@@ -24,8 +25,11 @@ export const REFUSAL_MESSAGES: Record<LaunchRefusal, string> = {
   nothing: 'already up to date',
 }
 
-/** Whether the detached updater was spawned; `error` when spawning it failed. */
-export type LaunchResult = { ok: true } | { ok: false; error: string }
+/**
+ * Whether the detached updater was spawned: `refused` when the start was refused after all (the
+ * offer went away meanwhile), else `error` says why spawning it failed.
+ */
+export type LaunchResult = { ok: true } | { ok: false; refused?: LaunchRefusal; error: string }
 
 /** Why an update cannot start, or null when it can. Pure. */
 export function launchRefusal(o: {
@@ -157,10 +161,18 @@ export class RemoteUpdates {
   async begin(): Promise<BeginResult> {
     const refused = this.deps.refusal()
     if (refused) return { ok: false, refused, error: REFUSAL_MESSAGES[refused] }
+    const previous = this.run
     const run = startRun({ channel: this.deps.channel(), from: this.deps.current, now: this.now() })
     await writeRun(this.deps.runPath, run).catch(() => undefined)
     this.run = run
     const started = this.deps.launch((code) => void this.failed(code))
+    if (!started.ok && started.refused) {
+      // Refused after all: the run never started, so the record goes back to what it was.
+      if (previous) await writeRun(this.deps.runPath, previous).catch(() => undefined)
+      else await rm(this.deps.runPath, { force: true }).catch(() => undefined)
+      this.run = previous
+      return { ok: false, refused: started.refused, error: REFUSAL_MESSAGES[started.refused] }
+    }
     if (!started.ok) {
       const error = `could not start the updater: ${started.error}`
       await this.failed(null, error)
