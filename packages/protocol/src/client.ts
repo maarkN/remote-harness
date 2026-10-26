@@ -79,6 +79,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('queue.remove'), id, sessionId, itemId: z.string().min(1) }),
   z.object({ type: z.literal('queue.sendNow'), id, sessionId, itemId: z.string().min(1) }),
   z.object({ type: z.literal('queue.flush'), id, sessionId }),
+  /** Delivers the first queued prompt now (a notification action); `not_found` when the queue is empty. */
+  z.object({ type: z.literal('queue.sendNext'), id, sessionId }),
   z.object({ type: z.literal('session.setMode'), id, sessionId, mode: z.string() }),
   z.object({
     type: z.literal('permission.respond'),
@@ -100,6 +102,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     // Optional for apps paired before Android support (they are iOS).
     platform: DevicePlatformSchema.optional(),
     relay: PushRelaySchema.optional(),
+    /** This build draws turn pushes itself on Android (data messages with Reply / Interrupt). */
+    turnActions: z.boolean().optional(),
   }),
   /** This phone turned push off: the daemon forgets its token. */
   z.object({ type: z.literal('device.unregister'), id, fcmToken: z.string().min(1) }),

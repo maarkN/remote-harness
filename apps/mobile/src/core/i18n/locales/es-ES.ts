@@ -1256,6 +1256,15 @@ const esES = {
   push: {
     channelName: 'Sesiones',
     channelDescription: 'Sesiones terminadas, sesiones que te esperan y permisos pendientes.',
+    turnChannelName: 'Respuestas',
+    turnChannelDescription: 'Sesiones terminadas y sesiones que te esperan, con Responder e Interrumpir.',
+    actions: {
+      reply: 'Responder',
+      replyPlaceholder: 'Mensaje para el agente',
+      voice: 'Responder por voz',
+      interrupt: 'Interrumpir',
+      sendNext: 'Enviar el siguiente de la cola',
+    },
   },
 } satisfies Messages
 

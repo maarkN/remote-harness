@@ -9,11 +9,20 @@ import { DeviceRegistry, describeDevices, MAX_DEVICES } from '../src/features/pu
 import { resolvePushMode, SwitchablePushSender } from '../src/features/push/mode.ts'
 import {
   ANDROID_CHANNEL_ID,
+  buildAndroidData,
   buildMulticast,
+  buildPush,
   type PushMessage,
   type PushSender,
 } from '../src/features/push/sender.ts'
-import { PERMISSION_CATEGORY, PushService } from '../src/features/push/service.ts'
+import {
+  PERMISSION_CATEGORY,
+  PushService,
+  TURN_CATEGORY,
+  TURN_QUEUE_CATEGORY,
+  type TurnInfo,
+  turnCategory,
+} from '../src/features/push/service.ts'
 import { hookEvent, useTempHome } from './helpers.ts'
 
 useTempHome()
@@ -42,6 +51,7 @@ async function setup(
     tokens?: string[]
     locale?: Parameters<typeof messagesFor>[0]
     mode?: PushMode
+    turnInfo?: (sessionId: string) => TurnInfo | null
   } = {},
 ) {
   const devices = new DeviceRegistry(paths.devices())
@@ -55,6 +65,7 @@ async function setup(
     messages: messagesFor(opts.locale ?? 'en-US').push,
     mode: () => opts.mode ?? 'relay',
     host: 'mac',
+    ...(opts.turnInfo ? { turnInfo: opts.turnInfo } : {}),
   })
   return { service, sent, devices }
 }
@@ -286,6 +297,79 @@ describe('PushService', () => {
     const { service, devices } = await setup({ tokens: ['good', 'bad'], invalid: ['bad'] })
     await service.notify({ title: 't', body: 'b', data: { sessionId: 's', profileId: 'p' } })
     expect(devices.list()).toEqual(['good'])
+  })
+})
+
+describe('turn actions', () => {
+  test('category from the session: none read-only, TURN, TURN_QUEUE with queued prompts', () => {
+    expect(turnCategory(null)).toBeNull()
+    expect(turnCategory({ controllable: false, queued: 2 })).toBeNull()
+    expect(turnCategory({ controllable: true, queued: 0 })).toBe(TURN_CATEGORY)
+    expect(turnCategory({ controllable: true, queued: 1 })).toBe(TURN_QUEUE_CATEGORY)
+  })
+
+  test('Stop and waiting pushes carry the turn category; permission pushes keep theirs', async () => {
+    const { service } = await setup({ turnInfo: () => ({ controllable: true, queued: 1 }) })
+    const stop = service.messageForHook(hookEvent('Stop', { session_id: 's' }, { profileId: 'drclaude' }))
+    expect(stop?.category).toBe(TURN_QUEUE_CATEGORY)
+    const waiting = service.messageForHook(
+      hookEvent(
+        'Notification',
+        { session_id: 's', notification_type: 'idle_prompt' },
+        { profileId: 'drclaude' },
+      ),
+    )
+    expect(waiting?.category).toBe(TURN_QUEUE_CATEGORY)
+    const { service: readOnly } = await setup({ turnInfo: () => ({ controllable: false, queued: 0 }) })
+    expect(readOnly.messageForHook(hookEvent('Stop', { session_id: 's' }))?.category).toBeUndefined()
+  })
+
+  test('Android builds with turn actions get a data message, everyone else the notification', async () => {
+    const devices = new DeviceRegistry(paths.devices())
+    await devices.load()
+    await devices.register('ios-1', 'ios', undefined, 'd1', true)
+    await devices.register('old-android', 'android', undefined, 'd2')
+    await devices.register('new-android', 'android', undefined, 'd3', true)
+    const { sender, sent } = fakeSender()
+    const service = new PushService(sender, devices, silentLogger, {
+      profiles: [{ id: 'p', name: 'DoctorX', configDir: '', color: '' }],
+      hasForegroundClient: () => false,
+      isMuted: () => false,
+      messages: en,
+      mode: () => 'relay',
+      host: 'mac',
+      daemonId: 'D1',
+      turnInfo: () => ({ controllable: true, queued: 0 }),
+    })
+    await service.notify(service.messageForHook(hookEvent('Stop', { session_id: 's' }, { profileId: 'p' })))
+    const plain = sent.find((s) => !s.message.androidData)
+    const data = sent.find((s) => s.message.androidData)
+    expect([...(plain?.tokens ?? [])].sort()).toEqual(['ios-1', 'old-android'])
+    expect(data?.tokens).toEqual(['new-android'])
+    expect(buildPush(data?.tokens ?? [], data!.message)).toEqual({
+      tokens: ['new-android'],
+      data: {
+        sessionId: 's',
+        profileId: 'p',
+        event: 'Stop',
+        daemonId: 'D1',
+        push: 'turn',
+        title: 'Session finished',
+        body: 'DoctorX',
+        category: TURN_CATEGORY,
+      },
+      android: { priority: 'high' },
+    })
+    // Permission pushes stay notification messages for every device.
+    sent.length = 0
+    await service.notify({ title: 't', body: 'b', data: { sessionId: 's' }, category: PERMISSION_CATEGORY })
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.message.androidData).toBeUndefined()
+    expect(buildAndroidData(['x'], { title: 't', body: 'b', data: {} }).data).toEqual({
+      push: 'turn',
+      title: 't',
+      body: 'b',
+    })
   })
 })
 

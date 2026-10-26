@@ -1248,6 +1248,15 @@ const ptBR = {
   push: {
     channelName: 'Sessões',
     channelDescription: 'Sessões concluídas, sessões esperando por você e permissões pendentes.',
+    turnChannelName: 'Respostas',
+    turnChannelDescription: 'Sessões concluídas e sessões esperando por você, com Responder e Interromper.',
+    actions: {
+      reply: 'Responder',
+      replyPlaceholder: 'Mensagem para o agente',
+      voice: 'Responder por voz',
+      interrupt: 'Interromper',
+      sendNext: 'Enviar o próximo da fila',
+    },
   },
 } satisfies Messages
 

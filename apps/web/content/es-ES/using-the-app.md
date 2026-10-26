@@ -64,6 +64,8 @@ En iOS, una sesión en marcha muestra una Live Activity en la pantalla de bloque
 
 Las notificaciones push avisan cuando una sesión necesita un permiso, termina un turno o hace una pregunta; llevan un título, el perfil y el id de la sesión, nunca el contenido. Ajustes → Notificaciones tiene el interruptor de este móvil, un botón de prueba y el interruptor del estado en vivo. Silencia un perfil o una sesión desde su fila o desde el menú de la sesión; la fila **Silenciados** de Ajustes lista todo lo silenciado.
 
+La notificación de una sesión que terminó o te espera tiene acciones: **Responder** (escribe, o dicta con el micrófono del teclado), **Responder por voz** (abre la sesión ya grabando y envía cuando terminas), **Interrumpir** (Escape) y, cuando hay prompts en cola, **Enviar el siguiente de la cola**. Las notificaciones de permiso siguen solo con Permitir y Denegar. Toda acción pide el móvil desbloqueado, y la respuesta va del móvil directamente al ordenador por la conexión cifrada, nunca por el relay de push. En Android las acciones llegan con las builds de la app desde esta versión; las antiguas muestran la notificación simple.
+
 ## Perfiles y OpenRouter
 
 Un perfil es una cuenta de Claude Code, es decir un `CLAUDE_CONFIG_DIR`, con nombre, color y alias. Un perfil también puede enrutar Claude Code por **OpenRouter**: sus filas muestran un chip discontinuo `vía OpenRouter`, **Nueva sesión** gana una fila **Modelo** con un selector con búsqueda (tamaño del contexto, precios por millón de tokens, soporte de herramientas, razonamiento y caché, créditos restantes), y **Cambiar modelo…** en el menú de la sesión cambia una sesión en marcha. La clave se queda en el ordenador: consulta [el daemon](/es/docs/daemon/#perfiles-y-openrouter).

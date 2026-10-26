@@ -1243,6 +1243,15 @@ const enUS = {
   push: {
     channelName: 'Sessions',
     channelDescription: 'Finished sessions, sessions waiting for you and pending permissions.',
+    turnChannelName: 'Replies',
+    turnChannelDescription: 'Finished sessions and sessions waiting for you, with Reply and Interrupt.',
+    actions: {
+      reply: 'Reply',
+      replyPlaceholder: 'Message to the agent',
+      voice: 'Reply by voice',
+      interrupt: 'Interrupt',
+      sendNext: 'Send next queued',
+    },
   },
 }
 

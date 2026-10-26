@@ -136,6 +136,13 @@ export class QueueService {
     }
   }
 
+  /** Delivers the first queued prompt right away (a notification action); `not_found` when empty. */
+  async sendNext(sessionId: string): Promise<void> {
+    const first = this.list(sessionId)[0]
+    if (!first) throw new DaemonError('not_found', 'no queued prompt')
+    await this.sendNow(sessionId, first.id)
+  }
+
   /** Delivers every queued prompt of the session right away, in order, stopping at the first error. */
   async flush(sessionId: string): Promise<void> {
     for (const item of this.list(sessionId)) await this.sendNow(sessionId, item.id)

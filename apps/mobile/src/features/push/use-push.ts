@@ -8,7 +8,8 @@ import type { TFunction } from '@/core/i18n/create'
 import { devicePlatform } from '@/core/platform/platform'
 import { openSession as openSessionScreen } from '@/features/sessions/open-session'
 import { switchToComputer } from '@/features/sessions/switch-computer'
-import { answerAction, showLiveMessage } from './background'
+import { requestVoiceReply } from '@/features/voice/voice-request-store'
+import { answerAction, canAnswerInBackground, showDataMessage } from './background'
 import { loadMessaging } from './firebase'
 import {
   ACTION_ALLOW,
@@ -23,6 +24,13 @@ import { relayFor } from './push-relay'
 import { usePushSettings } from './push-settings-store'
 import { usePushState } from './push-state'
 import { pushRelayUrl } from './relay'
+import {
+  ACTION_REPLY_VOICE,
+  TURN_CATEGORY,
+  TURN_CHANNEL_ID,
+  TURN_QUEUE_CATEGORY,
+  turnCategoryActions,
+} from './turn'
 
 Notifications.setNotificationHandler({
   // In the foreground the app shows the event itself (and the daemon skips push anyway), except for
@@ -51,6 +59,30 @@ async function registerCategory(t: TFunction) {
       options: { opensAppToForeground: false, isDestructive: true },
     },
   ])
+  // Turn pushes: every action needs an unlock; without the background task (an older Android
+  // binary) they open the app, which then sends the answer.
+  const labels = {
+    reply: t('push.actions.reply'),
+    replyPlaceholder: t('push.actions.replyPlaceholder'),
+    send: t('common.send'),
+    voice: t('push.actions.voice'),
+    interrupt: t('push.actions.interrupt'),
+    sendNext: t('push.actions.sendNext'),
+  }
+  const background = canAnswerInBackground()
+  for (const [category, queue] of [
+    [TURN_CATEGORY, false],
+    [TURN_QUEUE_CATEGORY, true],
+  ] as const) {
+    const actions = turnCategoryActions(queue, labels).map((action) => ({
+      ...action,
+      options: {
+        ...action.options,
+        opensAppToForeground: action.options.opensAppToForeground || !background,
+      },
+    }))
+    await Notifications.setNotificationCategoryAsync(category, actions)
+  }
 }
 
 /** High-importance channel the daemon targets; Android 13+ only asks for permission once one exists. */
@@ -60,6 +92,13 @@ async function registerChannel(t: TFunction) {
     name: t('push.channelName'),
     description: t('push.channelDescription'),
     importance: Notifications.AndroidImportance.HIGH,
+  })
+  // Turn pushes drawn by the app: private on a secure lock screen, so Reply / Interrupt need an unlock.
+  await Notifications.setNotificationChannelAsync(TURN_CHANNEL_ID, {
+    name: t('push.turnChannelName'),
+    description: t('push.turnChannelDescription'),
+    importance: Notifications.AndroidImportance.HIGH,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
   })
   // Live status: silent, no heads-up, replaced in place on each update.
   await Notifications.setNotificationChannelAsync(LIVE_STATUS_CHANNEL_ID, {
@@ -95,6 +134,12 @@ function openSession(data: PushData) {
 async function handleResponse(response: Notifications.NotificationResponse) {
   const data = extractPushData(response.notification.request)
   if (!data) return
+  // Reply by voice: the session's composer starts recording and sends when it ends.
+  if (response.actionIdentifier === ACTION_REPLY_VOICE) {
+    requestVoiceReply(data.sessionId)
+    void switchToComputer(data.daemonId).then(() => openSessionScreen(data.sessionId))
+    return
+  }
   const answer = answerAction(response)
   if (answer) {
     if (!(await answer)) openSession(data)
@@ -121,7 +166,7 @@ function listenToLiveMessages(): () => void {
   const messaging = isAndroid ? loadMessaging() : null
   if (!messaging) return () => {}
   return messaging.onMessage(messaging.getMessaging(), (message) => {
-    void showLiveMessage(message.data).catch(() => undefined)
+    void showDataMessage(message.data)
   })
 }
 
@@ -169,7 +214,14 @@ export function usePush() {
       // Daemons without a Firebase service account send through the push relay with this grant.
       const sendToken = async (token: string) => {
         const relay = platform ? await relayFor({ fcmToken: token, platform }) : undefined
-        client.send({ type: 'device.register', fcmToken: token, platform, ...(relay ? { relay } : {}) })
+        // `turnActions`: this build draws turn pushes itself on Android (data messages with actions).
+        client.send({
+          type: 'device.register',
+          fcmToken: token,
+          platform,
+          turnActions: true,
+          ...(relay ? { relay } : {}),
+        })
         usePushState.setState({ token, relay: relay !== undefined })
       }
       const register = async () => {
