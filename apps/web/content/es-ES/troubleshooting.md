@@ -53,6 +53,10 @@ Una sesión abierta con `claude` a secas fuera de tmux aparece en la app pero no
 
 Los lanzadores están en `~/.remote-harness/bin`, añadido al `PATH` en `~/.zshrc` y `~/.bashrc` por la instalación. Abre un terminal nuevo (o `source ~/.zshrc`); si el alias sigue faltando, ejecuta `remote-harness install`. Los lanzadores funcionan con `zsh`, que el instalador añade en Linux cuando falta.
 
+## El alias dice "missing or unsuitable terminal"
+
+El ordenador no tiene la descripción (terminfo) de tu terminal, algo común al entrar por SSH desde Ghostty o kitty (`xterm-ghostty`, `xterm-kitty`). Ejecuta `remote-harness install` para regenerar los lanzadores: usan `xterm-256color` cuando el terminal no es conocido. Para conservar las funciones de tu terminal, copia su descripción al ordenador: `infocmp -x "$TERM" | ssh <host> -- tic -x -`.
+
 ## La app y el daemon tienen versiones distintas
 
 La app avisa cuando el daemon es más antiguo de lo que necesita. Ejecuta `remote-harness update` en el ordenador (o actualiza desde la bandeja). La propia app se actualiza over-the-air cuando se compiló con un servidor de actualizaciones; Ajustes → App muestra la versión y **Buscar actualizaciones**.

@@ -53,6 +53,10 @@ Uma sessão aberta com `claude` puro fora do tmux aparece no app mas não aceita
 
 Os atalhos ficam em `~/.remote-harness/bin`, adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc` pela instalação. Abra um terminal novo (ou `source ~/.zshrc`); se o alias continuar faltando, rode `remote-harness install`. Os atalhos rodam com `zsh`, que o instalador adiciona no Linux quando falta.
 
+## O alias diz "missing or unsuitable terminal"
+
+O computador não tem a descrição (terminfo) do seu terminal, comum ao entrar por SSH vindo do Ghostty ou do kitty (`xterm-ghostty`, `xterm-kitty`). Rode `remote-harness install` para regenerar os atalhos: eles passam a usar `xterm-256color` quando o terminal não é conhecido. Para manter os recursos do seu terminal, copie a descrição para o computador: `infocmp -x "$TERM" | ssh <host> -- tic -x -`.
+
 ## App e daemon em versões diferentes
 
 O app avisa quando o daemon é mais antigo do que precisa. Rode `remote-harness update` no computador (ou atualize pela bandeja). O próprio app se atualiza over-the-air quando foi compilado com um servidor de atualizações; Ajustes → App mostra a versão e **Verificar atualizações**.
