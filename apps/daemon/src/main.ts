@@ -333,7 +333,13 @@ async function registerFeatures(
   sessions.store.onChange((session, previous) => {
     if (justEnded(session, previous)) permissions.broker.cancelAll(session.id)
   })
-  const push = await registerPushFeature(ctx, { isMuted, isEnded, sender: ctx.pushSender })
+  const turnInfo = (sessionId: string) => {
+    const session = sessions.store.get(sessionId)
+    return session
+      ? { controllable: session.controllable, queued: queue.service.list(sessionId).length }
+      : null
+  }
+  const push = await registerPushFeature(ctx, { isMuted, isEnded, turnInfo, sender: ctx.pushSender })
   await registerLiveStatusFeature(ctx, {
     store: sessions.store,
     sender: push.sender,

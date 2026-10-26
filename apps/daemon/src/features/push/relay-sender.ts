@@ -1,6 +1,6 @@
 import type { PushRelay } from '@remote-harness/protocol'
 import type { Logger } from '../../core/logger.ts'
-import { buildLiveMessage, buildMulticast, type PushSender } from './sender.ts'
+import { buildLiveMessage, buildPush, type PushSender } from './sender.ts'
 
 export type RelayFetch = (url: string, init: RequestInit) => Promise<Pick<Response, 'status'>>
 
@@ -37,7 +37,7 @@ export function createRelaySender(logger: Logger, fetchImpl: RelayFetch = fetch)
   return {
     async send(targets, message) {
       // The relay sets the token from each grant.
-      const { tokens: _none, ...single } = buildMulticast([], message)
+      const { tokens: _none, ...single } = buildPush([], message)
       const results = await Promise.all(
         targets.map(async (target) => ({
           token: target.token,

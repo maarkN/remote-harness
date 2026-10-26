@@ -6,6 +6,18 @@ import type { DeviceRegistry } from './devices.ts'
 import type { PushMessage, PushSender } from './sender.ts'
 
 export const PERMISSION_CATEGORY = 'PERMISSION'
+/** Turn pushes: Reply, Reply by voice and Interrupt; `TURN_QUEUE` adds Send next queued. */
+export const TURN_CATEGORY = 'TURN'
+export const TURN_QUEUE_CATEGORY = 'TURN_QUEUE'
+
+/** What the category of a turn push depends on. */
+export type TurnInfo = { controllable: boolean; queued: number }
+
+/** The actions a finished or waiting session's push offers: none for a read-only session. */
+export function turnCategory(info: TurnInfo | null): string | null {
+  if (!info?.controllable) return null
+  return info.queued > 0 ? TURN_QUEUE_CATEGORY : TURN_CATEGORY
+}
 
 export type PushServiceOptions = {
   profiles: readonly Profile[]
@@ -20,6 +32,8 @@ export type PushServiceOptions = {
   host: string
   /** Added to every push so the app opens it on (and answers it from) the right computer. */
   daemonId?: string
+  /** Whether the session takes input and how many prompts it has queued (turn push actions). */
+  turnInfo?: (sessionId: string) => TurnInfo | null
 }
 
 /** Decides which events become a push and builds content-free payloads. */
@@ -38,8 +52,15 @@ export class PushService {
   messageForHook(hook: HookEvent): PushMessage | null {
     const sessionId = hook.payload.session_id
     const base = { sessionId, profileId: hook.profileId ?? '', event: hook.event }
+    const category = turnCategory(this.options.turnInfo?.(sessionId) ?? null)
+    const turn = category ? { category } : {}
     if (hook.event === 'Stop') {
-      return { title: this.options.messages.sessionDone, body: this.profileName(hook.profileId), data: base }
+      return {
+        title: this.options.messages.sessionDone,
+        body: this.profileName(hook.profileId),
+        data: base,
+        ...turn,
+      }
     }
     if (hook.event === 'Notification') {
       const type = hook.payload.notification_type
@@ -49,6 +70,7 @@ export class PushService {
         title: this.options.messages.sessionWaiting,
         body: this.profileName(hook.profileId),
         data: base,
+        ...turn,
       }
     }
     return null
@@ -127,9 +149,20 @@ export class PushService {
     if (this.options.isMuted(message.data.profileId || null, sessionId)) return false
     const devices = this.devices.devices()
     if (devices.length === 0) return false
+    // Android builds that draw turn pushes get them as data messages, with the actions.
+    const drawn = (d: (typeof devices)[number]) =>
+      message.category?.startsWith(TURN_CATEGORY) === true &&
+      d.platform === 'android' &&
+      d.turnActions === true
+    const data = devices.filter(drawn)
+    const plain = devices.filter((d) => !drawn(d))
     try {
-      const { invalidTokens } = await this.sender.send(devices, this.tagged(message))
-      await this.devices.remove(invalidTokens)
+      const tagged = this.tagged(message)
+      const sent = await Promise.all([
+        plain.length > 0 ? this.sender.send(plain, tagged) : { invalidTokens: [] },
+        data.length > 0 ? this.sender.send(data, { ...tagged, androidData: true }) : { invalidTokens: [] },
+      ])
+      await this.devices.remove(sent.flatMap((s) => s.invalidTokens))
       return true
     } catch (error) {
       this.logger.warn({ err: error }, 'push failed')

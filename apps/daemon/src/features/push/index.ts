@@ -8,7 +8,7 @@ import { DeviceRegistry } from './devices.ts'
 import { type PushSetting, resolvePushMode, SwitchablePushSender } from './mode.ts'
 import { createRelaySender } from './relay-sender.ts'
 import { createFirebaseSender, type PushSender } from './sender.ts'
-import { PushService } from './service.ts'
+import { PushService, type TurnInfo } from './service.ts'
 
 export async function registerPushFeature(
   ctx: DaemonContext,
@@ -16,6 +16,8 @@ export async function registerPushFeature(
     isMuted: (profileId: string | null, sessionId: string) => boolean
     /** Late hooks of an ended session (an idle notification after `/exit`) send no push. */
     isEnded?: (sessionId: string) => boolean
+    /** A session's input and queue, for the actions of its turn pushes. */
+    turnInfo?: (sessionId: string) => TurnInfo | null
     sender?: PushSender | null
   },
 ) {
@@ -55,10 +57,11 @@ export async function registerPushFeature(
     mode: () => sender.mode,
     host: displayHostName(ctx.config),
     ...(ctx.daemonId ? { daemonId: ctx.daemonId } : {}),
+    ...(options.turnInfo ? { turnInfo: options.turnInfo } : {}),
   })
 
   ctx.router.register('device.register', async (msg, connection) => {
-    await devices.register(msg.fcmToken, msg.platform, msg.relay, connection.deviceId)
+    await devices.register(msg.fcmToken, msg.platform, msg.relay, connection.deviceId, msg.turnActions)
     return undefined
   })
   // The phone turned push off: it is no longer counted or targeted.

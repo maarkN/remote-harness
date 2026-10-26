@@ -36,6 +36,10 @@ export function registerQueueFeature(
     await service.sendNow(msg.sessionId, msg.itemId)
     return undefined
   })
+  ctx.router.register('queue.sendNext', async (msg) => {
+    await service.sendNext(msg.sessionId)
+    return undefined
+  })
   ctx.router.register('queue.flush', async (msg) => {
     await service.flush(msg.sessionId)
     return undefined

@@ -32,6 +32,7 @@ import { VoiceButton } from '../voice/components/VoiceButton'
 import { insertTranscriptAtCursor } from '../voice/insert-at-cursor'
 import { useVoiceRecording } from '../voice/use-voice-recording'
 import { useVoiceInteractionStore } from '../voice/voice-interaction-store'
+import { takeVoiceRequest, useVoiceRequestStore } from '../voice/voice-request-store'
 import { moveHighlight, type PickableRow, pickableRows } from './keyboard'
 import { sentCommand } from './recents'
 import { recordCommandUse } from './recents-store'
@@ -129,6 +130,23 @@ export function SmartComposer({ sessionId, prompt, disabled, autoFocus }: Props)
     // Menus like /model only exist in the TUI: show the raw terminal to drive them.
     if (interactive && ok) router.push({ pathname: '/session/[id]/terminal', params: { id: sessionId } })
   }
+
+  // "Reply by voice" from a notification: record right away, then send what was dictated.
+  const voiceReply = useRef<'armed' | 'recording' | null>(null)
+  const voiceRequested = useVoiceRequestStore((s) => s.sessionId === sessionId)
+  useEffect(() => {
+    if (!voiceRequested || disabled || !takeVoiceRequest(sessionId)) return
+    voiceReply.current = 'armed'
+    void voice.start()
+  }, [voiceRequested, disabled, sessionId, voice.start])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `send` reads the latest prompt itself.
+  useEffect(() => {
+    if (voiceReply.current === 'armed' && voice.state !== 'idle') voiceReply.current = 'recording'
+    if (voiceReply.current !== 'recording' || voice.state !== 'idle') return
+    // Done (after the polish review too) or cancelled: send only when something was dictated.
+    voiceReply.current = null
+    if (prompt.text.trim()) void send('auto')
+  }, [voice.state, prompt.text])
 
   const canSendRef = useRef(false)
   canSendRef.current =

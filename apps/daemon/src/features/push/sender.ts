@@ -15,7 +15,17 @@ export type PushMessage = {
   /** Only identifiers: never prompts, commands or paths. */
   data: Record<string, string>
   category?: string
+  /** Send as an Android data message (`buildAndroidData`): only to builds registered with `turnActions`. */
+  androidData?: boolean
 }
+
+/** The FCM message of a push for these tokens, in the form the push asks for. */
+export function buildPush(tokens: readonly string[], message: PushMessage) {
+  return message.androidData ? buildAndroidData(tokens, message) : buildMulticast(tokens, message)
+}
+
+/** Android data message of a turn push: the app draws it with the category's actions. */
+export const TURN_DATA_EVENT = 'turn'
 
 /** One live status update for one phone (Live Activity on iOS, tagged notification on Android). */
 export type LiveMessage = {
@@ -162,6 +172,24 @@ export function buildMulticast(tokens: readonly string[], message: PushMessage) 
   }
 }
 
+/**
+ * The data-only form of a push for Android builds that draw turn pushes themselves: title, body and
+ * category move into `data` (`push` = `turn`), with no `notification` block for the system to draw.
+ */
+export function buildAndroidData(tokens: readonly string[], message: PushMessage) {
+  return {
+    tokens: [...tokens],
+    data: {
+      ...message.data,
+      push: TURN_DATA_EVENT,
+      title: message.title,
+      body: message.body,
+      ...(message.category ? { category: message.category } : {}),
+    },
+    android: { priority: 'high' as const },
+  }
+}
+
 const INVALID = new Set([
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
@@ -190,7 +218,7 @@ export async function createFirebaseSender(
     async send(targets, message) {
       const tokens = targets.map((t) => t.token)
       if (tokens.length === 0) return { invalidTokens: [] }
-      const response = await messaging.sendEachForMulticast(buildMulticast(tokens, message))
+      const response = await messaging.sendEachForMulticast(buildPush(tokens, message))
       const invalidTokens = response.responses.flatMap((r, i) =>
         !r.success && r.error && INVALID.has(r.error.code) ? [tokens[i]!] : [],
       )

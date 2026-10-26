@@ -222,6 +222,17 @@ describe('QueueService delivery', () => {
     await expect(service.sendNow('s', 'zz')).rejects.toMatchObject({ code: 'not_found' })
   })
 
+  test('sendNext delivers the head and answers not_found on an empty queue', async () => {
+    const { service, calls } = setup()
+    await service.submit('s', 'one', [], 'queue')
+    await service.submit('s', 'two', [], 'queue')
+    await service.sendNext('s')
+    expect(calls()).toEqual(['one'])
+    expect(service.list('s').map((i) => i.text)).toEqual(['two'])
+    await service.sendNext('s')
+    await expect(service.sendNext('s')).rejects.toMatchObject({ code: 'not_found' })
+  })
+
   test('flush sends everything in order and remove drops one', async () => {
     const { service, calls } = setup()
     await service.submit('s', 'one', [], 'queue')
