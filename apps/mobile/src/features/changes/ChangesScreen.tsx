@@ -1,13 +1,15 @@
 import type { ChangedFile } from '@remote-harness/protocol'
-import { ChevronDown, ChevronRight } from 'lucide-react-native'
+import { ChevronDown, ChevronRight, Square, SquareCheck } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, Pressable, RefreshControl, View } from 'react-native'
 import { makeStyles, space, useTheme } from '@/core/theme'
 import { shortPath } from '@/core/utils/time'
 import { DiffView } from '@/features/conversation/components/DiffView'
+import { useSessionsStore } from '@/features/sessions/store'
 import { Badge, type BadgeTone, Button, Screen, Text } from '@/ui'
-import { changeTotals, STATUS_LETTER, startsCollapsed, unifiedDiffLines } from './logic'
+import { CommitPanel } from './CommitPanel'
+import { changeTotals, STATUS_LETTER, selectedPaths, startsCollapsed, unifiedDiffLines } from './logic'
 import { type FileDiff, useChanges } from './use-changes'
 
 const STATUS_TONE: Record<ChangedFile['status'], BadgeTone> = {
@@ -24,8 +26,19 @@ export function ChangesScreen({ sessionId }: { sessionId: string }) {
   const { colors } = useTheme()
   const { changes, diffs, supported, error, refreshing, refresh, loadDiff } = useChanges(sessionId)
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
+  // Files left out of the next commit; everything else (new files too) is selected.
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set())
+  const state = useSessionsStore((s) => s.sessions[sessionId]?.state)
   const files = changes?.files ?? []
   const totals = changeTotals(files)
+  const paths = selectedPaths(files, excluded)
+  const toggleSelected = (path: string) =>
+    setExcluded((current) => {
+      const next = new Set(current)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
 
   const header = (
     <View style={styles.header}>
@@ -43,6 +56,18 @@ export function ChangesScreen({ sessionId }: { sessionId: string }) {
               ? t('changes.clean')
               : t('changes.summary', { count: totals.files, added: totals.added, deleted: totals.deleted })}
           </Text>
+          {files.length > 0 || changes.unpushed > 0 ? (
+            <CommitPanel
+              sessionId={sessionId}
+              changes={changes}
+              paths={paths}
+              state={state}
+              onDone={() => {
+                setExcluded(new Set())
+                void refresh()
+              }}
+            />
+          ) : null}
         </>
       ) : null}
     </View>
@@ -55,6 +80,7 @@ export function ChangesScreen({ sessionId }: { sessionId: string }) {
         keyExtractor={(f) => f.path}
         ListHeaderComponent={header}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing && changes !== null}
@@ -68,6 +94,8 @@ export function ChangesScreen({ sessionId }: { sessionId: string }) {
             <FileRow
               file={item}
               expanded={expanded}
+              selected={!excluded.has(item.path)}
+              onSelect={() => toggleSelected(item.path)}
               diff={diffs[item.path]}
               onToggle={() => setToggled((s) => ({ ...s, [item.path]: !expanded }))}
               onLoad={(more) => void loadDiff(item.path, more)}
@@ -82,12 +110,16 @@ export function ChangesScreen({ sessionId }: { sessionId: string }) {
 function FileRow({
   file,
   expanded,
+  selected,
+  onSelect,
   diff,
   onToggle,
   onLoad,
 }: {
   file: ChangedFile
   expanded: boolean
+  selected: boolean
+  onSelect: () => void
   diff: FileDiff | undefined
   onToggle: () => void
   onLoad: (more: boolean) => void
@@ -114,6 +146,19 @@ function FileRow({
         onPress={onToggle}
         style={({ pressed }) => [styles.fileHeader, pressed && styles.pressed]}
       >
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: selected }}
+          accessibilityLabel={t('changes.includeFile', { path: file.path })}
+          hitSlop={8}
+          onPress={onSelect}
+        >
+          {selected ? (
+            <SquareCheck size={18} color={colors.accentText} />
+          ) : (
+            <Square size={18} color={colors.textDim} />
+          )}
+        </Pressable>
         {canExpand ? <Chevron size={14} color={colors.textDim} /> : <View style={styles.chevronSpace} />}
         <Badge label={STATUS_LETTER[file.status]} tone={STATUS_TONE[file.status]} />
         <View style={styles.flex}>

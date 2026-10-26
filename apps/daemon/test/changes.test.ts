@@ -194,6 +194,10 @@ describe('ChangesService on a real repository', () => {
       root: null,
       branch: null,
       files: [],
+      remote: null,
+      defaultBranch: null,
+      unpushed: 0,
+      gh: false,
     })
   })
 })

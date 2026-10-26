@@ -234,7 +234,30 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     root: z.string().nullable(),
     branch: z.string().nullable(),
     files: z.array(ChangedFileSchema),
+    /** `origin`'s URL without credentials; `null` without an `origin`. */
+    remote: z.string().nullable(),
+    /** The branch `origin/HEAD` points to; `null` when unknown. */
+    defaultBranch: z.string().nullable(),
+    /** Commits reachable from HEAD and from no remote ref. */
+    unpushed: z.number().int().nonnegative(),
+    /** `gh` is installed: Open PR uses it, else the app offers the compare link. */
+    gh: z.boolean(),
   }),
+  z.object({
+    type: z.literal('changes.committed'),
+    replyTo,
+    commit: z.string(),
+    branch: z.string().nullable(),
+  }),
+  /** `compareUrl`: GitHub's "compare & open PR" page when `origin` is on GitHub. */
+  z.object({
+    type: z.literal('changes.pushed'),
+    replyTo,
+    branch: z.string(),
+    compareUrl: z.string().nullable(),
+  }),
+  z.object({ type: z.literal('changes.prOpened'), replyTo, url: z.string() }),
+  z.object({ type: z.literal('changes.generated'), replyTo, title: z.string(), body: z.string() }),
   /** Reply to `changes.diff`: unified diff lines from `offset`, at most `CHANGES_DIFF_PAGE`. */
   z.object({
     type: z.literal('changes.diffResult'),

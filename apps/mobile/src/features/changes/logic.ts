@@ -56,3 +56,46 @@ export function changeTotals(files: readonly ChangedFile[]): {
 export function refreshDue(lastAt: number | null, now: number, intervalMs: number): boolean {
   return lastAt === null || now - lastAt >= intervalMs
 }
+
+/** Branches a push to gets an extra warning. */
+export function isProtectedBranch(branch: string | null): boolean {
+  return branch === 'main' || branch === 'master'
+}
+
+/**
+ * The session is on the repository's default branch (`origin/HEAD`, or `main`/`master` when the
+ * remote never said): the commit confirmation offers a new branch first.
+ */
+export function onDefaultBranch(branch: string | null, defaultBranch: string | null): boolean {
+  if (!branch) return false
+  return defaultBranch ? branch === defaultBranch : isProtectedBranch(branch)
+}
+
+const BRANCH_MAX = 40
+
+/** A branch name from a commit message's first line: `fix(mobile): Keep it` → `fix-mobile-keep-it`. */
+export function branchNameFrom(message: string): string {
+  const words = (message.split('\n')[0] ?? '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+  let name = ''
+  for (const word of words) {
+    const next = name ? `${name}-${word}` : word
+    if (next.length > BRANCH_MAX) break
+    name = next
+  }
+  return name || (words[0] ?? '').slice(0, BRANCH_MAX) || 'changes'
+}
+
+/** Commit, push and PR wait for the agent unless the user chose "Do it anyway". */
+export function actionBlocked(state: string | undefined, forced: boolean): boolean {
+  return state === 'running' && !forced
+}
+
+/** The paths to commit: every listed file the user did not leave out. */
+export function selectedPaths(files: readonly ChangedFile[], excluded: ReadonlySet<string>): string[] {
+  return files.filter((f) => !excluded.has(f.path)).map((f) => f.path)
+}
