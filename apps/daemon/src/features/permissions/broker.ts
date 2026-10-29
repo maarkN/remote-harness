@@ -12,7 +12,15 @@ import type { Broadcaster } from '../../transport/connection.ts'
 import { adapterOf } from '../agents/index.ts'
 import { localSettingsRoot } from '../checkout/worktree-copy.ts'
 import type { HookEvent } from '../hooks/payloads.ts'
-import { type HookEnd, handoverDelay, handoverOutcome, reminderDelay, timeoutFor } from './handover.ts'
+import {
+  type HookEnd,
+  handoverDelay,
+  handoverOutcome,
+  type Move,
+  reminderDelay,
+  settlesOpenRequest,
+  timeoutFor,
+} from './handover.ts'
 import { answerDecision, parseInteraction } from './interaction.ts'
 import { parseRule, suggestRule } from './rules.ts'
 
@@ -41,12 +49,16 @@ export type DecidedRequest = {
   rule: { rule: string; scope: RuleScope; file: string } | null
 }
 
-/** `aborted`: the agent closed the hook; `cancelled`: the session ended. */
+/**
+ * `aborted`: the agent closed the hook; `cancelled`: the session ended; `moved`: answered in the
+ * terminal while the hook still waited.
+ */
 type Outcome =
   | { kind: 'decision'; decision: Decision; by?: DecidedBy }
   | { kind: 'expired' }
   | { kind: 'aborted' }
   | { kind: 'cancelled' }
+  | { kind: 'moved'; move: Move }
 
 type Pending = {
   info: PermissionRequestInfo
@@ -77,12 +89,13 @@ export type BrokerOptions = {
    * Calls `onMove` when the session shows it went past the dialog (a tool result or prompt in the
    * transcript, a turn hook). Returns a function that stops watching.
    */
-  watch?: (sessionId: string, onMove: () => void) => () => void
+  watch?: (sessionId: string, onMove: (move: Move) => void) => () => void
   defaultScope: RuleScope
   profiles: readonly Profile[]
   /** Called after a decision is sent to the agent (with the rule file, for an always-allow). */
   onDecided?: (decided: DecidedRequest) => void
-  onResolved?: (info: PermissionRequestInfo, outcome: PermissionOutcome) => void
+  /** `move`: the session moved on while the hook still waited (answered in the terminal). */
+  onResolved?: (info: PermissionRequestInfo, outcome: PermissionOutcome, move?: Move) => void
   onRequested?: (info: PermissionRequestInfo) => void
   /** The request was handed over to the terminal (sent again with `terminal`). */
   onHandover?: (info: PermissionRequestInfo, end: HookEnd) => void
@@ -139,8 +152,9 @@ export function buildHookOutput(decision: Decision, denyMessage: string): Record
 }
 
 /**
- * Holds PermissionRequest hooks open while the phone decides. First answer wins. A hook that stops
- * waiting without an answer hands its request over to the terminal until the session moves on.
+ * Holds PermissionRequest hooks open while the phone decides. First answer wins, the terminal's
+ * included: a session that moves on while the hook waits releases it. A hook that stops waiting
+ * without an answer hands its request over to the terminal until the session moves on.
  */
 export class PermissionBroker {
   private readonly pending = new Map<string, Pending>()
@@ -238,6 +252,11 @@ export class PermissionBroker {
       this.resolve(info, 'cancelled')
       return {}
     }
+    if (outcome.kind === 'moved') {
+      // The agent already took the terminal's answer: no decision, just release the hook.
+      this.resolve(info, 'cancelled', outcome.move)
+      return {}
+    }
     this.resolve(info, outcome.decision.behavior === 'allow' ? 'allowed' : 'denied')
     // Codex takes rules or a mode change in the answer as a failed hook: send the bare decision.
     const decision: Decision = rules
@@ -311,9 +330,11 @@ export class PermissionBroker {
         reminderMs === null ? undefined : setTimeout(() => this.options.onReminder?.(info), reminderMs),
     }
     this.tracking.set(info.requestId, tracking)
-    const stop = this.options.watch?.(info.sessionId, () => {
+    const stop = this.options.watch?.(info.sessionId, (move) => {
       tracking.moved = true
       this.endHandover(info.requestId)
+      // Answered in the terminal while the hook still waits (#437).
+      if (settlesOpenRequest(info, move)) this.pending.get(info.requestId)?.settle({ kind: 'moved', move })
     })
     if (stop) tracking.stopWatch = stop
   }
@@ -346,7 +367,7 @@ export class PermissionBroker {
     return mine.length
   }
 
-  private resolve(info: PermissionRequestInfo, outcome: PermissionOutcome): void {
+  private resolve(info: PermissionRequestInfo, outcome: PermissionOutcome, move?: Move): void {
     const tracking = this.tracking.get(info.requestId)
     if (tracking) {
       this.tracking.delete(info.requestId)
@@ -359,6 +380,6 @@ export class PermissionBroker {
       sessionId: info.sessionId,
       outcome,
     })
-    this.options.onResolved?.(info, outcome)
+    this.options.onResolved?.(info, outcome, move)
   }
 }

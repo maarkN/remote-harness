@@ -5,6 +5,7 @@ import {
   justEnded,
   revives,
   stateAfterPermission,
+  stateAfterResolution,
 } from '../src/features/sessions/state.ts'
 
 describe('session state rules', () => {
@@ -38,6 +39,12 @@ describe('session state rules', () => {
     expect(stateAfterPermission({ state: 'waiting' })).toBe('running')
     expect(stateAfterPermission({ state: 'ended' })).toBeUndefined()
     expect(stateAfterPermission(undefined)).toBeUndefined()
+    expect(stateAfterResolution({ state: 'waiting' }, 'allowed')).toBe('running')
+    expect(stateAfterResolution({ state: 'waiting' }, 'cancelled')).toBeUndefined()
+    expect(stateAfterResolution({ state: 'waiting' }, 'expired')).toBeUndefined()
+    // Answered in the terminal and the turn went on (#437).
+    expect(stateAfterResolution({ state: 'waiting' }, 'cancelled', true)).toBe('running')
+    expect(stateAfterResolution({ state: 'ended' }, 'cancelled', true)).toBeUndefined()
   })
 
   test('justEnded flags only the transition into ended', () => {

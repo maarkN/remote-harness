@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { ServerMessage } from '@remote-harness/protocol'
+import type { PermissionOutcome, ServerMessage } from '@remote-harness/protocol'
 import { afterEach, describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
@@ -11,6 +11,7 @@ import {
   type DecidedRequest,
   PermissionBroker,
 } from '../src/features/permissions/broker.ts'
+import type { Move } from '../src/features/permissions/handover.ts'
 import { parseInteraction } from '../src/features/permissions/interaction.ts'
 
 const DENY = 'Denied by Remote Harness'
@@ -114,9 +115,10 @@ describe('PermissionBroker', () => {
     const decided: DecidedRequest[] = []
     const handovers: string[] = []
     const reminders: string[] = []
-    const watching = new Map<string, () => void>()
-    /** The session moves on (a tool result in the transcript, a turn hook). */
-    const move = (sessionId = 's') => watching.get(sessionId)?.()
+    const watching = new Map<string, (move: Move) => void>()
+    const resolved: Array<{ outcome: PermissionOutcome; move: Move | undefined }> = []
+    /** The session moves on (a tool result in the transcript by default, or a prompt / turn hook). */
+    const move = (sessionId = 's', kind: Move = 'result') => watching.get(sessionId)?.(kind)
     const broker = new PermissionBroker(
       { broadcast: (m) => sent.push(m) },
       {
@@ -127,6 +129,7 @@ describe('PermissionBroker', () => {
           return () => watching.delete(sessionId)
         },
         onHandover: (info, end) => handovers.push(`${info.tool}:${end}`),
+        onResolved: (_info, outcome, move) => resolved.push({ outcome, move }),
         onReminder: (info) => reminders.push(info.tool),
         ...extra,
         defaultScope: 'project',
@@ -152,7 +155,7 @@ describe('PermissionBroker', () => {
           { type: 'permission.request' }
         >
       ).request.requestId
-    return { sent, broker, hook, requestId, rules, decided, handovers, reminders, watching, move }
+    return { sent, broker, hook, requestId, rules, decided, handovers, reminders, watching, move, resolved }
   }
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -374,6 +377,61 @@ describe('PermissionBroker', () => {
   })
 
   const PLAN = { name: 'ExitPlanMode', input: { plan: '1. do it', planFilePath: '/p.md' } }
+
+  describe('moved on while the hook is open (#437)', () => {
+    test('a question answered in the terminal: hook released, cancelled, the turn goes on', async () => {
+      const { broker, hook, sent, move, handovers, resolved, watching } = setup(60_000, QUESTION)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move()
+      expect(await pending).toEqual({})
+      expect(sent.at(-1)).toMatchObject({ type: 'permission.resolved', outcome: 'cancelled' })
+      expect(resolved).toEqual([{ outcome: 'cancelled', move: 'result' }])
+      expect(broker.hasPending('s')).toBe(false)
+      expect(handovers).toEqual([])
+      expect(watching.size).toBe(0)
+    })
+
+    test('a plan approved in the terminal is released without waiting for its timeout', async () => {
+      const { broker, hook, sent, move, requestId } = setup(60_000, PLAN)
+      const pending = broker.handle(hook, new AbortController().signal)
+      const id = requestId()
+      move()
+      expect(await pending).toEqual({})
+      expect(sent.at(-1)).toMatchObject({ type: 'permission.resolved', requestId: id, outcome: 'cancelled' })
+      // The phone's late answer finds nothing to answer.
+      expect(() => broker.answer(id, { kind: 'plan', decision: 'acceptEdits' })).toThrow(
+        expect.objectContaining({ code: 'already_resolved' }),
+      )
+    })
+
+    test('a tool permission stays open on a parallel tool result', async () => {
+      const { broker, hook, sent, move, requestId } = setup(60_000)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move('s', 'result')
+      expect(broker.hasPending('s')).toBe(true)
+      expect(sent.some((m) => m.type === 'permission.resolved')).toBe(false)
+      broker.respond(requestId(), { behavior: 'allow' })
+      expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } })
+    })
+
+    test('a tool permission is released when the turn ends', async () => {
+      const { broker, hook, sent, move, resolved } = setup(60_000)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move('s', 'turn')
+      expect(await pending).toEqual({})
+      expect(sent.at(-1)).toMatchObject({ type: 'permission.resolved', outcome: 'cancelled' })
+      expect(resolved).toEqual([{ outcome: 'cancelled', move: 'turn' }])
+    })
+
+    test("another session's moves do not touch it", async () => {
+      const { broker, hook, move, requestId } = setup(60_000, QUESTION)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move('other', 'turn')
+      expect(broker.hasPending('s')).toBe(true)
+      broker.answer(requestId(), { kind: 'question', answers: { 'Which database?': 'SQLite' } })
+      expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } })
+    })
+  })
 
   test('plan approval switches the session mode', async () => {
     const { broker, hook, sent, requestId } = setup(1_000, PLAN)

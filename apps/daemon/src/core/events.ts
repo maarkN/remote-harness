@@ -5,7 +5,8 @@ import type { HookEvent } from '../features/hooks/payloads.ts'
 export type DaemonEvents = {
   hook: HookEvent
   'permission.requested': PermissionRequestInfo
-  'permission.resolved': { info: PermissionRequestInfo; outcome: PermissionOutcome }
+  /** `continued`: answered in the terminal and the turn went on (a tool result was read). */
+  'permission.resolved': { info: PermissionRequestInfo; outcome: PermissionOutcome; continued?: boolean }
   /** The hook stopped waiting; the request is answered in the terminal until the session moves on. */
   'permission.handover': PermissionRequestInfo
   /** A question or plan is still open after a while. */
