@@ -26,6 +26,7 @@ Fuera de casa la app pasa por el relay de conexión. Si se conecta en casa pero 
 - Un firewall o proxy que bloquea `wss://` de salida (puerto 443) hacia el relay deja al daemon fuera de él: permite `us.relay.remoteharness.app` y `br.relay.remoteharness.app`, o [aloja el tuyo](/es/docs/daemon/#alojar-tu-propio-relay-de-conexion).
 - `"relay": "off"` en la configuración deja al daemon fuera de los relays; entonces solo funciona el camino directo.
 - Un daemon iniciado con `--dev` nunca usa un relay.
+- En un servidor en la nube, o cuando la conexión se cae y vuelve una y otra vez, mira [Servidor en la nube](/es/docs/cloud-server/#conexiones-inestables).
 
 ## El push no llega
 

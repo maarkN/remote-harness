@@ -125,6 +125,7 @@ Then install the app on the phone, scan the code, and run your alias instead of 
 | Notifications and mute | [Using the app](https://remoteharness.app/docs/using-the-app/#notifications-and-mute) |
 | CLI commands, the config file (`~/.remote-harness/config.json`), OpenRouter and Codex profiles | [The daemon](https://remoteharness.app/docs/daemon/) |
 | Background service, updates and channels, menu bar / tray icon, logs | [The daemon](https://remoteharness.app/docs/daemon/#background-service) |
+| Running the daemon on a cloud server (AWS, DigitalOcean, GCP, Oracle): ports, firewalls, lingering, SSH | [Cloud server](https://remoteharness.app/docs/cloud-server/) |
 | What leaves your machine, keys and pairing, your files, error reports | [Security & privacy](https://remoteharness.app/docs/security/) · [Privacy policy](https://remoteharness.app/docs/privacy/) |
 | Linux service and lingering, WSL2 (systemd, logon task, networking), sleep, push, read-only sessions | [Troubleshooting](https://remoteharness.app/docs/troubleshooting/) |
 | Uninstall: `remote-harness service uninstall`, then `remote-harness uninstall` | [The daemon](https://remoteharness.app/docs/daemon/#commands) |

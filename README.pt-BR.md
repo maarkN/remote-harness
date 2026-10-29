@@ -97,6 +97,7 @@ Depois instale o app no celular, leia o QR e use o seu alias no lugar de `claude
 | Notificações e silêncio | [Usando o app](https://remoteharness.app/pt-br/docs/using-the-app/#notificacoes-e-silencio) |
 | Comandos do CLI, o arquivo de configuração (`~/.remote-harness/config.json`), perfis do OpenRouter e do Codex | [O daemon](https://remoteharness.app/pt-br/docs/daemon/) |
 | Serviço em segundo plano, atualizações e canais, ícone na barra de menus / bandeja, logs | [O daemon](https://remoteharness.app/pt-br/docs/daemon/#servico-em-segundo-plano) |
+| Rodar o daemon num servidor na nuvem (AWS, DigitalOcean, GCP, Oracle): portas, firewalls, linger, SSH | [Servidor na nuvem](https://remoteharness.app/pt-br/docs/cloud-server/) |
 | O que sai da sua máquina, chaves e pareamento, seus arquivos, relatórios de erro | [Segurança e privacidade](https://remoteharness.app/pt-br/docs/security/) · [Política de privacidade](https://remoteharness.app/pt-br/docs/privacy/) |
 | Serviço e lingering no Linux, WSL2 (systemd, tarefa de logon, rede), suspensão, push, sessões somente leitura | [Solução de problemas](https://remoteharness.app/pt-br/docs/troubleshooting/) |
 | Desinstalar: `remote-harness service uninstall` e depois `remote-harness uninstall` | [O daemon](https://remoteharness.app/pt-br/docs/daemon/#comandos) |
