@@ -7,6 +7,7 @@ export type SessionMenuAction =
   | 'model'
   | 'subagents'
   | 'toggleKeyBar'
+  | 'toggleHandsFree'
   | 'history'
   | 'toggleFollow'
   | 'toggleLiveFollow'
@@ -24,6 +25,7 @@ export type SubagentCounts = { count: number; running: number }
  * with their counts in the label. "Follow live status" appears when the daemon can follow sessions
  * (`liveFollow` is the current state), labeled by the action it takes. "Run command…" appears when
  * the daemon accepts shell commands (`commands`); it runs in the session's folder, pane or not.
+ * "Hands-free" appears when the binary can speak (`handsFree` is its state), labeled by the action.
  */
 export function sessionMenu(
   {
@@ -34,6 +36,7 @@ export function sessionMenu(
     provider = false,
     liveFollow = null,
     commands = false,
+    handsFree = null,
   }: {
     controllable: boolean
     keyBarVisible: boolean
@@ -45,6 +48,8 @@ export function sessionMenu(
     liveFollow?: boolean | null
     /** The daemon accepts `command.run` (its `auth.ok` has `commands`). */
     commands?: boolean
+    /** Hands-free is on; `null` when this binary cannot speak (no `expo-speech`). */
+    handsFree?: boolean | null
   },
   t: TFunction,
 ): { items: SessionMenuItem[]; disabledReason?: string } {
@@ -77,6 +82,15 @@ export function sessionMenu(
         label: keyBarVisible ? t('sessionMenu.hideKeys') : t('sessionMenu.showKeys'),
         disabled: !controllable,
       },
+      ...(handsFree === null
+        ? []
+        : [
+            {
+              key: 'toggleHandsFree' as const,
+              label: handsFree ? t('handsFree.menuOff') : t('handsFree.menu'),
+              disabled: !controllable,
+            },
+          ]),
       { key: 'history', label: t('sessionMenu.history'), disabled: false },
       { key: 'changes', label: t('sessionMenu.changes'), disabled: false },
       {
