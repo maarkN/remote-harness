@@ -107,7 +107,9 @@ export class SessionService {
       patch.controllable = true
     }
 
-    const state = accepted ? hookState(hook.event, hook.payload.notification_type) : undefined
+    const state = accepted
+      ? hookState(hook.event, hook.payload.notification_type, hook.payload.background_tasks)
+      : undefined
     if (state) patch.state = state
 
     switch (hook.event) {

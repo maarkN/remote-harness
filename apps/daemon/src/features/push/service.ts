@@ -2,6 +2,7 @@ import type { PermissionRequestInfo, Profile, PushMode, PushTestResult } from '@
 import type { Messages } from '../../core/i18n/index.ts'
 import type { Logger } from '../../core/logger.ts'
 import type { HookEvent } from '../hooks/payloads.ts'
+import { agentWorkInFlight } from '../sessions/state.ts'
 import type { DeviceRegistry } from './devices.ts'
 import type { PushMessage, PushSender } from './sender.ts'
 
@@ -55,6 +56,8 @@ export class PushService {
     const category = turnCategory(this.options.turnInfo?.(sessionId) ?? null)
     const turn = category ? { category } : {}
     if (hook.event === 'Stop') {
+      // Agents still work in the background: the session is not finished until a later Stop.
+      if (agentWorkInFlight(hook.payload.background_tasks)) return null
       return {
         title: this.options.messages.sessionDone,
         body: this.profileName(hook.profileId),

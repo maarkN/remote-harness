@@ -320,9 +320,13 @@ export class SubagentTracker {
         this.outcomeTimers.add(timer)
       }
     }
+    const tasks = hook.payload.background_tasks
     if (hook.event === 'Stop') {
-      const tasks = hook.payload.background_tasks
       this.store.upsert(sessionId, { backgroundTasks: Array.isArray(tasks) ? tasks.length : 0 })
+    }
+    // A workflow's agents stop while the turn is over: their hook carries the session's list too.
+    if (hook.event === 'SubagentStop' && Array.isArray(tasks) && this.store.get(sessionId)) {
+      this.store.upsert(sessionId, { backgroundTasks: tasks.length })
     }
   }
 

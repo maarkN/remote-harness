@@ -16,6 +16,7 @@ import {
   STEP_INTERVAL_MS,
   stepForEntry,
   stepTarget,
+  stopEvent,
   taskCounts,
   todoChange,
   todoProgress,
@@ -173,6 +174,15 @@ describe('live status reducer', () => {
       recent: ['Pensando ×2', 'create_issue · usando uma ferramenta', 'Bash · executando um comando'],
       ago: 'há {time}',
     })
+  })
+
+  test('a Stop with agents still working in the background keeps the status working', () => {
+    const workflow = { id: 'w1', type: 'workflow', status: 'running', description: 'review', name: 'review' }
+    expect(stopEvent([workflow])).toBeNull()
+    expect(stopEvent([{ id: 'b1', type: 'shell', status: 'running', description: 'dev' }])).toEqual({
+      type: 'stop',
+    })
+    expect(stopEvent(undefined)).toEqual({ type: 'stop' })
   })
 
   test('tasks in parallel: running subagents and background tasks apart, kept across turns', () => {

@@ -8,6 +8,7 @@ import type {
 } from '@remote-harness/protocol'
 import { LIVE_TASK_MAX } from '@remote-harness/protocol'
 import type { Messages } from '../../core/i18n/index.ts'
+import { agentWorkInFlight } from '../sessions/state.ts'
 import { type ActivityKind, activityKind } from './activity.ts'
 
 export type LiveStep = keyof Messages['live']['steps']
@@ -78,6 +79,14 @@ export type LiveEvent =
   | { type: 'stop' }
   | { type: 'end' }
   | { type: 'tasks'; counts: TaskCounts }
+
+/**
+ * The live status event of a `Stop`: none while agents still work in the background (a workflow
+ * run, a background subagent), so the status stays working until a later `Stop` without them.
+ */
+export function stopEvent(backgroundTasks: unknown): LiveEvent | null {
+  return agentWorkInFlight(backgroundTasks) ? null : { type: 'stop' }
+}
 
 export type TodoChange =
   | { kind: 'snapshot'; done: number; total: number; active?: string | null }

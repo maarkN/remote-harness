@@ -25,7 +25,7 @@ import {
   upsertDevice,
 } from './follows.ts'
 import { LiveStatusService } from './service.ts'
-import { eventsForEntry, sameTaskCounts, taskCounts } from './status.ts'
+import { eventsForEntry, sameTaskCounts, stopEvent, taskCounts } from './status.ts'
 
 /** How often expired follows are dropped. */
 const FOLLOW_SWEEP_MS = 10 * 60_000
@@ -228,8 +228,10 @@ export async function registerLiveStatusFeature(
         if (typeof type === 'string' && NOT_WAITING.has(type)) return
         return service.handle(sessionId, { type: 'waiting', permission: type === 'permission_prompt' })
       }
-      case 'Stop':
-        return service.handle(sessionId, { type: 'stop' })
+      case 'Stop': {
+        const event = stopEvent(hook.payload.background_tasks)
+        return event ? service.handle(sessionId, event) : undefined
+      }
       case 'SessionEnd':
         void follows.update((state) => dropSession(state, sessionId))
         return service.handle(sessionId, { type: 'end' })
