@@ -94,6 +94,19 @@ describe('direct addresses', () => {
     ])
   })
 
+  test('a cloud server leaves out container and VM bridges (#442)', () => {
+    const interfaces = {
+      ens5: [v4('10.0.1.12')],
+      docker0: [v4('172.17.0.1')],
+      'br-3f2a9c1d7e44': [v4('172.18.0.1')],
+      veth1a2b3c: [v6('fd00::1')],
+      virbr0: [v4('192.168.122.1')],
+      cni0: [v4('10.42.0.1')],
+      tailscale0: [v4('100.64.0.7')],
+    }
+    expect(directAddresses(interfaces, 7337)).toEqual(['10.0.1.12:7337', '100.64.0.7:7337'])
+  })
+
   test('at most 8', () => {
     const many = { en0: Array.from({ length: 20 }, (_, i) => v4(`10.0.0.${i + 1}`)) }
     expect(directAddresses(many, 1)).toHaveLength(MAX_DIRECT_ADDRESSES)

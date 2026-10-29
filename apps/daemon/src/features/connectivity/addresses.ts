@@ -10,8 +10,14 @@ function linkLocal(info: NetworkInterfaceInfo): boolean {
 }
 
 /**
+ * Container and virtual machine bridges (Docker, Podman, LXD, libvirt, Kubernetes CNIs): their
+ * addresses only exist inside the computer, so a phone would wait on them for nothing.
+ */
+const BRIDGE_INTERFACE = /^(docker|br-|veth|virbr|cni|flannel|cali|vxlan|podman|lxdbr|lxcbr)/
+
+/**
  * The `host:port` addresses devices may try on the direct path: every non-loopback, non-link-local
- * interface address, IPv4 first, without duplicates.
+ * interface address outside container bridges, IPv4 first, without duplicates.
  */
 export function directAddresses(
   interfaces: Record<string, NetworkInterfaceInfo[] | undefined>,
@@ -19,7 +25,8 @@ export function directAddresses(
 ): string[] {
   const v4: string[] = []
   const v6: string[] = []
-  for (const infos of Object.values(interfaces)) {
+  for (const [name, infos] of Object.entries(interfaces)) {
+    if (BRIDGE_INTERFACE.test(name)) continue
     for (const info of infos ?? []) {
       if (info.internal || linkLocal(info)) continue
       const address = pairingAddress(info.address, port)
