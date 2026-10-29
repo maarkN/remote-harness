@@ -17,5 +17,8 @@ declare class VoiceAssistantModule extends NativeModule<Events> {
   setSessions(json: string): void
 }
 
-/** `null` on Android (until #418) and on binaries built before the module (an over-the-air update). */
+/**
+ * `null` on binaries built before the module (an over-the-air update). On Android only `setSessions`
+ * does something: it publishes the launcher shortcuts.
+ */
 export const VoiceAssistant = requireOptionalNativeModule<VoiceAssistantModule>('VoiceAssistant')

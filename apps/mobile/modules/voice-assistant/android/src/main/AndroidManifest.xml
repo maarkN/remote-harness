@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Exported for Google Assistant; only forwards remoteharness://assistant/ links (see the class). -->
+    <activity
+      android:name="expo.modules.voiceassistant.AssistantLinkActivity"
+      android:exported="true"
+      android:excludeFromRecents="true"
+      android:noHistory="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+  </application>
+</manifest>

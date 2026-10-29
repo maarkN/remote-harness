@@ -1,6 +1,9 @@
 {
-  "platforms": ["apple"],
+  "platforms": ["apple", "android"],
   "apple": {
     "modules": ["VoiceAssistantModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.voiceassistant.VoiceAssistantModule"]
   }
 }

@@ -1291,6 +1291,17 @@ const ptBR = {
     unreachable: 'Não consegui falar com o seu computador. Veja se ele está ligado e conectado.',
     failed: 'Algo deu errado, então nada foi enviado.',
   },
+  assistantLink: {
+    title: 'Ação por voz',
+    connecting: 'Conectando ao seu computador…',
+    working: 'Fazendo…',
+    noSuchSession: 'Nenhuma sessão ativa se chama “{{title}}”.',
+    confirmSend: 'Enviar “{{text}}” para “{{title}}”?',
+    notSent: 'Nada foi enviado.',
+    cancelled: 'Nada foi respondido.',
+    openSession: 'Abrir a sessão',
+    openSessions: 'Abrir as sessões',
+  },
 } satisfies Messages
 
 export default ptBR
