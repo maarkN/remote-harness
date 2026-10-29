@@ -85,6 +85,24 @@ export function connectionTargets(target: DaemonTarget): ConnectionTarget[] {
 export const DIRECT_CONNECT_TIMEOUT_MS = 3_000
 /** While on the relay, how often the direct addresses are tried again. */
 export const DIRECT_PROBE_INTERVAL_MS = 30_000
+/**
+ * Nothing received for this long: the app sends `ping` to check the connection. It also keeps the
+ * relay from closing a quiet channel as idle (the relay's own pings never reach JavaScript).
+ */
+export const HEARTBEAT_MS = 30_000
+/** A heartbeat `ping` unanswered for this long means the connection is dead. */
+export const HEARTBEAT_TIMEOUT_MS = 10_000
+/** How often the heartbeat looks at how long the connection has been quiet. */
+const HEARTBEAT_CHECK_MS = 10_000
+
+/** The targets with the one that last completed `auth` first; the others keep their order. */
+export function orderTargets(
+  targets: readonly ConnectionTarget[],
+  lastGood: string | null,
+): ConnectionTarget[] {
+  const first = lastGood ? targets.find((t) => t.url === lastGood) : undefined
+  return first ? [first, ...targets.filter((t) => t !== first)] : [...targets]
+}
 
 export type DaemonClientOptions = {
   computer: DaemonTarget
@@ -155,6 +173,13 @@ export class DaemonClient {
   private _closeCode: number | undefined
   private target: DaemonTarget
   private socketPath: ConnectionPath | null = null
+  private socketUrl: string | null = null
+  /** The target that last completed `auth`: a reconnect tries it first (the relay away from home). */
+  private lastGood: string | null = null
+  /** When the open connection last received anything (epoch ms). */
+  private lastHeard = 0
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private heartbeatPending = false
   private _path: ConnectionPath | null = null
   private readonly pathListeners = new Set<(path: ConnectionPath | null) => void>()
   private probeTimer: ReturnType<typeof setInterval> | null = null
@@ -240,6 +265,8 @@ export class DaemonClient {
     if (this.stopped || this._status === 'unauthorized') return
     // Back in the foreground on the relay: maybe home again.
     if (this._status === 'open' && this._path === 'relay') void this.probeDirect()
+    // Back from the background: check at once that the connection survived.
+    if (this._status === 'open') this.heartbeat()
     if (this._status === 'open' || this._status === 'connecting' || this._status === 'authenticating') return
     this.clearRetry()
     this.attempt = 0
@@ -250,6 +277,7 @@ export class DaemonClient {
     this.stopped = true
     this.clearRetry()
     this.clearConnectTimer()
+    this.stopHeartbeat()
     this.setPath(null)
     const socket = this.socket
     this.socket = null
@@ -327,18 +355,15 @@ export class DaemonClient {
     return `${Date.now().toString(36)}-${this.seq}`
   }
 
-  private sendRequest(message: ClientRequest, timeoutMs?: number): Promise<ServerMessage> {
+  /** `quiet` keeps a timeout from the request error listeners (the heartbeat handles its own). */
+  private sendRequest(message: ClientRequest, timeoutMs?: number, quiet = false): Promise<ServerMessage> {
     const id = this.nextId()
     return new Promise((resolve, reject) => {
       const timer = setTimeout(
         () => {
           this.pending.delete(id)
-          reject(
-            this.requestFailed(
-              message.type,
-              new DaemonRequestError('timeout', `no reply to ${message.type}`),
-            ),
-          )
+          const error = new DaemonRequestError('timeout', `no reply to ${message.type}`)
+          reject(quiet ? error : this.requestFailed(message.type, error))
         },
         timeoutMs ?? this.options.requestTimeoutMs ?? 15_000,
       )
@@ -366,7 +391,7 @@ export class DaemonClient {
     const factory =
       this.options.socketFactory ?? ((url: string) => new WebSocket(url) as unknown as SocketLike)
     this.setStatus(this.attempt === 0 ? 'connecting' : 'reconnecting')
-    const targets = connectionTargets(this.target)
+    const targets = orderTargets(connectionTargets(this.target), this.lastGood)
     const target = targets[this.attempt % Math.max(1, targets.length)]
     let socket: SocketLike
     try {
@@ -379,6 +404,7 @@ export class DaemonClient {
     }
     this.socket = socket
     this.socketPath = target.path
+    this.socketUrl = target.url
     this.session = null
     this.handshake = null
     this.clearConnectTimer()
@@ -424,9 +450,11 @@ export class DaemonClient {
 
   private socketClosed(socket: SocketLike, event: { code: number; reason?: string }): void {
     if (this.socket !== socket) return
+    const wasOpen = this._status === 'open'
     this.socket = null
     this.session = null
     this.handshake = null
+    this.stopHeartbeat()
     this.setPath(null)
     // Closed before opening, within the timeout: something answered (refused, no network).
     if (this.connectTimer) this._unreachable = false
@@ -440,11 +468,12 @@ export class DaemonClient {
       this.setStatus('unauthorized', event.reason || 'connection refused by the daemon')
       return
     }
-    this.scheduleReconnect(event.reason)
+    this.scheduleReconnect(event.reason, wasOpen)
   }
 
   /** Handshake messages until the channel is up, then encrypted protocol messages. */
   private handleFrame(socket: SocketLike, data: unknown): void {
+    this.lastHeard = Date.now()
     const bytes = toBytes(data)
     if (!bytes) return
     if (!this.session) {
@@ -481,6 +510,7 @@ export class DaemonClient {
     this.socket = null
     this.session = null
     this.handshake = null
+    this.stopHeartbeat()
     socket.onclose = null
     socket.close(1000, reason)
     this.clearConnectTimer()
@@ -499,6 +529,8 @@ export class DaemonClient {
         this.pairing = undefined
         this._hello = hello
         this.attempt = 0
+        this.lastGood = this.socketUrl
+        this.startHeartbeat()
         this.setStatus('open')
         this.setPath(this.socketPath)
         for (const listener of this.readyListeners) listener(hello)
@@ -541,7 +573,8 @@ export class DaemonClient {
     }
   }
 
-  private scheduleReconnect(reason?: string): void {
+  /** `fromStart`: an open connection dropped, so a new round starts with the target that worked last. */
+  private scheduleReconnect(reason?: string, fromStart = false): void {
     if (this.stopped || this.options.reconnect === false) {
       this.setStatus('closed', reason)
       return
@@ -550,9 +583,15 @@ export class DaemonClient {
     const max = this.options.maxBackoffMs ?? 30_000
     // Every target of a round is tried right after the other; the backoff grows per round.
     const count = Math.max(1, connectionTargets(this.target).length)
-    const endOfRound = (this.attempt + 1) % count === 0
-    const delay = endOfRound ? Math.min(max, min * 2 ** Math.floor(this.attempt / count)) : 100
-    this.attempt += 1
+    let delay: number
+    if (fromStart) {
+      this.attempt = count
+      delay = min
+    } else {
+      const endOfRound = (this.attempt + 1) % count === 0
+      delay = endOfRound ? Math.min(max, min * 2 ** Math.floor(this.attempt / count)) : 100
+      this.attempt += 1
+    }
     this.setStatus('reconnecting', reason)
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null
@@ -563,6 +602,43 @@ export class DaemonClient {
   private clearRetry(): void {
     if (this.retryTimer) clearTimeout(this.retryTimer)
     this.retryTimer = null
+  }
+
+  private startHeartbeat(): void {
+    this.lastHeard = Date.now()
+    this.heartbeatTimer ??= setInterval(() => this.heartbeat(), HEARTBEAT_CHECK_MS)
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
+    this.heartbeatTimer = null
+  }
+
+  /** After `HEARTBEAT_MS` of quiet, a `ping`; no reply in time drops the connection. */
+  private heartbeat(): void {
+    const socket = this.socket
+    if (!socket || this._status !== 'open' || this.heartbeatPending) return
+    if (Date.now() - this.lastHeard < HEARTBEAT_MS) return
+    this.heartbeatPending = true
+    this.sendRequest({ type: 'ping' }, HEARTBEAT_TIMEOUT_MS, true)
+      .catch((error: unknown) => {
+        if (error instanceof DaemonRequestError && error.code === 'timeout') this.dropDead(socket)
+      })
+      .finally(() => {
+        this.heartbeatPending = false
+      })
+  }
+
+  /**
+   * A connection that stopped answering (a NAT dropped it silently): closed without waiting for a
+   * close handshake that would never come, then reconnected like any dropped connection.
+   */
+  private dropDead(socket: SocketLike): void {
+    if (this.socket !== socket) return
+    socket.onmessage = null
+    socket.onclose = null
+    socket.close()
+    this.socketClosed(socket, { code: 1006, reason: 'no answer' })
   }
 
   private clearConnectTimer(): void {
@@ -584,15 +660,20 @@ export class DaemonClient {
    * On the relay: tries the direct addresses on a second socket (IK and `auth`) and, when one
    * answers, moves the connection there. Stores resubscribe through `onReady`, from their cursors.
    */
+  /** Requests in flight other than the heartbeat's `ping` (which must not hold the probe back). */
+  private busy(): boolean {
+    return this.pending.size > (this.heartbeatPending ? 1 : 0)
+  }
+
   private async probeDirect(): Promise<void> {
-    if (this.probing || this._status !== 'open' || this._path !== 'relay' || this.pending.size > 0) return
+    if (this.probing || this._status !== 'open' || this._path !== 'relay' || this.busy()) return
     this.probing = true
     try {
       for (const target of connectionTargets(this.target)) {
         if (target.path !== 'direct') continue
         const found = await this.tryDirect(target.url)
         if (!found) continue
-        if (this._status !== 'open' || this._path !== 'relay' || this.pending.size > 0) {
+        if (this._status !== 'open' || this._path !== 'relay' || this.busy()) {
           found.socket.onclose = null
           found.socket.close(1000, 'not needed')
           return
@@ -601,6 +682,9 @@ export class DaemonClient {
         this.socket = found.socket
         this.session = found.session
         this.socketPath = 'direct'
+        this.socketUrl = target.url
+        this.lastGood = target.url
+        this.lastHeard = Date.now()
         found.socket.onmessage = (event) => {
           if (this.socket === found.socket) this.handleFrame(found.socket, event.data)
         }

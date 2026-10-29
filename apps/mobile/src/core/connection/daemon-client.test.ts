@@ -16,6 +16,9 @@ import {
   DaemonRequestError,
   DIRECT_PROBE_INTERVAL_MS,
   daemonUrl,
+  HEARTBEAT_MS,
+  HEARTBEAT_TIMEOUT_MS,
+  orderTargets,
   type SocketLike,
   WRONG_DAEMON_CLOSE,
 } from './daemon-client'
@@ -430,6 +433,77 @@ describe('DaemonClient', () => {
     const list = client.request({ type: 'sessions.list' })
     probe.receive({ type: 'sessions.snapshot', replyTo: probe.last().id, sessions: [] })
     await expect(list).resolves.toMatchObject({ type: 'sessions.snapshot' })
+  })
+
+  test('reconnects to the target that worked last before the others', async () => {
+    const client = makeClient({
+      computer: {
+        daemonId: 'd'.repeat(32),
+        addresses: ['10.0.0.2:7337', '172.31.0.5:7337'],
+        relay: 'wss://us.relay',
+        daemonKey: daemonKey.publicKey,
+        deviceKey,
+      },
+    })
+    client.connect()
+    FakeSocket.instances[0]!.drop()
+    vi.advanceTimersByTime(100)
+    FakeSocket.instances[1]!.drop()
+    vi.advanceTimersByTime(100)
+    const relay = FakeSocket.instances[2]!
+    authenticate(relay)
+    await Promise.resolve()
+    expect(client.path).toBe('relay')
+    relay.drop()
+    vi.advanceTimersByTime(1_000)
+    // Away from home: no 3 s wait on each direct address before the relay.
+    expect(FakeSocket.instances[3]!.url).toBe(relay.url)
+    expect(orderTargets([], 'wss://x')).toEqual([])
+    const targets = [
+      { url: 'a', path: 'direct' as const },
+      { url: 'b', path: 'relay' as const },
+    ]
+    expect(orderTargets(targets, null)).toEqual(targets)
+    expect(orderTargets(targets, 'gone')).toEqual(targets)
+    expect(orderTargets(targets, 'b').map((t) => t.url)).toEqual(['b', 'a'])
+  })
+
+  test('heartbeat: a quiet connection is pinged, and one that does not answer is replaced', async () => {
+    const client = makeClient()
+    const errors = vi.fn()
+    client.onRequestError(errors)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    authenticate(socket)
+    await Promise.resolve()
+    const sent = () => socket.sent.filter((m) => m.type === 'ping').length
+    // Busy: anything received counts as a sign of life.
+    for (let i = 0; i < 6; i++) {
+      vi.advanceTimersByTime(HEARTBEAT_MS / 3)
+      socket.receive({ type: 'session.changed', sessionId: 's', set: {}, unset: [] })
+    }
+    expect(sent()).toBe(0)
+    const untilPing = (count: number) => {
+      for (let i = 0; i < 5 && sent() < count; i++) vi.advanceTimersByTime(HEARTBEAT_MS / 3)
+    }
+    // Quiet: a ping, answered, keeps the connection.
+    untilPing(1)
+    expect(sent()).toBe(1)
+    socket.receive({ type: 'pong', replyTo: socket.last().id })
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+    expect(client.status).toBe('open')
+    // A ping without an answer: the socket is dropped and a new one opens.
+    untilPing(2)
+    expect(sent()).toBe(2)
+    vi.advanceTimersByTime(HEARTBEAT_TIMEOUT_MS)
+    for (let i = 0; i < 3; i++) await Promise.resolve()
+    expect(socket.readyState).toBe(3)
+    expect(client.status).toBe('reconnecting')
+    vi.advanceTimersByTime(1_000)
+    expect(FakeSocket.instances).toHaveLength(2)
+    // The heartbeat is not a request error for the UI.
+    expect(errors).not.toHaveBeenCalled()
+    client.close()
   })
 
   test('formats addresses', () => {
