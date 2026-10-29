@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { copyMainActivityFiltersToAliases, USER_LEAVE_HINT_EVENT } from '../app.config.ts'
+import { appIntentFiles, copyMainActivityFiltersToAliases, USER_LEAVE_HINT_EVENT } from '../app.config.ts'
 import { USER_LEAVE_HINT_EVENT as APP_ICON_EVENT } from '../src/features/settings/app-icon.ts'
 
 type Application = Parameters<typeof copyMainActivityFiltersToAliases>[0]
@@ -64,5 +64,21 @@ describe('copyMainActivityFiltersToAliases', () => {
 describe('USER_LEAVE_HINT_EVENT', () => {
   it('is the name the app icon store listens to', () => {
     expect(USER_LEAVE_HINT_EVENT).toBe(APP_ICON_EVENT)
+  })
+})
+
+describe('appIntentFiles', () => {
+  it('adds the Swift sources, the String Catalog and the phrases per language, not the strings module or tests', () => {
+    expect(
+      appIntentFiles(['strings.ts', 'SessionEntity.swift', 'AssistantBridge.swift', 'notes.md']),
+    ).toEqual({
+      swift: ['AssistantBridge.swift', 'SessionEntity.swift'],
+      resources: [
+        'Localizable.xcstrings',
+        'en.lproj/AppShortcuts.strings',
+        'pt-BR.lproj/AppShortcuts.strings',
+        'es.lproj/AppShortcuts.strings',
+      ],
+    })
   })
 })

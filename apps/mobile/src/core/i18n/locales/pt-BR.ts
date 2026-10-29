@@ -1269,6 +1269,28 @@ const ptBR = {
       sendNext: 'Enviar o próximo da fila',
     },
   },
+  assistant: {
+    sent: 'Enviado para “{{title}}”.',
+    emptyText: 'Não havia nada para enviar.',
+    noSession: 'Nenhuma sessão pode receber mensagens agora.',
+    sessionGone: 'Essa sessão não existe mais no seu computador.',
+    ended: '“{{title}}” foi encerrada. Retome no app para responder.',
+    readOnly: '“{{title}}” está somente leitura. Retome no app para responder.',
+    noPending: 'Nada está esperando permissão.',
+    onlyQuestions: 'Só há perguntas ou planos esperando. Responda no app.',
+    confirmAllow: 'Permitir “{{action}}” em “{{title}}”?',
+    confirmDeny: 'Negar “{{action}}” em “{{title}}”?',
+    allowed: 'Permitido.',
+    denied: 'Negado.',
+    answerGone: 'Esse pedido já foi respondido ou expirou.',
+    waitingNone: 'Nenhuma sessão está esperando por você.',
+    waiting_one: '{{count}} sessão está esperando por você: {{titles}}.',
+    waiting_other: '{{count}} sessões estão esperando por você: {{titles}}.',
+    running_one: '{{count}} sessão está rodando.',
+    running_other: '{{count}} sessões estão rodando.',
+    unreachable: 'Não consegui falar com o seu computador. Veja se ele está ligado e conectado.',
+    failed: 'Algo deu errado, então nada foi enviado.',
+  },
 } satisfies Messages
 
 export default ptBR

@@ -1277,6 +1277,28 @@ const esES = {
       sendNext: 'Enviar el siguiente de la cola',
     },
   },
+  assistant: {
+    sent: 'Enviado a “{{title}}”.',
+    emptyText: 'No había nada que enviar.',
+    noSession: 'Ninguna sesión puede recibir mensajes ahora.',
+    sessionGone: 'Esa sesión ya no está en tu ordenador.',
+    ended: '“{{title}}” ha terminado. Reanúdala en la app para responder.',
+    readOnly: '“{{title}}” es de solo lectura. Reanúdala en la app para responder.',
+    noPending: 'Nada está esperando permiso.',
+    onlyQuestions: 'Solo hay preguntas o planes esperando. Respóndelos en la app.',
+    confirmAllow: '¿Permitir “{{action}}” en “{{title}}”?',
+    confirmDeny: '¿Denegar “{{action}}” en “{{title}}”?',
+    allowed: 'Permitido.',
+    denied: 'Denegado.',
+    answerGone: 'Esa solicitud ya se respondió o ha caducado.',
+    waitingNone: 'Ninguna sesión te está esperando.',
+    waiting_one: '{{count}} sesión te está esperando: {{titles}}.',
+    waiting_other: '{{count}} sesiones te están esperando: {{titles}}.',
+    running_one: '{{count}} sesión está en marcha.',
+    running_other: '{{count}} sesiones están en marcha.',
+    unreachable: 'No pude contactar con tu ordenador. Comprueba que está encendido y conectado.',
+    failed: 'Algo salió mal, así que no se envió nada.',
+  },
 } satisfies Messages
 
 export default esES
