@@ -2,7 +2,7 @@ import { paths } from '../../core/paths.ts'
 import type { TmuxClient } from '../../infra/tmux.ts'
 import type { DaemonContext } from '../../main.ts'
 import { SessionService } from './service.ts'
-import { stateAfterPermission } from './state.ts'
+import { stateAfterResolution } from './state.ts'
 import { SessionStore } from './store.ts'
 import { toWire } from './types.ts'
 
@@ -21,10 +21,9 @@ export function registerSessionsFeature(ctx: DaemonContext, tmux: TmuxClient) {
       .catch((error) => ctx.logger.error({ err: error }, 'session hook handling failed'))
   })
 
-  ctx.bus.on('permission.resolved', ({ info, outcome }) => {
-    if (outcome !== 'allowed' && outcome !== 'denied') return
+  ctx.bus.on('permission.resolved', ({ info, outcome, continued }) => {
     // A request denied while closing (or answered late) must not bring an ended session back.
-    const state = stateAfterPermission(store.get(info.sessionId))
+    const state = stateAfterResolution(store.get(info.sessionId), outcome, continued)
     if (state) store.upsert(info.sessionId, { state })
   })
 

@@ -31,9 +31,25 @@ export function handoverOutcome(end: HookEnd): PermissionOutcome {
   return end === 'expired' ? 'expired' : 'cancelled'
 }
 
+/**
+ * How a session showed it went past a dialog: `result`, a tool result (the answer or a rejection,
+ * but possibly of a tool that ran in parallel); `turn`, a new prompt or a turn hook.
+ */
+export type Move = 'result' | 'turn'
+
 /** A transcript entry showing the turn went past the dialog: its answer, a rejection or a new prompt. */
-export function entryMovesOn(entry: Pick<TranscriptEntry, 'kind'>): boolean {
-  return entry.kind === 'tool_result' || entry.kind === 'user'
+export function entryMove(entry: Pick<TranscriptEntry, 'kind'>): Move | null {
+  if (entry.kind === 'tool_result') return 'result'
+  return entry.kind === 'user' ? 'turn' : null
+}
+
+/**
+ * Whether a move settles a request whose hook is still open. A question or plan stands alone in its
+ * turn, so its tool result is its answer; a tool permission's hook carries no tool-use id, so only
+ * a turn signal proves it was answered in the terminal.
+ */
+export function settlesOpenRequest(info: Pick<PermissionRequestInfo, 'interaction'>, move: Move): boolean {
+  return move === 'turn' || info.interaction !== undefined
 }
 
 const MOVING_HOOKS: ReadonlySet<HookEventName> = new Set([

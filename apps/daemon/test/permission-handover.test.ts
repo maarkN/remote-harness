@@ -3,13 +3,14 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { ConfigSchema, defaultProfiles, hookTimeoutSec } from '../src/core/config.ts'
 import { PermissionBroker } from '../src/features/permissions/broker.ts'
 import {
-  entryMovesOn,
+  entryMove,
   HANDOVER_GRACE_MS,
   handoverDelay,
   handoverOutcome,
   hookMovesOn,
   QUESTION_REMINDER_MS,
   reminderDelay,
+  settlesOpenRequest,
   timeoutFor,
 } from '../src/features/permissions/handover.ts'
 import { hookEvent } from './helpers.ts'
@@ -32,15 +33,23 @@ describe('handover rules', () => {
   })
 
   test('what shows the session went past the dialog', () => {
-    expect(entryMovesOn({ kind: 'tool_result' })).toBe(true)
-    expect(entryMovesOn({ kind: 'user' })).toBe(true)
-    expect(entryMovesOn({ kind: 'tool_use' })).toBe(false)
-    expect(entryMovesOn({ kind: 'assistant_text' })).toBe(false)
+    expect(entryMove({ kind: 'tool_result' })).toBe('result')
+    expect(entryMove({ kind: 'user' })).toBe('turn')
+    expect(entryMove({ kind: 'tool_use' })).toBeNull()
+    expect(entryMove({ kind: 'assistant_text' })).toBeNull()
     expect(hookMovesOn('Stop')).toBe(true)
     expect(hookMovesOn('UserPromptSubmit')).toBe(true)
     expect(hookMovesOn('SessionEnd')).toBe(true)
     expect(hookMovesOn('Interrupt')).toBe(true)
     expect(hookMovesOn('Notification')).toBe(false)
+  })
+
+  test('an open question settles on any move; an open tool permission only on a turn signal', () => {
+    expect(settlesOpenRequest(question, 'result')).toBe(true)
+    expect(settlesOpenRequest(question, 'turn')).toBe(true)
+    expect(settlesOpenRequest({ interaction: { kind: 'plan', plan: null } }, 'result')).toBe(true)
+    expect(settlesOpenRequest({}, 'result')).toBe(false)
+    expect(settlesOpenRequest({}, 'turn')).toBe(true)
   })
 
   test('only questions and plans with a long wait get a reminder', () => {

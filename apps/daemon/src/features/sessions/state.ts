@@ -1,4 +1,4 @@
-import type { SessionState } from '@remote-harness/protocol'
+import type { PermissionOutcome, SessionState } from '@remote-harness/protocol'
 
 /** Notifications that do not mean the agent waits for the user. */
 export const NOTIFICATIONS_NOT_WAITING = new Set(['auth_success', 'agent_completed'])
@@ -50,6 +50,19 @@ export function acceptsHook(
 /** A resolved permission request means the agent works again, unless the session is gone or ended. */
 export function stateAfterPermission(current: { state: SessionState } | undefined): SessionState | undefined {
   return current && current.state !== 'ended' ? 'running' : undefined
+}
+
+/**
+ * The state a resolution leaves: running again after an answer from a device, or after one in the
+ * terminal when the turn went on (`continued`); otherwise the session's hooks decide.
+ */
+export function stateAfterResolution(
+  current: { state: SessionState } | undefined,
+  outcome: PermissionOutcome,
+  continued = false,
+): SessionState | undefined {
+  if (outcome !== 'allowed' && outcome !== 'denied' && !continued) return undefined
+  return stateAfterPermission(current)
 }
 
 /** True when a change moved a session into `ended`. */

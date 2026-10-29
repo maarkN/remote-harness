@@ -7,7 +7,7 @@ import type { Connection } from '../../transport/connection.ts'
 import type { EntryListener } from '../transcript/service.ts'
 import { type ApprovalEvent, ApprovalLog } from './approval-log.ts'
 import { type DecidedRequest, PermissionBroker } from './broker.ts'
-import { entryMovesOn, hookMovesOn } from './handover.ts'
+import { entryMove, hookMovesOn, type Move } from './handover.ts'
 import { listRuleFiles, ruleSources } from './rule-listing.ts'
 import { RulesLog } from './rules-log.ts'
 import { removeAllowRule } from './settings-rules.ts'
@@ -61,12 +61,13 @@ export function registerPermissionsFeature(
   }
 
   /** The session went past its dialog: a tool result or prompt in the transcript, or a turn hook. */
-  const watch = (sessionId: string, onMove: () => void) => {
+  const watch = (sessionId: string, onMove: (move: Move) => void) => {
     let stopped = false
     let stopFollow: (() => void) | undefined
     const following = async () =>
       follow?.(sessionId, (_id, entry) => {
-        if (entryMovesOn(entry)) onMove()
+        const move = entryMove(entry)
+        if (move) onMove(move)
       })
     following()
       .then((stop) => {
@@ -77,7 +78,7 @@ export function registerPermissionsFeature(
       // No transcript yet (or unreadable): the turn hooks still end the handover.
       .catch((error) => ctx.logger.debug({ err: error, sessionId }, 'permission watch without transcript'))
     const offHook = ctx.bus.on('hook', (hook) => {
-      if (hook.payload.session_id === sessionId && hookMovesOn(hook.event)) onMove()
+      if (hook.payload.session_id === sessionId && hookMovesOn(hook.event)) onMove('turn')
     })
     return () => {
       stopped = true
@@ -95,9 +96,15 @@ export function registerPermissionsFeature(
     denyMessage: messages.claudeCode.denied,
     keepPlanningMessage: messages.claudeCode.keepPlanning,
     onRequested: (info) => ctx.bus.emit('permission.requested', info),
-    onResolved: (info, outcome) => {
+    onResolved: (info, outcome, move) => {
       if (info.terminal) ctx.logger.info({ tool: info.tool, outcome }, 'handed-over permission request ended')
-      ctx.bus.emit('permission.resolved', { info, outcome })
+      else if (move) ctx.logger.info({ tool: info.tool, move }, 'permission request answered in the terminal')
+      // A tool result means the turn goes on; a turn hook sets the state itself.
+      ctx.bus.emit('permission.resolved', {
+        info,
+        outcome,
+        ...(move === 'result' ? { continued: true } : {}),
+      })
     },
     onHandover: (info, end) => {
       // Tool name only: inputs and answers are session content.
