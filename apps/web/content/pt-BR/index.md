@@ -10,6 +10,7 @@ O Remote Harness permite acompanhar e comandar, pelo celular, sessões do Claude
 - [Primeiros passos](/pt-br/docs/getting-started/): requisitos, a instalação de uma linha no macOS, Linux e Windows (WSL2), o app, o pareamento.
 - [Usando o app](/pt-br/docs/using-the-app/): lista de sessões, conversa, prompts, permissões, terminal, sessões e worktrees, status ao vivo, notificações, perfis e OpenRouter, ajustes.
 - [O daemon](/pt-br/docs/daemon/): comandos da CLI, o arquivo de configuração, o serviço em segundo plano, atualizações e canais, o ícone na bandeja, logs.
+- [Servidor na nuvem](/pt-br/docs/cloud-server/): rodar o daemon numa VM na nuvem (AWS, DigitalOcean, GCP, Oracle): portas e firewalls, o serviço sem login, o terminal por SSH, conexões instáveis.
 - [Segurança e privacidade](/pt-br/docs/security/): o que o daemon pode fazer, o que sai da sua máquina, chaves e pareamento, como relatar um problema.
 - [Solução de problemas](/pt-br/docs/troubleshooting/): conexão, relay, push, suspensão, sessões somente leitura, WSL, versões diferentes.
 - [Contribuindo](/pt-br/docs/contributing/): como o projeto é construído e como ajudar.

@@ -110,7 +110,7 @@ Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added
 
 ## Background service
 
-`remote-harness service install` keeps the daemon running after you close the terminal and starts it at login: a LaunchAgent on macOS (shown as a Login Item), a systemd user unit on Linux (`~/.config/systemd/user/claude-remote.service`). On Linux servers you reach over SSH, the setup offers `loginctl enable-linger`, so the service survives logout. Without systemd (containers, some WSL setups) run `remote-harness start` yourself, for example in a tmux window. On WSL the setup can also create a Windows scheduled task that starts the distribution at logon.
+`remote-harness service install` keeps the daemon running after you close the terminal and starts it at login: a LaunchAgent on macOS (shown as a Login Item), a systemd user unit on Linux (`~/.config/systemd/user/claude-remote.service`). On Linux servers you reach over SSH, the setup offers `loginctl enable-linger`, so the service survives logout; [Cloud server](/en/docs/cloud-server/) covers running the daemon on a cloud VM. Without systemd (containers, some WSL setups) run `remote-harness start` yourself, for example in a tmux window. On WSL the setup can also create a Windows scheduled task that starts the distribution at logon.
 
 `remote-harness service status` shows whether it is loaded; the tray menu can restart it.
 

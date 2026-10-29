@@ -26,6 +26,7 @@ Away from home the app goes through the connection relay. If it connects at home
 - A firewall or proxy that blocks outbound `wss://` (port 443) to the relay keeps the daemon off it: allow `us.relay.remoteharness.app` and `br.relay.remoteharness.app`, or [run your own](/en/docs/daemon/#self-hosting-the-connection-relay).
 - `"relay": "off"` in the config keeps the daemon off the relays; only the direct path works then.
 - A daemon started with `--dev` never uses a relay.
+- On a cloud server, or when the connection keeps dropping and coming back, see [Cloud server](/en/docs/cloud-server/#unstable-connections).
 
 ## Push does not arrive
 

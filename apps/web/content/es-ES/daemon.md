@@ -110,7 +110,7 @@ Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>
 
 ## Servicio en segundo plano
 
-`remote-harness service install` mantiene el daemon en marcha después de cerrar el terminal y lo inicia al iniciar sesión: un LaunchAgent en macOS (aparece como elemento de inicio), una unidad de usuario de systemd en Linux (`~/.config/systemd/user/claude-remote.service`). En servidores Linux a los que llegas por SSH, la instalación ofrece `loginctl enable-linger`, para que el servicio sobreviva al cierre de sesión. Sin systemd (contenedores, algunos WSL) ejecuta `remote-harness start` tú mismo, por ejemplo en una ventana de tmux. En WSL la instalación también puede crear una tarea programada de Windows que inicie la distribución al iniciar sesión.
+`remote-harness service install` mantiene el daemon en marcha después de cerrar el terminal y lo inicia al iniciar sesión: un LaunchAgent en macOS (aparece como elemento de inicio), una unidad de usuario de systemd en Linux (`~/.config/systemd/user/claude-remote.service`). En servidores Linux a los que llegas por SSH, la instalación ofrece `loginctl enable-linger`, para que el servicio sobreviva al cierre de sesión; [Servidor en la nube](/es/docs/cloud-server/) explica cómo ejecutar el daemon en una VM en la nube. Sin systemd (contenedores, algunos WSL) ejecuta `remote-harness start` tú mismo, por ejemplo en una ventana de tmux. En WSL la instalación también puede crear una tarea programada de Windows que inicie la distribución al iniciar sesión.
 
 `remote-harness service status` muestra si está cargado; el menú de la bandeja lo reinicia.
 
