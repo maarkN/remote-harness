@@ -8,6 +8,7 @@ import {
   rolloutSessionId,
   threadName,
 } from '../transcript/codex-format.ts'
+import { POLISH_SYSTEM_PROMPT, parseCodexExecResult } from './one-shot.ts'
 import type { AgentAdapter, TranscriptLocation } from './types.ts'
 
 const DAY_MS = 86_400_000
@@ -74,12 +75,16 @@ async function readCodexSummary(path: string, configDir: string) {
     cwd: meta.cwd,
     permissionMode: null,
     approvalPolicy: meta.approvalPolicy,
+    permissionProfile: meta.permissionProfile,
     status: meta.status,
     limits: meta.limits,
   }
 }
 
-/** OpenAI Codex CLI (read from codex 0.163). */
+/** Built-in Codex permission profiles of the presets the app may pick. */
+const PRESET_PROFILES = { 'read-only': ':read-only', workspace: ':workspace' } as const
+
+/** OpenAI Codex CLI (read from codex 0.163; `/permissions <id>` needs 0.164). */
 export const codex: AgentAdapter = {
   id: 'codex',
   name: 'Codex',
@@ -87,8 +92,11 @@ export const codex: AgentAdapter = {
   configDirEnv: 'CODEX_HOME',
   defaultConfigDir: '~/.codex',
   resumeArgs: (sessionId) => ['resume', sessionId],
-  worktreeArgs: () => null,
+  // Codex creates and names its own worktree (under CODEX_HOME/worktrees) from HEAD.
+  worktreeArgs: () => ['--worktree'],
   nameArgs: () => null,
+  // Stored as the thread name in session_index.jsonl, which `readSummary` reads back.
+  renameCommand: (name) => `/rename ${name}`,
   transcript: codexTranscript,
   findTranscripts: findCodexTranscripts,
   readSummary: readCodexSummary,
@@ -100,6 +108,24 @@ export const codex: AgentAdapter = {
   statusLine: false,
   providers: false,
   modes: false,
+  presets: { command: (preset) => `/permissions ${PRESET_PROFILES[preset]}` },
   permissionRules: false,
-  polish: null,
+  // No session file (`--ephemeral`), no MCP servers or user model settings (`--ignore-user-config`),
+  // no writes (`--sandbox read-only`); exec has no system-prompt flag, so the instructions lead the prompt.
+  polish: {
+    args: (text, systemPrompt = POLISH_SYSTEM_PROMPT) => [
+      'exec',
+      '--json',
+      '--ephemeral',
+      '--skip-git-repo-check',
+      '--ignore-user-config',
+      '--sandbox',
+      'read-only',
+      '-c',
+      'model_reasoning_effort="low"',
+      '--',
+      `${systemPrompt}\n\n${text}`,
+    ],
+    parse: parseCodexExecResult,
+  },
 }

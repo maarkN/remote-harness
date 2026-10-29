@@ -4,7 +4,7 @@ import type { Checkout, Profile, ProjectItem } from '@remote-harness/protocol'
 import { DaemonError } from '../../core/errors.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { isDirectory } from '../../infra/fs.ts'
-import { agentFor } from '../agents/index.ts'
+import { adapterOf, agentFor } from '../agents/index.ts'
 import { worktreeCandidates, worktreeName, worktreeSlug } from '../checkout/resolver.ts'
 import type { SessionStore } from '../sessions/store.ts'
 
@@ -48,6 +48,8 @@ export class LifecycleService {
     ) => Promise<string | null> = async () => null,
     /** Whether a worktree name is taken in the repository at \`root\` (its directory or branch). */
     private readonly worktreeTaken: (root: string, name: string) => Promise<boolean> = async () => false,
+    /** Submits a command in a session's pane (the agent's rename command); reports its own errors. */
+    private readonly submit: (sessionId: string, text: string) => void = () => {},
   ) {}
 
   private profile(id: string): Profile {
@@ -119,13 +121,16 @@ export class LifecycleService {
 
   /**
    * Titles a session that linked to a pane started with a name (once): called by \`start\` and by
-   * the store listener for sessions that register later.
+   * the store listener for sessions that register later. Agents without a name flag also get their
+   * rename command (Codex \`/rename\`), so the name outlives the daemon's registry.
    */
   applyName(sessionId: string, paneId: string | null): void {
     const name = paneId ? this.pendingNames.get(paneId) : undefined
     if (!paneId || name === undefined) return
     this.pendingNames.delete(paneId)
     this.store.upsert(sessionId, { title: name })
+    const command = adapterOf(this.store.get(sessionId)?.agent).renameCommand(name)
+    if (command) this.submit(sessionId, command)
   }
 
   async resume(profileId: string, sessionId: string): Promise<{ paneId: string }> {

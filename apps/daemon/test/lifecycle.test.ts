@@ -19,6 +19,7 @@ function record(id: string, patch: Partial<SessionRecord>): SessionRecord {
     state: 'ended',
     permissionMode: null,
     approvalPolicy: null,
+    permissionProfile: null,
     controllable: false,
     paneId: null,
     updatedAt: '2026-10-14T10:00:00Z',
@@ -230,6 +231,58 @@ describe('LifecycleService', () => {
     // A name with nothing usable for a slug falls back to the time.
     await service.start('claudin', project, { worktree: true, name: '🚀' })
     expect(exec.calls[1]).toMatchObject({ args: ['--worktree', 'remote-20261015-160500', '--name', '🚀'] })
+  })
+
+  test('a named Codex session starts in a worktree and gets /rename once it registers', async () => {
+    const { exec, store, project } = await setup()
+    const submitted: Array<[string, string]> = []
+    const service = new LifecycleService(
+      exec,
+      store,
+      [{ id: 'cdx', name: 'C', configDir: '/c', color: '', agent: 'codex' }],
+      '/bin-dir',
+      home.dir(),
+      undefined,
+      async () => ({ root: project, branch: 'main' }),
+      () => new Date(2026, 9, 15, 16, 5, 0),
+      undefined,
+      async () => null,
+      undefined,
+      (id, text) => submitted.push([id, text]),
+    )
+    await service.start('cdx', project, { worktree: true, name: 'Login bug' })
+    expect(exec.calls[0]).toMatchObject({ args: ['--worktree'] })
+    // Codex fires SessionStart with the first turn.
+    store.upsert('c1', {}, () =>
+      record('c1', { paneId: '%9', title: 'proj', agent: 'codex', controllable: true }),
+    )
+    service.applyName('c1', '%9')
+    service.applyName('c1', '%9')
+    expect(store.get('c1')?.title).toBe('Login bug')
+    expect(submitted).toEqual([['c1', '/rename Login bug']])
+  })
+
+  test('a named Claude Code session gets no rename command', async () => {
+    const { exec, store, project } = await setup()
+    const submitted: string[] = []
+    const service = new LifecycleService(
+      exec,
+      store,
+      [{ id: 'claudin', name: 'P', configDir: '/c', color: '' }],
+      '/bin-dir',
+      home.dir(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async () => null,
+      undefined,
+      (_id, text) => submitted.push(text),
+    )
+    await service.start('claudin', project, { name: 'Login bug' })
+    store.upsert('s1', {}, () => record('s1', { paneId: '%9', title: 'proj' }))
+    service.applyName('s1', '%9')
+    expect(submitted).toEqual([])
   })
 
   test('a session that registers in time is titled before the reply', async () => {

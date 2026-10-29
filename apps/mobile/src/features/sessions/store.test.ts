@@ -10,6 +10,7 @@ const session: Session = {
   state: 'idle',
   permissionMode: 'default',
   approvalPolicy: null,
+  permissionProfile: null,
   controllable: true,
   paneId: '%1',
   updatedAt: '2026-10-14T00:00:00Z',

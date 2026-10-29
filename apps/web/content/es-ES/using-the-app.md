@@ -84,7 +84,7 @@ Las App Actions necesitan el Asistente de Google (los móviles en los que Gemini
 
 Un perfil es una cuenta de Claude Code, es decir un `CLAUDE_CONFIG_DIR`, con nombre, color y alias. Un perfil también puede enrutar Claude Code por **OpenRouter**: sus filas muestran un chip discontinuo `vía OpenRouter`, **Nueva sesión** gana una fila **Modelo** con un selector con búsqueda (tamaño del contexto, precios por millón de tokens, soporte de herramientas, razonamiento y caché, créditos restantes), y **Cambiar modelo…** en el menú de la sesión cambia una sesión en marcha. La clave se queda en el ordenador: consulta [el daemon](/es/docs/daemon/#perfiles-y-openrouter).
 
-Un perfil también puede ejecutar **Codex** (insignia `cx`, verde): sus sesiones muestran la política de aprobación (`on-request`, `never`…) en lugar del chip de modo, llamadas `exec(…)` y `apply_patch(…)` con su salida y diff, y aprobaciones con Permitir / Denegar. Consulta [Perfiles de Codex](/es/docs/daemon/#perfiles-de-codex).
+Un perfil también puede ejecutar **Codex** (insignia `cx`, verde): sus sesiones muestran el perfil de permisos (solo lectura, workspace, acceso total) en lugar del chip de modo, donde puedes alternar entre solo lectura y workspace, llamadas `exec(…)` y `apply_patch(…)` con su salida y diff, y aprobaciones con Permitir / Denegar. Consulta [Perfiles de Codex](/es/docs/daemon/#perfiles-de-codex).
 
 ## Ajustes
 

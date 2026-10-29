@@ -238,4 +238,19 @@ describe('commit, push and PR on a real repository', () => {
     )
     await expect(silent.generate('s', 'commit')).rejects.toMatchObject({ code: 'internal' })
   })
+
+  test('a Codex session writes it through codex exec', async () => {
+    const { root, service, client } = await setup()
+    await writeFile(join(root, 'a.ts'), 'a2\n')
+    const message = { type: 'item.completed', item: { type: 'agent_message', text: 'Update a' } }
+    const agent = fakeExecutor(() => ({ stdout: JSON.stringify(message) }))
+    const profiles: Profile[] = [
+      { id: 'p', name: 'P', configDir: join(home.dir(), '.codex'), color: '', agent: 'codex' },
+    ]
+    const writer = new MessageWriter(service, client, agent, profiles)
+    expect(await writer.generate('s', 'commit', ['a.ts'])).toMatchObject({ title: 'Update a' })
+    expect(agent.calls[0]?.file).toBe('codex')
+    expect(agent.calls[0]?.args[0]).toBe('exec')
+    expect(agent.calls[0]?.options?.input).toContain('+a2')
+  })
 })

@@ -534,6 +534,8 @@ const enUS = {
   permissions: {
     deny: 'Deny',
     always: 'Always',
+    noRules:
+      'This agent can\'t save always-allow rules from the app. Use "don\'t ask again" in the terminal.',
     allow: 'Allow',
     queued_one: '+{{count}} request in the queue',
     queued_other: '+{{count}} requests in the queue',
@@ -801,7 +803,8 @@ const enUS = {
     useOriginal: 'Use original',
     usePolished: 'Use polished',
     polishTitle: 'Polish dictation',
-    polishHint: 'Rewrites the transcript into a clean prompt before inserting it. Claude Code sessions only.',
+    polishHint:
+      'Rewrites the transcript into a clean prompt before inserting it. Claude Code and Codex sessions only.',
     pushToTalkTitle: 'Press and hold to record',
     pushToTalkHint: 'Hold the microphone button to record, release to stop, instead of tapping to toggle.',
     polishUnsupportedTitle: 'Polish dictation unavailable',
@@ -880,6 +883,17 @@ const enUS = {
     autoConfirm: 'Turn on auto',
     approvalPolicy: 'Approval policy: {{policy}}',
     unknownPolicy: 'unknown',
+    codex: {
+      title: 'Codex permissions',
+      hint: 'Switches with /permissions on the computer; the profile shown is the one Codex recorded.',
+      a11y: 'Codex permissions: {{profile}}. Approval policy: {{policy}}',
+      fullAccessNote: 'Full access is only available in the terminal.',
+      labels: { readOnly: 'read only', workspace: 'workspace', fullAccess: 'full access' },
+      hints: {
+        readOnly: 'reads files; asks before editing or using the network',
+        workspace: 'reads, edits the workspace and runs commands; asks for the rest',
+      },
+    },
     labels: {
       default: 'default',
       acceptEdits: 'accept edits',
