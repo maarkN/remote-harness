@@ -1264,6 +1264,29 @@ const enUS = {
       sendNext: 'Send next queued',
     },
   },
+  /** Sentences Siri (and other voice assistants) speak back; plain text, read aloud. */
+  assistant: {
+    sent: 'Sent to “{{title}}”.',
+    emptyText: 'There was nothing to send.',
+    noSession: 'No session can receive a message right now.',
+    sessionGone: 'That session is no longer on your computer.',
+    ended: '“{{title}}” has ended. Resume it in the app to reply.',
+    readOnly: '“{{title}}” is read-only. Resume it in the app to reply.',
+    noPending: 'Nothing is waiting for permission.',
+    onlyQuestions: 'Only questions or plans are waiting. Answer them in the app.',
+    confirmAllow: 'Allow “{{action}}” in “{{title}}”?',
+    confirmDeny: 'Deny “{{action}}” in “{{title}}”?',
+    allowed: 'Allowed.',
+    denied: 'Denied.',
+    answerGone: 'That request was already answered or has expired.',
+    waitingNone: 'No session is waiting for you.',
+    waiting_one: '{{count}} session is waiting for you: {{titles}}.',
+    waiting_other: '{{count}} sessions are waiting for you: {{titles}}.',
+    running_one: '{{count}} session is running.',
+    running_other: '{{count}} sessions are running.',
+    unreachable: 'Couldn’t reach your computer. Check that it is on and connected.',
+    failed: 'Something went wrong, so nothing was sent.',
+  },
 }
 
 export type Messages = typeof enUS

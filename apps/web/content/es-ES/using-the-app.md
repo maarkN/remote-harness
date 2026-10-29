@@ -66,6 +66,10 @@ Las notificaciones push avisan cuando una sesión necesita un permiso, termina u
 
 La notificación de una sesión que terminó o te espera tiene acciones: **Responder** (escribe, o dicta con el micrófono del teclado), **Responder por voz** (abre la sesión ya grabando y envía cuando terminas), **Interrumpir** (Escape) y, cuando hay prompts en cola, **Enviar el siguiente de la cola**. Las notificaciones de permiso siguen solo con Permitir y Denegar. Toda acción pide el móvil desbloqueado, y la respuesta va del móvil directamente al ordenador por la conexión cifrada, nunca por el relay de push. En Android las acciones llegan con las builds de la app desde esta versión; las antiguas muestran la notificación simple.
 
+## Siri y Atajos
+
+En iOS 16 o posterior, Siri y la app Atajos actúan en el ordenador activo sin tocar la app: **Responder a una sesión** ("Responder en Remote Harness" y dicta el mensaje; va a la sesión que te necesita, o a la que nombres), **Responder al permiso pendiente** ("Responder a Remote Harness": Siri lee lo que pide el permiso más antiguo y confirma antes de permitir o denegar) y **Qué está esperando** ("Qué está esperando en Remote Harness"). Las preguntas y los planes siguen necesitando la app. Toda acción pide el móvil desbloqueado y va directamente al ordenador por la conexión cifrada. Con la app cerrada, Siri pide continuar en Remote Harness (iOS 17 o posterior) y termina allí. Los títulos de sesión que se ofrecen a Siri se quedan en el móvil.
+
 ## Perfiles y OpenRouter
 
 Un perfil es una cuenta de Claude Code, es decir un `CLAUDE_CONFIG_DIR`, con nombre, color y alias. Un perfil también puede enrutar Claude Code por **OpenRouter**: sus filas muestran un chip discontinuo `vía OpenRouter`, **Nueva sesión** gana una fila **Modelo** con un selector con búsqueda (tamaño del contexto, precios por millón de tokens, soporte de herramientas, razonamiento y caché, créditos restantes), y **Cambiar modelo…** en el menú de la sesión cambia una sesión en marcha. La clave se queda en el ordenador: consulta [el daemon](/es/docs/daemon/#perfiles-y-openrouter).

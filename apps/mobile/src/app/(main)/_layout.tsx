@@ -8,6 +8,7 @@ import { useConnectionStore } from '@/core/connection'
 import { keys, onKeyCommand } from '@/core/keyboard/key-commands'
 import { edgeSwipeEnabled, inspectorMode, sidebarMode, useLayout } from '@/core/layout'
 import { space, useTheme } from '@/core/theme'
+import { useAssistantSessions } from '@/features/assistant/use-assistant-sessions'
 import { InspectorPane } from '@/features/inspector/InspectorPane'
 import { setInspectorOpen, useInspectorStore } from '@/features/inspector/store'
 import { useLiveFollow } from '@/features/live-status/use-live-follow'
@@ -74,6 +75,7 @@ export default function MainLayout() {
   usePush()
   useLiveStatus()
   useLiveFollow()
+  useAssistantSessions()
   const { layout, portrait } = useLayout()
   const pathname = usePathname()
   const pending = usePermissionsStore(useShallow(selectPendingCounts))

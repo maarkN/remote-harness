@@ -1,10 +1,11 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import {
   type AndroidConfig,
   type ConfigPlugin,
   type ExportedConfig,
+  IOSConfig,
   withAndroidManifest,
   withAppBuildGradle,
   withAppDelegate,
@@ -15,6 +16,13 @@ import {
   withPodfile,
   withXcodeProject,
 } from 'expo/config-plugins'
+import {
+  INTENT_STRINGS,
+  SHORTCUT_PHRASES,
+  STRINGS_LANGUAGES,
+  stringCatalog,
+  stringsFile,
+} from './modules/voice-assistant/app-intents/strings.ts'
 
 /** Dark theme background (splash and adaptive icon backdrop; the artwork changes in #84). */
 const BACKGROUND = '#0D0D0D'
@@ -393,6 +401,86 @@ const withLiveActivityIcon: ConfigPlugin = (config) => {
   })
 }
 
+/** Folder of the app target that receives the Siri / Shortcuts intents (`modules/voice-assistant`). */
+const APP_INTENTS_DIR = 'AppIntents'
+const APP_INTENTS_SOURCE = './modules/voice-assistant/app-intents'
+
+/**
+ * Files the intents add to the app target: their Swift sources (App Intents metadata is only
+ * extracted from the app target, so they cannot live in the module's pod), the String Catalog and the
+ * per-language phrases generated from `app-intents/strings.ts`.
+ */
+export function appIntentFiles(sourceFiles: readonly string[]): { swift: string[]; resources: string[] } {
+  return {
+    swift: sourceFiles.filter((file) => file.endsWith('.swift')).sort(),
+    resources: [
+      'Localizable.xcstrings',
+      ...STRINGS_LANGUAGES.map((language) => `${language}.lproj/AppShortcuts.strings`),
+    ],
+  }
+}
+
+/** Siri / Shortcuts (#417): copies the intents into `ios/<App>/AppIntents` and adds them to the app target. */
+const withVoiceAssistantIntents: ConfigPlugin = (config) => {
+  const withFiles = withDangerousMod(config, [
+    'ios',
+    (config) => {
+      const { projectRoot, platformProjectRoot, projectName } = config.modRequest
+      const source = join(projectRoot, APP_INTENTS_SOURCE)
+      const target = join(platformProjectRoot, projectName ?? '', APP_INTENTS_DIR)
+      mkdirSync(target, { recursive: true })
+      for (const file of appIntentFiles(readdirSync(source)).swift) {
+        copyFileSync(join(source, file), join(target, file))
+      }
+      writeFileSync(join(target, 'Localizable.xcstrings'), stringCatalog(INTENT_STRINGS))
+      for (const language of STRINGS_LANGUAGES) {
+        mkdirSync(join(target, `${language}.lproj`), { recursive: true })
+        writeFileSync(
+          join(target, `${language}.lproj`, 'AppShortcuts.strings'),
+          stringsFile(SHORTCUT_PHRASES, language),
+        )
+      }
+      return config
+    },
+  ])
+  return withXcodeProject(withFiles, (config) => {
+    const project = config.modResults
+    const groupName = config.modRequest.projectName ?? ''
+    const files = appIntentFiles(readdirSync(join(config.modRequest.projectRoot, APP_INTENTS_SOURCE)))
+    // The catalogs' languages (the template only lists `en`); quoted as Xcode writes `pt-BR`.
+    for (const region of ['"pt-BR"', 'es']) project.addKnownRegion(region)
+    // Paths start at `ios/`, like the template's `RemoteHarness/AppDelegate.swift`.
+    const folder = `${groupName}/${APP_INTENTS_DIR}`
+    for (const file of files.swift) {
+      IOSConfig.XcodeUtils.addBuildSourceFileToGroup({ filepath: `${folder}/${file}`, groupName, project })
+    }
+    for (const file of files.resources) {
+      const filepath = `${folder}/${file}`
+      // One group per `<lang>.lproj` (as Expo does for `InfoPlist.strings`): files of the same name
+      // in one group would be skipped as duplicates. The groups have no path of their own.
+      const lproj = file.split('/').find((part) => part.endsWith('.lproj'))
+      const fileGroup = lproj ? `${groupName}/${APP_INTENTS_DIR}/${lproj}` : groupName
+      if (lproj) IOSConfig.XcodeUtils.ensureGroupRecursively(project, fileGroup)
+      IOSConfig.XcodeUtils.addResourceFileToGroup({
+        filepath,
+        groupName: fileGroup,
+        project,
+        isBuildFile: true,
+      })
+      if (!file.endsWith('.xcstrings')) continue
+      // The xcode library does not know String Catalogs; Xcode compiles them only with this type.
+      const references: Record<string, { path?: string; lastKnownFileType?: string }> =
+        project.pbxFileReferenceSection()
+      for (const reference of Object.values(references)) {
+        if (typeof reference === 'object' && reference.path?.replace(/"/g, '') === filepath) {
+          reference.lastKnownFileType = 'text.json.xcstrings'
+        }
+      }
+    }
+    return config
+  })
+}
+
 /**
  * `locales` (the iOS system prompts above) also lands in the Android string resources, per language
  * and without a default, which the release lint (`lintVitalRelease`) rejects as extra translations.
@@ -464,11 +552,13 @@ const withFirebase: ConfigPlugin = (config) => {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const expo = withIconAliasDeepLinks(
     withIosOnlyLocaleStrings(
-      withLiveActivityIcon(
-        withUserLeaveHintMainActivity(
-          withKeyCommandMainActivity(
-            withKeyCommandAppDelegate(
-              withKeyCommandBridgingHeader(withPerIdiomOrientation(withSceneLifecycle(appConfig(config)))),
+      withVoiceAssistantIntents(
+        withLiveActivityIcon(
+          withUserLeaveHintMainActivity(
+            withKeyCommandMainActivity(
+              withKeyCommandAppDelegate(
+                withKeyCommandBridgingHeader(withPerIdiomOrientation(withSceneLifecycle(appConfig(config)))),
+              ),
             ),
           ),
         ),

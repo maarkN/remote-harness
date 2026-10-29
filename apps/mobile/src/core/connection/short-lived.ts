@@ -13,10 +13,18 @@ export async function withShortLivedClient(
   use: (client: DaemonClient) => Promise<unknown>,
   daemonId?: string,
 ): Promise<boolean> {
+  return (await runOnShortLivedClient(use, daemonId)).ok
+}
+
+/** Same as `withShortLivedClient`, keeping what `use` returned (a voice assistant's answer). */
+export async function runOnShortLivedClient<T>(
+  use: (client: DaemonClient) => Promise<T>,
+  daemonId?: string,
+): Promise<{ ok: true; value: T } | { ok: false }> {
   const { computers, active } = await credentialsStorage.loadAll()
   // The notification's computer when it says which; else the active one.
   const credentials = computers.find((c) => c.daemonId === (daemonId ?? active))
-  if (!credentials) return false
+  if (!credentials) return { ok: false }
   const client = new DaemonClient({
     computer: credentials,
     crypto: noiseCrypto,
@@ -35,10 +43,9 @@ export async function withShortLivedClient(
       })
       client.connect()
     })
-    await use(client)
-    return true
+    return { ok: true, value: await use(client) }
   } catch {
-    return false
+    return { ok: false }
   } finally {
     client.close()
   }

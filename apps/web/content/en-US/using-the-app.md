@@ -66,6 +66,10 @@ Push notifications tell you when a session needs a permission, finishes a turn o
 
 A finished or waiting session's notification has actions: **Reply** (type, or dictate with the keyboard's mic), **Reply by voice** (opens the session already recording and sends when you finish), **Interrupt** (Escape) and, when prompts are queued, **Send next queued**. Permission notifications keep Allow and Deny only. Every action needs the phone unlocked, and the answer goes from the phone straight to the computer over the encrypted connection, never through the push relay. On Android the actions come with app builds from this version on; older builds show the plain notification.
 
+## Siri and Shortcuts
+
+On iOS 16 or later, Siri and the Shortcuts app can act on the active computer without touching the app: **Reply to a session** ("Reply in Remote Harness", then dictate the message; it goes to the session that needs you, or the one you name), **Answer the pending permission** ("Answer Remote Harness": Siri reads what the oldest permission asks and confirms before allowing or denying) and **What's waiting** ("What's waiting in Remote Harness"). Questions and plans still need the app. Every action needs the phone unlocked and goes straight to the computer over the encrypted connection. When the app is closed, Siri asks to continue in Remote Harness (iOS 17 or later) and finishes there. Session titles offered to Siri stay on the phone.
+
 ## Profiles and OpenRouter
 
 A profile is a Claude Code account, that is a `CLAUDE_CONFIG_DIR`, with a name, a color and an alias. A profile can also route Claude Code through **OpenRouter**: its rows show a dashed `via OpenRouter` chip, **New session** gets a **Model** row with a searchable picker (context size, prices per million tokens, tool use, thinking and caching support, credits left), and **Change model…** in the session menu switches a running session. The key stays on the computer: see [the daemon](/en/docs/daemon/#profiles-and-openrouter).
