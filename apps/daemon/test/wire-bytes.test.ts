@@ -103,6 +103,7 @@ describe('wire bytes for the #355 scenario', () => {
       state: 'running',
       permissionMode: 'acceptEdits',
       approvalPolicy: null,
+      permissionProfile: null,
       controllable: true,
       paneId: '%3',
       updatedAt: at(0),

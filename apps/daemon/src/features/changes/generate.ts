@@ -4,7 +4,7 @@ import { DaemonError } from '../../core/errors.ts'
 import type { Executor } from '../../infra/exec.ts'
 import type { GitClient } from '../../infra/git.ts'
 import { agentFor } from '../agents/index.ts'
-import { oneShotEnv, parseOneShotResult } from '../agents/one-shot.ts'
+import { oneShotEnv } from '../agents/one-shot.ts'
 import type { ChangesService } from './service.ts'
 
 /** How much of the diff (or the log) the agent CLI reads. */
@@ -85,7 +85,7 @@ export class MessageWriter {
         timeoutMs: GENERATE_TIMEOUT_MS,
       },
     )
-    const reply = result.exitCode === 0 && !result.timedOut ? parseOneShotResult(result.stdout) : null
+    const reply = result.exitCode === 0 && !result.timedOut ? adapter.polish.parse(result.stdout) : null
     const message = reply ? splitMessage(reply) : null
     if (!message?.title) throw new DaemonError('internal', 'the agent did not write a message')
     return message

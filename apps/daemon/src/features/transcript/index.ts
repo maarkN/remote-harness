@@ -24,6 +24,7 @@ export function registerTranscriptFeature(
         ...(mode.success ? { permissionMode: mode.data } : {}),
         ...(update.customTitle ? { title: oneLine(update.customTitle) } : {}),
         ...(update.approvalPolicy ? { approvalPolicy: update.approvalPolicy } : {}),
+        ...(update.permissionProfile ? { permissionProfile: update.permissionProfile } : {}),
       })
       const session = store.get(sessionId)
       if (!session) return

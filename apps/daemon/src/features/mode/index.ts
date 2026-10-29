@@ -8,8 +8,10 @@ export function registerModeFeature(
   store: SessionStore,
   lock: KeyedMutex,
   hasPendingPermission: (sessionId: string) => boolean,
+  /** Submits text in a session's pane, like a prompt from the app. */
+  submit: (sessionId: string, text: string) => Promise<void>,
 ) {
-  const service = new ModeService(ctx.tmux, store, lock, hasPendingPermission)
+  const service = new ModeService(ctx.tmux, store, lock, hasPendingPermission, { submit })
 
   // Every confirmed mode change is also announced as session.state.
   store.onChange((session, previous) => {
@@ -24,8 +26,7 @@ export function registerModeFeature(
   })
 
   ctx.router.register('session.setMode', async (msg) => {
-    const permissionMode = await service.setMode(msg.sessionId, msg.mode)
-    return { type: 'ack', data: { permissionMode } }
+    return { type: 'ack', data: await service.change(msg.sessionId, msg.mode) }
   })
   return { service }
 }

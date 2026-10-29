@@ -203,6 +203,7 @@ export class PermissionBroker {
       tool,
       input,
       suggestedRule: rules ? suggestRule(tool, input, payload.permission_suggestions) : null,
+      rules,
       defaultScope: this.options.defaultScope,
       createdAt: new Date(now).toISOString(),
       expiresAt: new Date(now + timeoutMs).toISOString(),

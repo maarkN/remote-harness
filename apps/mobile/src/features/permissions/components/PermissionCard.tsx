@@ -19,7 +19,8 @@ type Props = {
 /**
  * Agent-neutral permission card: shield · `Tool(arguments)` · time waiting (red when about to
  * expire), the detail label and box, then Deny / Always / Allow. The strip, the tray and the lock
- * screen show the same content in the same order.
+ * screen show the same content in the same order. Agents that take no rules (`rules: false`) get no
+ * Always, and a note saying so.
  */
 export function PermissionCard({ request, busy, onAllow, onAlways, onDeny }: Props) {
   const { t } = useTranslation()
@@ -47,6 +48,11 @@ export function PermissionCard({ request, busy, onAllow, onAlways, onDeny }: Pro
           {d.detail}
         </Text>
       </ScrollView>
+      {request.rules ? null : (
+        <Text size="xs" color="textMuted">
+          {t('permissions.noRules')}
+        </Text>
+      )}
       <View style={styles.actions}>
         <Button
           label={t('permissions.deny')}
@@ -56,7 +62,9 @@ export function PermissionCard({ request, busy, onAllow, onAlways, onDeny }: Pro
           disabled={busy}
           onPress={onDeny}
         />
-        <Button label={t('permissions.always')} compact flex disabled={busy} onPress={onAlways} />
+        {request.rules ? (
+          <Button label={t('permissions.always')} compact flex disabled={busy} onPress={onAlways} />
+        ) : null}
         <Button
           label={t('permissions.allow')}
           variant="success"

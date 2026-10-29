@@ -163,7 +163,7 @@ describe('PermissionBroker', () => {
     expect(broker.hasPending('s')).toBe(true)
     expect(sent[0]).toMatchObject({
       type: 'permission.request',
-      request: { tool: 'Bash', suggestedRule: 'Bash(pnpm test:*)', defaultScope: 'project' },
+      request: { tool: 'Bash', suggestedRule: 'Bash(pnpm test:*)', rules: true, defaultScope: 'project' },
     })
     broker.respond(requestId(), { behavior: 'allow' })
     expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } })

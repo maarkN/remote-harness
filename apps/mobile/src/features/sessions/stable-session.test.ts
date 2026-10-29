@@ -10,6 +10,7 @@ const base: Session = {
   state: 'running',
   permissionMode: 'default',
   approvalPolicy: null,
+  permissionProfile: null,
   controllable: true,
   paneId: '%1',
   updatedAt: '2026-10-25T12:00:00.000Z',

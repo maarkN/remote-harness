@@ -312,7 +312,9 @@ async function registerFeatures(
   const hasPendingPermission = (id: string) => permissions.broker.hasPending(id)
   const input = registerInputFeature(ctx, sessions.store, sessionLock, attachments.store)
   const queue = registerQueueFeature(ctx, sessions.store, input.service, hasPendingPermission)
-  registerModeFeature(ctx, sessions.store, sessionLock, hasPendingPermission)
+  registerModeFeature(ctx, sessions.store, sessionLock, hasPendingPermission, (id, text) =>
+    input.service.sendText(id, text),
+  )
   registerAutocompleteFeature(ctx, sessions.store)
   registerVoicePolishFeature(ctx, sessions.store)
   const shell = registerShellFeature(ctx, sessions.store)
@@ -321,10 +323,14 @@ async function registerFeatures(
   registerProvidersFeature(ctx, { key: ctx.providerKey })
   const checkout = registerCheckoutFeature(ctx, sessions.store)
   registerChangesFeature(ctx, sessions.store)
-  const lifecycle = registerLifecycleFeature(ctx, sessions.store, sessions.service, checkout.resolver, {
-    lock: sessionLock,
-    denyPending: (id) => void permissions.broker.denyAll(id),
-  })
+  const lifecycle = registerLifecycleFeature(
+    ctx,
+    sessions.store,
+    sessions.service,
+    checkout.resolver,
+    { lock: sessionLock, denyPending: (id) => void permissions.broker.denyAll(id) },
+    (id, text) => input.service.sendText(id, text),
+  )
   registerSystemPermissionsFeature(ctx, (profileId) => lifecycle.service.projects(profileId))
   const mute = await registerMuteFeature(ctx)
   const isMuted = (profileId: string | null, sessionId: string) => mute.store.isMuted(profileId, sessionId)

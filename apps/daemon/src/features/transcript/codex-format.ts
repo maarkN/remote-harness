@@ -371,6 +371,38 @@ function lineApprovalPolicy(line: Json): string | null {
   return null
 }
 
+/** Built-in permission profile ids by sandbox policy type, for rollouts without an active profile. */
+const SANDBOX_PROFILES: Record<string, string> = {
+  'read-only': ':read-only',
+  'workspace-write': ':workspace',
+  'danger-full-access': ':danger-full-access',
+}
+
+/**
+ * The permission profile (`:read-only`, `:workspace`, `:danger-full-access` or a named one) a
+ * `turn_context` or `thread_settings_applied` line sets: its active profile, else (`turn_context`
+ * only) the profile matching its sandbox policy.
+ */
+function linePermissionProfile(line: Json): string | null {
+  const payload = isObject(line.payload) ? line.payload : {}
+  const settings =
+    line.type === 'turn_context'
+      ? payload
+      : line.type === 'event_msg' &&
+          payload.type === 'thread_settings_applied' &&
+          isObject(payload.thread_settings)
+        ? payload.thread_settings
+        : null
+  if (!settings) return null
+  const active = isObject(settings.active_permission_profile)
+    ? str(settings.active_permission_profile.id)
+    : null
+  if (active) return active
+  if (line.type !== 'turn_context' || !isObject(settings.sandbox_policy)) return null
+  const type = str(settings.sandbox_policy.type)
+  return (type && SANDBOX_PROFILES[type]) ?? null
+}
+
 /** Tokens the Codex TUI leaves out of both the used tokens and the window for "% context left". */
 export const CONTEXT_BASELINE_TOKENS = 12_000
 const DAY_MINUTES = 24 * 60
@@ -464,8 +496,10 @@ export function parseCodexMeta(raw: string): TranscriptMetaUpdate | null {
   const line = parseLine(raw)
   if (!line) return null
   const approvalPolicy = lineApprovalPolicy(line)
+  const permissionProfile = linePermissionProfile(line)
   const update: TranscriptMetaUpdate = {
     ...(approvalPolicy ? { approvalPolicy } : {}),
+    ...(permissionProfile ? { permissionProfile } : {}),
     ...codexLineStatus(line),
   }
   return Object.keys(update).length > 0 ? update : null
@@ -502,6 +536,7 @@ export type CodexMeta = {
   cwd: string | null
   firstPrompt: string | null
   approvalPolicy: string | null
+  permissionProfile: string | null
   /** Latest model, effort and context seen; null when the rollout carries none. */
   status: SessionStatus | null
   /** Latest rate limits seen; null when the rollout carries none. */
@@ -515,12 +550,13 @@ function foldStatus(meta: Pick<CodexMeta, 'status' | 'limits'>, line: Json): voi
   if (update?.limits) meta.limits = update.limits
 }
 
-/** Session id, folder and first prompt from the head of a rollout, approval policy from its tail. */
+/** Session id, folder and first prompt from the head of a rollout, approval policy and permission profile from its tail. */
 export function extractCodexMeta(headLines: readonly string[], tailLines: readonly string[]): CodexMeta {
   let id: string | null = null
   let cwd: string | null = null
   let firstPrompt: string | null = null
   let approvalPolicy: string | null = null
+  let permissionProfile: string | null = null
   const seen: Pick<CodexMeta, 'status' | 'limits'> = { status: null, limits: null }
   for (const raw of headLines) {
     const line = parseLine(raw)
@@ -533,15 +569,17 @@ export function extractCodexMeta(headLines: readonly string[], tailLines: readon
     if (!cwd && line.type === 'turn_context') cwd = str(payload.cwd)
     firstPrompt ??= promptOf(line)
     approvalPolicy = lineApprovalPolicy(line) ?? approvalPolicy
+    permissionProfile = linePermissionProfile(line) ?? permissionProfile
     foldStatus(seen, line)
   }
   for (const raw of tailLines) {
     const line = parseLine(raw)
     if (!line) continue
     approvalPolicy = lineApprovalPolicy(line) ?? approvalPolicy
+    permissionProfile = linePermissionProfile(line) ?? permissionProfile
     foldStatus(seen, line)
   }
-  return { id, cwd, firstPrompt, approvalPolicy, ...seen }
+  return { id, cwd, firstPrompt, approvalPolicy, permissionProfile, ...seen }
 }
 
 /** Latest thread name per id in `session_index.jsonl` lines (`{id, thread_name}`, last wins). */

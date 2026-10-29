@@ -12,6 +12,7 @@ function s(id: string, root: string | null, patch: Partial<Session> = {}): Sessi
     title: id,
     permissionMode: null,
     approvalPolicy: null,
+    permissionProfile: null,
     controllable: true,
     paneId: '%1',
     subagents: [],

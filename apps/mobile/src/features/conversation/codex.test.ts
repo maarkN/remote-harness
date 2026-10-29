@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
 import { canStartInWorktree } from '../lifecycle/new-session'
-import { approvalPolicyTone, hasSwitchableModes } from '../mode/modes'
+import {
+  approvalPolicyTone,
+  CODEX_PRESETS,
+  codexPermissionsLabel,
+  codexPermissionsTone,
+  codexPresetOf,
+  hasSwitchableModes,
+} from '../mode/modes'
 import { diffForTool } from './diff'
 import { patchDiff, patchFiles, patchText } from './patch'
 import { summarizeTool } from './summarize-tool'
@@ -84,8 +91,36 @@ describe('codex modes and new session', () => {
     expect(approvalPolicyTone(null)).toBe('muted')
   })
 
-  test('no worktree option for Codex', () => {
+  test('worktree option for Claude Code and Codex', () => {
     expect(canStartInWorktree('claude')).toBe(true)
-    expect(canStartInWorktree('codex')).toBe(false)
+    expect(canStartInWorktree('codex')).toBe(true)
+    expect(canStartInWorktree('kimi')).toBe(false)
+  })
+
+  test('permissions chip: built-in profiles translated, named ones as is, else the policy', () => {
+    const t = createI18n('en-US').t
+    expect(codexPermissionsLabel(':workspace', 'on-request', t)).toBe('workspace')
+    expect(codexPermissionsLabel(':read-only', 'on-request', t)).toBe('read only')
+    expect(codexPermissionsLabel(':danger-full-access', 'never', t)).toBe('full access')
+    expect(codexPermissionsLabel('locked-down', 'on-request', t)).toBe('locked-down')
+    expect(codexPermissionsLabel(null, 'untrusted', t)).toBe('untrusted')
+    expect(codexPermissionsLabel(null, null, t)).toBe('—')
+    expect(createI18n('pt-BR').t('mode.codex.labels.fullAccess')).toBe('acesso total')
+  })
+
+  test('permissions chip tones', () => {
+    expect(codexPermissionsTone(':danger-full-access', 'on-request')).toBe('danger')
+    expect(codexPermissionsTone(':workspace', 'never')).toBe('danger')
+    expect(codexPermissionsTone(':read-only', 'on-request')).toBe('muted')
+    expect(codexPermissionsTone(':workspace', 'on-request')).toBe('accent')
+    expect(codexPermissionsTone(null, 'on-request')).toBe('accent')
+  })
+
+  test('presets: never full access; the current one from the profile', () => {
+    expect(CODEX_PRESETS).toEqual(['read-only', 'workspace'])
+    expect(codexPresetOf(':read-only')).toBe('read-only')
+    expect(codexPresetOf(':workspace')).toBe('workspace')
+    expect(codexPresetOf(':danger-full-access')).toBeNull()
+    expect(codexPresetOf(null)).toBeNull()
   })
 })

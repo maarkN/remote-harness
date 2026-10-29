@@ -14,6 +14,10 @@ export type PermissionMode = z.infer<typeof PermissionModeSchema>
 export const SelectableModeSchema = z.enum(['default', 'acceptEdits', 'plan', 'auto'])
 export type SelectableMode = z.infer<typeof SelectableModeSchema>
 
+/** Codex permission presets the app may request (`/permissions :read-only|:workspace`); never full access. */
+export const CodexPresetSchema = z.enum(['read-only', 'workspace'])
+export type CodexPreset = z.infer<typeof CodexPresetSchema>
+
 /** Coding agents the app knows (badge, color); only those with a daemon adapter can run. */
 export const AgentIdSchema = z.enum(['claude', 'codex', 'kimi', 'qwen'])
 export type AgentId = z.infer<typeof AgentIdSchema>
@@ -132,6 +136,8 @@ export const SessionSchema = z.object({
   permissionMode: PermissionModeSchema.nullable(),
   /** Codex: the approval policy (`on-request`, `never`, …); `null` for Claude Code, until known and from older daemons. */
   approvalPolicy: z.string().nullable().default(null),
+  /** Codex: the permission profile (`:read-only`, `:workspace`, `:danger-full-access` or a named one); `null` for Claude Code and until known. */
+  permissionProfile: z.string().nullable().default(null),
   controllable: z.boolean(),
   paneId: z.string().nullable(),
   updatedAt: z.string(),
@@ -601,6 +607,8 @@ export const PermissionRequestInfoSchema = z.object({
   tool: z.string(),
   input: z.record(z.string(), z.unknown()),
   suggestedRule: z.string().nullable(),
+  /** The agent accepts always-allow rules with the answer (false for Codex); older daemons: true. */
+  rules: z.boolean().default(true),
   defaultScope: RuleScopeSchema,
   createdAt: z.string(),
   expiresAt: z.string(),

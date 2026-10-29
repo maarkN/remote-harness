@@ -102,7 +102,7 @@ Um perfil pode rodar o OpenAI Codex CLI em vez do Claude Code: defina `"agent": 
 
 O `remote-harness install` grava o atalho do perfil (ele abre o `codex` com o `CODEX_HOME` certo) e mescla os hooks do daemon em `<CODEX_HOME>/hooks.json`, ao lado dos seus e com backup; o seu `config.toml` não é alterado. **O Codex pede uma vez para confiar em hooks novos**: abra o `codex` e escolha "Trust all and continue" (ou revise em `/hooks`). Até lá, as sessões dele aparecem somente leitura e as aprovações ficam no terminal. O `doctor` verifica se o `codex` está no `PATH` e se os hooks estão instalados.
 
-O que funciona como no Claude Code: a lista de sessões (rollouts recentes em `sessions/`), a conversa, prompts, fotos e teclas, iniciar e retomar pelo celular, push, status ao vivo e aprovações com Permitir / Negar. Diferenças: o chip de modo mostra a política de aprovação e só muda com `/permissions` no terminal, não há "Sempre" (hooks do Codex não criam regras), nem opção de worktree, nem provedor.
+O que funciona como no Claude Code: a lista de sessões (rollouts recentes em `sessions/`), a conversa, prompts, fotos e teclas, iniciar e retomar pelo celular (num worktree com `codex --worktree`, e com nome, enviado como `/rename`), push, status ao vivo, aprovações com Permitir / Negar, Aprimorar ditado e mensagens de commit geradas (via `codex exec`). Diferenças: o chip de modo mostra o perfil de permissões e alterna entre somente leitura e workspace (`/permissions`, Codex 0.164 ou mais novo); acesso total só no terminal. Não há "Sempre" (hooks do Codex não criam regras) nem provedor.
 
 ## Atalhos e aliases
 

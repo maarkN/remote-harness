@@ -45,6 +45,8 @@ export function registerLifecycleFeature(
     /** Denies the session's pending permission requests before it is closed. */
     denyPending: (sessionId: string) => void
   },
+  /** Submits text in a session's pane, like a prompt from the app. */
+  sendText: (sessionId: string, text: string) => Promise<void>,
 ) {
   const git = new GitClient(ctx.exec, {
     onPurgeError: (path, error) =>
@@ -67,6 +69,13 @@ export function registerLifecycleFeature(
     async (root, name) =>
       (await isDirectory(join(root, '.claude', 'worktrees', name))) ||
       (await git.hasBranch(root, `worktree-${name}`)),
+    (sessionId, text) =>
+      void sendText(sessionId, text).catch((error: unknown) =>
+        ctx.logger.warn(
+          { sessionId, reason: error instanceof Error ? error.message : String(error) },
+          'naming the session failed',
+        ),
+      ),
   )
   // A named session that registers after \`session.started\` still gets its name as the title.
   store.onChange((session) => service.applyName(session.id, session.paneId))

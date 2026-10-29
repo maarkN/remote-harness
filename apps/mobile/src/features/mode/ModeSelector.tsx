@@ -1,4 +1,4 @@
-import type { PermissionMode, SelectableMode } from '@remote-harness/protocol'
+import type { CodexPreset, PermissionMode, SelectableMode } from '@remote-harness/protocol'
 import * as Haptics from 'expo-haptics'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -8,7 +8,14 @@ import { errorMessage } from '@/core/connection/error-message'
 import { makeStyles, radius, space, useTheme } from '@/core/theme'
 import { agentLabel } from '@/features/sessions/agent'
 import { Button, Text } from '@/ui'
-import { approvalPolicyTone, SELECTABLE_MODES } from './modes'
+import {
+  CODEX_PRESETS,
+  codexPermissionsLabel,
+  codexPermissionsTone,
+  codexPresetKey,
+  codexPresetOf,
+  SELECTABLE_MODES,
+} from './modes'
 
 export function ModeSelector({
   sessionId,
@@ -112,26 +119,107 @@ export function ModeSelector({
 }
 
 /**
- * Codex's approval policy (`on-request`, `never`, …) in the place of the mode chip. Read-only: Codex
- * permissions change with `/permissions` in the terminal.
+ * Codex's permission profile in the place of the mode chip (the approval policy when the profile is
+ * unknown). On a controllable session it opens the two presets the app may pick; full access stays a
+ * terminal-only choice.
  */
-export function ApprovalPolicyChip({ policy }: { policy: string | null }) {
+export function CodexPermissionsChip({
+  sessionId,
+  profile,
+  policy,
+  disabled,
+}: {
+  sessionId: string
+  profile: string | null
+  policy: string | null
+  disabled?: boolean
+}) {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const tone = approvalPolicyTone(policy)
+  const client = useDaemonClient()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const tone = codexPermissionsTone(profile, policy)
   const color = tone === 'danger' ? colors.danger : tone === 'accent' ? colors.accentText : colors.textMuted
-  const label = policy ?? '—'
+  const label = codexPermissionsLabel(profile, policy, t)
+  const current = codexPresetOf(profile)
+  const policyText = policy ?? t('mode.unknownPolicy')
+
+  const apply = async (target: CodexPreset) => {
+    if (target === current) return setOpen(false)
+    if (!client) return
+    setBusy(true)
+    try {
+      await client.request({ type: 'session.setMode', sessionId, mode: target })
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      setOpen(false)
+    } catch (e) {
+      const message = errorMessage(e, t, {
+        session_busy: t('mode.errors.sessionBusy'),
+        not_controllable: t('mode.errors.notControllable'),
+      })
+      Alert.alert(t('mode.changeFailed'), message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <View
-      accessible
-      accessibilityLabel={t('mode.approvalPolicy', { policy: policy ?? t('mode.unknownPolicy') })}
-      style={[styles.pill, { borderColor: tone === 'accent' ? colors.accent : color }]}
-    >
-      <Text size="xs" weight="medium" style={{ color }}>
-        {label}
-      </Text>
-    </View>
+    <>
+      <Pressable
+        disabled={disabled}
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={t('mode.codex.a11y', { profile: label, policy: policyText })}
+        style={[
+          styles.pill,
+          { borderColor: tone === 'accent' ? colors.accent : color, opacity: disabled ? 0.4 : 1 },
+        ]}
+      >
+        <Text size="xs" weight="medium" style={{ color }}>
+          {label}
+        </Text>
+      </Pressable>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+          <View style={styles.sheet}>
+            <Text weight="bold">{t('mode.codex.title')}</Text>
+            <Text size="xs" color="textMuted">
+              {t('mode.codex.hint')}
+            </Text>
+            <Text size="xs" color="textMuted">
+              {t('mode.approvalPolicy', { policy: policyText })}
+            </Text>
+            {CODEX_PRESETS.map((preset) => (
+              <Pressable
+                key={preset}
+                disabled={busy}
+                onPress={() => void apply(preset)}
+                style={[styles.option, preset === current && styles.selected]}
+              >
+                <Text weight="medium">
+                  {preset === current ? '● ' : '○ '}
+                  {t(`mode.codex.labels.${codexPresetKey(preset)}`)}
+                </Text>
+                <Text size="xs" color="textDim">
+                  {t(`mode.codex.hints.${codexPresetKey(preset)}`)}
+                </Text>
+              </Pressable>
+            ))}
+            <Text size="xs" color="textMuted">
+              {t('mode.codex.fullAccessNote')}
+            </Text>
+            <Button
+              label={busy ? t('mode.switching') : t('common.close')}
+              variant="ghost"
+              disabled={busy}
+              onPress={() => setOpen(false)}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   )
 }
 

@@ -99,13 +99,15 @@ export function WaitingStrip() {
               disabled={busy !== null}
               onPress={() => void respond(request.requestId, 'deny')}
             />
-            <Button
-              label={t('permissions.always')}
-              compact
-              flex
-              disabled={busy !== null}
-              onPress={() => setAlways(request)}
-            />
+            {request.rules ? (
+              <Button
+                label={t('permissions.always')}
+                compact
+                flex
+                disabled={busy !== null}
+                onPress={() => setAlways(request)}
+              />
+            ) : null}
             <Button
               label={t('permissions.allow')}
               variant="success"

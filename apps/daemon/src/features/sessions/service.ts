@@ -78,6 +78,7 @@ export class SessionService {
       state: 'idle',
       permissionMode: null,
       approvalPolicy: null,
+      permissionProfile: null,
       controllable: false,
       paneId: null,
       updatedAt: hook.receivedAt,
@@ -116,6 +117,7 @@ export class SessionService {
         const summary = path ? await this.summary(hook.profileId, path) : null
         if (summary?.title) patch.title = summary.title
         if (summary?.approvalPolicy) patch.approvalPolicy = summary.approvalPolicy
+        if (summary?.permissionProfile) patch.permissionProfile = summary.permissionProfile
         if (summary?.status) patch.status = summary.status
         if (summary?.limits && hook.profileId)
           this.options.onLimits?.({ profileId: hook.profileId, ...summary.limits })
@@ -206,6 +208,7 @@ export class SessionService {
         state: 'idle',
         permissionMode: meta?.permissionMode ?? null,
         approvalPolicy: meta?.approvalPolicy ?? null,
+        permissionProfile: meta?.permissionProfile ?? null,
         controllable: true,
         paneId: link.paneId,
         updatedAt,
@@ -240,6 +243,7 @@ export class SessionService {
         state: 'ended',
         permissionMode: meta.permissionMode,
         approvalPolicy: meta.approvalPolicy,
+        permissionProfile: meta.permissionProfile ?? null,
         controllable: false,
         paneId: null,
         updatedAt: file.mtime.toISOString(),

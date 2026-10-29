@@ -535,6 +535,8 @@ const ptBR = {
   permissions: {
     deny: 'Negar',
     always: 'Sempre',
+    noRules:
+      'Este agente não salva regras de "sempre permitir" pelo app. Use "não perguntar de novo" no terminal.',
     allow: 'Permitir',
     queued_one: '+{{count}} pedido na fila',
     queued_other: '+{{count}} pedidos na fila',
@@ -803,7 +805,7 @@ const ptBR = {
     usePolished: 'Usar aprimorado',
     polishTitle: 'Aprimorar ditado',
     polishHint:
-      'Reescreve a transcrição como um prompt limpo antes de inseri-la. Somente sessões do Claude Code.',
+      'Reescreve a transcrição como um prompt limpo antes de inseri-la. Somente sessões do Claude Code e do Codex.',
     pushToTalkTitle: 'Pressionar e segurar para gravar',
     pushToTalkHint:
       'Segure o botão do microfone para gravar e solte para parar, em vez de tocar para alternar.',
@@ -883,6 +885,17 @@ const ptBR = {
     autoConfirm: 'Ativar auto',
     approvalPolicy: 'Política de aprovação: {{policy}}',
     unknownPolicy: 'desconhecida',
+    codex: {
+      title: 'Permissões do Codex',
+      hint: 'Troca com /permissions no computador; o perfil mostrado é o que o Codex registrou.',
+      a11y: 'Permissões do Codex: {{profile}}. Política de aprovação: {{policy}}',
+      fullAccessNote: 'Acesso total só pelo terminal.',
+      labels: { readOnly: 'somente leitura', workspace: 'workspace', fullAccess: 'acesso total' },
+      hints: {
+        readOnly: 'lê arquivos; pede antes de editar ou usar a rede',
+        workspace: 'lê, edita o workspace e roda comandos; pede para o resto',
+      },
+    },
     labels: {
       default: 'padrão',
       acceptEdits: 'aceitar edições',

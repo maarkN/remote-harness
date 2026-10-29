@@ -22,7 +22,7 @@ import { ResumeBanner } from '@/features/lifecycle/ResumeBanner'
 import { useLiveFollowStore } from '@/features/live-status/follow-store'
 import { useLiveStatusSettings } from '@/features/live-status/settings-store'
 import { followSession, unfollowSession } from '@/features/live-status/use-live-follow'
-import { ApprovalPolicyChip, ModeSelector } from '@/features/mode/ModeSelector'
+import { CodexPermissionsChip, ModeSelector } from '@/features/mode/ModeSelector'
 import { hasSwitchableModes } from '@/features/mode/modes'
 import { SessionMuteButton } from '@/features/mute/MuteControls'
 import { SessionPermissions } from '@/features/permissions/components/SessionPermissions'
@@ -265,7 +265,12 @@ export default function SessionRoute() {
                 {hasSwitchableModes(agent) ? (
                   <ModeSelector sessionId={id} mode={session.permissionMode} disabled={!controllable} />
                 ) : (
-                  <ApprovalPolicyChip policy={session.approvalPolicy} />
+                  <CodexPermissionsChip
+                    sessionId={id}
+                    profile={session.permissionProfile}
+                    policy={session.approvalPolicy}
+                    disabled={!controllable}
+                  />
                 )}
               </View>
               <StatusBar

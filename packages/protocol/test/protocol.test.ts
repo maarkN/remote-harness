@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   type ClientMessage,
+  CodexPresetSchema,
   checkoutPeers,
   LiveDataMessageSchema,
   LiveStatusPropsSchema,
@@ -183,6 +184,7 @@ const session: Session = {
   state: 'idle',
   permissionMode: 'default',
   approvalPolicy: null,
+  permissionProfile: null,
   controllable: true,
   paneId: '%1',
   updatedAt: '2026-10-14T00:00:00Z',
@@ -396,6 +398,7 @@ const serverSamples: ServerMessage[] = [
       tool: 'Bash',
       input: { command: 'ls' },
       suggestedRule: 'Bash(ls:*)',
+      rules: true,
       defaultScope: 'project',
       createdAt: 'now',
       expiresAt: 'later',
@@ -410,6 +413,7 @@ const serverSamples: ServerMessage[] = [
       tool: 'AskUserQuestion',
       input: {},
       suggestedRule: null,
+      rules: true,
       defaultScope: 'project',
       createdAt: 'now',
       expiresAt: 'later',
@@ -971,6 +975,46 @@ describe('session approval policy', () => {
       session: { ...session, agent: 'codex', approvalPolicy: 'on-request' },
     })
     expect(result).toMatchObject({ ok: true, value: { session: { approvalPolicy: 'on-request' } } })
+  })
+})
+
+describe('permission request rules', () => {
+  test('default to true for older daemons', () => {
+    const result = parseServerMessage({
+      type: 'permission.request',
+      request: {
+        requestId: 'r',
+        sessionId: 's',
+        profileId: 'cdx',
+        tool: 'Bash',
+        input: {},
+        suggestedRule: null,
+        defaultScope: 'project',
+        createdAt: 'now',
+        expiresAt: 'later',
+      },
+    })
+    expect(result).toMatchObject({ ok: true, value: { request: { rules: true } } })
+  })
+})
+
+describe('session permission profile', () => {
+  test('defaults to null for older daemons', () => {
+    const { permissionProfile: _omit, ...old } = session
+    const result = parseServerMessage({ type: 'session.updated', session: old })
+    expect(result).toMatchObject({ ok: true, value: { session: { permissionProfile: null } } })
+  })
+
+  test('carries the Codex profile', () => {
+    const result = parseServerMessage({
+      type: 'session.updated',
+      session: { ...session, agent: 'codex', permissionProfile: ':workspace' },
+    })
+    expect(result).toMatchObject({ ok: true, value: { session: { permissionProfile: ':workspace' } } })
+  })
+
+  test('Codex presets never include full access', () => {
+    expect(CodexPresetSchema.options).toEqual(['read-only', 'workspace'])
   })
 })
 

@@ -3,7 +3,7 @@ import type { Profile } from '@remote-harness/protocol'
 import type { Logger } from '../../core/logger.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { agentFor } from '../agents/index.ts'
-import { oneShotEnv, parseOneShotResult } from '../agents/one-shot.ts'
+import { oneShotEnv } from '../agents/one-shot.ts'
 
 const POLISH_TIMEOUT_MS = 9_500
 
@@ -21,14 +21,20 @@ export class VoicePolishService {
     const adapter = agentFor(profile)
     if (!adapter.polish) return fallback
     const env = oneShotEnv(profile, adapter)
+    // An empty stdin: `codex exec` appends a piped stdin to the prompt and would wait for it to close.
     const result = await this.deps
-      .exec(adapter.command, adapter.polish.args(text), { cwd: tmpdir(), env, timeoutMs: POLISH_TIMEOUT_MS })
+      .exec(adapter.command, adapter.polish.args(text), {
+        cwd: tmpdir(),
+        env,
+        input: '',
+        timeoutMs: POLISH_TIMEOUT_MS,
+      })
       .catch((error: Error) => {
         this.deps.logger.warn({ profileId: profile.id, error: error.message }, 'voice polish call failed')
         return null
       })
     if (result?.exitCode !== 0) return fallback
-    const rewritten = parseOneShotResult(result.stdout)
+    const rewritten = adapter.polish.parse(result.stdout)
     if (!rewritten || rewritten.trim() === text.trim()) return fallback
     return { text: rewritten.trim(), applied: true }
   }

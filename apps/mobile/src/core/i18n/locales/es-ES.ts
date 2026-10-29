@@ -535,6 +535,8 @@ const esES = {
   permissions: {
     deny: 'Denegar',
     always: 'Siempre',
+    noRules:
+      'Este agente no guarda reglas de "permitir siempre" desde la app. Usa "no volver a preguntar" en la terminal.',
     allow: 'Permitir',
     queued_one: '+{{count}} solicitud en cola',
     queued_other: '+{{count}} solicitudes en cola',
@@ -804,7 +806,7 @@ const esES = {
     usePolished: 'Usar mejorado',
     polishTitle: 'Mejorar dictado',
     polishHint:
-      'Reescribe la transcripción como un prompt limpio antes de insertarla. Solo sesiones de Claude Code.',
+      'Reescribe la transcripción como un prompt limpio antes de insertarla. Solo sesiones de Claude Code y Codex.',
     pushToTalkTitle: 'Mantener pulsado para grabar',
     pushToTalkHint:
       'Mantén pulsado el micrófono para grabar y suéltalo para detener, en vez de tocar para alternar.',
@@ -884,6 +886,17 @@ const esES = {
     autoConfirm: 'Activar auto',
     approvalPolicy: 'Política de aprobación: {{policy}}',
     unknownPolicy: 'desconocida',
+    codex: {
+      title: 'Permisos de Codex',
+      hint: 'Cambia con /permissions en el ordenador; el perfil mostrado es el que Codex registró.',
+      a11y: 'Permisos de Codex: {{profile}}. Política de aprobación: {{policy}}',
+      fullAccessNote: 'El acceso total solo está disponible en la terminal.',
+      labels: { readOnly: 'solo lectura', workspace: 'workspace', fullAccess: 'acceso total' },
+      hints: {
+        readOnly: 'lee archivos; pregunta antes de editar o usar la red',
+        workspace: 'lee, edita el workspace y ejecuta comandos; pregunta para lo demás',
+      },
+    },
     labels: {
       default: 'predeterminado',
       acceptEdits: 'aceptar ediciones',

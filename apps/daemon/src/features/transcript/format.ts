@@ -9,6 +9,8 @@ export type TranscriptMetaUpdate = {
   permissionMode?: string
   /** Codex: the approval policy of the turn (`on-request`…), shown as the session's mode. */
   approvalPolicy?: string
+  /** Codex: the permission profile of the turn (`:workspace`…). */
+  permissionProfile?: string
   /** Codex: status items the line knows (a `turn_context` the model, a `token_count` the context). */
   status?: Partial<SessionStatus>
   /** Codex: the account's rate limits, for the session's profile. */

@@ -11,6 +11,7 @@ function request(requestId: string, sessionId = 's1'): PermissionRequestInfo {
     tool: 'Bash',
     input: { command: 'pnpm test' },
     suggestedRule: null,
+    rules: true,
     defaultScope: 'project',
     createdAt: '2026-10-25T10:00:00.000Z',
     expiresAt: '2026-10-25T10:10:00.000Z',
