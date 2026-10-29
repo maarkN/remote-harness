@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { appIntentFiles, copyMainActivityFiltersToAliases, USER_LEAVE_HINT_EVENT } from '../app.config.ts'
+import {
+  addShortcutsMetaData,
+  appIntentFiles,
+  copyMainActivityFiltersToAliases,
+  USER_LEAVE_HINT_EVENT,
+} from '../app.config.ts'
 import { USER_LEAVE_HINT_EVENT as APP_ICON_EVENT } from '../src/features/settings/app-icon.ts'
 
 type Application = Parameters<typeof copyMainActivityFiltersToAliases>[0]
@@ -80,5 +85,32 @@ describe('appIntentFiles', () => {
         'es.lproj/AppShortcuts.strings',
       ],
     })
+  })
+})
+
+describe('addShortcutsMetaData', () => {
+  type Entry = { 'meta-data'?: { $: Record<string, string> }[] }
+  const shortcuts = { $: { 'android:name': 'android.app.shortcuts', 'android:resource': '@xml/shortcuts' } }
+
+  it('points MainActivity and its icon aliases at the App Actions, once', () => {
+    const app = application()
+    app['activity-alias']?.push(alias('.ShareAlias', '.ShareActivity'))
+    addShortcutsMetaData(app)
+    addShortcutsMetaData(app)
+    const main = app.activity?.[0] as Entry
+    const [dark, light, share] = (app['activity-alias'] ?? []) as Entry[]
+    expect(main['meta-data']).toEqual([shortcuts])
+    expect(dark?.['meta-data']).toEqual([shortcuts])
+    expect(light?.['meta-data']).toEqual([shortcuts])
+    expect(share?.['meta-data']).toBeUndefined()
+  })
+
+  it('keeps other meta-data', () => {
+    const app = application()
+    const other = { $: { 'android:name': 'some.flag', 'android:value': 'true' } }
+    const main = app.activity?.[0] as Entry | undefined
+    if (main) main['meta-data'] = [other]
+    addShortcutsMetaData(app)
+    expect(main?.['meta-data']).toEqual([other, shortcuts])
   })
 })

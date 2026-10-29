@@ -70,6 +70,12 @@ La notificación de una sesión que terminó o te espera tiene acciones: **Respo
 
 En iOS 16 o posterior, Siri y la app Atajos actúan en el ordenador activo sin tocar la app: **Responder a una sesión** ("Responder en Remote Harness" y dicta el mensaje; va a la sesión que te necesita, o a la que nombres), **Responder al permiso pendiente** ("Responder a Remote Harness": Siri lee lo que pide el permiso más antiguo y confirma antes de permitir o denegar) y **Qué está esperando** ("Qué está esperando en Remote Harness"). Las preguntas y los planes siguen necesitando la app. Toda acción pide el móvil desbloqueado y va directamente al ordenador por la conexión cifrada. Con la app cerrada, Siri pide continuar en Remote Harness (iOS 17 o posterior) y termina allí. Los títulos de sesión que se ofrecen a Siri se quedan en el móvil.
 
+## Asistente de Google y atajos
+
+En Android, el Asistente de Google puede abrir Remote Harness para tres cosas: **enviar un mensaje** ("Enviar un mensaje en Remote Harness diciendo ejecuta los tests"; nombra una sesión por su título, o va a la que te necesita), **permitir o denegar el permiso pendiente** ("Denegar el permiso en Remote Harness") y **ver qué está esperando**. La app se abre en el ordenador activo y te pide tocar Enviar, Permitir o Denegar antes de que salga nada; cualquier app o página puede abrir estos enlaces, así que nada se envía sin ese toque. Mantén pulsado el icono de la app para ver atajos de tus sesiones activas más recientes, listas para escribir.
+
+Las App Actions necesitan el Asistente de Google (los móviles en los que Gemini lo sustituyó pueden no ejecutarlas), y las frases propias para permisos y "qué está esperando" puede que solo se entiendan en inglés en algunos idiomas del Asistente. Los atajos y la pantalla de confirmación funcionan en todas las versiones de Android que admite la app.
+
 ## Perfiles y OpenRouter
 
 Un perfil es una cuenta de Claude Code, es decir un `CLAUDE_CONFIG_DIR`, con nombre, color y alias. Un perfil también puede enrutar Claude Code por **OpenRouter**: sus filas muestran un chip discontinuo `vía OpenRouter`, **Nueva sesión** gana una fila **Modelo** con un selector con búsqueda (tamaño del contexto, precios por millón de tokens, soporte de herramientas, razonamiento y caché, créditos restantes), y **Cambiar modelo…** en el menú de la sesión cambia una sesión en marcha. La clave se queda en el ordenador: consulta [el daemon](/es/docs/daemon/#perfiles-y-openrouter).

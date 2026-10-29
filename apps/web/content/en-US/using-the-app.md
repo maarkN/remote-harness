@@ -70,6 +70,12 @@ A finished or waiting session's notification has actions: **Reply** (type, or di
 
 On iOS 16 or later, Siri and the Shortcuts app can act on the active computer without touching the app: **Reply to a session** ("Reply in Remote Harness", then dictate the message; it goes to the session that needs you, or the one you name), **Answer the pending permission** ("Answer Remote Harness": Siri reads what the oldest permission asks and confirms before allowing or denying) and **What's waiting** ("What's waiting in Remote Harness"). Questions and plans still need the app. Every action needs the phone unlocked and goes straight to the computer over the encrypted connection. When the app is closed, Siri asks to continue in Remote Harness (iOS 17 or later) and finishes there. Session titles offered to Siri stay on the phone.
 
+## Google Assistant and shortcuts
+
+On Android, Google Assistant can open Remote Harness for three things: **send a message** ("Send a message on Remote Harness saying run the tests"; name a session by its title, or it goes to the one that needs you), **allow or deny the pending permission** ("Deny the permission on Remote Harness") and **check what's waiting**. The app opens on the active computer and asks you to tap Send, Allow or Deny before anything goes out; links can be opened by any app or web page, so nothing is sent without that tap. Long-press the app icon for shortcuts to your most recent live sessions, ready to type.
+
+App Actions need Google Assistant (phones where Gemini replaced it may not run them), and the custom phrases for permissions and "what's waiting" may only be understood in English on some Assistant languages. The shortcuts and the confirmation screen work on every Android version the app supports.
+
 ## Profiles and OpenRouter
 
 A profile is a Claude Code account, that is a `CLAUDE_CONFIG_DIR`, with a name, a color and an alias. A profile can also route Claude Code through **OpenRouter**: its rows show a dashed `via OpenRouter` chip, **New session** gets a **Model** row with a searchable picker (context size, prices per million tokens, tool use, thinking and caching support, credits left), and **Change model…** in the session menu switches a running session. The key stays on the computer: see [the daemon](/en/docs/daemon/#profiles-and-openrouter).

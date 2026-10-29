@@ -1287,6 +1287,18 @@ const enUS = {
     unreachable: 'Couldn’t reach your computer. Check that it is on and connected.',
     failed: 'Something went wrong, so nothing was sent.',
   },
+  /** Screen opened by Google Assistant and the launcher shortcuts (`remoteharness://assistant/…`). */
+  assistantLink: {
+    title: 'Voice action',
+    connecting: 'Connecting to your computer…',
+    working: 'Working on it…',
+    noSuchSession: 'No live session is called “{{title}}”.',
+    confirmSend: 'Send “{{text}}” to “{{title}}”?',
+    notSent: 'Nothing was sent.',
+    cancelled: 'Nothing was answered.',
+    openSession: 'Open the session',
+    openSessions: 'Open sessions',
+  },
 }
 
 export type Messages = typeof enUS

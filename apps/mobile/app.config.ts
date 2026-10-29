@@ -16,6 +16,7 @@ import {
   withPodfile,
   withXcodeProject,
 } from 'expo/config-plugins'
+import { QUERY_FOLDERS, queryArraysXml, shortcutsXml } from './modules/voice-assistant/android-actions.ts'
 import {
   INTENT_STRINGS,
   SHORTCUT_PHRASES,
@@ -351,6 +352,60 @@ const withIconAliasDeepLinks: ConfigPlugin = (config) =>
     return mod
   })
 
+const SHORTCUTS_META_DATA = 'android.app.shortcuts'
+
+/**
+ * Points the launcher entries (`MainActivity` and the icon aliases, one of which is the launcher
+ * when an alternate icon is on) at `@xml/shortcuts`, where Google Assistant reads the App Actions.
+ * Idempotent.
+ */
+export function addShortcutsMetaData(application: AndroidConfig.Manifest.ManifestApplication): void {
+  const entries = [
+    ...(application.activity ?? []).filter((activity) => activity.$['android:name'] === MAIN_ACTIVITY),
+    ...(application['activity-alias'] ?? []).filter(
+      (alias) => alias.$?.['android:targetActivity'] === MAIN_ACTIVITY,
+    ),
+  ]
+  // `@expo/config-plugins` does not type `<meta-data>` on activities, though the manifest has it.
+  for (const entry of entries as { 'meta-data'?: { $: Record<string, string> }[] }[]) {
+    const metaData = (entry['meta-data'] ?? []).filter(
+      (item) => item.$['android:name'] !== SHORTCUTS_META_DATA,
+    )
+    entry['meta-data'] = [
+      ...metaData,
+      { $: { 'android:name': SHORTCUTS_META_DATA, 'android:resource': '@xml/shortcuts' } },
+    ]
+  }
+}
+
+/**
+ * Google Assistant App Actions (#418): `res/xml/shortcuts.xml`, the custom intents' query patterns per
+ * language and the meta-data on the launcher entries. Applied before the `plugins` list, so its
+ * manifest mod runs after `expo-alternate-app-icons` added the aliases.
+ */
+const withAssistantActions: ConfigPlugin = (config) => {
+  const withFiles = withDangerousMod(config, [
+    'android',
+    (config) => {
+      const res = join(config.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res')
+      mkdirSync(join(res, 'xml'), { recursive: true })
+      writeFileSync(join(res, 'xml', 'shortcuts.xml'), shortcutsXml(config.android?.package ?? APP_ID))
+      for (const [language, folder] of Object.entries(QUERY_FOLDERS) as [
+        keyof typeof QUERY_FOLDERS,
+        string,
+      ][]) {
+        mkdirSync(join(res, folder), { recursive: true })
+        writeFileSync(join(res, folder, 'assistant_queries.xml'), queryArraysXml(language))
+      }
+      return config
+    },
+  ])
+  return withAndroidManifest(withFiles, (mod) => {
+    for (const application of mod.modResults.manifest.application ?? []) addShortcutsMetaData(application)
+    return mod
+  })
+}
+
 /** Target `expo-widgets` creates (and recreates on every prebuild) for the Live Activity. */
 const WIDGET_TARGET = 'ExpoWidgetsTarget'
 /** Asset the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`). */
@@ -550,14 +605,18 @@ const withFirebase: ConfigPlugin = (config) => {
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const expo = withIconAliasDeepLinks(
-    withIosOnlyLocaleStrings(
-      withVoiceAssistantIntents(
-        withLiveActivityIcon(
-          withUserLeaveHintMainActivity(
-            withKeyCommandMainActivity(
-              withKeyCommandAppDelegate(
-                withKeyCommandBridgingHeader(withPerIdiomOrientation(withSceneLifecycle(appConfig(config)))),
+  const expo = withAssistantActions(
+    withIconAliasDeepLinks(
+      withIosOnlyLocaleStrings(
+        withVoiceAssistantIntents(
+          withLiveActivityIcon(
+            withUserLeaveHintMainActivity(
+              withKeyCommandMainActivity(
+                withKeyCommandAppDelegate(
+                  withKeyCommandBridgingHeader(
+                    withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+                  ),
+                ),
               ),
             ),
           ),

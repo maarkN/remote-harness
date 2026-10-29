@@ -5,7 +5,7 @@ import { assistantSessions } from './sessions'
 
 /**
  * Keeps the list of sessions Siri offers (the active computer's live sessions) in the app's local
- * storage, written only when it changes. Emptied when the paired screens unmount (computer forgotten).
+ * storage, and the Android launcher shortcuts, written only when it changes. Emptied when the paired screens unmount (computer forgotten).
  */
 export function useAssistantSessions(): void {
   useEffect(() => {

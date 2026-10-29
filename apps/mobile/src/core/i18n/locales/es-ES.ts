@@ -1299,6 +1299,17 @@ const esES = {
     unreachable: 'No pude contactar con tu ordenador. Comprueba que está encendido y conectado.',
     failed: 'Algo salió mal, así que no se envió nada.',
   },
+  assistantLink: {
+    title: 'Acción por voz',
+    connecting: 'Conectando con tu ordenador…',
+    working: 'Un momento…',
+    noSuchSession: 'Ninguna sesión activa se llama “{{title}}”.',
+    confirmSend: '¿Enviar “{{text}}” a “{{title}}”?',
+    notSent: 'No se envió nada.',
+    cancelled: 'No se respondió nada.',
+    openSession: 'Abrir la sesión',
+    openSessions: 'Abrir las sesiones',
+  },
 } satisfies Messages
 
 export default esES
