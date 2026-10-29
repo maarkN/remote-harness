@@ -163,6 +163,19 @@ describe('PushService', () => {
     expect(JSON.stringify(sent)).not.toContain('segredo')
   })
 
+  test('no "finished" push while agents still work in the background', async () => {
+    const { service } = await setup()
+    const workflow = { id: 'w1', type: 'workflow', status: 'running', description: 'review', name: 'review' }
+    const busy = hookEvent(
+      'Stop',
+      { session_id: 's', background_tasks: [workflow] },
+      { profileId: 'drclaude' },
+    )
+    expect(service.messageForHook(busy)).toBeNull()
+    const done = hookEvent('Stop', { session_id: 's', background_tasks: [] }, { profileId: 'drclaude' })
+    expect(service.messageForHook(done)?.title).toBe('Session finished')
+  })
+
   test('permission requests carry the request id and action category, never the command', async () => {
     const { service, sent } = await setup()
     const message = service.messageForPermission({

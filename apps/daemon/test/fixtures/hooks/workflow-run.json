@@ -1,0 +1,82 @@
+{
+  "description": "Hook sequence of a Claude Code workflow run: the turn that starts it ends while its agents work, they stop, the run's notification wakes the session and that turn ends with nothing in flight. Payload shape from Claude Code's hook input schema (CLI 2.1.312); neutral values.",
+  "hooks": [
+    {
+      "event": "UserPromptSubmit",
+      "payload": { "session_id": "wf-session", "cwd": "/tmp/project", "prompt": "review the change" },
+      "state": "running"
+    },
+    {
+      "event": "Stop",
+      "payload": {
+        "session_id": "wf-session",
+        "stop_hook_active": false,
+        "background_tasks": [
+          {
+            "id": "wf_0000001",
+            "type": "workflow",
+            "status": "running",
+            "description": "Review changed files",
+            "name": "review-changes"
+          }
+        ],
+        "session_crons": []
+      },
+      "state": "running",
+      "backgroundTasks": 1
+    },
+    {
+      "event": "SubagentStop",
+      "payload": {
+        "session_id": "wf-session",
+        "stop_hook_active": false,
+        "agent_id": "a0000001",
+        "agent_type": "general-purpose",
+        "agent_transcript_path": "/tmp/agent-a0000001.jsonl",
+        "background_tasks": [
+          {
+            "id": "wf_0000001",
+            "type": "workflow",
+            "status": "running",
+            "description": "Review changed files",
+            "name": "review-changes"
+          }
+        ]
+      },
+      "state": "running",
+      "backgroundTasks": 1
+    },
+    {
+      "event": "SubagentStop",
+      "payload": {
+        "session_id": "wf-session",
+        "stop_hook_active": false,
+        "agent_id": "a0000002",
+        "agent_type": "general-purpose",
+        "agent_transcript_path": "/tmp/agent-a0000002.jsonl",
+        "background_tasks": []
+      },
+      "state": "running",
+      "backgroundTasks": 0
+    },
+    {
+      "event": "Stop",
+      "payload": {
+        "session_id": "wf-session",
+        "stop_hook_active": false,
+        "background_tasks": [
+          {
+            "id": "b0000001",
+            "type": "shell",
+            "status": "running",
+            "description": "dev server",
+            "command": "pnpm dev"
+          }
+        ],
+        "session_crons": []
+      },
+      "state": "idle",
+      "backgroundTasks": 1
+    }
+  ]
+}

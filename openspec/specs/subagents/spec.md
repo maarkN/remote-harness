@@ -28,11 +28,15 @@ The daemon SHALL list the subagents of each session with `agentId`, `agentType`,
 - **THEN** they see the subagent conversation in read-only mode
 
 ### Requirement: Background tasks
-The session SHALL expose `backgroundTasks` with the background tasks reported in the last `Stop`.
+The session SHALL expose `backgroundTasks` with the background tasks reported in the last `Stop` or `SubagentStop` that carries `background_tasks` (a `SubagentStop` without the field leaves the count unchanged).
 
 #### Scenario: Background command
 - **WHEN** `Stop` reports a background task
 - **THEN** the session appears in the list with a "background" badge and the task count
+
+#### Scenario: Agent of a workflow stops
+- **WHEN** a `SubagentStop` arrives with `background_tasks` listing one remaining workflow
+- **THEN** the session's `backgroundTasks` becomes 1 and its state does not change
 
 ### Requirement: Nesting in the app
 The app SHALL show subagents nested under the parent session in the session list, with their state. The session screen MUST NOT show a strip of subagents; instead, when the session has subagents, the More options menu SHALL offer **Subagents (N)**, or **Subagents (N · M running)** while any runs, and the menu button SHALL show an accent dot while any subagent runs. Selecting the item SHALL open a sheet listing the subagents sorted running first, each row with its label, a state pill, the elapsed time (live while running, the total once done, omitted when the start is unknown) and the tool count when above zero; tapping a row SHALL open that subagent's conversation.

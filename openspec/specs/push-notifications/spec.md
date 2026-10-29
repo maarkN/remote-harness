@@ -21,7 +21,7 @@ The app SHALL request notification permission, obtain the FCM token and send `de
 - **THEN** its push registration is removed and it receives no further pushes
 
 ### Requirement: Push delivery
-The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.
+The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`, except one that keeps the session `running` because agent work is still in flight: the push follows the `Stop` that ends it), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.
 
 #### Scenario: Session finishes
 - **WHEN** `Stop` arrives and the app is in the background
@@ -34,6 +34,10 @@ The daemon SHALL send a push to the registered tokens when a session finishes a 
 #### Scenario: Turned off
 - **WHEN** the user runs `remote-harness push off`
 - **THEN** the running daemon sends no more pushes or live status updates until `remote-harness push on`
+
+#### Scenario: Turn ends while a workflow runs
+- **WHEN** `Stop` arrives with a `workflow` still running in `background_tasks` and the app is in the background
+- **THEN** no "Session finished" push is sent; it is sent on the later `Stop` with no agent work in flight
 
 ### Requirement: Content-free payload
 The payload MUST contain only a generic title, the profile name, `sessionId`, the event type and `requestId` when present; never prompts, commands or paths.
