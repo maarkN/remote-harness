@@ -18,6 +18,8 @@ const DeviceSchema = z.object({
   deviceId: z.string().optional(),
   /** The app draws turn pushes itself on Android (data messages with Reply / Interrupt). */
   turnActions: z.boolean().optional(),
+  /** The app has widgets fed by the widget refresh push. */
+  widgets: z.boolean().optional(),
   registeredAt: z.string(),
 })
 const DevicesSchema = z.object({ tokens: z.array(DeviceSchema) })
@@ -66,7 +68,7 @@ export class DeviceRegistry {
     platform?: DevicePlatform,
     relay?: PushRelay,
     deviceId?: string,
-    turnActions?: boolean,
+    flags: { turnActions?: boolean; widgets?: boolean } = {},
   ): Promise<void> {
     this.tokens = [
       {
@@ -74,7 +76,8 @@ export class DeviceRegistry {
         ...(platform ? { platform } : {}),
         ...(relay ? { relay } : {}),
         ...(deviceId ? { deviceId } : {}),
-        ...(turnActions ? { turnActions: true } : {}),
+        ...(flags.turnActions ? { turnActions: true } : {}),
+        ...(flags.widgets ? { widgets: true } : {}),
         registeredAt: new Date().toISOString(),
       },
       ...this.tokens.filter((t) => t.token !== token && (deviceId === undefined || t.deviceId !== deviceId)),

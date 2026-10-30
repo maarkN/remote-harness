@@ -1,8 +1,8 @@
 ## 1. Protocol and daemon
 
-- [ ] 1.1 Optional `widgets` on `device.register`; the device registry stores it; tests
-- [ ] 1.2 `PushMessage.silent` and `buildSilent` (data only, iOS background push, Android collapse key) used by `buildPush` (Firebase and relay); tests
-- [ ] 1.3 `features/widgets`: `widgetSignature(sessions, pending)` and a coalescing scheduler (30 s, trailing, skipped in foreground or with push off) sending `{event: "widgets", daemonId}` to devices with `widgets`; wired in `main.ts`; tests
+- [x] 1.1 Optional `widgets` on `device.register`; the device registry stores it; tests
+- [x] 1.2 `PushMessage.silent` and `buildSilent` (data only, iOS background push, Android collapse key) used by `buildPush` (Firebase and relay); tests
+- [x] 1.3 `features/widgets`: `widgetSignature(sessions, pending)` and a coalescing scheduler (30 s, trailing, skipped in foreground or with push off) sending `{event: "widgets", daemonId}` to devices with `widgets`; wired in `main.ts`; tests
 
 ## 2. App: snapshot and publishing
 

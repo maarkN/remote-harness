@@ -56,6 +56,7 @@ import {
   type TrayShellDeps,
 } from './features/updates/index.ts'
 import { registerVoicePolishFeature } from './features/voice-polish/index.ts'
+import { registerWidgetsFeature } from './features/widgets/index.ts'
 import type { Executor } from './infra/exec.ts'
 import { resolvePlatform } from './infra/platform.ts'
 import type { SleepInhibitor } from './infra/power.ts'
@@ -351,6 +352,13 @@ async function registerFeatures(
     sender: push.sender,
     isMuted,
     follow: transcript.follow,
+  })
+  registerWidgetsFeature(ctx, {
+    store: sessions.store,
+    pending: () => permissions.broker.list(),
+    devices: push.devices,
+    sender: push.sender,
+    pushOn: () => push.mode() !== 'off',
   })
   let updateChannel = () => ctx.config.update.channel
   // Registered after the updates feature (it needs the sessions restored): the tray reads it lazily.

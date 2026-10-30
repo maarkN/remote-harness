@@ -343,9 +343,9 @@ describe('turn actions', () => {
   test('Android builds with turn actions get a data message, everyone else the notification', async () => {
     const devices = new DeviceRegistry(paths.devices())
     await devices.load()
-    await devices.register('ios-1', 'ios', undefined, 'd1', true)
+    await devices.register('ios-1', 'ios', undefined, 'd1', { turnActions: true })
     await devices.register('old-android', 'android', undefined, 'd2')
-    await devices.register('new-android', 'android', undefined, 'd3', true)
+    await devices.register('new-android', 'android', undefined, 'd3', { turnActions: true })
     const { sender, sent } = fakeSender()
     const service = new PushService(sender, devices, silentLogger, {
       profiles: [{ id: 'p', name: 'DoctorX', configDir: '', color: '' }],
