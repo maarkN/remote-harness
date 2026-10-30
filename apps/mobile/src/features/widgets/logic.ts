@@ -131,6 +131,8 @@ export type WidgetInput = {
   labels: WidgetLabels
   palette: LivePalette
   now: number
+  /** The last snapshot: a session still in the same state keeps the time it entered it. */
+  previous?: WidgetSnapshot | null
 }
 
 /**
@@ -141,6 +143,9 @@ export type WidgetInput = {
  */
 export function buildWidgetSnapshot(input: WidgetInput): WidgetSnapshot {
   const { now, daemonId } = input
+  const before = new Map(
+    input.previous?.daemonId === daemonId ? input.previous.sessions.map((s) => [s.id, s] as const) : [],
+  )
   const live = input.sessions.filter((s) => s.state !== 'ended')
   const liveIds = new Set(live.map((s) => s.id))
   const pending = input.pending
@@ -159,7 +164,12 @@ export function buildWidgetSnapshot(input: WidgetInput): WidgetSnapshot {
         : session.state === 'running'
           ? 'running'
           : 'idle'
-    const since = request ? time(request.createdAt, now) : time(session.updatedAt, now)
+    const kept = before.get(session.id)
+    const since = request
+      ? time(request.createdAt, now)
+      : kept && kept.state === state
+        ? kept.since
+        : time(session.updatedAt, now)
     return { session, state, since }
   })
   const waiting = rows.filter((r) => r.state === 'pending' || r.state === 'waiting').length
@@ -205,6 +215,12 @@ export function buildWidgetSnapshot(input: WidgetInput): WidgetSnapshot {
     palette: input.palette,
     listLink: SCHEME,
   }
+}
+
+/** What the widgets draw, without the build time: equal keys need no redraw. */
+export function snapshotKey(snapshot: WidgetSnapshot): string {
+  const { updatedAt: _time, ...content } = snapshot
+  return JSON.stringify(content)
 }
 
 /** The snapshot without a paired computer: the widgets invite to open the app. */

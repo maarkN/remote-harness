@@ -7,6 +7,7 @@ import {
   pairSnapshot,
   parseSnapshot,
   parseWidgetTarget,
+  snapshotKey,
   updatedLine,
   widgetLabels,
   widgetSessionLink,
@@ -150,6 +151,42 @@ describe('buildWidgetSnapshot', () => {
       fiveHour: { percent: 72, resetsAt: NOW + 2000 },
       weekly: { percent: 35, resetsAt: NOW + 5000 },
     })
+  })
+})
+
+describe('state times', () => {
+  test('a session in the same state keeps its time; a new state takes the session update', () => {
+    const first = buildWidgetSnapshot({
+      ...base,
+      sessions: [session('a', 'running', '2026-10-30T11:00:00Z')],
+      pending: [],
+    })
+    const busy = buildWidgetSnapshot({
+      ...base,
+      now: NOW + 5000,
+      previous: first,
+      sessions: [session('a', 'running', '2026-10-30T11:59:59Z')],
+      pending: [],
+    })
+    expect(busy.sessions[0]?.since).toBe(Date.parse('2026-10-30T11:00:00Z'))
+    expect(snapshotKey(busy)).toBe(snapshotKey(first))
+    const waiting = buildWidgetSnapshot({
+      ...base,
+      previous: busy,
+      sessions: [session('a', 'waiting', '2026-10-30T11:59:59Z')],
+      pending: [],
+    })
+    expect(waiting.sessions[0]?.since).toBe(Date.parse('2026-10-30T11:59:59Z'))
+    expect(snapshotKey(waiting)).not.toBe(snapshotKey(busy))
+    // Another computer's snapshot gives no times.
+    const other = buildWidgetSnapshot({
+      ...base,
+      daemonId: 'd2',
+      previous: first,
+      sessions: [session('a', 'running', '2026-10-30T11:59:59Z')],
+      pending: [],
+    })
+    expect(other.sessions[0]?.since).toBe(Date.parse('2026-10-30T11:59:59Z'))
   })
 })
 

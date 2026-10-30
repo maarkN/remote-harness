@@ -23,9 +23,13 @@ export function snapshotOf(
     limits: readonly AccountLimits[]
     host?: string | null
   },
-  /** Background tasks keep the theme of the last snapshot (the saved preference is not read there). */
-  palette: LivePalette = livePalette(currentTheme()),
+  options: {
+    /** Background tasks keep the theme of the last snapshot (the saved preference is not read there). */
+    palette?: LivePalette
+    previous?: WidgetSnapshot | null
+  } = {},
 ): WidgetSnapshot {
+  const palette = options.palette ?? livePalette(currentTheme())
   const labels = widgetLabels(i18n.t)
   const now = Date.now()
   if (!computer) return pairSnapshot(labels, palette, now)
@@ -36,6 +40,7 @@ export function snapshotOf(
     labels,
     palette,
     now,
+    previous: options.previous ?? null,
   })
 }
 
@@ -75,7 +80,10 @@ export async function refreshWidgetsInBackground(daemonId?: string): Promise<boo
     }
   }, computer.daemonId)
   if (!fetched.ok) return false
-  const snapshot = snapshotOf(computer, fetched.value, previous?.palette)
+  const snapshot = snapshotOf(computer, fetched.value, {
+    ...(previous ? { palette: previous.palette } : {}),
+    previous,
+  })
   const keepLimits = fetched.value.limits.length === 0 && previous?.daemonId === computer.daemonId
   await publishWidgets(keepLimits && previous ? { ...snapshot, limits: previous.limits } : snapshot)
   return true
