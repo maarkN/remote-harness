@@ -767,7 +767,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.0.0'
+const APP_VERSION = '1.0.1'
 /**
  * Android `versionCode` from the version (0.20.0 → 20000): Google Play only takes a bundle whose code
  * is higher than every one uploaded before, so it follows the version instead of staying at 1.
