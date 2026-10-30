@@ -10,6 +10,9 @@ import {
 import { presentLiveNotification } from '../live-status/android-renderer'
 import { listenForActivityTokens } from '../live-status/background-register'
 import { liveAction } from '../live-status/logic'
+import { registerAndroidWidgetTask } from '../widgets/android/task-handler'
+import { parseWidgetTarget } from '../widgets/logic'
+import { answerFromWidget, refreshWidgetsInBackground } from '../widgets/refresh'
 import { loadMessaging } from './firebase'
 import { ACTION_ALLOW, ACTION_DENY, extractPushData } from './payload'
 import { respondInBackground, sendInBackground } from './respond-in-background'
@@ -18,8 +21,9 @@ import { parseTurnData, TURN_CHANNEL_ID, turnActionOf, turnRequest } from './tur
 /**
  * Loaded by the entry file (`index.ts`) before Expo Router: headless JS (an FCM message or a
  * notification action with the app closed) never mounts the router, so these handlers must be set at
- * module scope. Android: FCM data messages and notification actions. iOS: Live Activity tokens and
- * Deny / Allow, which iOS may hand to the app in the background without its screens.
+ * module scope. Android: FCM data messages, notification actions and widget taps. iOS: Live Activity
+ * tokens, Deny / Allow on the Live Activity and the widgets, and widget refresh pushes, which iOS may
+ * hand to the app in the background without its screens.
  */
 
 /** Background task (expo-task-manager) that gets Allow / Deny tapped with the app in the background or closed. */
@@ -68,8 +72,22 @@ export async function showTurnMessage(data: unknown): Promise<boolean> {
   return true
 }
 
-/** An FCM data message: the live status or a turn push. */
+/** `data.event` of the daemon's widget refresh push (data only, no content). */
+const WIDGET_REFRESH_EVENT = 'widgets'
+
+/** A widget refresh push: fetches the computer's state and redraws the widgets; `false` when not one. */
+export async function refreshFromPush(data: unknown): Promise<boolean> {
+  if (!data || typeof data !== 'object') return false
+  const record = data as Record<string, unknown>
+  if (record.event !== WIDGET_REFRESH_EVENT) return false
+  const daemonId = typeof record.daemonId === 'string' ? record.daemonId : undefined
+  await refreshWidgetsInBackground(daemonId).catch(() => false)
+  return true
+}
+
+/** An FCM data message: a widget refresh, the live status or a turn push. */
 export async function showDataMessage(data: unknown): Promise<void> {
+  if (await refreshFromPush(data).catch(() => false)) return
   if (await showLiveMessage(data).catch(() => false)) return
   await showTurnMessage(data).catch(() => undefined)
 }
@@ -157,18 +175,35 @@ if (isAndroid) {
       backgroundActions = false
     })
   }
+  // Home screen widgets: draws and Allow / Deny taps, with the app closed too.
+  registerAndroidWidgetTask()
 }
 
 if (Platform.OS === 'ios') {
   // A Live Activity the daemon started by push: its token goes to the daemon with the app closed.
   listenForActivityTokens()
-  // Deny / Allow tapped on a Live Activity (lock screen or Dynamic Island), app in front or not.
+  // Deny / Allow tapped on a Live Activity (lock screen or Dynamic Island) or on a Home Screen widget
+  // (`app:` targets, performed in the app's process), app in front or not.
   try {
     addUserInteractionListener((event) => {
+      const widget = parseWidgetTarget(event.target)
+      if (widget) {
+        void answerFromWidget(widget.decision, widget.requestId)
+        return
+      }
       const action = liveAction(event.target)
       if (action) void respondInBackground(action.requestId, action.decision)
     })
   } catch {
     // Live Activities unavailable.
+  }
+  // Widget refresh pushes (background pushes, `content-available`) with the app in the background.
+  const messaging = loadMessaging()
+  try {
+    messaging?.setBackgroundMessageHandler(messaging.getMessaging(), async (message) => {
+      await refreshFromPush(message.data)
+    })
+  } catch {
+    // Builds without Firebase.
   }
 }

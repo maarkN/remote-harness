@@ -4,6 +4,8 @@ import {
   appIntentFiles,
   copyMainActivityFiltersToAliases,
   USER_LEAVE_HINT_EVENT,
+  widgetGalleryStrings,
+  widgetPickerStrings,
 } from '../app.config.ts'
 import { USER_LEAVE_HINT_EVENT as APP_ICON_EVENT } from '../src/features/settings/app-icon.ts'
 
@@ -112,5 +114,25 @@ describe('addShortcutsMetaData', () => {
     if (main) main['meta-data'] = [other]
     addShortcutsMetaData(app)
     expect(main?.['meta-data']).toEqual([other, shortcuts])
+  })
+})
+
+describe('widget gallery strings', () => {
+  it('maps the English gallery texts to each language for the iOS extension', () => {
+    expect(widgetGalleryStrings('pt-BR')).toBe(
+      '"Sessions" = "Sessões";\n' +
+        '"Sessions waiting for you, sessions working and your usage limits." = ' +
+        '"Sessões esperando você, sessões trabalhando e seus limites de uso.";\n',
+    )
+    expect(widgetGalleryStrings('en')).toContain('"Sessions" = "Sessions";')
+  })
+
+  it('writes the Android labels everywhere and the descriptions only as translations', () => {
+    const en = widgetPickerStrings('en')
+    expect(en).toContain('<string name="widget_sessions_small_label">Sessions (small)</string>')
+    expect(en).not.toContain('_description')
+    const es = widgetPickerStrings('es')
+    expect(es).toContain('<string name="widget_sessions_medium_label">Sesiones (mediano)</string>')
+    expect(es).toContain('<string name="widget_sessionssmall_description">Sesiones que te esperan')
   })
 })

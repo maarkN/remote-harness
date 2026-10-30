@@ -61,7 +61,10 @@ export async function registerPushFeature(
   })
 
   ctx.router.register('device.register', async (msg, connection) => {
-    await devices.register(msg.fcmToken, msg.platform, msg.relay, connection.deviceId, msg.turnActions)
+    await devices.register(msg.fcmToken, msg.platform, msg.relay, connection.deviceId, {
+      turnActions: msg.turnActions,
+      widgets: msg.widgets,
+    })
     return undefined
   })
   // The phone turned push off: it is no longer counted or targeted.

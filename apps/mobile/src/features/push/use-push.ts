@@ -217,11 +217,13 @@ export function usePush() {
       const sendToken = async (token: string) => {
         const relay = platform ? await relayFor({ fcmToken: token, platform }) : undefined
         // `turnActions`: this build draws turn pushes itself on Android (data messages with actions).
+        // `widgets`: it has widgets, fed by the daemon's content-free widget refresh push.
         client.send({
           type: 'device.register',
           fcmToken: token,
           platform,
           turnActions: true,
+          widgets: true,
           ...(relay ? { relay } : {}),
         })
         usePushState.setState({ token, relay: relay !== undefined })

@@ -104,6 +104,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     relay: PushRelaySchema.optional(),
     /** This build draws turn pushes itself on Android (data messages with Reply / Interrupt). */
     turnActions: z.boolean().optional(),
+    /** This build has widgets fed by the widget refresh push (data only, `event: "widgets"`). */
+    widgets: z.boolean().optional(),
   }),
   /** This phone turned push off: the daemon forgets its token. */
   z.object({ type: z.literal('device.unregister'), id, fcmToken: z.string().min(1) }),

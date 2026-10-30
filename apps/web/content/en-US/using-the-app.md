@@ -60,6 +60,10 @@ While the agent delegates work, the header's menu shows **Subagents (N · M runn
 
 On iOS, a running session shows a Live Activity on the lock screen and in the Dynamic Island with the state, the current step and the elapsed time; a permission request adds Allow and Deny buttons. On Android it is a silent notification without buttons: tap it to answer in the app. It never carries the conversation. Turn it off in Settings → Notifications → Live status.
 
+## Widgets
+
+Add the **Sessions** widget to see the active computer without opening the app. On iOS: small (how many sessions wait for you and how many are working), medium (up to three sessions, the pending permission first, with Deny and Allow for the oldest request) and on the Lock Screen (the counts and your 5-hour and weekly usage limits). On Android: a small and a medium home screen widget with the same content. Deny and Allow work with the app closed; tapping a session opens it. The widgets show when they were last updated: the app refreshes them while it is open, and the computer sends a push without any content that makes the phone fetch the new state over its own encrypted connection, so session titles never travel through a push.
+
 ## Notifications and mute
 
 Push notifications tell you when a session needs a permission, finishes a turn or asks a question; they carry a title, the profile and the session id, never the content. Settings → Notifications has the switch for this phone, a test button and the live status switch. Mute a profile or a session from its row or from the session menu; the **Muted** row in Settings lists everything muted.

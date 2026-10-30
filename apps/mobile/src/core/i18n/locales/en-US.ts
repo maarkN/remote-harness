@@ -500,6 +500,26 @@ const enUS = {
     },
     finished: 'Finished',
   },
+  widgets: {
+    /** Widget gallery (iOS) and widget picker (Android). */
+    galleryName: 'Sessions',
+    galleryDescription: 'Sessions waiting for you, sessions working and your usage limits.',
+    smallName: 'Sessions (small)',
+    mediumName: 'Sessions (medium)',
+    waiting: 'waiting',
+    running: 'working',
+    states: { pending: 'Permission', waiting: 'Waiting for you', running: 'Working', idle: 'Idle' },
+    request: '{{tool}} asks for permission',
+    allow: 'Allow',
+    deny: 'Deny',
+    answering: 'Sending…',
+    empty: 'No active sessions',
+    pair: 'Open Remote Harness to pair a computer',
+    /** `{time}` is the snapshot's clock time (single braces: filled in by the widget). */
+    updated: 'Updated {time}',
+    fiveHour: '5h',
+    weekly: 'Week',
+  },
   tools: {
     grepIn: '{{pattern}} in {{path}}',
     todoItems_one: '{{count}} item',

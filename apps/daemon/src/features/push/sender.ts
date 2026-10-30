@@ -17,11 +17,35 @@ export type PushMessage = {
   category?: string
   /** Send as an Android data message (`buildAndroidData`): only to builds registered with `turnActions`. */
   androidData?: boolean
+  /** Data only, nothing shown (`buildSilent`): title and body are ignored. */
+  silent?: boolean
+  /** Silent pushes: an offline phone gets only the latest one with this key (Android). */
+  collapseKey?: string
 }
 
 /** The FCM message of a push for these tokens, in the form the push asks for. */
 export function buildPush(tokens: readonly string[], message: PushMessage) {
+  if (message.silent) return buildSilent(tokens, message)
   return message.androidData ? buildAndroidData(tokens, message) : buildMulticast(tokens, message)
+}
+
+/**
+ * A push the phone handles without showing anything: only `data`. iOS gets a background push
+ * (`content-available`, low priority, as Apple requires for it), Android a normal-priority data message.
+ */
+export function buildSilent(tokens: readonly string[], message: PushMessage) {
+  return {
+    tokens: [...tokens],
+    data: message.data,
+    apns: {
+      headers: { 'apns-push-type': 'background', 'apns-priority': '5' },
+      payload: { aps: { contentAvailable: true } },
+    },
+    android: {
+      priority: 'normal' as const,
+      ...(message.collapseKey ? { collapseKey: message.collapseKey } : {}),
+    },
+  }
 }
 
 /** Android data message of a turn push: the app draws it with the category's actions. */

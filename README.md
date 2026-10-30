@@ -71,6 +71,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 | 🌿 **Shared checkout warning** | Each session shows its git branch; sessions working in the same checkout are flagged, and a new one can start in its own git worktree. |
 | 🔔 **Private push** | Notifications only to *your* registered phone, carrying no session content. Mute globally, per profile or per session. |
 | ⏱️ **Live status** | While a session works, its state, step type, running tasks and elapsed time show on the lock screen and in the Dynamic Island (iOS Live Activity) or in a silent notification (Android). |
+| 🧩 **Widgets** | Home Screen and Lock Screen widgets (iOS) and home screen widgets (Android): sessions waiting for you, sessions working, usage limits, and Allow / Deny for the oldest pending permission with the app closed. |
 | 📱 **Phone and iPad** | Five themes (dark, light, Dracula, Mocha, Latte), an iPad layout with a session sidebar and inspector, and hardware keyboard shortcuts. |
 | 🔄 **Menu bar and updates** | A menu bar / tray icon on the computer with the daemon's status and updates; the phone can update the computer too. |
 | 🧯 **Error reports** | Opt-in crash and error reports, scrubbed of anything from your sessions, and a "Report a problem" screen. |
