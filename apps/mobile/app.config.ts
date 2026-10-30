@@ -665,6 +665,30 @@ const withIosOnlyLocaleStrings: ConfigPlugin = (config) =>
     return mod
   })
 
+/** WorkManager of `react-native-android-widget`, which runs the widgets' headless task. */
+const WORK_MANAGER_VERSION = '2.8.1'
+
+/**
+ * Expo modules bring `work-runtime-ktx` 2.7.1 while the widgets bring `work-runtime` 2.8.1, where the
+ * ktx classes moved: both on the classpath fail `checkDuplicateClasses`. Pin the ktx artifact to the
+ * same version (an empty shell since 2.8).
+ */
+const withSingleWorkManager: ConfigPlugin = (config) =>
+  withAppBuildGradle(config, (mod) => {
+    const marker = '// remote-harness: one WorkManager version'
+    if (!mod.modResults.contents.includes(marker)) {
+      mod.modResults.contents += [
+        '',
+        marker,
+        'configurations.all {',
+        `    resolutionStrategy.force 'androidx.work:work-runtime-ktx:${WORK_MANAGER_VERSION}'`,
+        '}',
+        '',
+      ].join('\n')
+    }
+    return mod
+  })
+
 /** Attributes of FCM's notification defaults that both expo-notifications and RNFirebase messaging set. */
 const FCM_DEFAULTS: Record<string, 'android:value' | 'android:resource'> = {
   'com.google.firebase.messaging.default_notification_channel_id': 'android:value',
@@ -719,15 +743,17 @@ const withFirebase: ConfigPlugin = (config) => {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const expo = withAssistantActions(
     withIconAliasDeepLinks(
-      withIosOnlyLocaleStrings(
-        withVoiceAssistantIntents(
-          withLiveActivityIcon(
-            withWidgetGalleryStrings(
-              withUserLeaveHintMainActivity(
-                withKeyCommandMainActivity(
-                  withKeyCommandAppDelegate(
-                    withKeyCommandBridgingHeader(
-                      withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+      withSingleWorkManager(
+        withIosOnlyLocaleStrings(
+          withVoiceAssistantIntents(
+            withLiveActivityIcon(
+              withWidgetGalleryStrings(
+                withUserLeaveHintMainActivity(
+                  withKeyCommandMainActivity(
+                    withKeyCommandAppDelegate(
+                      withKeyCommandBridgingHeader(
+                        withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+                      ),
                     ),
                   ),
                 ),
