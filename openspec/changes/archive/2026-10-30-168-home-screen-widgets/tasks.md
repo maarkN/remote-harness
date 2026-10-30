@@ -27,4 +27,4 @@
 
 ## 5. Verify
 
-- [ ] 5.1 Typecheck, tests and Biome green; `expo export` for iOS and Android bundles
+- [x] 5.1 Typecheck, tests and Biome green; `expo export` for iOS and Android bundles
