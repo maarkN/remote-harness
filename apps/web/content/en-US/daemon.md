@@ -4,17 +4,16 @@ description: CLI commands, the configuration file, the background service, updat
 applies: 0.7+
 ---
 
-The daemon runs on the computer: it tails the session transcripts, drives tmux, receives Claude Code's hooks on `127.0.0.1` and serves the app over a WebSocket bound to the Tailscale interface. `remote-harness --help` is the source of truth for the commands.
+The daemon runs on the computer: it tails the session transcripts, drives tmux, receives Claude Code's hooks on `127.0.0.1` and serves the app on two paths with the same end-to-end encryption: directly, on a WebSocket that listens on every interface (the home network, or any VPN address of the computer), and through its connection relay, where it keeps a room open. `remote-harness --help` is the source of truth for the commands.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `remote-harness setup` | Guided setup: accounts and aliases, hooks, service, pairing. `--yes` keeps the config, `--lang` picks the language. |
-| `remote-harness start` | Runs the daemon in the foreground. `--dev` binds to `127.0.0.1`, `--host` sets the address, `--wait-tailscale` waits for the interface. |
-| `remote-harness pair` | Shows the pairing QR code (address and token). `--dev` for `127.0.0.1`. |
-| `remote-harness rotate-token` | New token; every phone has to pair again. |
-| `remote-harness doctor` | Checks the tools, Tailscale, the config, the profiles and their provider keys, the token store, the service, push and the registered phones. |
+| `remote-harness start` | Runs the daemon in the foreground. `--dev` binds to `127.0.0.1` only and never uses a relay, `--host` sets the direct address. |
+| `remote-harness pair` | Asks the running daemon for a pairing QR code: it pairs one phone and expires in 5 minutes. |
+| `remote-harness doctor` | Checks the tools, the config, the profiles and their provider keys, the daemon identity, whether the connection relays answer, the service, push and the registered phones. |
 | `remote-harness install` / `uninstall` | Installs or removes the launchers, the `PATH` entry, the hooks and the status line wrapper, without questions. |
 | `remote-harness service install` / `uninstall` / `status` | The background service: a launchd LaunchAgent on macOS, a systemd user unit on Linux and WSL. |
 | `remote-harness update` | Fetches the new version, rebuilds, refreshes the hooks and restarts the service. `--ref <branch|tag>` picks a version. |
@@ -22,7 +21,9 @@ The daemon runs on the computer: it tails the session transcripts, drives tmux, 
 | `remote-harness push status` / `test` | Push mode in use and the registered phones; sends a test notification. |
 | `remote-harness push off` / `on` | Stops (or resumes) every push and live status update from this computer, without restarting the daemon. |
 | `remote-harness provider key <profile>` | Stores a profile's provider key (OpenRouter) in the OS secret store. `--stdin` reads it from a pipe. |
+| `remote-harness devices list` / `revoke <id>` | The phones and tablets paired with this computer (ID, name, platform, paired, last seen); `revoke` disconnects one, which must pair again. |
 | `remote-harness rules list` / `undo <id>` | The "always allow" rules created from the phone. |
+| `remote-harness approvals list` | The approval log: what devices allowed, denied, undid and deleted (last 30 days). |
 | `remote-harness commands [on|off]` | Shows, allows or forbids running shell commands from the app in a session's folder (off by default), applied to the running daemon. |
 
 The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for installs made before the rename.
@@ -47,7 +48,10 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
   "tmuxSession": "claude-remote",
   "push": "auto",
   "update": { "channel": "main", "auto": false },
-  "tray": true
+  "tray": true,
+  "relays": ["wss://us.relay.remoteharness.app", "wss://br.relay.remoteharness.app"],
+  "relay": "on",
+  "direct": "on"
 }
 ```
 
@@ -63,6 +67,8 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
 - `push`: `auto` (your Firebase service account when present, else the relay) or `off`.
 - `update`: the channel `update` and the background check follow, and whether updates apply by themselves.
 - `tray`: the menu bar / tray icon.
+- `relays`: the connection relays the daemon may use. At start it measures them and keeps its room on the fastest, moving only when that one goes down; replace the list to [self-host](#self-hosting-the-connection-relay).
+- `relay`: `off` keeps the daemon off the relays (phones reach it only directly). `direct`: `off` stops listening for direct connections (only the relay). Not both. `start --dev` never uses a relay.
 - `trayPermissions`: whether the tray offers Allow / Always allow / Deny for a waiting permission (on by default; also under the tray's Preferences).
 - `shellCommands`: `enabled` (off by default; change it with `remote-harness commands on|off`), `timeoutSec` (300) and `maxOutputKb` (1024) for the commands run from the app.
 
@@ -84,7 +90,7 @@ By hand: add a `provider` with `kind: "openrouter"` and, optionally, `baseUrl` (
 }
 ```
 
-Then `remote-harness install` regenerates the launchers and `remote-harness provider key openrouter` stores the key in the same place as the pairing token (Keychain on macOS, Secret Service or a `0600` file on Linux). The launcher reads it only inside the tmux window, never on a command line, and the daemon only uses it to show your credits in the app. `doctor` reports whether each provider profile has a key.
+Then `remote-harness install` regenerates the launchers and `remote-harness provider key openrouter` stores the key in the same secret store as the daemon's own keys (Keychain on macOS, Secret Service or a `0600` file on Linux). The launcher reads it only inside the tmux window, never on a command line, and the daemon only uses it to show your credits in the app. `doctor` reports whether each provider profile has a key.
 
 ## Codex profiles
 
@@ -96,7 +102,7 @@ A profile can run OpenAI Codex CLI instead of Claude Code: set `"agent": "codex"
 
 `remote-harness install` writes the profile's launcher (it opens `codex` with `CODEX_HOME` set) and merges the daemon's hooks into `<CODEX_HOME>/hooks.json`, next to your own and with a backup; your `config.toml` is not touched. **Codex asks once to trust new hooks**: open `codex` and choose "Trust all and continue" (or review them in `/hooks`). Until then its sessions are listed read-only and approvals stay in the terminal. `doctor` checks that `codex` is on the `PATH` and that the hooks are installed.
 
-What works like Claude Code: the session list (recent rollouts under `sessions/`), the conversation, prompts, photos and keys, starting and resuming from the phone, push, live status and approvals with Allow / Deny. Differences: the mode chip shows the approval policy and changes only with `/permissions` in the terminal, there is no "Always" (Codex hooks cannot add rules), no worktree option and no provider.
+What works like Claude Code: the session list (recent rollouts under `sessions/`), the conversation, prompts, photos and keys, starting and resuming from the phone (in a worktree with `codex --worktree`, and with a name, sent as `/rename`), push, live status, approvals with Allow / Deny, Polish dictation and generated commit messages (through `codex exec`). Differences: the mode chip shows the permission profile and switches between read only and workspace (`/permissions`, Codex 0.164 or later); full access only in the terminal. There is no "Always" (Codex hooks cannot add rules) and no provider.
 
 ## Launchers and aliases
 
@@ -104,7 +110,7 @@ Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added
 
 ## Background service
 
-`remote-harness service install` keeps the daemon running after you close the terminal and starts it at login: a LaunchAgent on macOS (shown as a Login Item), a systemd user unit on Linux (`~/.config/systemd/user/claude-remote.service`). On Linux servers you reach over SSH, the setup offers `loginctl enable-linger`, so the service survives logout. Without systemd (containers, some WSL setups) run `remote-harness start` yourself, for example in a tmux window. On WSL the setup can also create a Windows scheduled task that starts the distribution at logon.
+`remote-harness service install` keeps the daemon running after you close the terminal and starts it at login: a LaunchAgent on macOS (shown as a Login Item), a systemd user unit on Linux (`~/.config/systemd/user/claude-remote.service`). On Linux servers you reach over SSH, the setup offers `loginctl enable-linger`, so the service survives logout; [Cloud server](/en/docs/cloud-server/) covers running the daemon on a cloud VM. Without systemd (containers, some WSL setups) run `remote-harness start` yourself, for example in a tmux window. On WSL the setup can also create a Windows scheduled task that starts the distribution at logon.
 
 `remote-harness service status` shows whether it is loaded; the tray menu can restart it.
 
@@ -114,10 +120,29 @@ The service checks its channel on the git remote every 6 hours and shows a deskt
 
 ## Tray icon
 
-The service daemon shows a menu bar icon on macOS (a small Swift helper built on first start with the Command Line Tools) and a tray icon on Linux (`python3` with GTK 3 and AyatanaAppIndicator3 or AppIndicator3). The menu shows the running sessions and the pending permissions (answer them from there), starts a new session, shows the pairing code, checks or applies updates, picks the channel, opens the logs, the config and the documentation, and restarts the daemon. **Pair a phone** shows the pairing QR code right in the menu on macOS, the address, the pairing in the terminal and **Rotate token…** (the paired phones must pair again). **Preferences** toggles the permission answers in the menu, the keep-awake mode and push notifications, applied at once, and opens the config file for the rest. Under the service, **Quit** either hides the icon or stops the service until the next login. `"tray": false` turns it off; without the helper, and in WSL, the daemon runs headless.
+The service daemon shows a menu bar icon on macOS (a small Swift helper built on first start with the Command Line Tools) and a tray icon on Linux (`python3` with GTK 3 and AyatanaAppIndicator3 or AppIndicator3). The menu shows the running sessions and the pending permissions (answer them from there), starts a new session, shows the pairing code, checks or applies updates, picks the channel, opens the logs, the config and the documentation, and restarts the daemon. **Pair a phone** shows the pairing QR code right in the menu on macOS, the address and the pairing in the terminal; each code is single use and expires in 5 minutes. **Preferences** toggles the permission answers in the menu, the keep-awake mode and push notifications, applied at once, and opens the config file for the rest. Under the service, **Quit** either hides the icon or stops the service until the next login. `"tray": false` turns it off; without the helper, and in WSL, the daemon runs headless.
+
+## Self-hosting the connection relay
+
+When the phone cannot reach the computer directly, the daemon and the app meet on a connection relay: `us.relay.remoteharness.app` and `br.relay.remoteharness.app` by default. The relay only forwards traffic that the daemon and the app encrypt end to end; it cannot read sessions, prompts or files, and it keeps no logs of what passes through or of IP addresses. Running your own takes one container:
+
+```sh
+docker build -t remote-harness-relay apps/relay
+docker run -d --restart unless-stopped -p 8080:8080 remote-harness-relay
+```
+
+Put it behind a proxy that terminates TLS (Traefik, Caddy, nginx) so it is reached over `wss://`, and set `RELAY_CLIENT_IP_HEADER` to the header the proxy fills with the client address (`X-Real-Ip`, for example) so the per-address limits see the real client. `GET /healthz` answers `{"status":"ok"}`. Limits come from the environment: `RELAY_MAX_DEVICES` (10 phones per computer), `RELAY_MAX_FRAME_BYTES` (8 MB), `RELAY_ROOM_RATE_BYTES` and `RELAY_ROOM_BURST_BYTES` (bandwidth per computer), `RELAY_IDLE_TIMEOUT`, `RELAY_IP_CONNECTS_PER_MINUTE`, `RELAY_IP_BURST` and `RELAY_IP_MAX_CONNS`.
+
+Then list it in the daemon's configuration file, instead of the default relays or before them:
+
+```json
+{ "relays": ["wss://relay.example.com"] }
+```
+
+Pair the phone again afterwards: the pairing code tells the app which relay to use.
 
 ## Data and logs
 
 Everything the daemon keeps lives in `~/.remote-harness/`: `config.json`, `state.json` (the known sessions), `secrets/` (provider keys when the file store is used), `models-cache.json`, `bin/` (launchers), `logs/` and `src/` (the source the installer built). Attach the logs to a bug report after removing tokens and session content.
 
-Environment variables: `REMOTE_HARNESS_HOME` moves the data directory, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` forces the token store, `REMOTE_HARNESS_LANG` sets the language.
+Environment variables: `REMOTE_HARNESS_HOME` moves the data directory, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` forces the secret store (the daemon's keys and the provider keys), `REMOTE_HARNESS_LANG` sets the language.

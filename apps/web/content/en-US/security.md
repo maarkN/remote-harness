@@ -1,6 +1,6 @@
 ---
 title: Security & privacy
-description: What the daemon can do, what leaves your machine, tokens and keys, and how to report a problem.
+description: What the daemon can do, what leaves your machine, keys and pairing, and how to report a problem.
 applies: 0.7+
 ---
 
@@ -10,13 +10,14 @@ The daemon can type into your Claude Code sessions and approve tool calls, so it
 
 ## Network
 
-- The WebSocket the app connects to listens **only on the Tailscale interface** (100.64.0.0/10), or on `127.0.0.1` with an explicit `--dev`. There is no port on the internet and no relay server reading your sessions.
+- The app reaches the daemon directly (a WebSocket on every interface of the computer, or only `127.0.0.1` with `--dev`) or through a connection relay. On both paths every byte is end-to-end encrypted, and a connection that does not complete the handshake with a paired key gets nothing at all; the relay only forwards ciphertext and cannot read your sessions.
 - Claude Code's hooks reach the daemon on `127.0.0.1` only, with a local shared secret.
-- Exposing the daemon outside Tailscale with `--host` is out of scope and not supported.
+- `relay: off` or `direct: off` in the config turns a path off; `remote-harness devices revoke <id>` unpairs a phone at once.
 
-## Tokens and keys
+## Keys and pairing
 
-- Every connection presents a pairing token kept in the macOS Keychain, the Linux Secret Service (`secret-tool`) or a `0600` file, and in the phone's secure storage. `remote-harness rotate-token` invalidates it and drops every client.
+- Every connection is a Noise protocol session (X25519, ChaCha20-Poly1305) encrypted end to end between the phone and the daemon. The daemon's own keys live in the macOS Keychain, the Linux Secret Service (`secret-tool`) or a `0600` file; each phone creates its key pair when it pairs and keeps it in its secure storage, on that device only.
+- A pairing code (`remote-harness pair`, the setup or the tray) works once and only for 5 minutes. The daemon keeps the paired phones' public keys (at most 10) and drops any connection whose key it does not know, before sending anything.
 - Provider keys (OpenRouter) live in the same store, under their own account. They are never written to `config.json`, `settings.json`, shell files or the launchers, never logged, and never sent to the phone: the launcher reads the key inside the tmux window, and the daemon only uses it to ask the provider for your credits.
 
 ## What leaves your machine
@@ -32,7 +33,7 @@ Running commands from the app (**Run command…**) is off by default and can onl
 
 ## Permissions
 
-The app never offers the agent's "bypass permissions" mode. "Always allow" writes a rule in Claude Code's own settings, for the project or for your user, and `remote-harness rules undo` reverts it. An unanswered request falls back to the terminal dialog after a few minutes.
+The app never offers the agent's "bypass permissions" mode. "Always allow" writes a rule in Claude Code's own settings, for the project or for your user, and Settings → Permissions → Rules (or `remote-harness rules undo`) reverts it; deleting a rule written on the computer asks for Face ID or the device passcode. The approval log records which device allowed or denied what, with only the tool and a short target (a file's base name, a command's program), never the input, and keeps 30 days. An unanswered request falls back to the terminal dialog after a few minutes.
 
 ## Your files
 

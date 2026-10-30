@@ -29,6 +29,10 @@ describe('agent adapters', () => {
     })
     expect(claude.resumeArgs('abc')).toEqual(['--resume', 'abc'])
     expect(claude.worktreeArgs('remote-1')).toEqual(['--worktree', 'remote-1'])
+    expect(claude.nameArgs('Login bug')).toEqual(['--name', 'Login bug'])
+    expect(claude.renameCommand('Login bug')).toBeNull()
+    expect(claude.presets).toBeNull()
+    expect(claude.polish?.parse(JSON.stringify({ result: 'ok' }))).toBe('ok')
     expect(claude.hooks.file('/Users/me/.claude')).toBe('/Users/me/.claude/settings.json')
     const polishArgs = claude.polish?.args('so, um, continue the tests')
     expect(polishArgs?.slice(0, 2)).toEqual(['-p', 'so, um, continue the tests'])
@@ -40,7 +44,7 @@ describe('agent adapters', () => {
     expect(polishArgs).toContain('--append-system-prompt')
   })
 
-  test('Codex: CODEX_HOME, codex resume, no worktree, hooks.json', () => {
+  test('Codex: CODEX_HOME, codex resume, managed worktree, hooks.json', () => {
     const codex = agentFor({ agent: 'codex' })
     expect(codex).toMatchObject({
       id: 'codex',
@@ -53,11 +57,37 @@ describe('agent adapters', () => {
       modes: false,
     })
     expect(codex.resumeArgs('abc')).toEqual(['resume', 'abc'])
-    expect(codex.worktreeArgs('remote-1')).toBeNull()
+    expect(codex.worktreeArgs('remote-1')).toEqual(['--worktree'])
+    expect(codex.nameArgs('Login bug')).toBeNull()
+    expect(codex.renameCommand('Login bug')).toBe('/rename Login bug')
+    expect(codex.presets?.command('read-only')).toBe('/permissions :read-only')
+    expect(codex.presets?.command('workspace')).toBe('/permissions :workspace')
+    expect(codex.permissionRules).toBe(false)
     expect(codex.hooks).toMatchObject({ style: 'codex-hooks' })
     expect(codex.hooks.file('/Users/me/.codex')).toBe('/Users/me/.codex/hooks.json')
     expect(codex.input.minEnterDelayMs).toBeGreaterThanOrEqual(250)
-    expect(codex.polish).toBeNull()
+    const polishArgs = codex.polish?.args('-- so, um, continue', 'Rewrite it.') ?? []
+    expect(polishArgs.slice(0, 3)).toEqual(['exec', '--json', '--ephemeral'])
+    expect(polishArgs).toEqual(expect.arrayContaining(['--skip-git-repo-check', '--ignore-user-config']))
+    expect(polishArgs.slice(polishArgs.indexOf('--sandbox'), polishArgs.indexOf('--sandbox') + 2)).toEqual([
+      '--sandbox',
+      'read-only',
+    ])
+    // A prompt starting with a dash is still the prompt.
+    expect(polishArgs.slice(-2)).toEqual(['--', 'Rewrite it.\n\n-- so, um, continue'])
+  })
+
+  test('codex exec answers: the last non-empty agent message', () => {
+    const codex = agentFor({ agent: 'codex' })
+    const out = [
+      '{"type":"item.completed","item":{"type":"agent_message","text":"first"}}',
+      'not json "agent_message"',
+      '{"type":"item.started","item":{"type":"agent_message","text":"partial"}}',
+      '{"type":"item.completed","item":{"type":"agent_message","text":"second"}}',
+      '{"type":"item.completed","item":{"type":"agent_message","text":"  "}}',
+    ].join('\n')
+    expect(codex.polish?.parse(out)).toBe('second')
+    expect(codex.polish?.parse('')).toBeNull()
   })
 
   test('agents without an adapter are known to the protocol but cannot run', () => {
@@ -124,6 +154,7 @@ describe('codex rollouts on disk', () => {
       cwd: '/Users/me/proj',
       permissionMode: null,
       approvalPolicy: 'never',
+      permissionProfile: ':workspace',
       status: {
         model: 'gpt-5.5-codex',
         effort: 'medium',

@@ -12,6 +12,7 @@ function s(id: string, profileId: string, state: Session['state'], updatedAt: st
     title: id,
     permissionMode: null,
     approvalPolicy: null,
+    permissionProfile: null,
     controllable: true,
     paneId: null,
     subagents: [],

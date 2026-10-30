@@ -7,18 +7,6 @@ import type { TFunction } from '@/core/i18n/create'
 export const INSTALL_URL = 'https://remoteharness.app/install'
 export const INSTALL_COMMAND = `curl -fsSL ${INSTALL_URL} | bash`
 export const INSTALL_COMMAND_WINDOWS = `irm ${INSTALL_URL} | iex`
-/** Tailscale in the store of the phone the guide runs on. */
-export const TAILSCALE_STORES = {
-  ios: { name: 'App Store', url: 'https://apps.apple.com/app/tailscale/id1470499037' },
-  android: {
-    name: 'Google Play',
-    url: 'https://play.google.com/store/apps/details?id=com.tailscale.ipn',
-  },
-} as const
-/** Download page that picks the right installer for macOS, Linux or Windows. */
-export const TAILSCALE_DOWNLOAD_URL = 'https://tailscale.com/download'
-/** Opens the installed Tailscale app directly; no store listing needed to call `Linking.openURL`. */
-export const TAILSCALE_APP_SCHEME = 'tailscale://'
 export const REPO_URL = 'https://github.com/maarkN/remote-harness'
 
 export type GuideAction =
@@ -36,41 +24,20 @@ export type GuideStep = {
 }
 
 /** Steps in order; texts come from `setupGuide.steps.<id>` in the catalogs. */
-export const SETUP_STEPS = ['tailscalePhone', 'tailscaleComputer', 'install', 'pair'] as const
+export const SETUP_STEPS = ['install', 'pair'] as const
 export type StepId = (typeof SETUP_STEPS)[number]
 
 /**
- * First-run guide for people who installed the app before setting up the computer. `os` is
- * `Platform.OS`: Android links Tailscale on Google Play, everything else on the App Store.
+ * First-run guide for people who installed the app before setting up the computer: install, then
+ * pair. `os` is `Platform.OS` (kept for steps that differ per platform).
  */
-export function buildSetupGuide(t: TFunction, os: string): GuideStep[] {
-  const store = os === 'android' ? TAILSCALE_STORES.android : TAILSCALE_STORES.ios
+export function buildSetupGuide(t: TFunction, _os: string): GuideStep[] {
   const text = (id: StepId) => ({
     id,
     title: t(`setupGuide.steps.${id}.title`),
     body: t(`setupGuide.steps.${id}.body`),
   })
   return [
-    {
-      ...text('tailscalePhone'),
-      actions: [
-        {
-          kind: 'link',
-          label: t('setupGuide.steps.tailscalePhone.action', { store: store.name }),
-          url: store.url,
-        },
-      ],
-    },
-    {
-      ...text('tailscaleComputer'),
-      actions: [
-        {
-          kind: 'share',
-          label: t('setupGuide.steps.tailscaleComputer.action'),
-          text: TAILSCALE_DOWNLOAD_URL,
-        },
-      ],
-    },
     {
       ...text('install'),
       body: t('setupGuide.steps.install.body', { windows: INSTALL_COMMAND_WINDOWS }),

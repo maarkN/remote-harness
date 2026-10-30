@@ -5,13 +5,13 @@
 #   PLATFORM=ios|android publish-ota for a single platform (default: both)
 #   CHANNEL=<name>       publish-ota channel (default: production; CI publishes development)
 #   OTA_KEY=<path>       private key that signs OTA updates
-#   IOS_LINK=web         install-ios-link publishes on https://remoteharness.app/app/<token>/ (the site server, over SSH) instead of the tailnet
 #   IOS_LINK_DIR=<path>  folder of the install link: builds, the web token shared with install-android-link
 #                        (default ~/.remote-harness-builds/ios)
 #   PROJECT=<id>         Firebase project for deploy-push-relay
 #   REMOTE_HARNESS_UPDATES_TOKEN (or the older CLAUDE_REMOTE_UPDATES_TOKEN) must be in the environment for publish-ota (never stored here).
 #   REMOTE_HARNESS_WEB_SSH=<user@host> server of remoteharness.app for deploy-web and the web install links
 #   REMOTE_HARNESS_WEB_DIR=<path>      its folder on that server (default /srv/remote-harness-web)
+#   REMOTE_HARNESS_RELAY_DIR=<path>    deploy-relay's folder on that server (default /srv/remote-harness-relay)
 #   APP_INSTALL_URL=/app/<token>/      deploy-web writes it to the server's .env: the landing's iPhone & iPad card opens it
 
 SHELL := /bin/bash
@@ -28,14 +28,13 @@ IOS_LINK_DIR ?= $(HOME)/.remote-harness-builds/ios
 
 device_flag = $(if $(DEVICE),--device "$(DEVICE)",--device)
 platform_flag = $(if $(PLATFORM),--platform $(PLATFORM))
-ios_link_flag = $(if $(filter web,$(IOS_LINK)),--web)
 CHANNEL ?= production
 
 .PHONY: help install check lint-fix openspec \
 	daemon-dev daemon-build \
 	start ios-dev android-dev prebuild ios-devices install-ios install-ios-link install-android install-android-link \
 	publish-ota publish-ota-dry \
-	deploy-push-relay
+	deploy-push-relay deploy-relay deploy-relay-br
 
 help: ## List the targets
 	@if [ -t 1 ]; then c=$$'\033[38;2;217;119;87m'; r=$$'\033[0m'; b=$$'\033[1m'; fi; \
@@ -96,22 +95,22 @@ install-ios: ## Release build on a connected iPhone/iPad, no Metro needed (fresh
 			ios/build/Build/Products/Release-iphoneos/$(IOS_APP).app && \
 		xcrun devicectl device process launch --device "$$udid" com.alvyntech.remoteharness
 
-install-ios-link: ## Release build the iPhone installs from a Safari link (Tailscale, or IOS_LINK=web on remoteharness.app)
+install-ios-link: ## Release build the iPhone installs from a Safari link on remoteharness.app (REMOTE_HARNESS_WEB_SSH)
 	@# Development-signed like install-ios: the iPhone must already be registered in the team (one
-	@# `make install-ios` with the cable does it). Tailscale needs HTTPS certificates on.
-	@cd $(MOBILE) && npx tsx scripts/ios-link.mts $(ios_link_flag) --check && \
+	@# `make install-ios` with the cable does it).
+	@cd $(MOBILE) && npx tsx scripts/ios-link.mts --check && \
 		npx expo prebuild --platform ios --clean && \
 		echo "▸ xcodebuild archive (Release)" && \
 		xcodebuild -quiet -workspace ios/$(IOS_APP).xcworkspace -scheme $(IOS_APP) \
 			-configuration Release -destination generic/platform=iOS -derivedDataPath ios/build \
 			-archivePath ios/build/$(IOS_APP).xcarchive -allowProvisioningUpdates archive && \
-		npx tsx scripts/ios-link.mts $(ios_link_flag) ios/build/$(IOS_APP).xcarchive "$(IOS_LINK_DIR)"
+		npx tsx scripts/ios-link.mts ios/build/$(IOS_APP).xcarchive "$(IOS_LINK_DIR)"
 
 install-android: ## Release build on a connected Android phone (fresh android/)
 	cd $(MOBILE) && npx expo prebuild --platform android --clean && \
 		npx expo run:android $(device_flag) --variant release
 
-install-android-link: ## Release APK on the same remoteharness.app link as IOS_LINK=web (Android SDK, fresh android/)
+install-android-link: ## Release APK on the same remoteharness.app link as install-ios-link (Android SDK, fresh android/)
 	@cd $(MOBILE) && npx tsx scripts/android-link.mts --check && \
 		npx expo prebuild --platform android --clean && \
 		echo "▸ gradlew assembleRelease" && \
@@ -133,6 +132,14 @@ publish-ota-dry: ## Export and sign without uploading (checks the key and the co
 
 deploy-web: ## Build remoteharness.app and run it on its server behind Traefik (REMOTE_HARNESS_WEB_SSH=user@host)
 	pnpm --filter @remote-harness/web run deploy
+
+## Connection relay
+
+deploy-relay: ## Build us.relay.remoteharness.app on the site's server behind Traefik (REMOTE_HARNESS_WEB_SSH=user@host)
+	pnpm --filter @remote-harness/relay run deploy
+
+deploy-relay-br: ## Deploy br.relay.remoteharness.app to Fly.io (gru); needs `fly auth login`
+	cd apps/relay && fly deploy --config fly.toml
 
 ## Push relay
 

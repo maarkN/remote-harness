@@ -67,3 +67,7 @@ _Avoid_: manual rule, user rule
 **Approval log**:
 The daemon's record of every Allow and Deny answered from a device: which device, session, tool and short sanitized target, and when; never the tool input.
 _Avoid_: audit trail, history (that is the history cache)
+
+**Permission profile**:
+What a Codex session may touch without asking (read only, workspace, full access, or a profile the user named), shown in place of Claude Code's permission mode; the app switches only between read only and workspace.
+_Avoid_: sandbox mode, Codex mode

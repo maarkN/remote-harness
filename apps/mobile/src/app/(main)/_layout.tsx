@@ -8,6 +8,7 @@ import { useConnectionStore } from '@/core/connection'
 import { keys, onKeyCommand } from '@/core/keyboard/key-commands'
 import { edgeSwipeEnabled, inspectorMode, sidebarMode, useLayout } from '@/core/layout'
 import { space, useTheme } from '@/core/theme'
+import { useAssistantSessions } from '@/features/assistant/use-assistant-sessions'
 import { InspectorPane } from '@/features/inspector/InspectorPane'
 import { setInspectorOpen, useInspectorStore } from '@/features/inspector/store'
 import { useLiveFollow } from '@/features/live-status/use-live-follow'
@@ -24,6 +25,7 @@ import { backAction } from '@/features/shortcuts/logic'
 import { setShortcutsSheetOpen, useShortcutsStore } from '@/features/shortcuts/store'
 import { useSessionShortcuts } from '@/features/shortcuts/use-session-shortcuts'
 import { useDaemonSync } from '@/features/sync/use-daemon-sync'
+import { useWidgets } from '@/features/widgets/use-widgets'
 import { IconButton, MasterDetailLayout, stackScreenOptions } from '@/ui'
 
 /**
@@ -74,6 +76,8 @@ export default function MainLayout() {
   usePush()
   useLiveStatus()
   useLiveFollow()
+  useWidgets()
+  useAssistantSessions()
   const { layout, portrait } = useLayout()
   const pathname = usePathname()
   const pending = usePermissionsStore(useShallow(selectPendingCounts))
@@ -149,11 +153,15 @@ export default function MainLayout() {
         <Stack.Screen name="new" options={{ title: t('nav.newSession'), presentation: 'modal' }} />
         <Stack.Screen name="report" options={{ title: t('errorReports.problem.title') }} />
         <Stack.Screen name="permissions" options={{ title: t('systemPermissions.title') }} />
+        <Stack.Screen name="permission-rules" options={{ title: t('permissionRules.title') }} />
+        <Stack.Screen name="permission-activity" options={{ title: t('approvals.title') }} />
+        <Stack.Screen name="assistant/[action]" options={{ title: t('assistantLink.title') }} />
         <Stack.Screen
           name="session/[id]/index"
           options={{ title: '', gestureEnabled: !overlayEdge, ...menuButton }}
         />
         <Stack.Screen name="session/[id]/terminal" options={{ title: t('nav.terminal') }} />
+        <Stack.Screen name="session/[id]/changes" options={{ title: t('nav.changes') }} />
         <Stack.Screen name="session/[id]/agent/[agentId]" options={{ title: t('nav.subagent') }} />
       </Stack>
       <KeyboardShortcutsSheet />

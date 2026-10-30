@@ -1,6 +1,6 @@
 ---
 title: Segurança e privacidade
-description: O que o daemon pode fazer, o que sai da sua máquina, tokens e chaves, e como relatar um problema.
+description: O que o daemon pode fazer, o que sai da sua máquina, chaves e pareamento, e como relatar um problema.
 applies: 0.7+
 ---
 
@@ -10,13 +10,14 @@ O daemon pode digitar nas suas sessões do Claude Code e aprovar chamadas de fer
 
 ## Rede
 
-- O WebSocket ao qual o app conecta escuta **só na interface do Tailscale** (100.64.0.0/10), ou em `127.0.0.1` com um `--dev` explícito. Não há porta na internet nem servidor de relay lendo suas sessões.
+- O app chega ao daemon direto (um WebSocket em todas as interfaces do computador, ou só em `127.0.0.1` com `--dev`) ou por um relay de conexão. Nos dois caminhos cada byte é criptografado de ponta a ponta, e uma conexão que não completa o handshake com uma chave pareada não recebe nada; o relay só repassa texto cifrado e não consegue ler suas sessões.
 - Os hooks do Claude Code chegam ao daemon só por `127.0.0.1`, com um segredo local compartilhado.
-- Expor o daemon fora do Tailscale com `--host` está fora do escopo e não tem suporte.
+- `relay: off` ou `direct: off` na configuração desligam um caminho; `remote-harness devices revoke <id>` despareia um celular na hora.
 
-## Tokens e chaves
+## Chaves e pareamento
 
-- Toda conexão apresenta um token de pareamento guardado no Keychain do macOS, no Secret Service do Linux (`secret-tool`) ou num arquivo `0600`, e no armazenamento seguro do celular. `remote-harness rotate-token` o invalida e derruba todos os clientes.
+- Toda conexão é uma sessão do protocolo Noise (X25519, ChaCha20-Poly1305) criptografada de ponta a ponta entre o celular e o daemon. As chaves do daemon ficam no Keychain do macOS, no Secret Service do Linux (`secret-tool`) ou num arquivo `0600`; cada celular cria o seu par de chaves ao parear e o guarda no armazenamento seguro, só naquele aparelho.
+- Um código de pareamento (`remote-harness pair`, a instalação ou a bandeja) funciona uma vez e só por 5 minutos. O daemon guarda as chaves públicas dos celulares pareados (no máximo 10) e derruba qualquer conexão cuja chave não conhece, antes de enviar qualquer coisa.
 - Chaves de provedor (OpenRouter) ficam no mesmo cofre, numa conta própria. Nunca são gravadas em `config.json`, `settings.json`, arquivos do shell ou atalhos, nunca vão para o log e nunca são enviadas ao celular: o atalho lê a chave dentro da janela do tmux, e o daemon só a usa para pedir ao provedor os seus créditos.
 
 ## O que sai da sua máquina
@@ -32,7 +33,7 @@ Rodar comandos pelo app (**Rodar comando…**) vem desligado e só pode ser liga
 
 ## Permissões
 
-O app nunca oferece o modo "bypass permissions" do agente. O "permitir sempre" grava uma regra nas configurações do próprio Claude Code, para o projeto ou para o seu usuário, e `remote-harness rules undo` a desfaz. Um pedido sem resposta volta para o diálogo do terminal depois de alguns minutos.
+O app nunca oferece o modo "bypass permissions" do agente. O "permitir sempre" grava uma regra nas configurações do próprio Claude Code, para o projeto ou para o seu usuário, e Ajustes → Permissões → Regras (ou `remote-harness rules undo`) a desfaz; apagar uma regra escrita no computador pede Face ID ou a senha do aparelho. O registro de aprovações guarda qual aparelho permitiu ou negou o quê, só com a ferramenta e um alvo curto (o nome base de um arquivo, o programa de um comando), nunca o input, e mantém 30 dias. Um pedido sem resposta volta para o diálogo do terminal depois de alguns minutos.
 
 ## Os seus arquivos
 

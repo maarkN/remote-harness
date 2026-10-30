@@ -55,6 +55,7 @@ describe('sessionMenu', () => {
       ['terminal', false],
       ['toggleKeyBar', false],
       ['history', false],
+      ['changes', false],
       ['toggleFollow', false],
       ['close', false],
     ])
@@ -63,6 +64,19 @@ describe('sessionMenu', () => {
     expect(
       sessionMenu({ controllable: true, keyBarVisible: true, following: true }, en).items[1]?.label,
     ).toBe('Hide keyboard shortcuts')
+  })
+
+  test('hands-free appears when the binary can speak, after the key bar, labeled by the action', () => {
+    const base = { controllable: true, keyBarVisible: false, following: false }
+    const keys = (handsFree: boolean | null) =>
+      sessionMenu({ ...base, handsFree }, en).items.map((i) => i.key)
+    expect(keys(null)).not.toContain('toggleHandsFree')
+    expect(keys(false).slice(1, 3)).toEqual(['toggleKeyBar', 'toggleHandsFree'])
+    const item = (handsFree: boolean, controllable = true) =>
+      sessionMenu({ ...base, controllable, handsFree }, en).items.find((i) => i.key === 'toggleHandsFree')
+    expect(item(false)).toEqual({ key: 'toggleHandsFree', label: 'Hands-free', disabled: false })
+    expect(item(true)?.label).toBe('Turn off hands-free')
+    expect(item(false, false)?.disabled).toBe(true)
   })
 
   test('follow toggle is labeled by the action it takes', () => {

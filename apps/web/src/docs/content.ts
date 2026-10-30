@@ -1,3 +1,4 @@
+import enCloudServer from '../../content/en-US/cloud-server.md?raw'
 import enContributing from '../../content/en-US/contributing.md?raw'
 import enDaemon from '../../content/en-US/daemon.md?raw'
 import enGettingStarted from '../../content/en-US/getting-started.md?raw'
@@ -6,6 +7,7 @@ import enPrivacy from '../../content/en-US/privacy.md?raw'
 import enSecurity from '../../content/en-US/security.md?raw'
 import enTroubleshooting from '../../content/en-US/troubleshooting.md?raw'
 import enUsingTheApp from '../../content/en-US/using-the-app.md?raw'
+import esCloudServer from '../../content/es-ES/cloud-server.md?raw'
 import esContributing from '../../content/es-ES/contributing.md?raw'
 import esDaemon from '../../content/es-ES/daemon.md?raw'
 import esGettingStarted from '../../content/es-ES/getting-started.md?raw'
@@ -14,6 +16,7 @@ import esPrivacy from '../../content/es-ES/privacy.md?raw'
 import esSecurity from '../../content/es-ES/security.md?raw'
 import esTroubleshooting from '../../content/es-ES/troubleshooting.md?raw'
 import esUsingTheApp from '../../content/es-ES/using-the-app.md?raw'
+import ptCloudServer from '../../content/pt-BR/cloud-server.md?raw'
 import ptContributing from '../../content/pt-BR/contributing.md?raw'
 import ptDaemon from '../../content/pt-BR/daemon.md?raw'
 import ptGettingStarted from '../../content/pt-BR/getting-started.md?raw'
@@ -30,6 +33,7 @@ export const DOC_SLUGS = [
   'getting-started',
   'using-the-app',
   'daemon',
+  'cloud-server',
   'security',
   'privacy',
   'troubleshooting',
@@ -50,6 +54,7 @@ export const DOCS: DocRegistry = {
     'getting-started': enGettingStarted,
     'using-the-app': enUsingTheApp,
     daemon: enDaemon,
+    'cloud-server': enCloudServer,
     security: enSecurity,
     privacy: enPrivacy,
     troubleshooting: enTroubleshooting,
@@ -60,6 +65,7 @@ export const DOCS: DocRegistry = {
     'getting-started': ptGettingStarted,
     'using-the-app': ptUsingTheApp,
     daemon: ptDaemon,
+    'cloud-server': ptCloudServer,
     security: ptSecurity,
     privacy: ptPrivacy,
     troubleshooting: ptTroubleshooting,
@@ -70,6 +76,7 @@ export const DOCS: DocRegistry = {
     'getting-started': esGettingStarted,
     'using-the-app': esUsingTheApp,
     daemon: esDaemon,
+    'cloud-server': esCloudServer,
     security: esSecurity,
     privacy: esPrivacy,
     troubleshooting: esTroubleshooting,

@@ -47,9 +47,8 @@ export type WizardOptions = InstallOptions & {
   serviceManager: ServiceManager
   /** Installs and starts the service for this build; returns the path of the written definition. */
   installService: (service: ServiceManager) => Promise<string>
-  tailscaleAddress: () => string | null
-  /** Prints the pairing QR code for this host. */
-  pair: (host: string) => Promise<void>
+  /** Prints a single-use pairing code from the running daemon. */
+  pair: () => Promise<void>
   /** Opens Claude Code on this terminal with CLAUDE_CONFIG_DIR=configDir (for the login). */
   runClaude: (configDir: string) => Promise<number>
   /** The secret store of a profile's provider key and where it is (for the output; never the key). */
@@ -608,7 +607,7 @@ async function enableMirrored(o: Ctx, wsl: WslHost): Promise<void> {
   console.log(o.paint('muted', t.restart))
 }
 
-/** Guided setup: profiles and aliases, launchers/hooks, background service, Tailscale and pairing. */
+/** Guided setup: profiles and aliases, launchers/hooks, background service and pairing. */
 export async function runSetupWizard(options: WizardOptions): Promise<void> {
   const { paint } = options
   const total = 4
@@ -619,7 +618,6 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
   const m = messagesFor(locale)
   const o: Ctx = { ...options, m }
   const s = m.setup
-  const theme = themeFor(paint, m)
   const yesNo = yesNoTheme(paint, m)
   const machine = m.machine[o.platform]
   console.log(`\n${renderWelcome(paint, o.version, s.welcome, machine)}\n`)
@@ -660,44 +658,16 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
   step(paint, 3, total, s.steps.service)
   await setupService(o)
 
-  step(paint, 4, total, s.steps.tailscale)
-  const wslMode = o.wsl ? await o.wsl.networkingMode() : null
-  let host = o.tailscaleAddress()
-  if (!host && o.interactive) {
-    console.log(
-      paint(
-        'muted',
-        o.wsl ? m.wsl.tailscaleIntro : s.tailscaleIntro(machine, s.tailscaleInstall[o.platform]),
-      ),
-    )
-    // Inside WSL with NAT networking a Tailscale on Windows is invisible: offer mirrored networking.
-    const offerMirrored = o.wsl !== undefined && wslMode !== 'mirrored'
-    for (;;) {
-      const next = await select({
-        message: s.tailscaleQuestion(machine),
-        choices: [
-          { name: s.tailscaleRetry, value: 'retry' },
-          ...(offerMirrored ? [{ name: m.wsl.tailscaleMirrored, value: 'mirrored' }] : []),
-          { name: s.tailscaleSkip, value: 'skip' },
-        ],
-        theme,
-      })
-      if (next === 'mirrored' && o.wsl) {
-        await enableMirrored(o, o.wsl)
-        break
-      }
-      host = o.tailscaleAddress()
-      if (host || next === 'skip') break
-      console.log(paint('danger', s.tailscaleNotYet))
-    }
+  step(paint, 4, total, s.steps.pair)
+  // Inside WSL with NAT networking the phone reaches the daemon through the relay only; mirrored
+  // networking lets devices on the same network use the direct path too.
+  if (o.wsl && o.interactive && (await o.wsl.networkingMode()) !== 'mirrored') {
+    if (await confirm({ message: m.wsl.mirroredQuestion, default: false, theme: yesNo }))
+      await enableMirrored(o, o.wsl)
   }
-  if (host) {
-    const source = o.wsl?.tailscale(wslMode)?.source
-    console.log(`  ${paint('success', '✓')} Tailscale ${host}${source ? ` (${m.wsl.source[source]})` : ''}`)
-    console.log(paint('muted', s.phoneHint))
-    if (o.interactive && (await confirm({ message: s.showQr, default: true, theme: yesNo }))) {
-      await o.pair(host)
-    }
+  console.log(paint('muted', s.phoneHint))
+  if (o.interactive && (await confirm({ message: s.showQr, default: true, theme: yesNo }))) {
+    await o.pair()
   }
 
   const aliases = profiles.map((p) => paint('accent', p.id)).join(', ')
@@ -708,9 +678,7 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
         '',
         s.done.openTerminal(paint('bold', `source ${displayPaths(o.rcFiles.slice(0, 1), o.home)}`)),
         s.done.useAliases(aliases, paint('muted', 'claude')),
-        host
-          ? s.done.pairIfNeeded(paint('bold', 'remote-harness pair'))
-          : s.done.connectAndPair(paint('bold', 'remote-harness pair')),
+        s.done.pairIfNeeded(paint('bold', 'remote-harness pair')),
         '',
         paint('dim', s.done.footer),
       ],

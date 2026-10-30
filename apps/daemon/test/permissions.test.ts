@@ -1,12 +1,17 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { PROTOCOL_VERSION, type ServerMessage } from '@remote-harness/protocol'
+import type { PermissionOutcome, ServerMessage } from '@remote-harness/protocol'
 import { afterEach, describe, expect, test } from 'vitest'
-import WebSocket from 'ws'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import { FileTokenStore } from '../src/core/secrets.ts'
-import { type BrokerOptions, buildHookOutput, PermissionBroker } from '../src/features/permissions/broker.ts'
+import {
+  type BrokerOptions,
+  buildHookOutput,
+  type DecidedRequest,
+  PermissionBroker,
+} from '../src/features/permissions/broker.ts'
+import type { Move } from '../src/features/permissions/handover.ts'
 import { parseInteraction } from '../src/features/permissions/interaction.ts'
 
 const DENY = 'Denied by Remote Harness'
@@ -17,6 +22,7 @@ import { RulesLog } from '../src/features/permissions/rules-log.ts'
 import { type RunningDaemon, startDaemon } from '../src/main.ts'
 import { SECRET_HEADER } from '../src/transport/hooks-server.ts'
 import { fakeExecutor, hookEvent, useTempHome, writeTestConfig } from './helpers.ts'
+import { authedClient } from './noise-client.ts'
 
 const home = useTempHome()
 
@@ -106,11 +112,13 @@ describe('PermissionBroker', () => {
   ) {
     const sent: ServerMessage[] = []
     const rules: unknown[] = []
+    const decided: DecidedRequest[] = []
     const handovers: string[] = []
     const reminders: string[] = []
-    const watching = new Map<string, () => void>()
-    /** The session moves on (a tool result in the transcript, a turn hook). */
-    const move = (sessionId = 's') => watching.get(sessionId)?.()
+    const watching = new Map<string, (move: Move) => void>()
+    const resolved: Array<{ outcome: PermissionOutcome; move: Move | undefined }> = []
+    /** The session moves on (a tool result in the transcript by default, or a prompt / turn hook). */
+    const move = (sessionId = 's', kind: Move = 'result') => watching.get(sessionId)?.(kind)
     const broker = new PermissionBroker(
       { broadcast: (m) => sent.push(m) },
       {
@@ -121,13 +129,17 @@ describe('PermissionBroker', () => {
           return () => watching.delete(sessionId)
         },
         onHandover: (info, end) => handovers.push(`${info.tool}:${end}`),
+        onResolved: (_info, outcome, move) => resolved.push({ outcome, move }),
         onReminder: (info) => reminders.push(info.tool),
         ...extra,
         defaultScope: 'project',
         profiles: [{ id: 'claudin', name: 'P', configDir: '/cfg', color: '' }],
         denyMessage: DENY,
         keepPlanningMessage: KEEP_PLANNING,
-        onRuleCreated: (r) => rules.push(r),
+        onDecided: (d) => {
+          decided.push(d)
+          if (d.rule) rules.push({ ...d.rule, sessionId: d.info.sessionId })
+        },
       },
     )
     const hook = hookEvent('PermissionRequest', {
@@ -143,7 +155,7 @@ describe('PermissionBroker', () => {
           { type: 'permission.request' }
         >
       ).request.requestId
-    return { sent, broker, hook, requestId, rules, handovers, reminders, watching, move }
+    return { sent, broker, hook, requestId, rules, decided, handovers, reminders, watching, move, resolved }
   }
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -154,7 +166,7 @@ describe('PermissionBroker', () => {
     expect(broker.hasPending('s')).toBe(true)
     expect(sent[0]).toMatchObject({
       type: 'permission.request',
-      request: { tool: 'Bash', suggestedRule: 'Bash(pnpm test:*)', defaultScope: 'project' },
+      request: { tool: 'Bash', suggestedRule: 'Bash(pnpm test:*)', rules: true, defaultScope: 'project' },
     })
     broker.respond(requestId(), { behavior: 'allow' })
     expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } })
@@ -281,6 +293,18 @@ describe('PermissionBroker', () => {
     ])
   })
 
+  test('the decision reports who answered, and none when the daemon denies on close', async () => {
+    const { broker, hook, requestId, decided } = setup()
+    const first = broker.handle(hook, new AbortController().signal)
+    broker.respond(requestId(), { behavior: 'deny' }, 'dev1')
+    await first
+    expect(decided).toMatchObject([{ behavior: 'deny', by: 'dev1', cwd: '/w', rule: null }])
+    const second = broker.handle(hook, new AbortController().signal)
+    broker.denyAll('s')
+    await second
+    expect(decided[1]?.by).toBeUndefined()
+  })
+
   test('a project rule approved in a worktree session is recorded in the main checkout', async () => {
     const { broker, requestId, rules } = setup()
     const hook = hookEvent('PermissionRequest', {
@@ -353,6 +377,61 @@ describe('PermissionBroker', () => {
   })
 
   const PLAN = { name: 'ExitPlanMode', input: { plan: '1. do it', planFilePath: '/p.md' } }
+
+  describe('moved on while the hook is open (#437)', () => {
+    test('a question answered in the terminal: hook released, cancelled, the turn goes on', async () => {
+      const { broker, hook, sent, move, handovers, resolved, watching } = setup(60_000, QUESTION)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move()
+      expect(await pending).toEqual({})
+      expect(sent.at(-1)).toMatchObject({ type: 'permission.resolved', outcome: 'cancelled' })
+      expect(resolved).toEqual([{ outcome: 'cancelled', move: 'result' }])
+      expect(broker.hasPending('s')).toBe(false)
+      expect(handovers).toEqual([])
+      expect(watching.size).toBe(0)
+    })
+
+    test('a plan approved in the terminal is released without waiting for its timeout', async () => {
+      const { broker, hook, sent, move, requestId } = setup(60_000, PLAN)
+      const pending = broker.handle(hook, new AbortController().signal)
+      const id = requestId()
+      move()
+      expect(await pending).toEqual({})
+      expect(sent.at(-1)).toMatchObject({ type: 'permission.resolved', requestId: id, outcome: 'cancelled' })
+      // The phone's late answer finds nothing to answer.
+      expect(() => broker.answer(id, { kind: 'plan', decision: 'acceptEdits' })).toThrow(
+        expect.objectContaining({ code: 'already_resolved' }),
+      )
+    })
+
+    test('a tool permission stays open on a parallel tool result', async () => {
+      const { broker, hook, sent, move, requestId } = setup(60_000)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move('s', 'result')
+      expect(broker.hasPending('s')).toBe(true)
+      expect(sent.some((m) => m.type === 'permission.resolved')).toBe(false)
+      broker.respond(requestId(), { behavior: 'allow' })
+      expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } })
+    })
+
+    test('a tool permission is released when the turn ends', async () => {
+      const { broker, hook, sent, move, resolved } = setup(60_000)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move('s', 'turn')
+      expect(await pending).toEqual({})
+      expect(sent.at(-1)).toMatchObject({ type: 'permission.resolved', outcome: 'cancelled' })
+      expect(resolved).toEqual([{ outcome: 'cancelled', move: 'turn' }])
+    })
+
+    test("another session's moves do not touch it", async () => {
+      const { broker, hook, move, requestId } = setup(60_000, QUESTION)
+      const pending = broker.handle(hook, new AbortController().signal)
+      move('other', 'turn')
+      expect(broker.hasPending('s')).toBe(true)
+      broker.answer(requestId(), { kind: 'question', answers: { 'Which database?': 'SQLite' } })
+      expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'allow' } } })
+    })
+  })
 
   test('plan approval switches the session mode', async () => {
     const { broker, hook, sent, requestId } = setup(1_000, PLAN)
@@ -450,21 +529,15 @@ describe('integration: hook HTTP + WebSocket', () => {
 
   test('phone approves a pending hook', async () => {
     await writeTestConfig(home.dir())
-    const store = new FileTokenStore()
-    await store.set('tok')
     daemon = await startDaemon({
       logger: silentLogger,
       exec: fakeExecutor(),
-      tokenStore: store,
+      secretStore: new FileTokenStore(),
       dev: true,
       wsPort: 0,
       hookPort: 0,
     })
-    const ws = new WebSocket(`ws://127.0.0.1:${daemon.wsPort}`)
-    const messages: ServerMessage[] = []
-    ws.on('message', (d) => messages.push(JSON.parse(d.toString())))
-    await new Promise((r) => ws.once('open', r))
-    ws.send(JSON.stringify({ type: 'auth', id: '1', token: 'tok', protocolVersion: PROTOCOL_VERSION }))
+    const client = await authedClient(daemon)
 
     const { readFile } = await import('node:fs/promises')
     const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
@@ -473,27 +546,23 @@ describe('integration: hook HTTP + WebSocket', () => {
       headers: { 'content-type': 'application/json', [SECRET_HEADER]: secret },
       body: JSON.stringify({ session_id: 's', cwd: '/w', tool_name: 'Bash', tool_input: { command: 'ls' } }),
     })
-    const deadline = Date.now() + 3000
-    let request: Extract<ServerMessage, { type: 'permission.request' }> | undefined
-    while (!request && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 20))
-      request = messages.find(
-        (m): m is Extract<ServerMessage, { type: 'permission.request' }> => m.type === 'permission.request',
-      )
-    }
-    expect(request).toBeDefined()
-    ws.send(
-      JSON.stringify({
-        type: 'permission.respond',
-        id: '2',
-        requestId: request!.request.requestId,
-        decision: 'allow',
-      }),
-    )
+    const request = await client.until('permission.request')
+    // The app asks for the waiting requests once its stores listen (#384).
+    client.send({ type: 'permissions.list', id: '1' })
+    expect(await client.until('permissions.result')).toMatchObject({
+      replyTo: '1',
+      requests: [{ requestId: request.request.requestId, tool: 'Bash' }],
+    })
+    client.send({
+      type: 'permission.respond',
+      id: '2',
+      requestId: request.request.requestId,
+      decision: 'allow',
+    })
     const body = await (await hookResponse).json()
     expect(body).toEqual({
       hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
     })
-    ws.close()
+    client.close()
   })
 })

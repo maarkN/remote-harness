@@ -137,15 +137,20 @@ describe('tray shell menu', () => {
   })
 
   test('Pair a phone: QR on macOS, the address, the terminal and a confirmed token rotation', () => {
-    const pairing = { url: 'claude-remote://pair?host=h&port=1&token=t', address: '100.64.0.2:7337' }
+    const pairing = { url: 'remoteharness://pair?v=2&id=x', address: '100.64.0.2:7337' }
     const find = (items: TrayItem[], label: string) =>
       items.find((i): i is Extract<TrayItem, { type: 'submenu' }> => 'items' in i && i.label === label)
     const mac = find(buildTrayMenu({ ...base, pairing, qr: true }, en).items, 'Pair a phone')
     expect(mac?.items[0]).toEqual({ type: 'qr', text: pairing.url })
     expect(labels(mac?.items ?? [])).toEqual(
-      expect.arrayContaining(['100.64.0.2:7337', 'Show the pairing in the terminal', 'Rotate token…']),
+      expect.arrayContaining([
+        '100.64.0.2:7337',
+        'Single use · expires in 5 minutes',
+        'Show the pairing in the terminal',
+      ]),
     )
-    expect(ids(mac?.items ?? [])).toEqual(expect.arrayContaining(['pair', 'rotate-token']))
+    expect(ids(mac?.items ?? [])).toEqual(expect.arrayContaining(['pair']))
+    expect(ids(mac?.items ?? [])).not.toContain('rotate-token')
     // Linux helpers get no QR item; before the daemon listens, the single item stays.
     const linux = find(buildTrayMenu({ ...base, pairing, qr: false }, en).items, 'Pair a phone')
     expect(linux?.items.some((i) => 'type' in i && i.type === 'qr')).toBe(false)

@@ -6,7 +6,7 @@
 
 **Follow and drive your coding agents — Claude Code and Codex CLI — running on your Mac, Linux or Windows (WSL) machine, from your iPhone or Android phone.**
 
-Self-hosted: a small daemon on your computer, a native app on your phone, a private Tailscale link in between.<br/>No cloud relay, no account-wide notifications, every profile in one list.
+A small daemon on your computer, a native app on your phone, an end-to-end encrypted link in between.<br/>A relay that can't read your sessions, no account-wide notifications, every profile in one list.
 
 [![Release](https://img.shields.io/github/v/release/maarkN/remote-harness?include_prereleases&label=release&color=E8A33D)](https://github.com/maarkN/remote-harness/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-D97757.svg)](LICENSE)
@@ -43,7 +43,7 @@ The built-in remote control (`/rc`) helps, but it did not fit a real setup:
 - **It works with one account at a time.** Many of us run two Claude Code logins on the same computer (personal and work, via `CLAUDE_CONFIG_DIR`) and want a single view of both.
 - **There is no public API to attach to a live interactive session** from another process.
 
-Remote Harness solves this with tools you already trust: sessions run inside **tmux**, Claude Code reports what happens through its native **HTTP hooks**, and a local **daemon** bridges both to the phone over **Tailscale**.
+Remote Harness solves this with tools you already trust: sessions run inside **tmux**, Claude Code reports what happens through its native **HTTP hooks**, and a local **daemon** bridges both to the phone, directly at home or through an **end-to-end encrypted relay** anywhere else.
 
 ## Status
 
@@ -62,7 +62,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 | 🤖 **Claude Code and Codex** | Claude Code profiles — on your Anthropic accounts or [OpenRouter](https://openrouter.ai) models — and Codex CLI profiles side by side, each with its own launcher. |
 | 💬 **Live conversation** | The same history you see on the computer: markdown, thinking, tool calls, diffs, results — streamed in real time and paginated. |
 | ⌨️ **Send prompts** | Type into the very same process that is open on the computer, `Esc` and `Ctrl+C` included. Queue follow-ups while the agent works (or send now), keep a draft per session, dictate on-device and attach photos. |
-| ✅ **Approve permissions** | Allow, deny or **always allow** (written as a rule by Claude Code itself, undoable with `remote-harness rules undo`). Answer the agent's questions and approve its plans. |
+| ✅ **Approve permissions** | Allow, deny or **always allow** (written as a rule by Claude Code itself, undoable in Settings → Permissions → Rules or with `remote-harness rules undo`); every answer from a device lands in the approval log (Settings → Permissions → Activity, `remote-harness approvals list`). Answer the agent's questions and approve its plans. |
 | 🔀 **Switch permission mode** | Default, accept edits, plan, auto. `bypassPermissions` is intentionally never offered. |
 | 🔎 **Autocomplete** | `@files` (git/ripgrep + fuzzy search) and every `/command` (built-ins, project, profile and plugins), with your recent ones first. |
 | 🖥️ **Raw terminal** | An xterm.js view of the tmux pane for TUI menus and anything the structured view does not cover. |
@@ -71,6 +71,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 | 🌿 **Shared checkout warning** | Each session shows its git branch; sessions working in the same checkout are flagged, and a new one can start in its own git worktree. |
 | 🔔 **Private push** | Notifications only to *your* registered phone, carrying no session content. Mute globally, per profile or per session. |
 | ⏱️ **Live status** | While a session works, its state, step type, running tasks and elapsed time show on the lock screen and in the Dynamic Island (iOS Live Activity) or in a silent notification (Android). |
+| 🧩 **Widgets** | Home Screen and Lock Screen widgets (iOS) and home screen widgets (Android): sessions waiting for you, sessions working, usage limits, and Allow / Deny for the oldest pending permission with the app closed. |
 | 📱 **Phone and iPad** | Five themes (dark, light, Dracula, Mocha, Latte), an iPad layout with a session sidebar and inspector, and hardware keyboard shortcuts. |
 | 🔄 **Menu bar and updates** | A menu bar / tray icon on the computer with the daemon's status and updates; the phone can update the computer too. |
 | 🧯 **Error reports** | Opt-in crash and error reports, scrubbed of anything from your sessions, and a "Report a problem" screen. |
@@ -78,9 +79,9 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 ## How it works
 
 ```
-┌──────────────┐  WebSocket over Tailscale   ┌─────────────────────────────────┐
+┌──────────────┐ WebSocket: direct or relay  ┌─────────────────────────────────┐
 │  phone app   │ ◄─────────────────────────► │ remote-harness daemon (computer)│
-│ iOS / Android│       token-authenticated   │  ├─ tmux: send-keys / capture   │
+│ iOS / Android│   Noise, end to end (E2E)   │  ├─ tmux: send-keys / capture   │
 └──────▲───────┘                             │  ├─ tails transcript .jsonl     │
        │ push (FCM, no content)              │  └─ HTTP hooks on 127.0.0.1     │
        └─────────────────────────────────────┤                                 │
@@ -95,7 +96,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 
 1. You start Claude Code with a tiny launcher (one per account, named by you, e.g. `pessoal`, `trabalho`) that runs it inside a tmux window.
 2. Claude Code's HTTP hooks tell the daemon when a session starts, stops, needs permission or gets a prompt. A small status line wrapper also forwards the model, effort, context usage and usage limits — and then runs your own status line, so the terminal looks the same.
-3. The daemon tails the session transcript, reads the tmux pane, and serves everything to the app over an authenticated WebSocket bound **only** to the Tailscale interface.
+3. The daemon tails the session transcript, reads the tmux pane, and serves everything to the app over a WebSocket encrypted end to end: directly on your network, or through the connection relay, which only forwards ciphertext.
 4. Prompts and keys go back through tmux; permission answers go back through the pending hook request.
 
 Sessions started with plain `claude` (outside tmux) still show up — read-only — and can be resumed from the phone.
@@ -104,7 +105,7 @@ Sessions started with plain `claude` (outside tmux) still show up — read-only 
 
 ## Security model
 
-The daemon is effectively a remote shell, so it is locked down by default: the WebSocket listens **only on the Tailscale interface** (or `127.0.0.1` with an explicit `--dev`) and every connection presents a token kept in the OS secret store; the hooks endpoint listens only on `127.0.0.1` with a local secret; push carries no session content; `bypassPermissions` is never offered; and every edit to your files is merged, backed up, written atomically and reverted by `remote-harness uninstall`. The details are in [Security & privacy](https://remoteharness.app/docs/security/); report a vulnerability through [SECURITY.md](SECURITY.md).
+The daemon is effectively a remote shell, so it is locked down by default: only paired devices get anything from the WebSocket (or `127.0.0.1` alone with an explicit `--dev`): every connection is encrypted end to end with the Noise protocol, with keys of each paired phone (single-use pairing codes) and of the daemon (in the OS secret store); the hooks endpoint listens only on `127.0.0.1` with a local secret; push carries no session content; `bypassPermissions` is never offered; and every edit to your files is merged, backed up, written atomically and reverted by `remote-harness uninstall`. The details are in [Security & privacy](https://remoteharness.app/docs/security/); report a vulnerability through [SECURITY.md](SECURITY.md).
 
 ## Getting started
 
@@ -115,7 +116,7 @@ curl -fsSL https://remoteharness.app/install | bash     # macOS and Linux
 irm https://remoteharness.app/install | iex             # Windows PowerShell (installs WSL2 if needed)
 ```
 
-Then install the app and Tailscale on the phone, scan the code, and run your alias instead of `claude`. Everything else is in the [documentation](https://remoteharness.app/docs/), in English, Portuguese and Spanish:
+Then install the app on the phone, scan the code, and run your alias instead of `claude`. Everything else is in the [documentation](https://remoteharness.app/docs/), in English, Portuguese and Spanish:
 
 | Topic | Where |
 |---|---|
@@ -125,8 +126,9 @@ Then install the app and Tailscale on the phone, scan the code, and run your ali
 | Notifications and mute | [Using the app](https://remoteharness.app/docs/using-the-app/#notifications-and-mute) |
 | CLI commands, the config file (`~/.remote-harness/config.json`), OpenRouter and Codex profiles | [The daemon](https://remoteharness.app/docs/daemon/) |
 | Background service, updates and channels, menu bar / tray icon, logs | [The daemon](https://remoteharness.app/docs/daemon/#background-service) |
-| What leaves your machine, tokens, your files, error reports | [Security & privacy](https://remoteharness.app/docs/security/) · [Privacy policy](https://remoteharness.app/docs/privacy/) |
-| Linux service and lingering, WSL2 (systemd, logon task, Tailscale), sleep, push, read-only sessions | [Troubleshooting](https://remoteharness.app/docs/troubleshooting/) |
+| Running the daemon on a cloud server (AWS, DigitalOcean, GCP, Oracle): ports, firewalls, lingering, SSH | [Cloud server](https://remoteharness.app/docs/cloud-server/) |
+| What leaves your machine, keys and pairing, your files, error reports | [Security & privacy](https://remoteharness.app/docs/security/) · [Privacy policy](https://remoteharness.app/docs/privacy/) |
+| Linux service and lingering, WSL2 (systemd, logon task, networking), sleep, push, read-only sessions | [Troubleshooting](https://remoteharness.app/docs/troubleshooting/) |
 | Uninstall: `remote-harness service uninstall`, then `remote-harness uninstall` | [The daemon](https://remoteharness.app/docs/daemon/#commands) |
 
 ## Tech stack
@@ -148,6 +150,7 @@ apps/mobile        Expo app (Expo Router, feature folders, terminal-style dark t
 apps/web           remoteharness.app: landing, docs, installers, updates server, install links (Node in Docker)
 apps/push-relay    Cloud Function that sends push for daemons without a service account
 apps/push-edge     Cloudflare Worker on push.remoteharness.app in front of the push relay
+apps/relay         Connection relay (Go): forwards end-to-end encrypted traffic it cannot read
 packages/protocol  Zod schemas + types of the WebSocket protocol
 openspec/          Specs and every archived change that built the project
 .docs/             The original product requirements document (Portuguese, from when it was called Claude Remote)
@@ -170,7 +173,7 @@ pnpm --filter @remote-harness/mobile ios               # app on the iOS simulato
 
 - The daemon runs on macOS, Linux and Windows through WSL2; the app runs on iOS and Android 10+ (built locally or with EAS, not published to the stores yet). On Android the Allow/Deny buttons are not shown on the notification: tap it to answer in the app.
 - Sessions must run inside tmux to be controllable; others are read-only until resumed.
-- The computer must be awake. The service keeps it from idle-sleeping while sessions run (`remote-harness keep-awake`), but the app cannot wake a computer that already sleeps: Wake-on-LAN does not cross Tailscale, so it needs another always-on device on the same network ([design notes](docs/design/remote-wake.md)).
+- The computer must be awake. The service keeps it from idle-sleeping while sessions run (`remote-harness keep-awake`), but the app cannot wake a computer that already sleeps: Wake-on-LAN only works on the computer's own network, so it needs another always-on device there ([design notes](docs/design/remote-wake.md)).
 - Permission-mode switching reads the Claude Code status line, so a TUI change may need a label update (they live in one tested table).
 - Codex sessions cannot start in their own worktree, and permission requests offer Allow and Deny only.
 - Translations beyond English, Brazilian Portuguese and Spanish are welcome.

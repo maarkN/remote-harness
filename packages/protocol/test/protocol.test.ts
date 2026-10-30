@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   type ClientMessage,
+  CodexPresetSchema,
   checkoutPeers,
   LiveDataMessageSchema,
   LiveStatusPropsSchema,
@@ -12,8 +13,33 @@ import {
 } from '../src/index.ts'
 
 const clientSamples: ClientMessage[] = [
-  { type: 'auth', id: '1', token: 't', protocolVersion: 1 },
+  { type: 'auth', id: '1', protocolVersion: 2 },
   { type: 'ping', id: '1' },
+  { type: 'devices.list', id: '1' },
+  { type: 'devices.revoke', id: '1', deviceId: 'abcd' },
+  { type: 'pairing.create', id: '1' },
+  { type: 'permissions.list', id: '1' },
+  { type: 'changes.list', id: '1', sessionId: 's' },
+  { type: 'changes.diff', id: '1', sessionId: 's', path: 'src/a.ts' },
+  { type: 'changes.commit', id: '1', sessionId: 's', paths: ['src/a.ts'], message: 'fix: a' },
+  {
+    type: 'changes.commit',
+    id: '1',
+    sessionId: 's',
+    paths: ['src/a.ts'],
+    message: 'fix: a',
+    newBranch: 'fix-a',
+    force: true,
+  },
+  { type: 'changes.push', id: '1', sessionId: 's' },
+  { type: 'changes.pr', id: '1', sessionId: 's', title: 'Fix a', body: '' },
+  { type: 'changes.generate', id: '1', sessionId: 's', kind: 'commit', paths: ['src/a.ts'] },
+  { type: 'changes.generate', id: '1', sessionId: 's', kind: 'pr' },
+  { type: 'changes.diff', id: '1', sessionId: 's', path: 'src/a.ts', offset: 2000 },
+  { type: 'rules.list', id: '1' },
+  { type: 'rules.undo', id: '1', ruleId: 'a1b2c3d4' },
+  { type: 'rules.delete', id: '1', file: '/p/.claude/settings.local.json', rule: 'Bash(ls:*)' },
+  { type: 'approvals.list', id: '1' },
   { type: 'sessions.list', id: '1' },
   { type: 'session.subscribe', id: '1', sessionId: 's', sinceCursor: 3 },
   { type: 'session.unsubscribe', id: '1', sessionId: 's' },
@@ -47,6 +73,7 @@ const clientSamples: ClientMessage[] = [
   },
   { type: 'device.register', id: '1', fcmToken: 'tok' },
   { type: 'device.register', id: '1', fcmToken: 'tok', platform: 'android' },
+  { type: 'device.register', id: '1', fcmToken: 'tok', platform: 'android', turnActions: true },
   { type: 'device.unregister', id: '1', fcmToken: 'tok' },
   { type: 'app.visibility', id: '1', foreground: true },
   { type: 'push.test', id: '1', fcmToken: 'tok' },
@@ -92,6 +119,7 @@ const clientSamples: ClientMessage[] = [
   { type: 'queue.remove', id: '1', sessionId: 's', itemId: 'q1' },
   { type: 'queue.sendNow', id: '1', sessionId: 's', itemId: 'q1' },
   { type: 'queue.flush', id: '1', sessionId: 's' },
+  { type: 'queue.sendNext', id: '1', sessionId: 's' },
   { type: 'pane.focus', id: '1', sessionId: 's' },
   { type: 'daemon.update.check', id: '1' },
   { type: 'daemon.update.check', id: '1', channel: 'development', force: true },
@@ -156,6 +184,7 @@ const session: Session = {
   state: 'idle',
   permissionMode: 'default',
   approvalPolicy: null,
+  permissionProfile: null,
   controllable: true,
   paneId: '%1',
   updatedAt: '2026-10-14T00:00:00Z',
@@ -199,23 +228,167 @@ const serverSamples: ServerMessage[] = [
   { type: 'session.started', replyTo: '1', paneId: '%1', sessionId: null },
   { type: 'session.state', sessionId: 's', state: 'running', permissionMode: 'plan' },
   {
-    type: 'transcript.entry',
+    type: 'transcript.entries',
     sessionId: 's',
-    cursor: 2,
-    entry: {
-      key: 'u:0',
-      cursor: 2,
-      index: 0,
-      uuid: 'u',
-      timestamp: null,
-      isSidechain: false,
-      kind: 'user',
-      text: 'oi',
-      images: [],
-    },
+    entries: [
+      {
+        key: 'u:0',
+        cursor: 2,
+        index: 0,
+        uuid: 'u',
+        timestamp: null,
+        isSidechain: false,
+        kind: 'user',
+        text: 'oi',
+        images: [],
+      },
+    ],
   },
   { type: 'transcript.page', replyTo: '1', sessionId: 's', entries: [], hasMore: false, lineCount: 0 },
   { type: 'pane.frame', sessionId: 's', text: '>', cols: 80, rows: 24 },
+  { type: 'pane.diff', sessionId: 's', cols: 80, rows: 24, lineCount: 2, lines: [[1, '$ ls']] },
+  { type: 'session.changed', sessionId: 's', set: { state: 'running' }, unset: ['statusLine'] },
+  {
+    type: 'daemon.paths',
+    addresses: ['192.168.1.20:7337'],
+    relay: 'wss://br.relay.remoteharness.app',
+    relays: [],
+  },
+  {
+    type: 'devices.result',
+    replyTo: '1',
+    devices: [
+      {
+        id: 'abcd',
+        name: 'iPhone',
+        platform: 'ios',
+        pairedAt: '2026-10-25T10:00:00.000Z',
+        lastSeen: null,
+        current: true,
+      },
+    ],
+  },
+  { type: 'permissions.result', replyTo: '1', requests: [] },
+  {
+    type: 'changes.result',
+    replyTo: '1',
+    root: '/w',
+    branch: 'main',
+    files: [
+      {
+        path: 'src/a.ts',
+        oldPath: null,
+        status: 'modified',
+        added: 3,
+        deleted: 1,
+        binary: false,
+        generated: false,
+        untracked: false,
+      },
+      {
+        path: 'new.ts',
+        oldPath: 'old.ts',
+        status: 'renamed',
+        added: 0,
+        deleted: 0,
+        binary: false,
+        generated: false,
+        untracked: false,
+      },
+    ],
+    remote: 'https://github.com/acme/app.git',
+    defaultBranch: 'main',
+    unpushed: 2,
+    gh: true,
+  },
+  {
+    type: 'changes.result',
+    replyTo: '1',
+    root: null,
+    branch: null,
+    files: [],
+    remote: null,
+    defaultBranch: null,
+    unpushed: 0,
+    gh: false,
+  },
+  { type: 'changes.committed', replyTo: '1', commit: 'abc1234', branch: 'fix-a' },
+  {
+    type: 'changes.pushed',
+    replyTo: '1',
+    branch: 'fix-a',
+    compareUrl: 'https://github.com/acme/app/compare/fix-a?expand=1',
+  },
+  { type: 'changes.pushed', replyTo: '1', branch: 'fix-a', compareUrl: null },
+  { type: 'changes.prOpened', replyTo: '1', url: 'https://github.com/acme/app/pull/1' },
+  { type: 'changes.generated', replyTo: '1', title: 'Fix a', body: '' },
+  {
+    type: 'changes.diffResult',
+    replyTo: '1',
+    path: 'src/a.ts',
+    offset: 0,
+    total: 3,
+    lines: ['diff --git a/src/a.ts b/src/a.ts', '@@ -1 +1 @@', '+x'],
+    binary: false,
+  },
+  {
+    type: 'rules.result',
+    replyTo: '1',
+    files: [
+      {
+        file: '/p/.claude/settings.local.json',
+        scope: 'project',
+        profileId: null,
+        project: '/p',
+        rules: [
+          {
+            origin: 'app',
+            rule: 'Bash(pnpm test:*)',
+            ruleId: 'a1b2c3d4',
+            createdAt: '2026-10-25T10:00:00.000Z',
+          },
+          { origin: 'hand', rule: 'Bash(ls:*)' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'approvals.result',
+    replyTo: '1',
+    entries: [
+      {
+        id: 'e1',
+        at: '2026-10-25T10:00:00.000Z',
+        action: 'allow',
+        always: true,
+        device: { id: 'dev1', name: 'Pixel 9' },
+        sessionId: 's',
+        folder: 'app',
+        tool: 'Bash',
+        target: 'pnpm test',
+        rule: 'Bash(pnpm test:*)',
+        ruleId: 'a1b2c3d4',
+      },
+      {
+        id: 'e2',
+        at: '2026-10-25T10:01:00.000Z',
+        action: 'delete',
+        device: null,
+        sessionId: null,
+        folder: null,
+        tool: 'Bash',
+        target: null,
+        rule: 'Bash(ls:*)',
+        ruleId: null,
+      },
+    ],
+  },
+  {
+    type: 'pairing.code',
+    replyTo: '1',
+    url: 'remoteharness://pair?v=2',
+    expiresAt: '2026-10-25T10:05:00.000Z',
+  },
   {
     type: 'permission.request',
     request: {
@@ -225,6 +398,7 @@ const serverSamples: ServerMessage[] = [
       tool: 'Bash',
       input: { command: 'ls' },
       suggestedRule: 'Bash(ls:*)',
+      rules: true,
       defaultScope: 'project',
       createdAt: 'now',
       expiresAt: 'later',
@@ -239,6 +413,7 @@ const serverSamples: ServerMessage[] = [
       tool: 'AskUserQuestion',
       input: {},
       suggestedRule: null,
+      rules: true,
       defaultScope: 'project',
       createdAt: 'now',
       expiresAt: 'later',
@@ -744,22 +919,23 @@ describe('server messages', () => {
   test('keeps image refs on prompts and tool results', () => {
     const ref = { id: '3.0', mediaType: 'image/png', bytes: 1024 }
     const result = parseServerMessage({
-      type: 'transcript.entry',
+      type: 'transcript.entries',
       sessionId: 's',
-      cursor: 3,
-      entry: {
-        cursor: 3,
-        index: 0,
-        uuid: 'u',
-        key: 'u:0',
-        timestamp: null,
-        isSidechain: false,
-        kind: 'user',
-        text: '',
-        images: [ref],
-      },
+      entries: [
+        {
+          cursor: 3,
+          index: 0,
+          uuid: 'u',
+          key: 'u:0',
+          timestamp: null,
+          isSidechain: false,
+          kind: 'user',
+          text: '',
+          images: [ref],
+        },
+      ],
     })
-    expect(result).toMatchObject({ ok: true, value: { entry: { images: [ref] } } })
+    expect(result).toMatchObject({ ok: true, value: { entries: [{ images: [ref] }] } })
     expect(
       parseServerMessage({ type: 'transcript.image', replyTo: '1', imageId: '3.0', mediaType: 'image/png' })
         .ok,
@@ -799,6 +975,46 @@ describe('session approval policy', () => {
       session: { ...session, agent: 'codex', approvalPolicy: 'on-request' },
     })
     expect(result).toMatchObject({ ok: true, value: { session: { approvalPolicy: 'on-request' } } })
+  })
+})
+
+describe('permission request rules', () => {
+  test('default to true for older daemons', () => {
+    const result = parseServerMessage({
+      type: 'permission.request',
+      request: {
+        requestId: 'r',
+        sessionId: 's',
+        profileId: 'cdx',
+        tool: 'Bash',
+        input: {},
+        suggestedRule: null,
+        defaultScope: 'project',
+        createdAt: 'now',
+        expiresAt: 'later',
+      },
+    })
+    expect(result).toMatchObject({ ok: true, value: { request: { rules: true } } })
+  })
+})
+
+describe('session permission profile', () => {
+  test('defaults to null for older daemons', () => {
+    const { permissionProfile: _omit, ...old } = session
+    const result = parseServerMessage({ type: 'session.updated', session: old })
+    expect(result).toMatchObject({ ok: true, value: { session: { permissionProfile: null } } })
+  })
+
+  test('carries the Codex profile', () => {
+    const result = parseServerMessage({
+      type: 'session.updated',
+      session: { ...session, agent: 'codex', permissionProfile: ':workspace' },
+    })
+    expect(result).toMatchObject({ ok: true, value: { session: { permissionProfile: ':workspace' } } })
+  })
+
+  test('Codex presets never include full access', () => {
+    expect(CodexPresetSchema.options).toEqual(['read-only', 'workspace'])
   })
 })
 

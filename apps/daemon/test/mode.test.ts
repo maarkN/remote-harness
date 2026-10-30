@@ -52,6 +52,7 @@ function setup(cycle: PermissionMode[], start = 0, pending = false) {
     state: 'idle',
     permissionMode: null,
     approvalPolicy: null,
+    permissionProfile: null,
     controllable: true,
     paneId: '%1',
     updatedAt: '',
@@ -102,5 +103,11 @@ describe('ModeService', () => {
     expect(presses()).toBe(0)
     const busy = setup(['default'], 0, true)
     await expect(busy.service.setMode('s', 'plan')).rejects.toMatchObject({ code: 'session_busy' })
+  })
+
+  test('Claude Code answers its mode; Codex presets are unknown modes for it', async () => {
+    const { service } = setup(['default', 'plan'])
+    expect(await service.change('s', 'plan')).toEqual({ permissionMode: 'plan' })
+    await expect(service.change('s', 'read-only')).rejects.toMatchObject({ code: 'bad_request' })
   })
 })

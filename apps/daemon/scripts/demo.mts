@@ -7,8 +7,8 @@
  *   … demo --perf                                        # plus the performance scenario (long, bursty, busy terminal)
  *   … demo --host <address>                              # listen there instead of 127.0.0.1 (pair a physical device)
  *
- * Isolation: its own data home, file token store, tmux server (`TMUX_TMPDIR`, no `TMUX`), ports,
- * `HOME` and host name; push off. Only the paths in its manifest are created and removed.
+ * Isolation: its own data home, file secret store (a fresh daemon identity), tmux server
+ * (`TMUX_TMPDIR`, no `TMUX`), ports, `HOME` and host name; push off. Only the paths in its manifest are created and removed.
  */
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -33,7 +33,6 @@ import {
   DEMO_REPOS,
   DEMO_SESSIONS,
   DEMO_TMUX_SESSION,
-  DEMO_WS_PORT,
   type DemoLayout,
   type DemoSession,
   demoConfig,
@@ -129,8 +128,15 @@ function clean(): void {
   const manifest = readManifest()
   for (const path of manifest) rmSync(path, { recursive: true, force: true })
   rmSync(manifestPath, { force: true })
+  // The data home is the demo's alone: one left by an older run without a manifest goes too.
+  const leftover = existsSync(layout.home)
+  rmSync(layout.home, { recursive: true, force: true })
   console.log(
-    manifest.length > 0 ? `Removed ${manifest.length} demo folders from ${root}.` : 'Nothing to clean.',
+    manifest.length > 0
+      ? `Removed ${manifest.length} demo folders from ${root}.`
+      : leftover
+        ? `Removed what an earlier demo left in ${layout.home}.`
+        : 'Nothing to clean.',
   )
 }
 
@@ -144,7 +150,9 @@ if (conflicts.length > 0) {
   console.error(
     `These already exist and are not the demo's, so nothing was created:\n  ${conflicts.join('\n  ')}`,
   )
-  console.error('Pick another root with --root <dir>.')
+  if (conflicts.length === 1 && conflicts[0] === layout.home)
+    console.error('Left by an earlier demo? Remove it with `demo --clean`.')
+  else console.error('Pick another root with --root <dir>.')
   process.exit(1)
 }
 // Leftovers of an interrupted run start over.
@@ -152,7 +160,6 @@ if (readManifest().length > 0) clean()
 writeFileSync(manifestPath, JSON.stringify(layout.owned, null, 2))
 
 const now = Date.now()
-const token = randomBytes(32).toString('base64url')
 const hookSecret = randomBytes(24).toString('base64url')
 let daemon: ChildProcess | undefined
 let stopping = false
@@ -196,7 +203,6 @@ function writeSandbox(l: DemoLayout): void {
     )
   }
   writeFileSync(join(l.home, 'config.json'), `${JSON.stringify(demoConfig(), null, 2)}\n`)
-  writeFileSync(join(l.home, 'token'), token, { mode: 0o600 })
   writeFileSync(join(l.home, 'hook-secret'), hookSecret, { mode: 0o600 })
   for (const dir of Object.values(l.configDirs)) mkdirSync(join(dir, 'projects'), { recursive: true })
   mkdirSync(join(l.configDirs.codex, 'sessions'), { recursive: true })
@@ -402,9 +408,11 @@ const panes = startPanes()
 writeLinks(panes)
 
 const log = openSync(join(layout.home, 'daemon.log'), 'a')
+// Node itself with the tsx loader, not the `tsx` wrapper: the wrapper exits before the daemon has
+// finished shutting down (it writes `state.json` then), so `stop` would clean up too early (#385).
 daemon = spawn(
-  join(DAEMON_DIR, 'node_modules', '.bin', 'tsx'),
-  ['src/cli.ts', 'start', '--dev', ...(host === '127.0.0.1' ? [] : ['--host', host])],
+  process.execPath,
+  ['--import', 'tsx', 'src/cli.ts', 'start', '--dev', ...(host === '127.0.0.1' ? [] : ['--host', host])],
   {
     cwd: DAEMON_DIR,
     env,
@@ -436,7 +444,12 @@ for (const session of sessions) {
 
 if (perf) startBursts()
 
-const link = `remoteharness://pair?host=${encodeURIComponent(host)}&port=${DEMO_WS_PORT}&token=${token}`
+// A single-use pairing code (5 minutes) from the demo daemon, like `remote-harness pair`.
+const pairing = await fetch(`http://127.0.0.1:${DEMO_HOOK_PORT}/admin/pairing-code`, {
+  method: 'POST',
+  headers: { 'x-claude-remote-secret': hookSecret },
+})
+const link = ((await pairing.json()) as { url: string }).url
 console.log(`Remote Harness demo running in ${root} (machine "${DEMO_HOST_NAME}").`)
 console.log(`\nPair a simulator:\n  xcrun simctl openurl booted '${link}'\n\nOr open: ${link}`)
 if (perf)

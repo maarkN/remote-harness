@@ -45,12 +45,28 @@ describe('VoicePolishService', () => {
     expect(result).toEqual({ text: 'hello', applied: false })
   })
 
-  test('skips the call for an agent without polish support', async () => {
-    const exec = fakeExecutor()
+  test('Codex: codex exec with an empty stdin, the last agent message is the rewrite', async () => {
+    const lines = [
+      { type: 'thread.started', thread_id: 't' },
+      { type: 'item.completed', item: { id: 'i0', type: 'reasoning', text: 'thinking' } },
+      { type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'Continue the tests.' } },
+      { type: 'turn.completed', usage: {} },
+    ]
+    const exec = fakeExecutor(() => ({ stdout: lines.map((l) => JSON.stringify(l)).join('\n'), exitCode: 0 }))
     const service = new VoicePolishService({ exec, logger: silentLogger })
-    const result = await service.polish(codexProfile, 'hello')
-    expect(result).toEqual({ text: 'hello', applied: false })
-    expect(exec.calls).toHaveLength(0)
+    const result = await service.polish(codexProfile, 'so, um, continue the tests')
+    expect(result).toEqual({ text: 'Continue the tests.', applied: true })
+    expect(exec.calls[0]?.file).toBe('codex')
+    expect(exec.calls[0]?.args.slice(0, 3)).toEqual(['exec', '--json', '--ephemeral'])
+    expect(exec.calls[0]?.args.at(-1)).toMatch(/so, um, continue the tests$/)
+    expect(exec.calls[0]?.options).toMatchObject({ input: '' })
+    expect(exec.calls[0]?.options?.env).toEqual({ CODEX_HOME: '/Users/me/.codex' })
+  })
+
+  test('Codex without an agent message falls back to the original', async () => {
+    const exec = fakeExecutor(() => ({ stdout: '{"type":"turn.failed"}', exitCode: 0 }))
+    const service = new VoicePolishService({ exec, logger: silentLogger })
+    expect(await service.polish(codexProfile, 'hello')).toEqual({ text: 'hello', applied: false })
   })
 
   test('skips the call for a profile routed through a provider', async () => {

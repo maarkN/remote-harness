@@ -1,6 +1,7 @@
 import type {
   AccountLimits,
   AgentId,
+  CodexPreset,
   CommandItem,
   PermissionMode,
   SessionStatus,
@@ -18,6 +19,8 @@ export type TranscriptSummary = {
   permissionMode: PermissionMode | null
   /** Codex's approval policy. */
   approvalPolicy: string | null
+  /** Codex's permission profile (`:workspace`…). */
+  permissionProfile?: string | null
   /** Codex: model, effort and context read from the transcript (Claude Code's come from the status line). */
   status?: SessionStatus | null
   /** Codex: the account's latest rate limits read from the transcript. */
@@ -44,6 +47,11 @@ export type AgentAdapter = {
   worktreeArgs(name: string): string[] | null
   /** Arguments that give a new session a display name; null when the CLI has none. */
   nameArgs(name: string): string[] | null
+  /**
+   * A command submitted in the pane once a new session registers, naming it (Codex `/rename`);
+   * null when the CLI names sessions with `nameArgs` or not at all.
+   */
+  renameCommand(name: string): string | null
   /** How the CLI writes its transcripts (one module per format). */
   transcript: TranscriptFormat
   /** Main-session transcripts of a config dir modified since `cutoffMs`. */
@@ -71,10 +79,19 @@ export type AgentAdapter = {
   /** The TUI's permission modes can be switched from the app (Shift+Tab cycle). */
   modes: boolean
   /**
+   * Permission presets switched by submitting a command in the pane (Codex `/permissions <id>`);
+   * null when the CLI has none. Never full access.
+   */
+  presets: { command(preset: CodexPreset): string } | null
+  /**
    * A permission answer may add allow rules or switch the mode (Claude Code). Codex treats either as
    * a failed hook, so its requests get Allow / Deny only.
    */
   permissionRules: boolean
-  /** Rewrites a dictated transcript in one non-interactive call; `null` when the CLI has no such mode. */
-  polish: { args(text: string): string[] } | null
+  /**
+   * One non-interactive call with a small model and no tools: rewrites a dictated transcript, or
+   * (with its own system prompt, the material on stdin) writes a commit message. `null` when the CLI
+   * has no such mode. `parse` reads the answer from its stdout (null when there is none).
+   */
+  polish: { args(text: string, systemPrompt?: string): string[]; parse(stdout: string): string | null } | null
 }

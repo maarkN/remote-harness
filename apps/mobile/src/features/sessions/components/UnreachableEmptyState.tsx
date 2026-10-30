@@ -1,14 +1,13 @@
 import { ExternalLink } from 'lucide-react-native'
 import { useTranslation } from 'react-i18next'
-import { ActivityIndicator, Linking, Platform, StyleSheet, View } from 'react-native'
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native'
 import { useDaemonClient } from '@/core/connection'
 import { space, useTheme } from '@/core/theme'
-import { TAILSCALE_APP_SCHEME, TAILSCALE_STORES } from '@/features/pairing/setup-guide'
 import { Button, EmptyState, Text } from '@/ui'
 
 const TROUBLESHOOTING_URL = 'https://remoteharness.app/docs/troubleshooting'
 
-const CHECKLIST_KEYS = ['computerAwake', 'tailscaleComputer', 'tailscalePhone', 'daemonRunning'] as const
+const CHECKLIST_KEYS = ['computerAwake', 'daemonRunning', 'online'] as const
 
 /**
  * Shown in place of the session list (and the iPad detail pane) while the computer does not
@@ -19,11 +18,6 @@ export function UnreachableEmptyState() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const client = useDaemonClient()
-
-  const openTailscale = () => {
-    const store = Platform.OS === 'android' ? TAILSCALE_STORES.android : TAILSCALE_STORES.ios
-    void Linking.openURL(TAILSCALE_APP_SCHEME).catch(() => Linking.openURL(store.url))
-  }
 
   return (
     <EmptyState title={t('sessions.unreachable.title')}>
@@ -46,7 +40,6 @@ export function UnreachableEmptyState() {
           variant="primary"
           onPress={() => client?.resumeNow()}
         />
-        <Button label={t('sessions.unreachable.openTailscale')} onPress={openTailscale} />
         <Button
           label={t('sessions.unreachable.troubleshooting')}
           variant="ghost"

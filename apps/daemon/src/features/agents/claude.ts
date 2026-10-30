@@ -3,12 +3,8 @@ import { basename, join } from 'node:path'
 import { commandsSignature, loadCommands } from '../autocomplete/commands.ts'
 import { readTranscriptMeta } from '../sessions/transcript-meta.ts'
 import { claudeTranscript } from '../transcript/parser.ts'
+import { POLISH_SYSTEM_PROMPT, parseOneShotResult } from './one-shot.ts'
 import type { AgentAdapter, TranscriptLocation } from './types.ts'
-
-const POLISH_SYSTEM_PROMPT =
-  'Rewrite the given dictated text into a clean prompt: remove filler words, hesitations and ' +
-  'repetitions, fix punctuation and grammar, and keep technical terms, file names and code exactly ' +
-  'as said. Respond with only the rewritten text, nothing else.'
 
 /** Main-session transcripts are `projects/<dir>/<id>.jsonl` (subagents live one level deeper). */
 async function findClaudeTranscripts(configDir: string, cutoffMs: number): Promise<TranscriptLocation[]> {
@@ -53,6 +49,7 @@ export const claudeCode: AgentAdapter = {
   resumeArgs: (sessionId) => ['--resume', sessionId],
   worktreeArgs: (name) => ['--worktree', name],
   nameArgs: (name) => ['--name', name],
+  renameCommand: () => null,
   transcript: claudeTranscript,
   findTranscripts: findClaudeTranscripts,
   readSummary: async (path) => ({ ...(await readTranscriptMeta(path)), approvalPolicy: null }),
@@ -64,9 +61,10 @@ export const claudeCode: AgentAdapter = {
   statusLine: true,
   providers: true,
   modes: true,
+  presets: null,
   permissionRules: true,
   polish: {
-    args: (text) => [
+    args: (text, systemPrompt = POLISH_SYSTEM_PROMPT) => [
       '-p',
       text,
       '--model',
@@ -76,7 +74,8 @@ export const claudeCode: AgentAdapter = {
       '--allowedTools',
       '',
       '--append-system-prompt',
-      POLISH_SYSTEM_PROMPT,
+      systemPrompt,
     ],
+    parse: parseOneShotResult,
   },
 }

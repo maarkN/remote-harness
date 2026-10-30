@@ -4,7 +4,7 @@ description: O que o Remote Harness coleta (só os relatórios de erro e os dado
 applies: 0.7+
 ---
 
-O Remote Harness é um software self-hosted: o daemon roda no seu computador, o app no seu celular, e os dois conversam pela sua própria rede Tailscale. Esta página é a política de privacidade do app distribuído pelas lojas, do daemon e deste site, publicada pela Alvyn Tech ("nós"). O endereço curto dela é [remoteharness.app/privacy](/privacy). Última atualização em 2026-10-24.
+O Remote Harness é um software self-hosted: o daemon roda no seu computador, o app no seu celular, e os dois conversam com criptografia de ponta a ponta, direto ou por um relay de conexão que não consegue ler o que repassa. Esta página é a política de privacidade do app distribuído pelas lojas, do daemon e deste site, publicada pela Alvyn Tech ("nós"). O endereço curto dela é [remoteharness.app/privacy](/privacy). Última atualização em 2026-10-24.
 
 ## O que coletamos
 
@@ -16,14 +16,14 @@ Só os relatórios de erro e os dados de desempenho que você aceitar enviar. N�
 
 ## O que fica nos seus aparelhos
 
-- No celular: o token de pareamento (no armazenamento seguro do sistema), as preferências do app (tema, idioma, nome da máquina, escolhas de notificação), os rascunhos de prompts não enviados de cada sessão (no armazenamento seguro do sistema, nunca enviados a lugar nenhum, apagados ao enviar, depois de 7 dias ou ao esquecer a máquina) e nada mais das conversas além do que está na tela.
+- No celular: as chaves do pareamento (no armazenamento seguro do sistema, só neste aparelho), as preferências do app (tema, idioma, nome da máquina, escolhas de notificação), os rascunhos de prompts não enviados de cada sessão (no armazenamento seguro do sistema, nunca enviados a lugar nenhum, apagados ao enviar, depois de 7 dias ou ao esquecer a máquina) e nada mais das conversas além do que está na tela.
 - No computador: a configuração do daemon, a lista de sessões conhecidas, os logs e as chaves de provedor no cofre do sistema.
 
 Apagar o app e rodar `remote-harness uninstall` remove tudo isso.
 
 ## O que sai da sua máquina, e quando
 
-- **Entre o seu celular e o seu computador**: a conversa, as permissões que você responde e os prompts que envia trafegam só pela sua rede Tailscale, autenticados com o token de pareamento. Nada disso chega até nós. Os comandos rodados pelo app (**Rodar comando…**, desligado por padrão) e a saída deles fazem o mesmo caminho, só até o celular que os iniciou, e nunca são guardados. Com **Aprimorar ditado** ligado (desligado por padrão), o texto transcrito de um ditado vai para o seu computador, onde o próprio comando `claude` da sessão o reescreve com a sua conta da Anthropic, como qualquer prompt que você envia; o áudio nunca sai do celular.
+- **Entre o seu celular e o seu computador**: a conversa, as permissões que você responde e os prompts que envia trafegam só criptografados de ponta a ponta com as chaves do pareamento, direto ou pelo relay de conexão, que não consegue lê-los e não guarda registro deles nem de endereços IP. Nada disso chega até nós. Os comandos rodados pelo app (**Rodar comando…**, desligado por padrão) e a saída deles fazem o mesmo caminho, só até o celular que os iniciou, e nunca são guardados. Com **Aprimorar ditado** ligado (desligado por padrão), o texto transcrito de um ditado vai para o seu computador, onde o próprio comando `claude` ou `codex` da sessão o reescreve com a sua conta da Anthropic ou da OpenAI, como qualquer prompt que você envia; o áudio nunca sai do celular.
 - **Notificações push (opcional)**: um título, o nome do perfil, o id da sessão e o tipo do evento passam pelo Firebase Cloud Messaging (Google) até o seu celular; o status ao vivo acrescenta o título da sessão, a pasta, o estado, o passo atual (a ferramenta e um alvo curto: o nome de um arquivo sem a pasta, o programa de um comando, o host de um endereço web ou o tipo de um subagente, nunca argumentos, conteúdo de arquivos ou termos de busca) o progresso da lista de tarefas e uma frase fixa do que a sessão está fazendo (como "Rodando testes…"). Só se você ligar Configurações → Notificações → Mostrar a tarefa atual na tela bloqueada (desligado por padrão), ele leva também a tarefa em andamento da lista de tarefas da sessão, com até 48 caracteres. O relay de push é um serviço pequeno que mantemos, que encaminha essas mesmas mensagens e não guarda nada; com o seu próprio projeto Firebase, nada passa por nós. O tratamento do Firebase Cloud Messaging pelo Google segue a política de privacidade do Google.
 - **Atualizações**: o daemon consulta o remoto git do código instalado em busca de versões novas; o app consulta o servidor de atualizações configurado na sua build em busca de JavaScript novo (o pedido leva a versão do app e a plataforma, nenhum dado pessoal).
 - **Perfis do OpenRouter (opcional)**: os pedidos de catálogo de modelos e de créditos vão do seu computador para o OpenRouter com a sua chave; nenhum tráfego de modelo passa por nós.
@@ -37,7 +37,7 @@ Apagar o app e rodar `remote-harness uninstall` remove tudo isso.
 
 ## Como os seus dados são protegidos
 
-O tráfego entre o celular e o computador é criptografado de ponta a ponta pelo Tailscale (WireGuard) e autenticado com o token de pareamento; o daemon só escuta na interface do Tailscale. Relatórios de erro, dados de desempenho, mensagens de push e atualizações trafegam por HTTPS. As atualizações são assinadas, e o app recusa uma sem assinatura válida. O token de pareamento e os rascunhos ficam no armazenamento seguro do sistema.
+O tráfego entre o celular e o computador é criptografado de ponta a ponta com o protocolo Noise, com chaves que só o celular e o computador têm, e passa direto, pelo WebSocket que o daemon serve nas interfaces de rede do computador, ou pelo relay de conexão sobre TLS (`wss://`), que só repassa o texto cifrado. Relatórios de erro, dados de desempenho, mensagens de push e atualizações trafegam por HTTPS. As atualizações são assinadas, e o app recusa uma sem assinatura válida. As chaves e os rascunhos ficam no armazenamento seguro do sistema.
 
 ## Suas escolhas e pedidos
 

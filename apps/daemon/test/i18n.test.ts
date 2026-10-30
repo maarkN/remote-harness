@@ -50,7 +50,6 @@ describe('catalogs', () => {
       done.footer,
       done.openTerminal('source ~/.zshrc'),
       done.pairIfNeeded('remote-harness pair'),
-      done.connectAndPair('remote-harness pair'),
     ]
     for (const text of fixed) expect([...text].length).toBeLessThanOrEqual(BANNER_WIDTH - 4)
   })
@@ -61,17 +60,12 @@ describe('catalogs', () => {
     const linux = [
       m.setup.welcome.intro1(m.machine.linux),
       m.setup.serviceQuestion(m.machine.linux),
-      m.setup.tailscaleIntro(m.machine.linux, m.setup.tailscaleInstall.linux),
-      m.setup.tailscaleQuestion(m.machine.linux),
       m.setup.accounts.noneFound(m.machine.linux),
     ]
     for (const text of linux) {
       expect(text).toContain(m.machine.linux)
       expect(text).not.toMatch(/\bMac\b|brew|download\/mac/)
     }
-    expect(m.setup.tailscaleIntro(m.machine.darwin, m.setup.tailscaleInstall.darwin)).toContain(
-      'download/mac',
-    )
     const unsupported = m.cli.unsupportedPlatform('win32', 'macOS, Linux')
     expect(unsupported).toContain('win32')
     expect(unsupported).toContain('macOS, Linux')
@@ -84,12 +78,10 @@ describe('catalogs', () => {
     expect(w.serviceNoSystemd).toContain('wsl --shutdown')
     expect(w.systemdIntro).toContain('[boot] systemd=true')
     expect(w.systemdFailed('x')).toContain('[boot]\n    systemd=true')
-    expect(w.tailscaleIntro).toContain('curl -fsSL https://tailscale.com/install.sh | sh')
-    expect(w.tailscaleIntro).toContain('sudo tailscale up')
-    expect(w.tailscaleIntro).toContain('networkingMode=mirrored')
+    expect(w.mirroredQuestion).toContain('.wslconfig')
     expect(w.logonTaskFailed('denied', 'schtasks.exe /Create')).toContain('schtasks.exe /Create')
     expect(w.detected('Ubuntu')).toContain('Ubuntu')
-    expect(w.tailscaleIntro).not.toMatch(/\bMac\b|brew/)
+    expect(w.mirroredQuestion).not.toMatch(/\bMac\b|brew/)
   })
 
   test('createI18n returns the catalog of the locale', () => {

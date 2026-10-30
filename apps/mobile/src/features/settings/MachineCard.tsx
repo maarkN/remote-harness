@@ -5,12 +5,11 @@ import { useTranslation } from 'react-i18next'
 import { Alert, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useConnectionStore } from '@/core/connection'
-import { credentialsStorage } from '@/core/storage/credentials'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { Badge, Button, Card, IconButton, Text } from '@/ui'
 import { clearCommandRecents } from '../autocomplete/recents-store'
 import { clearAllDrafts } from '../drafts/persistence'
-import { setMachineAlias, useMachineName, useMachineStore } from './machine-store'
+import { setMachineAlias, useMachineAlias, useMachineName } from './machine-store'
 import { machineMeta } from './summary'
 
 /**
@@ -25,20 +24,27 @@ export function MachineCard() {
   const credentials = useConnectionStore((s) => s.credentials)
   const hello = useConnectionStore((s) => s.hello)
   const status = useConnectionStore((s) => s.status)
-  const setCredentials = useConnectionStore((s) => s.setCredentials)
+  const forgetComputer = useConnectionStore((s) => s.forgetComputer)
+  const path = useConnectionStore((s) => s.path)
+  // The demo computer is left with the Demo card, and its name is the demo's.
+  const demo = useConnectionStore((s) => s.demo)
   const name = useMachineName()
-  const alias = useMachineStore((s) => s.alias)
+  const alias = useMachineAlias()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const meta = machineMeta(
-    {
-      host: credentials?.host,
-      port: credentials?.port,
-      daemonVersion: hello?.daemonVersion,
-      protocolVersion: hello?.protocolVersion,
-    },
-    t,
-  )
+  const meta = [
+    machineMeta(
+      {
+        host: path === 'relay' ? credentials?.relay : credentials?.addresses[0],
+        daemonVersion: hello?.daemonVersion,
+        protocolVersion: hello?.protocolVersion,
+      },
+      t,
+    ),
+    path ? t(`connection.path.${path}`) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   const forget = () => {
     Alert.alert(t('settings.forgetTitle'), t('settings.forgetBody'), [
@@ -47,11 +53,16 @@ export function MachineCard() {
         text: t('settings.forget'),
         style: 'destructive',
         onPress: async () => {
-          await credentialsStorage.clear()
-          await clearAllDrafts()
-          await clearCommandRecents()
-          setCredentials(null)
-          router.replace('/pair')
+          const active = useConnectionStore.getState().activeId
+          if (!active) return
+          const last = useConnectionStore.getState().computers.length <= 1
+          await forgetComputer(active)
+          // Drafts and recents are not kept per computer: they go with the last one.
+          if (last) {
+            await clearAllDrafts()
+            await clearCommandRecents()
+            router.replace('/pair')
+          }
         },
       },
     ])
@@ -72,22 +83,26 @@ export function MachineCard() {
           <Text size="lg" weight="bold" numberOfLines={1} style={layout.flex}>
             {name ?? hello?.host ?? '—'}
           </Text>
-          <IconButton
-            icon={Pencil}
-            size={16}
-            label={t('settings.editName')}
-            onPress={() => {
-              setDraft(alias ?? '')
-              setEditing(true)
-            }}
-          />
+          {demo ? null : (
+            <IconButton
+              icon={Pencil}
+              size={16}
+              label={t('settings.editName')}
+              onPress={() => {
+                setDraft(alias ?? '')
+                setEditing(true)
+              }}
+            />
+          )}
         </View>
         {meta ? (
           <Text size="xs" color="textMuted" selectable>
             {meta}
           </Text>
         ) : null}
-        <Button label={t('settings.forgetButton')} variant="danger" compact onPress={forget} />
+        {demo ? null : (
+          <Button label={t('settings.forgetButton')} variant="danger" compact onPress={forget} />
+        )}
       </View>
       <Modal visible={editing} transparent animationType="slide" onRequestClose={() => setEditing(false)}>
         <Pressable style={styles.backdrop} onPress={() => setEditing(false)}>

@@ -28,12 +28,9 @@ import {
 import { envVar } from './core/env.ts'
 import { type Messages, messagesFor } from './core/i18n/index.ts'
 import { createLogger } from './core/logger.ts'
-import { pairingUrl } from './core/pairing.ts'
 import { paths } from './core/paths.ts'
 import {
   ensureHookSecret,
-  ensureToken,
-  generateToken,
   providerKeyStore,
   type SelectedTokenStore,
   selectTokenStore,
@@ -42,6 +39,7 @@ import {
 } from './core/secrets.ts'
 import { DAEMON_VERSION } from './core/version.ts'
 import { agentFor } from './features/agents/index.ts'
+import { measureRelays } from './features/connectivity/measure.ts'
 import {
   existingRcFiles,
   hasOurHooks,
@@ -52,6 +50,8 @@ import {
   uninstallStatusLine,
 } from './features/hooks/installer.ts'
 import { isDefaultConfigDir } from './features/hooks/launcher.ts'
+import { deviceInfoOf, PairedDevices } from './features/pairing/devices.ts'
+import { ApprovalLog } from './features/permissions/approval-log.ts'
 import { RulesLog } from './features/permissions/rules-log.ts'
 import type { PowerState } from './features/power/index.ts'
 import { DeviceRegistry, describeDevices } from './features/push/devices.ts'
@@ -85,7 +85,6 @@ import { WslHost } from './features/wsl/host.ts'
 import { probeAutomation } from './infra/accessibility.ts'
 import { execaExecutor, runInteractive } from './infra/exec.ts'
 import { probeFolderAccess } from './infra/fs.ts'
-import { findTailscaleAddress } from './infra/network.ts'
 import {
   currentWsl,
   PLATFORM_NAMES,
@@ -94,7 +93,7 @@ import {
   UnsupportedPlatformError,
 } from './infra/platform.ts'
 import { ProcessSleepInhibitor, sleepHelperCommand } from './infra/power.ts'
-import { resolveWsHost, startDaemon } from './main.ts'
+import { startDaemon } from './main.ts'
 import { SECRET_HEADER } from './transport/hooks-server.ts'
 
 const PushTestReplySchema = z.object({ result: PushTestResultSchema, sent: z.number() })
@@ -146,19 +145,32 @@ async function tokenStore(): Promise<TokenStore> {
   return (await selectStore()).store
 }
 
-function tokenStoreLabel(kind: TokenStoreKind, file = paths.tokenFile()): string {
+function tokenStoreLabel(kind: TokenStoreKind, file = paths.identityFile()): string {
   const names = m.cli.doctor.tokenStores
   if (kind === 'keychain') return names.keychain
   if (kind === 'secret-tool') return names.secretTool
   return names.file(file)
 }
 
-/** Absolute path of the bundled CLI (dist/cli.js), whether running from source or from dist. */
-function printPairing(host: string, port: number, token: string): void {
-  const url = pairingUrl(host, port, token)
-  qrcode.generate(url, { small: true })
-  console.log(`\n${url}\n`)
-  console.log(m.cli.pair.scan)
+const PairingLinkSchema = z.object({ url: z.string(), expiresAt: z.number() })
+
+/**
+ * Asks the running daemon for a single-use pairing code and prints it; false when the daemon does
+ * not answer. `attempts` waits for a service that was just (re)started.
+ */
+async function printPairing(attempts = 1): Promise<boolean> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const parsed = PairingLinkSchema.safeParse(await adminRequest('/admin/pairing-code'))
+    if (parsed.success) {
+      qrcode.generate(parsed.data.url, { small: true })
+      console.log(`\n${parsed.data.url}\n`)
+      console.log(m.cli.pair.scan)
+      console.log(m.cli.pair.singleUse(Math.round((parsed.data.expiresAt - Date.now()) / 60_000)))
+      return true
+    }
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+  return false
 }
 
 function installOptions(): InstallOptions {
@@ -176,10 +188,6 @@ function builtCliPath(): string | null {
     new URL(import.meta.url.endsWith('.ts') ? '../dist/cli.js' : './cli.js', import.meta.url),
   )
   return existsSync(path) ? path : null
-}
-
-async function notifyDaemon(path: string): Promise<boolean> {
-  return (await adminRequest(path)) !== null
 }
 
 /** POSTs an admin route of the running daemon; its JSON reply, or null when it is not running. */
@@ -243,8 +251,9 @@ program
   .description(m.cli.start.description)
   .option('--dev', m.cli.start.dev)
   .option('--host <host>', m.cli.start.host)
-  .option('--wait-tailscale', m.cli.start.waitTailscale)
-  .action(async (opts: { dev?: boolean; host?: string; waitTailscale?: boolean }) => {
+  // Services installed by older versions still pass flags this version no longer has.
+  .allowUnknownOption()
+  .action(async (opts: { dev?: boolean; host?: string }) => {
     const logger = createLogger({ pretty: process.stdout.isTTY })
     try {
       const { kind, store } = await selectStore()
@@ -258,11 +267,10 @@ program
       const daemon = await startDaemon({
         logger,
         exec: execaExecutor,
-        tokenStore: store,
+        secretStore: store,
         providerKey: (profileId) => providerKeyStore(kind, execaExecutor, profileId).get(),
         dev: opts.dev,
         host: opts.host,
-        waitForTailscale: opts.waitTailscale,
         // Update checks and the tray belong to the service daemon, not to development runs.
         // Restarting is exiting: launchd (KeepAlive) / systemd (Restart=always) start it again.
         desktop: opts.dev ? undefined : { cliPath: builtCliPath(), restart: () => void shutdown() },
@@ -284,22 +292,12 @@ program
 program
   .command('pair')
   .description(m.cli.pair.description)
-  .option('--dev', m.cli.pair.dev)
-  .option('--host <host>', m.cli.pair.host)
-  .action(async (opts: { dev?: boolean; host?: string }) => {
-    const logger = createLogger({ level: 'silent' })
-    const config = await loadConfig(logger)
-    const token = await ensureToken(await tokenStore())
-    let host: string
-    try {
-      host = resolveWsHost(opts)
-    } catch {
-      // resolveWsHost only fails when there is no Tailscale interface.
-      console.error(`✗ ${m.cli.pair.tailscaleNotFound}`)
-      console.error(`  ${m.cli.pair.simulatorHint(config.wsPort)}`)
-      process.exit(1)
-    }
-    printPairing(host, config.wsPort, token)
+  .action(async () => {
+    if (await printPairing()) return
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    console.error(`✗ ${m.cli.pair.notRunning}`)
+    console.error(`  ${m.cli.pair.simulatorHint(config.wsPort)}`)
+    process.exit(1)
   })
 
 program
@@ -333,10 +331,8 @@ program
           if (!cliPath) throw new SetupAborted(m.cli.buildMissing)
           return installServiceFromCli({ ...installOptions(), cliPath, service })
         },
-        tailscaleAddress: () => findTailscaleAddress(),
-        pair: async (host) => {
-          const config = await loadConfig(createLogger({ level: 'silent' }))
-          printPairing(host, config.wsPort, await ensureToken(await tokenStore()))
+        pair: async () => {
+          if (!(await printPairing(10))) console.log(`  ${m.cli.pair.notRunning}`)
         },
         runClaude: (configDir) => {
           // Like the launcher: ~/.claude is the default and must not be passed as CLAUDE_CONFIG_DIR.
@@ -369,16 +365,6 @@ program
   })
 
 program
-  .command('rotate-token')
-  .description(m.cli.rotateToken.description)
-  .action(async () => {
-    await (await tokenStore()).set(generateToken())
-    const notified = await notifyDaemon('/admin/reload-token')
-    console.log(notified ? m.cli.rotateToken.rotated : m.cli.rotateToken.rotatedOffline)
-    console.log(m.cli.rotateToken.pairAgain)
-  })
-
-program
   .command('doctor')
   .description(m.cli.doctor.description)
   .action(async () => {
@@ -391,24 +377,27 @@ program
       const result = await execaExecutor('which', [bin])
       check(result.exitCode === 0, bin, d.notOnPath)
     }
-    const ip = findTailscaleAddress()
     if (wslHost) {
       const w = m.wsl
       check(true, w.detected(wslHost.distro ?? w.unknownDistro))
       const mode = await wslHost.networkingMode()
       console.log(`· ${w.networking(mode ?? w.networkingUnknown)}`)
-      const source = wslHost.tailscale(mode)
-      const label = source ? `Tailscale ${source.address} (${w.source[source.source]})` : 'Tailscale'
-      check(source !== null, label, w.tailscaleHint)
       const systemd = wslHost.systemdRunning()
       check(systemd, w.systemd, (await wslHost.systemdConfigured()) ? w.systemdPendingHint : w.systemdHint)
       check(await wslHost.logonTask.exists(), w.logonTask, w.logonTaskHint)
-    } else {
-      check(ip !== null, `Tailscale ${ip ?? ''}`.trim(), d.tailscaleMissing)
     }
     try {
       const config = await loadConfig(logger)
       check(true, `config ${paths.config()}`)
+      // The relay path: whether the configured connection relays answer from here.
+      if (config.relay === 'off') console.log(`· ${d.relayOff}`)
+      else
+        for (const relay of await measureRelays(config.relays))
+          check(
+            relay.rttMs !== null,
+            d.relay(relay.url, relay.rttMs === null ? null : Math.round(relay.rttMs)),
+            d.relayDown,
+          )
       for (const profile of config.profiles) {
         const result = await execaExecutor('test', [
           '-d',
@@ -454,11 +443,11 @@ program
       check(false, 'config', (error as Error).message)
     }
     const { kind, store } = await selectStore()
-    const token = await store.get().catch((error: Error) => {
-      check(false, d.token(tokenStoreLabel(kind)), error.message)
+    const identity = await store.get().catch((error: Error) => {
+      check(false, d.identity(tokenStoreLabel(kind)), error.message)
       return undefined
     })
-    if (token !== undefined) check(token !== null, d.token(tokenStoreLabel(kind)), d.runPair)
+    if (identity !== undefined) check(identity !== null, d.identity(tokenStoreLabel(kind)), d.runStart)
     const manager = serviceManager()
     const status = (await manager.available()) ? await manager.status() : null
     check(
@@ -498,8 +487,8 @@ program
       if (accessibility) check(accessibility === 'allowed', d.accessibility, d.accessibilityHint)
     }
     const { kind: storedKind } = await selectStore()
-    const storedToken = await (await tokenStore()).get().catch(() => null)
-    const keychain = classifyKeychain(storedKind, storedToken !== null)
+    const storedIdentity = await (await tokenStore()).get().catch(() => null)
+    const keychain = classifyKeychain(storedKind, storedIdentity !== null)
     if (keychain !== 'not_available') check(keychain === 'allowed', d.keychain, d.keychainHint)
     const devices = new DeviceRegistry(paths.devices())
     await devices.load()
@@ -576,7 +565,6 @@ service
     if (wslHost && !(await wslHost.logonTask.exists())) {
       console.log(`  ${m.wsl.logonTaskMissing}: ${wslHost.logonTask.command}`)
     }
-    if (!findTailscaleAddress()) console.log(`  ${m.cli.service.tailscaleWaiting}`)
     console.log(`  ${m.cli.service.logs(paths.logs())}`)
   })
 service
@@ -945,6 +933,73 @@ provider
     console.log(p.saved(profileId, tokenStoreLabel(kind, paths.providerKey(profileId))))
   })
 
+const DevicesReplySchema = z.object({
+  devices: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      platform: z.string(),
+      pairedAt: z.string(),
+      lastSeen: z.string().nullable(),
+    }),
+  ),
+})
+
+/** The paired devices from the running daemon, else from its file. */
+async function pairedDevices(): Promise<z.infer<typeof DevicesReplySchema>['devices']> {
+  const live = DevicesReplySchema.safeParse(await daemonGet('/admin/devices'))
+  if (live.success) return live.data.devices
+  const store = new PairedDevices(paths.pairedDevices())
+  await store.load()
+  return store.devices().map((d) => deviceInfoOf(d))
+}
+
+const shortTime = (iso: string) => iso.slice(0, 16).replace('T', ' ')
+
+const devicesCommand = program.command('devices').description(m.cli.devices.description)
+devicesCommand
+  .command('list')
+  .description(m.cli.devices.list)
+  .action(async () => {
+    const list = await pairedDevices()
+    if (list.length === 0) console.log(m.cli.devices.empty)
+    for (const d of list)
+      console.log(
+        m.cli.devices.row(
+          d.id,
+          d.name || '—',
+          d.platform || '—',
+          shortTime(d.pairedAt),
+          d.lastSeen ? shortTime(d.lastSeen) : m.cli.devices.never,
+        ),
+      )
+  })
+devicesCommand
+  .command('revoke <id>')
+  .description(m.cli.devices.revoke)
+  .action(async (id: string) => {
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    let revoked: boolean
+    try {
+      // The running daemon also closes the device's connections and drops its push registration.
+      const response = await fetch(`http://127.0.0.1:${config.hookPort}/admin/devices/revoke`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [SECRET_HEADER]: await ensureHookSecret() },
+        body: JSON.stringify({ id }),
+      })
+      revoked = response.ok
+    } catch {
+      const store = new PairedDevices(paths.pairedDevices())
+      await store.load()
+      revoked = (await store.revoke(id)) !== null
+    }
+    if (!revoked) {
+      console.error(m.cli.devices.notFound(id))
+      process.exit(1)
+    }
+    console.log(m.cli.devices.revoked(id))
+  })
+
 const rules = program.command('rules').description(m.cli.rules.description)
 rules
   .command('list')
@@ -964,9 +1019,36 @@ rules
       console.error(m.cli.rules.notFound(id))
       process.exit(1)
     }
+    if (result.removed) {
+      await new ApprovalLog(paths.approvalLog()).add({
+        action: 'undo',
+        device: null,
+        sessionId: result.entry.sessionId,
+        cwd: null,
+        tool: null,
+        rule: result.entry.rule,
+        ruleId: result.entry.id,
+      })
+    }
     console.log(
       result.removed ? m.cli.rules.removed(result.entry.rule, result.entry.file) : m.cli.rules.alreadyGone,
     )
+  })
+
+const approvals = program.command('approvals').description(m.cli.approvals.description)
+approvals
+  .command('list')
+  .description(m.cli.approvals.list)
+  .action(async () => {
+    const entries = await new ApprovalLog(paths.approvalLog()).list()
+    if (entries.length === 0) console.log(m.cli.approvals.empty)
+    const actions = m.cli.approvals.actions
+    for (const e of entries) {
+      const action = e.action === 'allow' && e.always ? actions.allowAlways : actions[e.action]
+      const what = e.rule ?? [e.tool, e.target].filter(Boolean).join(' ')
+      const device = e.device?.name ?? m.cli.approvals.thisComputer
+      console.log(`${e.at}  ${action.padEnd(16)}  ${device}  ${e.folder ?? '-'}  ${what}`)
+    }
   })
 
 await program.parseAsync()

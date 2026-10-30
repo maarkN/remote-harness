@@ -1,3 +1,4 @@
+import { applyPaneDiff } from '@remote-harness/protocol'
 import { useIsFocused } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -6,6 +7,7 @@ import { useDaemonClient, useDaemonEvent } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
 import type { TFunction } from '@/core/i18n/create'
 import { space } from '@/core/theme'
+import { DemoBanner } from '@/features/demo/components/DemoBanner'
 import { ConnectionBanner, Screen, Text } from '@/ui'
 import { DEFAULT_KEYS, KeyBar, type KeySpec } from '../conversation/components/KeyBar'
 import { TerminalView, type TerminalViewHandle } from './TerminalView'
@@ -52,6 +54,14 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
     if (ready) terminal.current?.render(frame)
   })
 
+  // Only the changed lines: rebuilt on the last full frame (the daemon always sends one first).
+  useDaemonEvent('pane.diff', (diff) => {
+    if (diff.sessionId !== sessionId || !lastFrame.current) return
+    const frame = applyPaneDiff(lastFrame.current, diff)
+    lastFrame.current = frame
+    if (ready) terminal.current?.render(frame)
+  })
+
   useEffect(() => {
     if (ready && lastFrame.current) terminal.current?.render(lastFrame.current)
   }, [ready])
@@ -75,6 +85,7 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
   return (
     <Screen>
       <ConnectionBanner />
+      <DemoBanner />
       {error ? (
         <Text size="sm" color="danger" style={styles.error}>
           {error}

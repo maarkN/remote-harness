@@ -27,6 +27,7 @@ function record(id: string, patch: Partial<SessionRecord> = {}): SessionRecord {
     state: 'running',
     permissionMode: null,
     approvalPolicy: null,
+    permissionProfile: null,
     controllable: true,
     paneId: '%1',
     updatedAt: '2026-10-18T10:00:00Z',
@@ -220,6 +221,17 @@ describe('QueueService delivery', () => {
     await expect(service.sendNow('s', 'q1')).rejects.toMatchObject({ code: 'not_controllable' })
     expect(service.list('s')[0]).toMatchObject({ id: 'q1', error: 'session has no live tmux pane' })
     await expect(service.sendNow('s', 'zz')).rejects.toMatchObject({ code: 'not_found' })
+  })
+
+  test('sendNext delivers the head and answers not_found on an empty queue', async () => {
+    const { service, calls } = setup()
+    await service.submit('s', 'one', [], 'queue')
+    await service.submit('s', 'two', [], 'queue')
+    await service.sendNext('s')
+    expect(calls()).toEqual(['one'])
+    expect(service.list('s').map((i) => i.text)).toEqual(['two'])
+    await service.sendNext('s')
+    await expect(service.sendNext('s')).rejects.toMatchObject({ code: 'not_found' })
   })
 
   test('flush sends everything in order and remove drops one', async () => {

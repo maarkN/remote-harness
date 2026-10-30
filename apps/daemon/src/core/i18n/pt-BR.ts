@@ -10,21 +10,18 @@ export const ptBR = {
       `Sistema não suportado (${platform}). O Remote Harness roda em ${supported}.`,
     start: {
       description: 'inicia o daemon',
-      dev: 'escuta em 127.0.0.1 em vez do Tailscale',
+      dev: 'escuta só em 127.0.0.1 e não usa o relay de conexão',
       host: 'endereço de escuta do WebSocket',
-      waitTailscale:
-        'aguarda a interface do Tailscale em vez de falhar (usado pelo serviço em segundo plano)',
     },
     pair: {
-      description: 'mostra o QR code de pareamento (endereço + token)',
-      dev: 'usa 127.0.0.1',
-      host: 'endereço a anunciar no QR',
-      tailscaleNotFound:
-        'Tailscale não encontrado (nenhuma interface 100.x). Instale e conecte o Tailscale, ou use --dev para 127.0.0.1.',
+      description: 'mostra um QR code de pareamento de uso único (pedido ao daemon em execução)',
+      notRunning:
+        'O daemon não está rodando. Inicie-o (`remote-harness service install` ou `remote-harness start`) e rode `remote-harness pair` de novo.',
       simulatorHint: (port: number) =>
-        'Para testar localmente (por exemplo, no simulador do iOS): `remote-harness start --dev` e `remote-harness pair --dev`' +
+        'Para testar localmente (por exemplo, no simulador do iOS): `remote-harness start --dev`, depois `remote-harness pair` e cole o link no app' +
         ` (emulador Android: também \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Escaneie com o app Remote Harness. Não compartilhe este código.',
+      singleUse: (minutes: number) => `Ele pareia um celular e expira em ${minutes} minutos.`,
     },
     setup: {
       description: 'assistente: escolhe contas e aliases, instala hooks, serviço e pareia o celular',
@@ -34,12 +31,6 @@ export const ptBR = {
       invalidLang: (value: string, codes: string) => `Idioma desconhecido "${value}". Use um de: ${codes}.`,
       interrupted:
         'Instalação interrompida. O que já foi mostrado como ✓ ficou feito; rode `remote-harness setup` de novo quando quiser.',
-    },
-    rotateToken: {
-      description: 'gera um novo token e derruba as conexões existentes',
-      rotated: 'Token trocado; conexões encerradas.',
-      rotatedOffline: 'Token trocado (daemon não está rodando).',
-      pairAgain: 'Rode `remote-harness pair` para parear de novo.',
     },
     provider: {
       description: 'provedores de modelo dos perfis (chave do OpenRouter)',
@@ -81,18 +72,20 @@ export const ptBR = {
     doctor: {
       description: 'verifica dependências e configuração',
       notOnPath: 'não encontrado no PATH',
-      tailscaleMissing: 'interface 100.x não encontrada',
       profile: (id: string, configDir: string) => `perfil ${id} (${configDir})`,
       dirMissing: 'diretório não existe',
+      relay: (url: string, ms: number | null) => `relay de conexão ${url}${ms === null ? '' : ` (${ms} ms)`}`,
+      relayDown: 'não responde daqui: os celulares só alcançam este computador direto',
+      relayOff:
+        'relay de conexão desligado (`"relay": "off"` na configuração): os celulares só alcançam este computador direto',
       daemonRunning: 'daemon rodando',
       runStart: 'rode `remote-harness start`',
-      token: (store: string) => `token ${store}`,
+      identity: (store: string) => `identidade do daemon ${store}`,
       tokenStores: {
         keychain: 'no Keychain do macOS',
         secretTool: 'no Secret Service (secret-tool)',
         file: (path: string) => `no arquivo ${path} (0600)`,
       },
-      runPair: 'rode `remote-harness pair`',
       providerKey: (id: string, provider: string) => `chave do ${provider} do perfil ${id}`,
       runProviderKey: (id: string) => `rode \`remote-harness provider key ${id}\``,
       codexHooks: (id: string, path: string) => `hooks do Codex do perfil ${id} (${path})`,
@@ -112,7 +105,7 @@ export const ptBR = {
       accessibilityHint:
         'permita "Remote Harness" em Ajustes do Sistema → Privacidade e Segurança → Automação',
       keychain: 'Acesso ao Keychain',
-      keychainHint: 'o armazenamento de token não conseguiu ler de volta o token que acabou de gravar',
+      keychainHint: 'o armazenamento de segredos não conseguiu ler de volta a identidade do daemon',
       linger: 'lingering (o serviço continua rodando após o logout)',
       lingerHint: 'rode `loginctl enable-linger $USER`',
       keepAwake: (mode: string, state: string) => `manter acordado: ${mode} (${state})`,
@@ -143,7 +136,6 @@ export const ptBR = {
       install: 'instala e inicia o serviço em segundo plano (inicia com o login e reinicia se cair)',
       loaded: (path: string) => `serviço instalado: ${path}`,
       app: (path: string) => `app: ${path}`,
-      tailscaleWaiting: '⚠ Tailscale não encontrado: o daemon fica aguardando a interface 100.x',
       logs: (path: string) => `logs em ${path}`,
       uninstall: 'para e remove o serviço em segundo plano',
       removed: 'serviço removido',
@@ -229,6 +221,17 @@ export const ptBR = {
         failed: 'o envio falhou: veja os logs do daemon',
       },
     },
+    devices: {
+      description: 'os aparelhos pareados com este computador',
+      list: 'lista os aparelhos pareados (ID, nome, plataforma, pareado em, visto por último)',
+      revoke: 'despareia um aparelho: ele é desconectado e precisa parear de novo',
+      empty: 'Nenhum aparelho pareado. Rode `remote-harness pair` para parear um.',
+      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
+        `${id}  ${name}  ${platform}  pareado em ${paired}  visto por último ${seen}`,
+      never: 'nunca',
+      revoked: (id: string) => `Aparelho ${id} revogado.`,
+      notFound: (id: string) => `Nenhum aparelho pareado ${id}.`,
+    },
     rules: {
       description: 'regras de "permitir sempre" criadas pelo app',
       list: 'lista as regras criadas pelo app',
@@ -237,6 +240,19 @@ export const ptBR = {
       notFound: (id: string) => `Regra ${id} não encontrada.`,
       removed: (rule: string, file: string) => `Regra ${rule} removida de ${file}.`,
       alreadyGone: 'A regra já não estava no arquivo.',
+    },
+    approvals: {
+      description: 'o que os aparelhos permitiram, negaram, desfizeram e apagaram (últimos 30 dias)',
+      list: 'lista o registro de aprovações, mais recentes primeiro',
+      empty: 'Nada no registro de aprovações nos últimos 30 dias.',
+      actions: {
+        allow: 'permitiu',
+        allowAlways: 'permitiu sempre',
+        deny: 'negou',
+        undo: 'desfez regra',
+        delete: 'apagou regra',
+      },
+      thisComputer: 'este computador',
     },
   },
   install: {
@@ -273,7 +289,7 @@ export const ptBR = {
       accounts: 'Contas do Claude Code',
       installing: 'Instalando launchers, PATH e hooks',
       service: 'Serviço em segundo plano',
-      tailscale: 'Tailscale e celular',
+      pair: 'Pareando o celular',
     },
     noAccounts:
       'Nenhuma conta do Claude Code encontrada. Rode `claude` uma vez para fazer login e depois `remote-harness setup`.',
@@ -292,19 +308,8 @@ export const ptBR = {
       '  Não consegui ativar o lingering. Rode `sudo loginctl enable-linger $USER` para manter o daemon rodando após o logout.',
     lingerSkipped:
       '  Sem lingering o daemon para quando você sai da sessão. Ative depois com `loginctl enable-linger $USER`.',
-    tailscaleIntro: (machine: string, install: string) =>
-      `  O ${machine} e o celular conversam por uma rede privada do Tailscale (grátis), de qualquer lugar.\n` +
-      `  1. No ${machine}: ${install}\n` +
-      '  2. No celular: instale "Tailscale" (App Store ou Google Play) e entre com a mesma conta',
-    tailscaleInstall: {
-      darwin: 'instale em https://tailscale.com/download/mac (ou `brew install --cask tailscale`) e entre',
-      linux: 'instale com `curl -fsSL https://tailscale.com/install.sh | sh` e rode `sudo tailscale up`',
-    },
-    tailscaleQuestion: (machine: string) => `Tailscale conectado no ${machine}?`,
-    tailscaleRetry: 'Já conectei, verificar de novo',
-    tailscaleSkip: 'Fazer isso depois',
-    tailscaleNotYet: '  Ainda não encontrei a interface do Tailscale (100.x).',
-    phoneHint: '  No celular: instale o app Remote Harness e o Tailscale (mesma conta) e toque em "QR code".',
+    phoneHint:
+      '  No celular: instale o app Remote Harness e toque em "QR code". Ele alcança este computador de qualquer lugar.',
     showQr: 'Mostrar o QR code de pareamento agora?',
     done: {
       installed: 'Remote Harness instalado.',
@@ -312,7 +317,6 @@ export const ptBR = {
       useAliases: (aliases: string, claude: string) =>
         `2. Use ${aliases} no lugar de ${claude}, com os mesmos argumentos`,
       pairIfNeeded: (command: string) => `3. Pareie com ${command} se ainda não pareou`,
-      connectAndPair: (command: string) => `3. Conecte o Tailscale e rode ${command}`,
       footer: 'remote-harness doctor verifica tudo · remote-harness setup muda as contas',
     },
     accounts: {
@@ -399,13 +403,6 @@ export const ptBR = {
       'já ativado em /etc/wsl.conf: rode `wsl --shutdown` no PowerShell do Windows e abra a distribuição de novo',
     networking: (mode: string) => `rede do WSL: ${mode}`,
     networkingUnknown: 'desconhecida (%UserProfile%\\.wslconfig não encontrado)',
-    tailscaleHint:
-      'rode o Tailscale dentro do WSL ou use a rede espelhada com o Tailscale no Windows (`remote-harness setup` explica os dois)',
-    source: {
-      wsl: 'dentro do WSL',
-      mirrored: 'Windows, rede espelhada',
-      unknown: 'WSL',
-    },
     logonTask: 'tarefa de logon do Windows "Remote Harness" (inicia o WSL no logon)',
     logonTaskHint: 'opcional: `remote-harness setup` cria a tarefa',
     logonTaskMissing:
@@ -433,12 +430,8 @@ export const ptBR = {
       `  Não deu para criar a tarefa (${error}). No PowerShell (como administrador se o acesso for negado):\n    ${command}`,
     logonTaskSkipped:
       '  Sem a tarefa de logon, o WSL e o daemon iniciam quando você abre a distribuição. Crie depois com `remote-harness setup`.',
-    tailscaleIntro:
-      '  O computador e o celular conversam por uma rede privada do Tailscale (gratuita). Dentro do WSL há dois jeitos:\n' +
-      '  A. Tailscale dentro do WSL (qualquer Windows): `curl -fsSL https://tailscale.com/install.sh | sh` e `sudo tailscale up`\n' +
-      '  B. Tailscale no Windows + rede espelhada do WSL (Windows 11 22H2+): networkingMode=mirrored no .wslconfig\n' +
-      '  No celular: instale o "Tailscale" (App Store ou Google Play) e entre com a mesma conta',
-    tailscaleMirrored: 'O Tailscale roda no Windows: ativar a rede espelhada (.wslconfig)',
+    mirroredQuestion:
+      'Deixar os celulares da sua rede alcançarem este computador direto? (rede espelhada no .wslconfig; sem ela eles conectam pelo relay)',
     mirroredEnabled: (path: string) => `networkingMode=mirrored em ${path}`,
     mirroredAlready: (path: string) => `networkingMode=mirrored já estava em ${path}`,
     mirroredNoConfig:
@@ -593,8 +586,7 @@ export const ptBR = {
       prefs: 'Preferências…',
       pairMenu: 'Parear um celular',
       pairInTerminal: 'Mostrar o pareamento no terminal',
-      rotateToken: 'Trocar o token…',
-      rotateConfirm: 'Trocar e desconectar os celulares pareados',
+      pairNote: 'Uso único · expira em 5 minutos',
       prefsMenu: 'Preferências',
       prefPermissions: 'Mostrar pedidos de permissão aqui',
       keepAwake: 'Manter o computador acordado',

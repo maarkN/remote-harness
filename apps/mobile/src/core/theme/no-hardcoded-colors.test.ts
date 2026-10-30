@@ -14,8 +14,9 @@ function allowed(path: string): boolean {
     path.startsWith(`core${sep}theme${sep}`) ||
     path.endsWith('.generated.ts') ||
     path.endsWith('.test.ts') ||
-    // Runs in the widget runtime without app state: its dark fallbacks have to be literals.
-    path === join('features', 'live-status', 'SessionActivity.tsx')
+    // Run in the widget runtime without app state: their dark fallbacks have to be literals.
+    path === join('features', 'live-status', 'SessionActivity.tsx') ||
+    path === join('features', 'widgets', 'SessionsWidget.tsx')
   )
 }
 

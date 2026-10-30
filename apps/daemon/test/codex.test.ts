@@ -204,6 +204,7 @@ function codexSession(): SessionRecord {
     state: 'idle',
     permissionMode: null,
     approvalPolicy: 'on-request',
+    permissionProfile: null,
     controllable: true,
     paneId: '%7',
     updatedAt: '',
@@ -254,14 +255,48 @@ describe('codex input and mode', () => {
     ])
   })
 
-  test('modes cannot be changed from the app', async () => {
+  function modes(pending = false) {
+    const submitted: Array<[string, string]> = []
+    const exec = fakeExecutor()
     const service = new ModeService(
-      new TmuxClient(fakeExecutor()),
+      new TmuxClient(exec),
       storeWith(codexSession()),
       new KeyedMutex(),
-      () => false,
+      () => pending,
+      {
+        submit: async (id, text) => {
+          submitted.push([id, text])
+        },
+      },
     )
+    return { service, submitted, exec }
+  }
+
+  test('presets switch with /permissions; the profile waits for the rollout', async () => {
+    const { service, submitted, exec } = modes()
+    expect(await service.change('0199fd2a', 'read-only')).toEqual({ permissionProfile: ':read-only' })
+    expect(await service.change('0199fd2a', 'workspace')).toEqual({ permissionProfile: ':workspace' })
+    expect(submitted).toEqual([
+      ['0199fd2a', '/permissions :read-only'],
+      ['0199fd2a', '/permissions :workspace'],
+    ])
+    // No Shift+Tab cycle for Codex.
+    expect(exec.calls).toEqual([])
+  })
+
+  test('never full access, never a Claude Code mode', async () => {
+    const { service, submitted } = modes()
+    for (const mode of ['full-access', ':danger-full-access', 'bypassPermissions'])
+      await expect(service.change('0199fd2a', mode)).rejects.toMatchObject({ code: 'mode_forbidden' })
+    await expect(service.change('0199fd2a', 'plan')).rejects.toMatchObject({ code: 'bad_request' })
     await expect(service.setMode('0199fd2a', 'plan')).rejects.toMatchObject({ code: 'bad_request' })
+    expect(submitted).toEqual([])
+  })
+
+  test('busy while a permission request is open', async () => {
+    const { service, submitted } = modes(true)
+    await expect(service.change('0199fd2a', 'read-only')).rejects.toMatchObject({ code: 'session_busy' })
+    expect(submitted).toEqual([])
   })
 })
 
@@ -293,7 +328,7 @@ describe('codex permissions', () => {
     const answer = b.handle(hook, new AbortController().signal)
     await Promise.resolve()
     const info = request()
-    expect(info).toMatchObject({ tool: 'Bash', suggestedRule: null })
+    expect(info).toMatchObject({ tool: 'Bash', suggestedRule: null, rules: false })
     expect(() =>
       b.respond(info.requestId, { behavior: 'allow', always: { rule: 'Bash(rm:*)', scope: 'project' } }),
     ).toThrow(/does not take permission rules/)
@@ -356,6 +391,7 @@ describe('codex sessions', () => {
         paneId: '%4',
         title: 'run the tests',
         approvalPolicy: 'never',
+        permissionProfile: ':workspace',
         permissionMode: null,
         state: 'idle',
         // Model and effort from `turn_context`, context from `token_count` (#313).

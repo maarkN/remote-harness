@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
+import { diffSessions } from '@remote-harness/protocol'
 import { z } from 'zod'
 import type { Logger } from '../../core/logger.ts'
 import { readJsonFile, writeJsonAtomic } from '../../infra/fs.ts'
@@ -67,7 +68,10 @@ export class SessionStore {
       return previous
     const next: SessionRecord = { ...candidate, updatedAt: stamp ?? new Date().toISOString() }
     this.sessions.set(id, next)
-    this.broadcaster.broadcast({ type: 'session.updated', session: toWire(next) })
+    // The first time in full; afterwards only the fields whose wire value changed.
+    const delta = previous ? diffSessions(toWire(previous), toWire(next)) : null
+    if (!previous) this.broadcaster.broadcast({ type: 'session.updated', session: toWire(next) })
+    else if (delta) this.broadcaster.broadcast({ type: 'session.changed', sessionId: id, ...delta })
     for (const listener of this.listeners) listener(next, previous)
     this.scheduleSave()
     return next

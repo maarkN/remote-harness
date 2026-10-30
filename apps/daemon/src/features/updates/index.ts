@@ -11,7 +11,7 @@ import {
 import { messagesFor } from '../../core/i18n/index.ts'
 import { displayHostName, paths, shortenHome } from '../../core/paths.ts'
 import { DAEMON_VERSION } from '../../core/version.ts'
-import { createDesktop, runDetachedUpdate } from '../../infra/desktop.ts'
+import { createDesktop } from '../../infra/desktop.ts'
 import { currentWsl, resolvePlatform } from '../../infra/platform.ts'
 import { spawnJsonLines, trayAssetsDir, trayCommand } from '../../infra/tray-helper.ts'
 import type { DaemonContext } from '../../main.ts'
@@ -25,6 +25,7 @@ import { installServiceFromCli } from '../setup/install.ts'
 import { installerSourceDir, SourceUpdater, type UpdateSource, updateSource } from '../update/update.ts'
 import { isQuietMoment, isUpdateChannel, underServiceManager, updateLabel } from './channel.ts'
 import { type AvailableUpdate, UpdateChecker } from './checker.ts'
+import { UpdateLauncher } from './launcher.ts'
 import {
   buildTrayMenu,
   CHANNEL_ACTION_PREFIX,
@@ -36,7 +37,7 @@ import {
   type TrayProfile,
   type TraySession,
 } from './menu.ts'
-import { type LaunchResult, launchRefusal, RemoteUpdates } from './remote.ts'
+import { RemoteUpdates } from './remote.ts'
 import { TrayHost } from './tray-host.ts'
 
 /** Given only to the service daemon (`start` without `--dev`). */
@@ -62,8 +63,6 @@ export type TrayShellDeps = {
   renameSession: (sessionId: string, name: string) => Promise<void>
   /** The pairing link and `host:port` once the daemon listens for the app. */
   pairing: () => { url: string; address: string } | null
-  /** Stores a new token and closes the app connections (phones pair again). */
-  rotateToken: () => Promise<void>
   keepAwake: { mode: () => KeepAwakeMode; set: (mode: KeepAwakeMode) => Promise<void> }
   /** The config's `push` setting, and writing + applying a new one. */
   push: { setting: () => PushSetting; set: (setting: PushSetting) => Promise<void> }
@@ -97,7 +96,6 @@ export async function registerUpdatesFeature(
     trayPermissions: ctx.config.trayPermissions,
     machineName: ctx.config.machineName,
   }
-  let updating = false
   /** Commit whose update failed: automatic updates do not retry it (the menu still can). */
   let failedCommit: string | null = null
   const startedAt = new Date()
@@ -140,6 +138,28 @@ export async function registerUpdatesFeature(
       })
     : null
   await checker?.load()
+
+  const launcher = new UpdateLauncher({
+    cliPath: deps.options.cliPath,
+    installer: source.ok,
+    available: () => checker?.state.available ?? null,
+    channel: () => settings.update.channel,
+    // An updater under systemd, or one started by another daemon process.
+    recordedRun: () => remote.running(),
+    logFile: join(paths.logs(), 'update.log'),
+    systemdRun: Boolean(process.env.INVOCATION_ID),
+    onStart: (available) => {
+      ctx.logger.info({ version: available.version, channel: settings.update.channel }, 'updating')
+      void desktop.notify(m.updating(updateLabel(available, DAEMON_VERSION)), '')
+      refreshMenu()
+    },
+    onExit: (code, available) => {
+      refreshMenu()
+      if (code === 0) return
+      ctx.logger.warn({ code, log: join(paths.logs(), 'update.log') }, 'update failed')
+      failedCommit = available.commit
+    },
+  })
   if (!source.ok) ctx.logger.info({ reason: source.reason }, 'update checks off (not the installer checkout)')
 
   const tray = settings.tray
@@ -246,7 +266,7 @@ export async function registerUpdatesFeature(
               }
             : null,
           checking: checker?.checking ?? false,
-          updating,
+          updating: launcher.updating,
           canUpdate: checker !== null,
           canRestart: underServiceManager(),
           ...shellState(),
@@ -266,56 +286,9 @@ export async function registerUpdatesFeature(
     refreshTimer.unref()
   }
 
-  // Running: this process spawned the updater and it has not exited, or the run record is still
-  // going (an updater under systemd, or one started by another daemon process).
-  const refusal = () =>
-    launchRefusal({
-      updating: updating || remote.running(),
-      installer: source.ok && deps.options.cliPath !== null,
-      available: Boolean(checker?.state.available),
-    })
-
-  /** Starts the detached `remote-harness update`; `begin` checked `refusal()` first. */
-  const launch = (onFailure: (code: number | null) => void): LaunchResult => {
-    const available = checker?.state.available
-    const cliPath = deps.options.cliPath
-    if (refusal() || !available || !cliPath) return { ok: false, error: 'nothing to update' }
-    updating = true
-    ctx.logger.info({ version: available.version, channel: settings.update.channel }, 'updating')
-    void desktop.notify(m.updating(updateLabel(available, DAEMON_VERSION)), '')
-    try {
-      runDetachedUpdate({
-        nodePath: process.execPath,
-        cliPath,
-        ref: settings.update.channel,
-        logFile: join(paths.logs(), 'update.log'),
-        systemdRun: Boolean(process.env.INVOCATION_ID),
-        // A successful update restarts this daemon: still being here means it was not replaced, so
-        // the next update must be able to start whatever the exit code. (Under systemd this is
-        // `systemd-run`, which returns once the unit started: the run record tells the rest.)
-        onExit: (code) => {
-          updating = false
-          refreshMenu()
-          if (code === 0) return
-          ctx.logger.warn({ code, log: join(paths.logs(), 'update.log') }, 'update failed')
-          failedCommit = available.commit
-          onFailure(code)
-        },
-      })
-    } catch (error) {
-      ctx.logger.warn({ err: error }, 'could not start the update')
-      updating = false
-      failedCommit = available.commit
-      refreshMenu()
-      return { ok: false, error: error instanceof Error ? error.message : String(error) }
-    }
-    refreshMenu()
-    return { ok: true }
-  }
-
   /** The tray's "Update now" and automatic updates take the same recorded path as the app. */
   const runUpdate = () => {
-    if (updating || !checker?.state.available) return
+    if (launcher.updating || !checker?.state.available) return
     void remote.begin()
   }
 
@@ -371,12 +344,12 @@ export async function registerUpdatesFeature(
     busy: () => !isQuietMoment(deps.store.all(), deps.hasPendingPermission),
     check: (force) => check(force),
     saveChannel: (channel) => saveUpdateSettings({ channel }),
-    refusal,
-    launch,
+    refusal: () => launcher.refusal(),
+    launch: (onFailure) => launcher.launch(onFailure),
     // A run that finished while this daemon still runs did not replace it ("Already up to date", or
     // a failure): the offer may be stale, so look at the channel again now.
     onFinished: (run) => {
-      updating = false
+      launcher.finished()
       ctx.logger.info(
         { step: run.step, channel: settings.update.channel },
         'update finished without a restart',
@@ -412,9 +385,6 @@ export async function registerUpdatesFeature(
         // The service manager stops this daemon (SIGTERM) right after; the icon goes first.
         tray?.stop()
         await stopService(ctx.exec)
-      } else if (id === TRAY_ACTIONS.rotateToken && shell) {
-        await shell.rotateToken()
-        refreshMenu()
       } else if (id === TRAY_ACTIONS.prefPermissions) {
         await updateConfigFile({ trayPermissions: !settings.trayPermissions })
         await reload()

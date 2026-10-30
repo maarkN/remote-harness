@@ -1,6 +1,6 @@
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router'
 import { ChevronDown, EllipsisVertical, PanelRight, Radio, Terminal } from 'lucide-react-native'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Keyboard, Pressable, StyleSheet, View } from 'react-native'
 import { useConnectionStore, useDaemonClient } from '@/core/connection'
@@ -15,12 +15,14 @@ import { setFollow, useFollowStore } from '@/features/conversation/follow-store'
 import { setKeyBarVisible, useKeyBarStore } from '@/features/conversation/key-bar-store'
 import { type SessionMenuAction, sessionMenu } from '@/features/conversation/session-menu'
 import { promptErrorMessage, usePrompt } from '@/features/conversation/use-prompt'
+import { HandsFreeSession } from '@/features/hands-free/HandsFreeSession'
+import { handsFreeSupported } from '@/features/hands-free/native'
 import { toggleInspector } from '@/features/inspector/store'
 import { ResumeBanner } from '@/features/lifecycle/ResumeBanner'
 import { useLiveFollowStore } from '@/features/live-status/follow-store'
 import { useLiveStatusSettings } from '@/features/live-status/settings-store'
 import { followSession, unfollowSession } from '@/features/live-status/use-live-follow'
-import { ApprovalPolicyChip, ModeSelector } from '@/features/mode/ModeSelector'
+import { CodexPermissionsChip, ModeSelector } from '@/features/mode/ModeSelector'
 import { hasSwitchableModes } from '@/features/mode/modes'
 import { SessionMuteButton } from '@/features/mute/MuteControls'
 import { SessionPermissions } from '@/features/permissions/components/SessionPermissions'
@@ -32,6 +34,7 @@ import { sessionAgent } from '@/features/sessions/agent'
 import { CloseSessionSheet } from '@/features/sessions/components/CloseSessionSheet'
 import { SessionDetailsSheet } from '@/features/sessions/components/SessionDetailsSheet'
 import { StateBadge } from '@/features/sessions/components/StateBadge'
+import { switchToComputer } from '@/features/sessions/switch-computer'
 import { useStableSession } from '@/features/sessions/use-stable-session'
 import { useShortcutRequest } from '@/features/shortcuts/use-shortcut-request'
 import { SubagentsSheet } from '@/features/subagents/SubagentsSheet'
@@ -42,7 +45,15 @@ export default function SessionRoute() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const { id, autofocus } = useLocalSearchParams<{ id: string; autofocus?: string }>()
+  const { id, autofocus, computer } = useLocalSearchParams<{
+    id: string
+    autofocus?: string
+    computer?: string
+  }>()
+  // Opened from another computer's live status card: switch to it first.
+  useEffect(() => {
+    void switchToComputer(computer)
+  }, [computer])
   // Not re-rendered by status-line or activity ticks; the details read those fresh by id.
   const session = useStableSession(id)
   const profile = useConnectionStore((s) => s.hello?.profiles.find((p) => p.id === session?.profileId))
@@ -65,6 +76,9 @@ export default function SessionRoute() {
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  // Hands-free (#416): the composer becomes the voice bar; only for sessions that take input.
+  const [handsFreeOn, setHandsFreeOn] = useState(false)
+  const handsFree = handsFreeOn && controllable
   // ⌘⇧O opens More options of the session on screen (others stay mounted under it on phones).
   const [menuRequests, setMenuRequests] = useState(0)
   useShortcutRequest('sessionMenu', () => setMenuRequests((n) => n + 1), useIsFocused())
@@ -87,6 +101,7 @@ export default function SessionRoute() {
       provider: provider !== null,
       liveFollow,
       commands: commands !== undefined,
+      handsFree: handsFreeSupported() ? handsFree : null,
     },
     t,
   )
@@ -99,6 +114,7 @@ export default function SessionRoute() {
   }
   const actions: Record<SessionMenuAction, () => void> = {
     terminal: () => router.push({ pathname: '/session/[id]/terminal', params: { id } }),
+    changes: () => router.push({ pathname: '/session/[id]/changes', params: { id } }),
     runCommand: () => {
       Keyboard.dismiss()
       setCommandOpen(true)
@@ -112,6 +128,10 @@ export default function SessionRoute() {
       setSubagentsOpen(true)
     },
     toggleKeyBar: () => void setKeyBarVisible(!keyBarVisible),
+    toggleHandsFree: () => {
+      Keyboard.dismiss()
+      setHandsFreeOn(!handsFree)
+    },
     history: () => setHistoryOpen(true),
     toggleFollow: () => void setFollow(!following),
     toggleLiveFollow: () => {
@@ -245,7 +265,12 @@ export default function SessionRoute() {
                 {hasSwitchableModes(agent) ? (
                   <ModeSelector sessionId={id} mode={session.permissionMode} disabled={!controllable} />
                 ) : (
-                  <ApprovalPolicyChip policy={session.approvalPolicy} />
+                  <CodexPermissionsChip
+                    sessionId={id}
+                    profile={session.permissionProfile}
+                    policy={session.approvalPolicy}
+                    disabled={!controllable}
+                  />
                 )}
               </View>
               <StatusBar
@@ -272,12 +297,16 @@ export default function SessionRoute() {
           ) : null
         }
         composer={
-          <SmartComposer
-            sessionId={id}
-            prompt={prompt}
-            disabled={!controllable}
-            autoFocus={autofocus === '1'}
-          />
+          handsFree ? (
+            <HandsFreeSession sessionId={id} onExit={() => setHandsFreeOn(false)} />
+          ) : (
+            <SmartComposer
+              sessionId={id}
+              prompt={prompt}
+              disabled={!controllable}
+              autoFocus={autofocus === '1'}
+            />
+          )
         }
       />
     </>

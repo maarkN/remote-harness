@@ -36,6 +36,7 @@ import { restoreSessionPrefs } from '@/features/sessions/prefs-store'
 import { restoreSessionSort } from '@/features/sessions/sort-store'
 import { restoreAppIconPreference, useApplyAppIcon } from '@/features/settings/app-icon-store'
 import { restoreMachineAlias, useMachineNameSync } from '@/features/settings/machine-store'
+import { useRevokedNotice } from '@/features/settings/use-revoked-notice'
 import { restoreVoiceInteraction } from '@/features/voice/voice-interaction-store'
 import { restoreVoiceLanguage } from '@/features/voice/voice-language-store'
 import { restoreVoicePolish } from '@/features/voice/voice-polish-store'
@@ -66,11 +67,16 @@ export default function RootLayout() {
   useBackgroundUpdates()
   usePerformanceMonitoring()
 
+  useRevokedNotice()
+  // The old single alias moves onto the active computer once the computers are read.
+  useEffect(() => {
+    if (credentialsLoaded) void restoreMachineAlias()
+  }, [credentialsLoaded])
+
   useEffect(() => {
     void restorePerformanceSetting()
     void restoreThemePreference()
     void restoreAppIconPreference()
-    void restoreMachineAlias()
     void restoreSessionSort()
     void restoreSessionPrefs()
     void restorePushSettings()

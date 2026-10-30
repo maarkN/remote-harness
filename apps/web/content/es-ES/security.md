@@ -1,6 +1,6 @@
 ---
 title: Seguridad y privacidad
-description: Qué puede hacer el daemon, qué sale de tu máquina, tokens y claves, y cómo informar de un problema.
+description: Qué puede hacer el daemon, qué sale de tu máquina, claves y emparejamiento, y cómo informar de un problema.
 applies: 0.7+
 ---
 
@@ -10,13 +10,14 @@ El daemon puede escribir en tus sesiones de Claude Code y aprobar llamadas a her
 
 ## Red
 
-- El WebSocket al que se conecta la app escucha **solo en la interfaz de Tailscale** (100.64.0.0/10), o en `127.0.0.1` con un `--dev` explícito. No hay ningún puerto en internet ni servidor de relay leyendo tus sesiones.
+- La app llega al daemon directo (un WebSocket en todas las interfaces del ordenador, o solo en `127.0.0.1` con `--dev`) o a través de un relay de conexión. En los dos caminos cada byte va cifrado de extremo a extremo, y una conexión que no completa el handshake con una clave emparejada no recibe nada; el relay solo reenvía texto cifrado y no puede leer tus sesiones.
 - Los hooks de Claude Code llegan al daemon solo por `127.0.0.1`, con un secreto local compartido.
-- Exponer el daemon fuera de Tailscale con `--host` queda fuera del alcance y no tiene soporte.
+- `relay: off` o `direct: off` en la configuración apagan un camino; `remote-harness devices revoke <id>` desempareja un móvil al momento.
 
-## Tokens y claves
+## Claves y emparejamiento
 
-- Cada conexión presenta un token de emparejamiento guardado en el Llavero de macOS, el Secret Service de Linux (`secret-tool`) o un archivo `0600`, y en el almacenamiento seguro del móvil. `remote-harness rotate-token` lo invalida y desconecta a todos los clientes.
+- Cada conexión es una sesión del protocolo Noise (X25519, ChaCha20-Poly1305) cifrada de extremo a extremo entre el móvil y el daemon. Las claves del daemon están en el Llavero de macOS, el Secret Service de Linux (`secret-tool`) o un archivo `0600`; cada móvil crea su par de claves al emparejarse y lo guarda en el almacenamiento seguro, solo en ese dispositivo.
+- Un código de emparejamiento (`remote-harness pair`, la instalación o la bandeja) funciona una vez y solo durante 5 minutos. El daemon guarda las claves públicas de los móviles emparejados (como máximo 10) y corta cualquier conexión cuya clave no conoce, antes de enviar nada.
 - Las claves de proveedor (OpenRouter) viven en el mismo almacén, en su propia cuenta. Nunca se escriben en `config.json`, `settings.json`, archivos del shell ni lanzadores, nunca se registran y nunca se envían al móvil: el lanzador lee la clave dentro de la ventana de tmux, y el daemon solo la usa para pedir al proveedor tus créditos.
 
 ## Qué sale de tu máquina
@@ -32,7 +33,7 @@ Ejecutar comandos desde la app (**Ejecutar comando…**) viene desactivado y sol
 
 ## Permisos
 
-La app nunca ofrece el modo "bypass permissions" del agente. "Permitir siempre" escribe una regla en los ajustes del propio Claude Code, para el proyecto o para tu usuario, y `remote-harness rules undo` la revierte. Una petición sin responder vuelve al diálogo del terminal pasados unos minutos.
+La app nunca ofrece el modo "bypass permissions" del agente. "Permitir siempre" escribe una regla en los ajustes del propio Claude Code, para el proyecto o para tu usuario, y Ajustes → Permisos → Reglas (o `remote-harness rules undo`) la revierte; borrar una regla escrita en el ordenador pide Face ID o el código del dispositivo. El registro de aprobaciones guarda qué dispositivo permitió o denegó qué, solo con la herramienta y un objetivo corto (el nombre base de un archivo, el programa de un comando), nunca la entrada, y conserva 30 días. Una petición sin responder vuelve al diálogo del terminal pasados unos minutos.
 
 ## Tus archivos
 

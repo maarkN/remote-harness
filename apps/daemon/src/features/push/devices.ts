@@ -6,6 +6,7 @@ import {
 } from '@remote-harness/protocol'
 import { z } from 'zod'
 import { readJsonFile, writeJsonAtomic } from '../../infra/fs.ts'
+import { MAX_PAIRED_DEVICES } from '../pairing/devices.ts'
 
 const DeviceSchema = z.object({
   token: z.string(),
@@ -13,6 +14,12 @@ const DeviceSchema = z.object({
   platform: DevicePlatformSchema.optional(),
   /** Push relay grant, used when the daemon has no Firebase service account. */
   relay: PushRelaySchema.optional(),
+  /** The paired device that registered it (its short ID); one registration per device. */
+  deviceId: z.string().optional(),
+  /** The app draws turn pushes itself on Android (data messages with Reply / Interrupt). */
+  turnActions: z.boolean().optional(),
+  /** The app has widgets fed by the widget refresh push. */
+  widgets: z.boolean().optional(),
   registeredAt: z.string(),
 })
 const DevicesSchema = z.object({ tokens: z.array(DeviceSchema) })
@@ -30,10 +37,13 @@ export function describeDevices(devices: readonly Device[]): string | null {
   return devices.map((d) => PLATFORM_LABEL[d.platform ?? 'ios']).join(', ')
 }
 
-/** Only a handful of tokens are kept: this is a single-user, single-phone app. */
-export const MAX_DEVICES = 3
+/** One registration per paired device, so as many as the daemon pairs. */
+export const MAX_DEVICES = MAX_PAIRED_DEVICES
 
-/** FCM tokens of paired phones. Newest first; the oldest are dropped when a token is renewed. */
+/**
+ * FCM tokens of paired devices, newest first: a device's new token replaces its old one, and the
+ * registrations of devices that are no longer paired are dropped.
+ */
 export class DeviceRegistry {
   private tokens: Device[] = []
 
@@ -53,16 +63,44 @@ export class DeviceRegistry {
     return this.tokens
   }
 
-  async register(token: string, platform?: DevicePlatform, relay?: PushRelay): Promise<void> {
+  async register(
+    token: string,
+    platform?: DevicePlatform,
+    relay?: PushRelay,
+    deviceId?: string,
+    flags: { turnActions?: boolean; widgets?: boolean } = {},
+  ): Promise<void> {
     this.tokens = [
       {
         token,
         ...(platform ? { platform } : {}),
         ...(relay ? { relay } : {}),
+        ...(deviceId ? { deviceId } : {}),
+        ...(flags.turnActions ? { turnActions: true } : {}),
+        ...(flags.widgets ? { widgets: true } : {}),
         registeredAt: new Date().toISOString(),
       },
-      ...this.tokens.filter((t) => t.token !== token),
+      ...this.tokens.filter((t) => t.token !== token && (deviceId === undefined || t.deviceId !== deviceId)),
     ].slice(0, MAX_DEVICES)
+    await writeJsonAtomic(this.path, { tokens: this.tokens }, 0o600)
+  }
+
+  /** Drops the registration of a revoked device; returns its tokens. */
+  async removeDevice(deviceId: string): Promise<string[]> {
+    const tokens = this.tokens.filter((t) => t.deviceId === deviceId).map((t) => t.token)
+    await this.keep((t) => t.deviceId !== deviceId)
+    return tokens
+  }
+
+  /** Keeps only the registrations of paired devices (protocol-1 ones carry no device and go too). */
+  async prune(pairedIds: ReadonlySet<string>): Promise<void> {
+    await this.keep((t) => t.deviceId !== undefined && pairedIds.has(t.deviceId))
+  }
+
+  private async keep(predicate: (device: Device) => boolean): Promise<void> {
+    const kept = this.tokens.filter(predicate)
+    if (kept.length === this.tokens.length) return
+    this.tokens = kept
     await writeJsonAtomic(this.path, { tokens: this.tokens }, 0o600)
   }
 

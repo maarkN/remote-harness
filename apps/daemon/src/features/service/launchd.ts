@@ -67,7 +67,7 @@ export type PlistOptions = {
 
 /** `ProgramArguments` of the LaunchAgent: the bundle launcher runs node with the daemon. */
 export function daemonProgramArguments(executable: string, nodePath: string, cliPath: string): string[] {
-  return [executable, nodePath, cliPath, 'start', '--wait-tailscale']
+  return [executable, nodePath, cliPath, 'start']
 }
 
 export function renderPlist(o: PlistOptions): string {

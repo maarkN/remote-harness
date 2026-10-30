@@ -77,6 +77,8 @@ function aliveActivities(): LiveActivity<LiveStatusProps>[] {
  */
 export function useLiveStatus() {
   const client = useConnectionStore((s) => s.client)
+  // The offline demo's sessions get no Live Activity or live status notification.
+  const demo = useConnectionStore((s) => s.demo)
   const { t } = useTranslation()
   const tRef = useRef<TFunction>(t)
   tRef.current = t
@@ -84,7 +86,7 @@ export function useLiveStatus() {
   // Deny / Allow on the activity is answered from the entry file (push/background.ts).
 
   useEffect(() => {
-    if (!client) return
+    if (!client || demo) return
     const tracked = new Map<string, Tracked>()
     const platform = devicePlatform(Platform.OS)
     let disposed = false
@@ -401,5 +403,5 @@ export function useLiveStatus() {
         clearEndTimer(entry)
       }
     }
-  }, [client])
+  }, [client, demo])
 }

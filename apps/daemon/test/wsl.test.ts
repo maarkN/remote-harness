@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
-import type { NetworkInterfaceInfo } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { BACKUP_SUFFIX } from '../src/features/hooks/installer.ts'
@@ -14,12 +13,7 @@ import {
   logonTaskCreateArgs,
   logonTaskCreateCommand,
 } from '../src/features/wsl/logon-task.ts'
-import {
-  enableMirroredNetworking,
-  findWslTailscale,
-  parseCmdEcho,
-  wslNetworkingMode,
-} from '../src/features/wsl/networking.ts'
+import { enableMirroredNetworking, parseCmdEcho, wslNetworkingMode } from '../src/features/wsl/networking.ts'
 import {
   displayCommand,
   enableSystemdInWslConf,
@@ -97,15 +91,6 @@ describe('INI merge', () => {
 })
 
 describe('WSL networking', () => {
-  const info = (address: string): NetworkInterfaceInfo => ({
-    address,
-    family: 'IPv4',
-    internal: false,
-    netmask: '255.255.255.255',
-    mac: '00:00:00:00:00:00',
-    cidr: null,
-  })
-
   test('networking mode defaults to NAT', () => {
     expect(wslNetworkingMode(null)).toBe('nat')
     expect(wslNetworkingMode('[wsl2]\nmemory=4GB\n')).toBe('nat')
@@ -119,15 +104,6 @@ describe('WSL networking', () => {
     expect(enableMirroredNetworking('[wsl2]\nnetworkingMode=mirrored\n')).toBe(
       '[wsl2]\nnetworkingMode=mirrored\n',
     )
-  })
-
-  test('tells Tailscale inside WSL from the mirrored Windows adapter', () => {
-    const inside = { eth0: [info('172.20.1.2')], tailscale0: [info('100.101.1.2')] }
-    expect(findWslTailscale(inside, 'nat')).toEqual({ address: '100.101.1.2', source: 'wsl' })
-    const mirrored = { eth0: [info('192.168.0.10')], eth3: [info('100.90.2.3')] }
-    expect(findWslTailscale(mirrored, 'mirrored')).toEqual({ address: '100.90.2.3', source: 'mirrored' })
-    expect(findWslTailscale(mirrored, 'nat')).toEqual({ address: '100.90.2.3', source: 'unknown' })
-    expect(findWslTailscale({ eth0: [info('172.20.1.2')] }, 'mirrored')).toBeNull()
   })
 
   test('parses the %UserProfile% echo', () => {

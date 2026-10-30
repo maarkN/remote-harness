@@ -1,31 +1,8 @@
 /**
- * Pieces of `make install-ios-link`: this Mac's HTTPS name on the tailnet and the files that let
- * Safari on the iPhone install an IPA (an itms-services manifest and a page linking to it). Pure;
- * used by ios-link.mts (the CLI) and tested with Vitest.
+ * Pieces of `make install-ios-link`: the files that let Safari on the iPhone install an IPA (an
+ * itms-services manifest and a page linking to it). Pure; used by ios-link.mts (the CLI) and tested
+ * with Vitest.
  */
-
-export type TailnetHost = { ok: true; host: string } | { ok: false; reason: 'not-running' | 'https-off' }
-
-type RawStatus = {
-  BackendState?: string
-  Self?: { DNSName?: string }
-  CertDomains?: string[] | null
-}
-
-/** Reads `tailscale status --json`. iOS only installs over HTTPS with a trusted certificate. */
-export function tailnetHost(json: unknown): TailnetHost {
-  const status = (json ?? {}) as RawStatus
-  if (status.BackendState !== 'Running') return { ok: false, reason: 'not-running' }
-  const host = status.Self?.DNSName?.replace(/\.$/, '')
-  if (!host || !status.CertDomains?.includes(host)) return { ok: false, reason: 'https-off' }
-  return { ok: true, host }
-}
-
-export const HINTS: Record<Extract<TailnetHost, { ok: false }>['reason'], string> = {
-  'not-running': 'Tailscale is not connected on this Mac: open Tailscale and log in.',
-  'https-off':
-    'HTTPS certificates are off for the tailnet: enable them at https://login.tailscale.com/admin/dns (HTTPS Certificates), then run again.',
-}
 
 export type AppInfo = { bundleId: string; version: string; build: string; title: string }
 
@@ -92,22 +69,4 @@ export function buildPage(app: AppInfo, manifestUrl: string, builtAt: Date): str
 </body>
 </html>
 `
-}
-
-/** The only files published (tailnet server or remoteharness.app), with their content types. */
-export const SERVED: Record<string, string> = {
-  'index.html': 'text/html; charset=utf-8',
-  'manifest.plist': 'text/xml; charset=utf-8',
-  'RemoteHarness.ipa': 'application/octet-stream',
-}
-
-/**
- * Maps a request path to one of the served files, by its last segment (whether or not Tailscale
- * kept the `/remote-harness` prefix); anything else is not served.
- */
-export function servedFile(url: string): { name: string; type: string } | undefined {
-  const last = (url.split('?')[0] ?? '').split('/').pop() ?? ''
-  const name = last === '' || last === 'remote-harness' ? 'index.html' : last
-  const type = SERVED[name]
-  return type ? { name, type } : undefined
 }

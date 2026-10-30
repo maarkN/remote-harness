@@ -1,11 +1,13 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Profile, ServerMessage } from '@remote-harness/protocol'
 import { afterEach, describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
+import type { HookEventName } from '../src/features/hooks/payloads.ts'
 import { SessionService } from '../src/features/sessions/service.ts'
 import { SessionStore } from '../src/features/sessions/store.ts'
 import { extractMeta, findCustomTitle, readTranscriptMeta } from '../src/features/sessions/transcript-meta.ts'
+import { SubagentTracker } from '../src/features/subagents/tracker.ts'
 import { TmuxClient } from '../src/infra/tmux.ts'
 import { fakeExecutor, hookEvent, useTempHome } from './helpers.ts'
 
@@ -201,7 +203,42 @@ describe('session state from hooks', () => {
     expect(store.get('s1')?.state).toBe('idle')
     await service.handleHook(hookEvent('SessionEnd', { session_id: 's1', reason: 'other' }))
     expect(store.get('s1')).toMatchObject({ state: 'ended', controllable: false, paneId: null })
-    expect(sent.filter((m) => m.type === 'session.updated').length).toBe(5)
+    expect(sent.filter((m) => m.type === 'session.updated' || m.type === 'session.changed').length).toBe(5)
+    // In full once, then only what changed.
+    expect(sent.filter((m) => m.type === 'session.updated')).toHaveLength(1)
+    const waiting = sent.find((m) => m.type === 'session.changed' && m.set.state === 'waiting')
+    expect(waiting).toMatchObject({ type: 'session.changed', sessionId: 's1' })
+    // `updatedAt` too unless the hooks ran within the same millisecond.
+    const keys = Object.keys((waiting as { set: object }).set)
+    expect(keys).toContain('state')
+    expect(keys.every((k) => k === 'state' || k === 'updatedAt')).toBe(true)
+  })
+
+  test('stays running while a workflow runs after the turn, then idle (#439)', async () => {
+    const { service, store, sent } = setup()
+    const tracker = new SubagentTracker(store, { broadcast: (m) => sent.push(m) }, silentLogger)
+    const fixture = JSON.parse(
+      await readFile(join(import.meta.dirname, 'fixtures/hooks/workflow-run.json'), 'utf8'),
+    ) as {
+      hooks: {
+        event: HookEventName
+        payload: Record<string, unknown> & { session_id: string }
+        state: string
+        backgroundTasks?: number
+      }[]
+    }
+    try {
+      for (const step of fixture.hooks) {
+        const hook = hookEvent(step.event, step.payload, { paneId: '%1' })
+        await service.handleHook(hook)
+        tracker.handleHook(hook)
+        const session = store.get(step.payload.session_id)
+        expect({ event: step.event, state: session?.state }).toEqual({ event: step.event, state: step.state })
+        if (step.backgroundTasks !== undefined) expect(session?.backgroundTasks).toBe(step.backgroundTasks)
+      }
+    } finally {
+      await tracker.dispose()
+    }
   })
 
   test('a pasted prompt titles the session without markup and fixes raw tags (#350)', async () => {
@@ -327,7 +364,8 @@ describe('panes and persistence', () => {
     await service.handleHook(hookEvent('SessionStart', { session_id: 's', cwd: '/w' }, { paneId: '%1' }))
     // Activity stamps only move forward: start after the session's creation time.
     const t0 = Date.now() + 60_000
-    const broadcasts = () => sent.filter((m) => m.type === 'session.updated').length
+    const broadcasts = () =>
+      sent.filter((m) => m.type === 'session.updated' || m.type === 'session.changed').length
     const before = broadcasts()
     service.noteActivity('s', t0)
     expect(store.get('s')?.updatedAt).toBe(new Date(t0).toISOString())

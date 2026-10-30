@@ -25,7 +25,7 @@ import {
   upsertDevice,
 } from './follows.ts'
 import { LiveStatusService } from './service.ts'
-import { eventsForEntry, sameTaskCounts, taskCounts } from './status.ts'
+import { eventsForEntry, sameTaskCounts, stopEvent, taskCounts } from './status.ts'
 
 /** How often expired follows are dropped. */
 const FOLLOW_SWEEP_MS = 10 * 60_000
@@ -54,7 +54,8 @@ export async function registerLiveStatusFeature(
         host,
         session: session?.title ?? '',
         path: session ? shortenHome(session.cwd) : '',
-        link: `claude-remote://session/${sessionId}`,
+        // The computer goes with the link, so a tap on another computer's card switches to it.
+        link: `claude-remote://session/${sessionId}${ctx.daemonId ? `?computer=${ctx.daemonId}` : ''}`,
       }
     },
     isMuted: options.isMuted,
@@ -206,6 +207,12 @@ export async function registerLiveStatusFeature(
   )
   sweep.unref?.()
 
+  // A revoked device's tokens: no more live status for it.
+  ctx.bus.on('push.tokens.dropped', ({ tokens }) => {
+    if (tokens.length === 0) return
+    service.unregisterTokens(tokens)
+    void follows.update((state) => ({ devices: state.devices.filter((d) => !tokens.includes(d.fcmToken)) }))
+  })
   ctx.bus.on('hook', (hook) => {
     const sessionId = hook.payload.session_id
     // Late hooks of an ended session (the registry already applied any revival) update nothing.
@@ -221,8 +228,10 @@ export async function registerLiveStatusFeature(
         if (typeof type === 'string' && NOT_WAITING.has(type)) return
         return service.handle(sessionId, { type: 'waiting', permission: type === 'permission_prompt' })
       }
-      case 'Stop':
-        return service.handle(sessionId, { type: 'stop' })
+      case 'Stop': {
+        const event = stopEvent(hook.payload.background_tasks)
+        return event ? service.handle(sessionId, event) : undefined
+      }
       case 'SessionEnd':
         void follows.update((state) => dropSession(state, sessionId))
         return service.handle(sessionId, { type: 'end' })

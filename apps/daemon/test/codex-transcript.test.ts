@@ -154,12 +154,37 @@ describe('codex helpers', () => {
     const all = await lines(paginated)
     expect(parseCodexMeta(all[3]!)).toEqual({
       approvalPolicy: 'on-request',
+      permissionProfile: ':workspace',
       status: { model: 'gpt-5.5-codex', effort: 'medium' },
     })
     expect(parseCodexMeta(all[19]!)).toEqual({ approvalPolicy: 'never', status: { model: 'gpt-5.5-codex' } })
     expect(parseCodexMeta(all[5]!)).toBeNull()
     expect(approvalPolicyName({ granular: { rules: true } })).toBe('granular')
     expect(approvalPolicyName(3)).toBeNull()
+  })
+
+  test('permission profile: the active one, else the sandbox policy of a turn', () => {
+    const applied = JSON.stringify({
+      type: 'event_msg',
+      payload: {
+        type: 'thread_settings_applied',
+        thread_settings: { approval_policy: 'on-request', active_permission_profile: { id: ':read-only' } },
+      },
+    })
+    expect(parseCodexMeta(applied)).toEqual({ approvalPolicy: 'on-request', permissionProfile: ':read-only' })
+    const turn = (payload: object) =>
+      JSON.stringify({ type: 'turn_context', payload: { model: 'm', ...payload } })
+    expect(
+      parseCodexMeta(
+        turn({ sandbox_policy: { type: 'workspace-write' }, active_permission_profile: { id: 'locked' } }),
+      ),
+    ).toMatchObject({ permissionProfile: 'locked' })
+    expect(parseCodexMeta(turn({ sandbox_policy: { type: 'danger-full-access' } }))).toMatchObject({
+      permissionProfile: ':danger-full-access',
+    })
+    expect(parseCodexMeta(turn({ sandbox_policy: { type: 'external-sandbox' } }))).not.toHaveProperty(
+      'permissionProfile',
+    )
   })
 
   test('meta from head and tail', async () => {
@@ -169,6 +194,7 @@ describe('codex helpers', () => {
       cwd: '/Users/me/proj',
       firstPrompt: 'run the tests',
       approvalPolicy: 'never',
+      permissionProfile: ':workspace',
       status: { model: 'gpt-5.5-codex', effort: 'medium', context: null },
       limits: null,
     })
@@ -177,6 +203,7 @@ describe('codex helpers', () => {
       cwd: '/Users/me/old',
       firstPrompt: 'list files',
       approvalPolicy: 'untrusted',
+      permissionProfile: ':read-only',
       status: { model: 'gpt-5', effort: null, context: null },
       limits: null,
     })

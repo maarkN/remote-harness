@@ -1,25 +1,32 @@
 ---
 title: Resolución de problemas
-description: Conexión, Tailscale, push, suspensión, sesiones de solo lectura, alias, WSL, versiones distintas, OpenRouter.
+description: Conexión, relay de conexión, push, suspensión, sesiones de solo lectura, alias, WSL, versiones distintas, OpenRouter.
 applies: 0.7+
 ---
 
-Empieza por `remote-harness doctor` en el ordenador: comprueba las herramientas, Tailscale, la configuración, los perfiles, el almacén del token, el servicio, el push y los móviles registrados, e imprime el comando que arregla cada comprobación fallida.
+Empieza por `remote-harness doctor` en el ordenador: comprueba las herramientas, la configuración, los perfiles y sus claves de proveedor, la identidad del daemon, si los relays de conexión responden, el servicio, el push y los móviles registrados, e imprime el comando que arregla cada comprobación fallida.
 
 ## La app no se conecta
 
-- Ambos dispositivos deben estar en la misma tailnet y Tailscale debe estar conectado en los dos. Abre la app de Tailscale en el móvil y comprueba que el ordenador aparece.
+- En casa la app llega al ordenador directamente por la red de casa; fuera, pasa por el relay de conexión, ambos con cifrado de extremo a extremo. El ordenador y el móvil deben tener conexión. Si solo se conecta en casa, consulta [fuera de casa](#el-movil-no-llega-al-ordenador-fuera-de-casa).
 - El daemon debe estar en marcha: `remote-harness service status`, o `remote-harness start` en un terminal para ver el registro.
-- Un token rotado en el ordenador (`remote-harness rotate-token`) o una reinstalación obligan a emparejar de nuevo: **Olvidar esta máquina** en Ajustes y escanear `remote-harness pair`.
-- En un simulador o emulador sin Tailscale, usa `remote-harness start --dev` y `remote-harness pair --dev` (emulador de Android: `adb reverse tcp:7337 tcp:7337`).
+- Una reinstalación que borró las claves del daemon obliga a emparejar de nuevo: **Olvidar esta máquina** en Ajustes y escanear un nuevo `remote-harness pair`. Tras la actualización que trajo el cifrado de extremo a extremo, cada móvil se empareja una vez más; la pantalla de emparejamiento lo avisa.
+- "Ya se usó o caducó": un código de emparejamiento funciona una vez, durante 5 minutos. Ejecuta `remote-harness pair` para obtener otro.
+- En un simulador o emulador, usa `remote-harness start --dev` y `remote-harness pair` y pega el enlace en la pestaña **Pegar enlace** de la app (emulador de Android: ejecuta también `adb reverse tcp:7337 tcp:7337`).
 
 ## La app dice que el ordenador no responde
 
-Cuando el ordenador emparejado no responde en absoluto, la lista de sesiones muestra la misma lista de comprobaciones, además de **Reintentar**, **Abrir Tailscale** y un enlace a esta página: el ordenador está encendido y despierto (sin suspenderse, con la tapa abierta o configurado para no suspenderse), Tailscale está en ejecución y con la sesión iniciada en el ordenador, Tailscale está en ejecución y conectado en este móvil con la misma cuenta, y el daemon está en ejecución (`remote-harness status`). Las secciones anteriores detallan cada uno de estos puntos; el aviso desaparece por sí solo en cuanto se abre la conexión.
+Cuando el ordenador emparejado no responde en absoluto, la lista de sesiones muestra la misma lista de comprobaciones, además de **Reintentar** y un enlace a esta página: el ordenador está encendido y despierto (sin suspenderse, con la tapa abierta o configurado para no suspenderse), el daemon está en ejecución (`remote-harness status`), y el ordenador y este móvil tienen conexión. Las secciones de esta página detallan cada uno de estos puntos; el aviso desaparece por sí solo en cuanto se abre la conexión.
 
-## Tailscale no encontrado
+## El móvil no llega al ordenador fuera de casa
 
-El daemon solo escucha en una dirección 100.x. Si `doctor` dice que no hay ninguna: instala Tailscale, inicia sesión (`sudo tailscale up` en Linux) y vuelve a iniciar el daemon; el servicio en segundo plano espera la interfaz en vez de fallar. En WSL consulta [más abajo](#windows-wsl2).
+Fuera de casa la app pasa por el relay de conexión. Si se conecta en casa pero no fuera:
+
+- `remote-harness doctor` muestra si los relays de conexión responden desde el ordenador.
+- Un firewall o proxy que bloquea `wss://` de salida (puerto 443) hacia el relay deja al daemon fuera de él: permite `us.relay.remoteharness.app` y `br.relay.remoteharness.app`, o [aloja el tuyo](/es/docs/daemon/#alojar-tu-propio-relay-de-conexion).
+- `"relay": "off"` en la configuración deja al daemon fuera de los relays; entonces solo funciona el camino directo.
+- Un daemon iniciado con `--dev` nunca usa un relay.
+- En un servidor en la nube, o cuando la conexión se cae y vuelve una y otra vez, mira [Servidor en la nube](/es/docs/cloud-server/#conexiones-inestables).
 
 ## El push no llega
 
@@ -33,7 +40,7 @@ El daemon solo escucha en una dirección 100.x. Si `doctor` dice que no hay ning
 
 El daemon solo funciona con el ordenador despierto. Bloquear la pantalla no molesta. Por defecto, el servicio en segundo plano impide la suspensión por inactividad mientras una sesión está en marcha o esperando, y durante 10 minutos después; la pantalla sigue apagándose y bloqueándose. Cámbialo con `remote-harness keep-awake off`, `sessions` o `always`; `doctor` muestra si lo está manteniendo. Un portátil sigue suspendiéndose al cerrar la tapa, salvo enchufado y con monitor externo. Cuando la app dice que el ordenador no responde, probablemente está dormido: despiértalo y la app se reconecta sola. Las sesiones en tmux sobreviven a una desconexión de la app.
 
-La app no puede despertar un ordenador dormido: los paquetes de Wake-on-LAN no atraviesan Tailscale. Si el ordenador admite Wake-on-LAN (normalmente por cable de red) y otro dispositivo de la misma red siempre está encendido y en tu tailnet (una Raspberry Pi, un NAS, un router con WoL), puedes despertarlo desde él, por ejemplo `ssh pi@raspberrypi wakeonlan AA:BB:CC:DD:EE:FF` con la dirección MAC del ordenador.
+La app no puede despertar un ordenador dormido: Wake-on-LAN solo funciona en la red del propio ordenador. Si el ordenador admite Wake-on-LAN (normalmente por cable de red) y otro dispositivo de la misma red siempre está encendido y es accesible desde el móvil (una Raspberry Pi, un NAS, un router con WoL), puedes despertarlo desde él, por ejemplo `ssh pi@raspberrypi wakeonlan AA:BB:CC:DD:EE:FF` con la dirección MAC del ordenador.
 
 ## macOS pide acceso a carpetas
 
@@ -47,6 +54,10 @@ Una sesión abierta con `claude` a secas fuera de tmux aparece en la app pero no
 
 Los lanzadores están en `~/.remote-harness/bin`, añadido al `PATH` en `~/.zshrc` y `~/.bashrc` por la instalación. Abre un terminal nuevo (o `source ~/.zshrc`); si el alias sigue faltando, ejecuta `remote-harness install`. Los lanzadores funcionan con `zsh`, que el instalador añade en Linux cuando falta.
 
+## El alias dice "missing or unsuitable terminal"
+
+El ordenador no tiene la descripción (terminfo) de tu terminal, algo común al entrar por SSH desde Ghostty o kitty (`xterm-ghostty`, `xterm-kitty`). Ejecuta `remote-harness install` para regenerar los lanzadores: usan `xterm-256color` cuando el terminal no es conocido. Para conservar las funciones de tu terminal, copia su descripción al ordenador: `infocmp -x "$TERM" | ssh <host> -- tic -x -`.
+
 ## La app y el daemon tienen versiones distintas
 
 La app avisa cuando el daemon es más antiguo de lo que necesita. Ejecuta `remote-harness update` en el ordenador (o actualiza desde la bandeja). La propia app se actualiza over-the-air cuando se compiló con un servidor de actualizaciones; Ajustes → App muestra la versión y **Buscar actualizaciones**.
@@ -55,7 +66,7 @@ La app avisa cuando el daemon es más antiguo de lo que necesita. Ejecuta `remot
 
 - **systemd**: el servicio en segundo plano necesita `[boot] systemd=true` en `/etc/wsl.conf`; la instalación muestra el comando y pide ejecutar `wsl --shutdown` desde PowerShell después.
 - **Inicio al iniciar sesión**: WSL solo funciona mientras algo lo usa. La instalación puede crear la tarea programada de Windows "Remote Harness", que inicia la distribución al iniciar sesión; `remote-harness service uninstall` la quita. Si WSL sigue parándose al quedar inactivo, sube `vmIdleTimeout` en `[wsl2]` de `%UserProfile%\.wslconfig`.
-- **Tailscale**: WSL2 usa NAT por defecto, así que un Tailscale en Windows no es visible dentro de WSL. O ejecuta Tailscale dentro de WSL (`curl -fsSL https://tailscale.com/install.sh | sh` y `sudo tailscale up`), o mantenlo en Windows y activa la red en espejo (Windows 11 22H2+): la instalación puede añadir `networkingMode=mirrored` en `[wsl2]` de `.wslconfig`; después ejecuta `wsl --shutdown`.
+- **Red**: el relay de conexión funciona con la red NAT por defecto de WSL2. Para que los dispositivos de la misma red usen también el camino directo, activa la red en espejo (Windows 11 22H2+): la instalación ofrece añadir `networkingMode=mirrored` en `[wsl2]` de `%UserProfile%\.wslconfig`; después ejecuta `wsl --shutdown`.
 - `remote-harness doctor` muestra la distribución, el modo de red, systemd y la tarea de inicio de sesión.
 
 ## Un perfil de OpenRouter no arranca
@@ -64,7 +75,7 @@ El lanzador se niega a abrir una ventana cuando el perfil no tiene clave e impri
 
 ## Pasar de un development build al build de la tienda
 
-Cuando el build de TestFlight o de Google Play esté disponible, instálalo junto al build que tienes: es otra app (`com.alvyntech.remoteharness`; los builds hasta la v0.19 son `tech.doctorx.clauderemote`), así que empieza vacío. Empareja de nuevo escaneando `remote-harness pair`; el emparejamiento antiguo sigue funcionando hasta que toques **Olvidar esta máquina** en ese build o rotes el token. El push se registra solo en el primer arranque del nuevo build, y el ordenador descarta el registro antiguo cuando deja de conectarse. Después borra el development build.
+Cuando el build de TestFlight o de Google Play esté disponible, instálalo junto al build que tienes: es otra app (`com.alvyntech.remoteharness`; los builds hasta la v0.19 son `tech.doctorx.clauderemote`), así que empieza vacío. Empareja de nuevo escaneando `remote-harness pair`; el emparejamiento antiguo sigue funcionando hasta que toques **Olvidar esta máquina** en ese build. El push se registra solo en el primer arranque del nuevo build, y el ordenador descarta el registro antiguo cuando deja de conectarse. Después borra el development build.
 
 ## La app va lenta o se congela
 

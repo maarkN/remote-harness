@@ -8,7 +8,7 @@ applies: 0.7+
 
 La pantalla de inicio lista las sesiones de todos los perfiles del ordenador emparejado, de la actividad más reciente a la más antigua (el chip de orden cambia a agrupar por estado). Cada fila muestra la insignia del agente, el título, la carpeta y la rama, el estado (`en marcha`, `esperando`, `parada`, `terminada`) y la etiqueta del perfil; los chips filtran por perfil. Una franja **Esperándote** arriba reúne las peticiones de permiso, con Permitir, Siempre y Denegar ahí mismo. Desliza una fila para las acciones rápidas (cerrar o reanudar, silenciar, fijar); mantén pulsado o abre el menú de la fila para el resto (copiar la ruta, ocultar una sesión terminada, limpiar su worktree). Las sesiones que comparten un checkout de git con otra sesión en vivo quedan marcadas, porque pueden pisarse los archivos.
 
-La línea bajo el título nombra la máquina (renómbrala en Ajustes) y cuántas sesiones tiene; el botón `+` abre una sesión nueva.
+La línea bajo el título muestra el ordenador y cuántas sesiones tiene; toca el nombre para cambiar a otro ordenador emparejado o añadir uno. "por relay" ahí significa que la app lo alcanza a través del relay de conexión: en casa pasa sola al camino directo, sin perder la conversación. Las notificaciones siguen llegando de todos los ordenadores emparejados, y tocar una la abre en su ordenador. El botón `+` abre una sesión nueva.
 
 ## Conversación
 
@@ -28,7 +28,7 @@ Lo que escribes se guarda como borrador de la sesión: sal de la sesión, abre o
 
 ## Permisos
 
-Cuando el agente pide permiso, la app muestra la herramienta y el comando o archivo, con **Permitir**, **Denegar** y **Siempre**. "Siempre" escribe una regla en los ajustes del agente, para el proyecto o para tu usuario, exactamente como haría el diálogo del terminal; `remote-harness rules list` y `remote-harness rules undo <id>` en el ordenador las revisan y revierten. El daemon espera tu respuesta unos minutos antes de dejar que el diálogo del terminal tome el control, así que una petición sin responder nunca bloquea la sesión para siempre. Cuando el agente hace una pregunta con opciones, las opciones también se muestran.
+Cuando el agente pide permiso, la app muestra la herramienta y el comando o archivo, con **Permitir**, **Denegar** y **Siempre**. "Siempre" escribe una regla en los ajustes del agente, para el proyecto o para tu usuario, exactamente como haría el diálogo del terminal; Ajustes → Permisos → **Reglas** lista todas las reglas de "permitir siempre" del ordenador: las creadas desde un dispositivo se pueden deshacer, y las que escribiste en el ordenador solo se pueden borrar ahí, tras Face ID o el código del dispositivo (queda una copia de seguridad del archivo de ajustes al lado). **Actividad** muestra lo que cada dispositivo permitió, denegó, deshizo y borró en los últimos 30 días, nunca la entrada de la herramienta. En el ordenador, `remote-harness rules list`, `remote-harness rules undo <id>` y `remote-harness approvals list` hacen lo mismo. El daemon espera tu respuesta unos minutos antes de dejar que el diálogo del terminal tome el control, así que una petición sin responder nunca bloquea la sesión para siempre. Cuando el agente hace una pregunta con opciones, las opciones también se muestran.
 
 El chip de **modo** cambia el modo de permisos: predeterminado, aceptar ediciones, plan y auto. La app nunca ofrece "bypass permissions".
 
@@ -39,6 +39,12 @@ El chip de **modo** cambia el modo de permisos: predeterminado, aceptar edicione
 ## Ejecutar un comando
 
 **Ejecutar comando…** (menú de la sesión) ejecuta un comando de shell en la carpeta de la sesión en el ordenador, como el `!` de Claude Code, y muestra la salida en directo: `git status`, `ls`, `pnpm test`. La app pide confirmación antes de cada comando; **Detener** lo termina, **Copiar salida** la copia y **Añadir al prompt** pone el comando y su salida en el compositor como bloque de código para el agente, sin enviarlo. Está desactivado hasta que ejecutes `remote-harness commands on` en el ordenador; los comandos tienen límite de tiempo y de salida, y nada interactivo funciona (no hay entrada de teclado).
+
+## Revisar cambios
+
+**Revisar cambios** (menú de la sesión) lista los archivos del checkout (o worktree) de la sesión que difieren de `HEAD`: añadidos, modificados, borrados, renombrados y sin seguimiento, con los recuentos `+añadidas −borradas`, sin preguntar al agente. Toca un archivo para ver su diff; los lockfiles, los archivos generados (`dist/`, `*.generated.ts`) y los diffs grandes empiezan plegados, los binarios solo dicen "binario modificado", y los diffs largos cargan 2.000 líneas cada vez con **Mostrar el resto**. La lista se actualiza mientras la sesión trabaja y al deslizar, haga lo que haga la sesión.
+
+Desde la misma pantalla puedes cerrar el ciclo: desmarca los archivos que se quedan fuera, escribe el mensaje del commit o toca **Generar** (el propio Claude Code de la sesión lo escribe a partir del diff, con un modelo pequeño y sin herramientas), y luego **Hacer commit**, **Push** y **Abrir PR**. Cada uno muestra antes lo que toca: los archivos, la rama y el remoto. En la rama por defecto el commit ofrece crear antes una rama nueva, con el nombre sacado del mensaje; un push directo a `main` o `master` recibe un aviso. **Abrir PR** usa `gh` cuando está instalado en el ordenador (el título y la descripción también se pueden generar); sin él, **Push y comparar** hace el push y abre la página "compare & open PR" de GitHub. Mientras el agente trabaja estos botones lo esperan, con un **Hacerlo igualmente** tras un aviso. Son operaciones fijas del daemon, no comandos de shell, así que funcionan con `remote-harness commands` desactivado.
 
 ## Subagentes
 
@@ -54,19 +60,41 @@ Mientras el agente delega trabajo, el menú de la cabecera muestra **Subagentes 
 
 En iOS, una sesión en marcha muestra una Live Activity en la pantalla de bloqueo y en la Dynamic Island con el estado, el paso actual y el tiempo transcurrido; una petición de permiso añade los botones Permitir y Denegar. En Android es una notificación silenciosa sin botones: tócala para responder en la app. Nunca lleva la conversación. Desactívalo en Ajustes → Notificaciones → Estado en vivo.
 
+## Widgets
+
+Añade el widget **Sesiones** para ver el ordenador activo sin abrir la app. En iOS: pequeño (cuántas sesiones te esperan y cuántas están trabajando), mediano (hasta tres sesiones, el permiso pendiente primero, con Denegar y Permitir para la petición más antigua) y en la pantalla de bloqueo (los recuentos y tus límites de uso de 5 horas y semanal). En Android: un widget pequeño y uno mediano en la pantalla de inicio con el mismo contenido. Denegar y Permitir funcionan con la app cerrada; al tocar una sesión se abre. Los widgets muestran cuándo se actualizaron: la app los actualiza mientras está abierta, y el ordenador envía un push sin ningún contenido que hace que el móvil busque el estado nuevo por su propia conexión cifrada, así que los títulos de las sesiones nunca viajan en un push.
+
 ## Notificaciones y silencio
 
 Las notificaciones push avisan cuando una sesión necesita un permiso, termina un turno o hace una pregunta; llevan un título, el perfil y el id de la sesión, nunca el contenido. Ajustes → Notificaciones tiene el interruptor de este móvil, un botón de prueba y el interruptor del estado en vivo. Silencia un perfil o una sesión desde su fila o desde el menú de la sesión; la fila **Silenciados** de Ajustes lista todo lo silenciado.
+
+La notificación de una sesión que terminó o te espera tiene acciones: **Responder** (escribe, o dicta con el micrófono del teclado), **Responder por voz** (abre la sesión ya grabando y envía cuando terminas), **Interrumpir** (Escape) y, cuando hay prompts en cola, **Enviar el siguiente de la cola**. Las notificaciones de permiso siguen solo con Permitir y Denegar. Toda acción pide el móvil desbloqueado, y la respuesta va del móvil directamente al ordenador por la conexión cifrada, nunca por el relay de push. En Android las acciones llegan con las builds de la app desde esta versión; las antiguas muestran la notificación simple.
+
+## Manos libres
+
+Para cuando tienes las manos y la vista ocupadas (en bici, caminando), activa **Manos libres** en el menú Más opciones de una sesión. El campo de mensaje se convierte en una barra grande con **Hablar**, **Repetir** y **Salir**, y la pantalla se queda encendida. La app lee en voz alta el final de cada respuesta (sin código), cada permiso ("… Di permitir o denegar.") y cada pregunta con sus opciones numeradas, y luego escucha: di **permitir** o **denegar**, el **número de la opción**, **repetir** o **parar**. Toca Hablar para decir un mensaje: se lee de vuelta y solo se envía después de que digas **sí**. Los planes y las peticiones que esperan en el terminal se anuncian, pero se responden en la pantalla. Las órdenes se entienden en el idioma de transcripción (Ajustes → Voz); la voz usa el idioma de la app. Funciona con la app abierta; la lectura con la pantalla bloqueada aún no está disponible.
+
+## Siri y Atajos
+
+En iOS 16 o posterior, Siri y la app Atajos actúan en el ordenador activo sin tocar la app: **Responder a una sesión** ("Responder en Remote Harness" y dicta el mensaje; va a la sesión que te necesita, o a la que nombres), **Responder al permiso pendiente** ("Responder a Remote Harness": Siri lee lo que pide el permiso más antiguo y confirma antes de permitir o denegar) y **Qué está esperando** ("Qué está esperando en Remote Harness"). Las preguntas y los planes siguen necesitando la app. Toda acción pide el móvil desbloqueado y va directamente al ordenador por la conexión cifrada. Con la app cerrada, Siri pide continuar en Remote Harness (iOS 17 o posterior) y termina allí. Los títulos de sesión que se ofrecen a Siri se quedan en el móvil.
+
+## Asistente de Google y atajos
+
+En Android, el Asistente de Google puede abrir Remote Harness para tres cosas: **enviar un mensaje** ("Enviar un mensaje en Remote Harness diciendo ejecuta los tests"; nombra una sesión por su título, o va a la que te necesita), **permitir o denegar el permiso pendiente** ("Denegar el permiso en Remote Harness") y **ver qué está esperando**. La app se abre en el ordenador activo y te pide tocar Enviar, Permitir o Denegar antes de que salga nada; cualquier app o página puede abrir estos enlaces, así que nada se envía sin ese toque. Mantén pulsado el icono de la app para ver atajos de tus sesiones activas más recientes, listas para escribir.
+
+Las App Actions necesitan el Asistente de Google (los móviles en los que Gemini lo sustituyó pueden no ejecutarlas), y las frases propias para permisos y "qué está esperando" puede que solo se entiendan en inglés en algunos idiomas del Asistente. Los atajos y la pantalla de confirmación funcionan en todas las versiones de Android que admite la app.
 
 ## Perfiles y OpenRouter
 
 Un perfil es una cuenta de Claude Code, es decir un `CLAUDE_CONFIG_DIR`, con nombre, color y alias. Un perfil también puede enrutar Claude Code por **OpenRouter**: sus filas muestran un chip discontinuo `vía OpenRouter`, **Nueva sesión** gana una fila **Modelo** con un selector con búsqueda (tamaño del contexto, precios por millón de tokens, soporte de herramientas, razonamiento y caché, créditos restantes), y **Cambiar modelo…** en el menú de la sesión cambia una sesión en marcha. La clave se queda en el ordenador: consulta [el daemon](/es/docs/daemon/#perfiles-y-openrouter).
 
-Un perfil también puede ejecutar **Codex** (insignia `cx`, verde): sus sesiones muestran la política de aprobación (`on-request`, `never`…) en lugar del chip de modo, llamadas `exec(…)` y `apply_patch(…)` con su salida y diff, y aprobaciones con Permitir / Denegar. Consulta [Perfiles de Codex](/es/docs/daemon/#perfiles-de-codex).
+Un perfil también puede ejecutar **Codex** (insignia `cx`, verde): sus sesiones muestran el perfil de permisos (solo lectura, workspace, acceso total) en lugar del chip de modo, donde puedes alternar entre solo lectura y workspace, llamadas `exec(…)` y `apply_patch(…)` con su salida y diff, y aprobaciones con Permitir / Denegar. Consulta [Perfiles de Codex](/es/docs/daemon/#perfiles-de-codex).
 
 ## Ajustes
 
-- **Máquina**: la conexión, el nombre de la máquina (un alias a tu elección, si no su hostname), la versión del daemon y **Olvidar esta máquina**.
+- **Máquina**: la conexión y su camino (directo o por relay), el nombre de la máquina (un alias a tu elección, si no su hostname), la versión del daemon y **Olvidar esta máquina**.
+- **Ordenadores**: todos los ordenadores emparejados; cambiar, renombrar en este dispositivo, olvidar o añadir otro.
+- **Dispositivos**: los móviles y tabletas emparejados con este ordenador y cuándo se vio cada uno por última vez. **Añadir dispositivo** muestra un código de emparejamiento de un solo uso (QR y enlace, válido 5 minutos) para escanear con el otro dispositivo; **Revocar** desconecta uno al momento, y tiene que volver a emparejarse.
 - **Apariencia**: Sistema, Oscuro, Claro, Dracula, Catppuccin Mocha y Catppuccin Latte.
 - **Perfiles**: cada perfil con su agente, alias, carpeta de config, interruptor de notificaciones y, con proveedor, el proveedor, el modelo predeterminado y los créditos.
 - **Notificaciones**: push para este móvil, prueba, estado en vivo, los perfiles y sesiones silenciados.

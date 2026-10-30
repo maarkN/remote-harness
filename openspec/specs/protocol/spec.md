@@ -63,11 +63,15 @@ The protocol SHALL define the client messages `auth`, `sessions.list`, `session.
 - **THEN** the daemon answers `session.started` with `paneId` and `sessionId: null`
 
 ### Requirement: Protocol version
-The `auth` handshake SHALL include `protocolVersion`; the daemon MUST reject versions with a different major with a `protocol_mismatch` error.
+The protocol version SHALL be 2. The connection preface carries the preface version and the device's `auth` (its first message in the encrypted channel, without any token) SHALL include `protocolVersion`; the daemon MUST close a connection whose preface version it does not speak with 4002, and answer an `auth` with a different major with a `protocol_mismatch` error and close the connection.
 
 #### Scenario: Incompatible version
-- **WHEN** the app sends `protocolVersion` 2 and the daemon speaks version 1
+- **WHEN** the app sends `protocolVersion` 3 and the daemon speaks version 2
 - **THEN** the daemon responds with `error` `protocol_mismatch` and closes the connection
+
+#### Scenario: Auth without token
+- **WHEN** a client sends `{"type":"auth","id":"1","protocolVersion":2}`
+- **THEN** the message is accepted by the parser
 
 ### Requirement: Image attachment messages
 `attachment.upload` SHALL carry `sessionId`, `mimeType` (`image/jpeg`, `image/png`, `image/webp` or `image/gif`) and non-empty base64 `data`, and is answered with `attachment.uploaded` carrying `attachmentId`. `session.input` SHALL accept optional `attachmentIds` (1 to 4 ids) and an empty `text`. The error codes SHALL include `unsupported_media`.
@@ -129,8 +133,30 @@ The daemon SHALL log every rejected WS request with its message type and error c
 - **THEN** it answers `unknown_type` and the app hides the option to include the computer's errors
 
 ### Requirement: Agent mode on sessions
-`Session` SHALL carry `approvalPolicy`: the Codex approval policy of the session (`on-request`, `never`, `untrusted`, `granular`, or another value Codex reports), `null` for Claude Code sessions and until known. It MUST default to `null` so messages from older daemons stay valid. `permissionMode` keeps describing Claude Code sessions.
+`Session` SHALL carry `approvalPolicy`: the Codex approval policy of the session (`on-request`, `never`, `untrusted`, `granular`, or another value Codex reports), `null` for Claude Code sessions and until known; and `permissionProfile`: the Codex permission profile (`:read-only`, `:workspace`, `:danger-full-access` or a named profile), `null` for Claude Code sessions and until known. Both MUST default to `null` so messages from older daemons stay valid. `permissionMode` keeps describing Claude Code sessions. The protocol SHALL define the Codex presets the app may request with `session.setMode`: `read-only` and `workspace`; full access is never one of them.
 
 #### Scenario: Older daemon
-- **WHEN** an app parses a session without `approvalPolicy`
-- **THEN** it reads `approvalPolicy: null`
+- **WHEN** an app parses a session without `approvalPolicy` or `permissionProfile`
+- **THEN** it reads `approvalPolicy: null` and `permissionProfile: null`
+
+#### Scenario: Codex presets
+- **WHEN** the app lists the Codex presets it can request
+- **THEN** they are `read-only` and `workspace`
+
+### Requirement: Paths, devices and lean traffic messages
+The protocol SHALL define the client messages `devices.list`, `devices.revoke { deviceId }` and `pairing.create`, and the server messages `devices.result { devices }` (each `{ id, name, platform, pairedAt, lastSeen, current }`, times as ISO strings, `lastSeen` nullable), `pairing.code { url, expiresAt }`, `daemon.paths { addresses, relay, relays }` (also carried by `auth.ok` as `paths`), `transcript.entries { sessionId, agentId?, entries }`, `pane.diff { sessionId, cols, rows, lineCount, scroll?, lines }` and `session.changed { sessionId, set, unset }`. `transcript.entries` replaces `transcript.entry`. The channel close codes SHALL include 4007 (device revoked), which the app treats as final.
+
+#### Scenario: Revoke message
+- **WHEN** a client sends `devices.revoke` without `deviceId`
+- **THEN** the parser rejects it with `bad_request`
+
+#### Scenario: Session delta
+- **WHEN** the daemon sends `{"type":"session.changed","sessionId":"s","set":{"state":"running"},"unset":[]}`
+- **THEN** the app's parser accepts it
+
+### Requirement: Permission requests carry whether rules apply
+`PermissionRequestInfo` SHALL carry `rules`: whether the agent accepts always-allow rules with the answer (`true` for Claude Code, `false` for Codex). It MUST default to `true` so requests from older daemons stay valid.
+
+#### Scenario: Older daemon request
+- **WHEN** an app parses a permission request without `rules`
+- **THEN** it reads `rules: true`

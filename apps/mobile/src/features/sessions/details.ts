@@ -1,7 +1,7 @@
 import type { Profile, Session } from '@remote-harness/protocol'
 import type { TFunction } from '../../core/i18n/create'
 import { relativeTime } from '../../core/utils/time'
-import { hasSwitchableModes } from '../mode/modes'
+import { codexPermissionsLabel, hasSwitchableModes } from '../mode/modes'
 
 export type SessionDetailKey =
   | 'folder'
@@ -30,6 +30,7 @@ type DetailsSession = Pick<
   | 'state'
   | 'permissionMode'
   | 'approvalPolicy'
+  | 'permissionProfile'
   | 'agent'
   | 'controllable'
   | 'paneId'
@@ -37,9 +38,14 @@ type DetailsSession = Pick<
   | 'checkout'
 >
 
-/** Claude Code's permission mode, or Codex's approval policy as Codex names it. */
+/** Claude Code's permission mode, or Codex's permission profile with its approval policy. */
 function modeText(session: DetailsSession, t: TFunction): string {
-  if (!hasSwitchableModes(session.agent ?? null)) return session.approvalPolicy ?? t('sessionDetails.unknown')
+  if (!hasSwitchableModes(session.agent ?? null)) {
+    const { permissionProfile: profile, approvalPolicy: policy } = session
+    if (!profile) return policy ?? t('sessionDetails.unknown')
+    const label = codexPermissionsLabel(profile, policy, t)
+    return policy ? `${label} · ${policy}` : label
+  }
   return session.permissionMode ? t(`mode.labels.${session.permissionMode}`) : t('sessionDetails.unknown')
 }
 

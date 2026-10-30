@@ -4,17 +4,16 @@ description: Comandos de la CLI, el archivo de configuración, el servicio en se
 applies: 0.7+
 ---
 
-El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, controla tmux, recibe los hooks de Claude Code en `127.0.0.1` y sirve a la app por un WebSocket atado a la interfaz de Tailscale. `remote-harness --help` es la fuente de verdad de los comandos.
+El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, controla tmux, recibe los hooks de Claude Code en `127.0.0.1` y sirve a la app por dos caminos con el mismo cifrado de extremo a extremo: directo, en un WebSocket que escucha en todas las interfaces (la red de casa, o cualquier dirección VPN del ordenador), y a través de su relay de conexión, donde mantiene una sala abierta. `remote-harness --help` es la fuente de verdad de los comandos.
 
 ## Comandos
 
 | Comando | Qué hace |
 | --- | --- |
 | `remote-harness setup` | Instalación guiada: cuentas y alias, hooks, servicio, emparejamiento. `--yes` mantiene la configuración, `--lang` elige el idioma. |
-| `remote-harness start` | Ejecuta el daemon en primer plano. `--dev` lo ata a `127.0.0.1`, `--host` fija la dirección, `--wait-tailscale` espera la interfaz. |
-| `remote-harness pair` | Muestra el código QR de emparejamiento (dirección y token). `--dev` para `127.0.0.1`. |
-| `remote-harness rotate-token` | Token nuevo; todos los móviles tienen que emparejarse de nuevo. |
-| `remote-harness doctor` | Comprueba las herramientas, Tailscale, la configuración, los perfiles y sus claves de proveedor, el almacén del token, el servicio, el push y los móviles registrados. |
+| `remote-harness start` | Ejecuta el daemon en primer plano. `--dev` lo ata solo a `127.0.0.1` y nunca usa un relay, `--host` fija la dirección directa. |
+| `remote-harness pair` | Pide al daemon en ejecución un código QR de emparejamiento: empareja un móvil y caduca en 5 minutos. |
+| `remote-harness doctor` | Comprueba las herramientas, la configuración, los perfiles y sus claves de proveedor, la identidad del daemon, si los relays de conexión responden, el servicio, el push y los móviles registrados. |
 | `remote-harness install` / `uninstall` | Instala o quita los lanzadores, la entrada en el `PATH`, los hooks y el envoltorio de la status line, sin preguntas. |
 | `remote-harness service install` / `uninstall` / `status` | El servicio en segundo plano: un LaunchAgent de launchd en macOS, una unidad de usuario de systemd en Linux y WSL. |
 | `remote-harness update` | Descarga la nueva versión, recompila, actualiza los hooks y reinicia el servicio. `--ref <rama|etiqueta>` elige la versión. |
@@ -22,7 +21,9 @@ El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, con
 | `remote-harness push status` / `test` | Modo de push en uso y móviles registrados; envía una notificación de prueba. |
 | `remote-harness push off` / `on` | Detiene (o reanuda) todos los push y el estado en vivo de este ordenador, sin reiniciar el daemon. |
 | `remote-harness provider key <perfil>` | Guarda la clave del proveedor (OpenRouter) de un perfil en el almacén seguro del sistema. `--stdin` la lee de una tubería. |
+| `remote-harness devices list` / `revoke <id>` | Los móviles y tabletas emparejados con este ordenador (ID, nombre, plataforma, emparejado, visto por última vez); `revoke` desconecta uno, que debe volver a emparejarse. |
 | `remote-harness rules list` / `undo <id>` | Las reglas "permitir siempre" creadas desde el móvil. |
+| `remote-harness approvals list` | El registro de aprobaciones: lo que los dispositivos permitieron, denegaron, deshicieron y borraron (últimos 30 días). |
 | `remote-harness commands [on|off]` | Muestra, permite o prohíbe ejecutar comandos de shell desde la app en la carpeta de una sesión (desactivado por defecto), aplicado al daemon en ejecución. |
 
 El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen funcionando en instalaciones hechas antes del cambio de nombre.
@@ -47,7 +48,10 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
   "tmuxSession": "claude-remote",
   "push": "auto",
   "update": { "channel": "main", "auto": false },
-  "tray": true
+  "tray": true,
+  "relays": ["wss://us.relay.remoteharness.app", "wss://br.relay.remoteharness.app"],
+  "relay": "on",
+  "direct": "on"
 }
 ```
 
@@ -63,6 +67,8 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
 - `push`: `auto` (tu cuenta de servicio de Firebase cuando existe, si no el relay) u `off`.
 - `update`: el canal que siguen `update` y la comprobación, y si las actualizaciones se aplican solas.
 - `tray`: el icono de la barra de menús / bandeja.
+- `relays`: los relays de conexión que puede usar el daemon. Al iniciar los mide y mantiene la sala en el más rápido, cambiando solo cuando ese cae; cambia la lista para [alojar el tuyo](#alojar-tu-propio-relay-de-conexion).
+- `relay`: `off` deja el daemon fuera de los relays (los móviles solo lo alcanzan directo). `direct`: `off` deja de escuchar conexiones directas (solo el relay). No ambos. `start --dev` nunca usa relay.
 - `trayPermissions`: si la bandeja ofrece Permitir / Permitir siempre / Denegar para un permiso pendiente (activado por defecto; también en las Preferencias de la bandeja).
 - `shellCommands`: `enabled` (desactivado por defecto; cámbialo con `remote-harness commands on|off`), `timeoutSec` (300) y `maxOutputKb` (1024) para los comandos ejecutados desde la app.
 
@@ -84,7 +90,7 @@ A mano: añade un `provider` con `kind: "openrouter"` y, opcionalmente, `baseUrl
 }
 ```
 
-Después, `remote-harness install` regenera los lanzadores y `remote-harness provider key openrouter` guarda la clave en el mismo sitio que el token de emparejamiento (Llavero en macOS, Secret Service o archivo `0600` en Linux). El lanzador lee la clave solo dentro de la ventana de tmux, nunca en una línea de comandos, y el daemon solo la usa para mostrar tus créditos en la app. `doctor` informa de si cada perfil con proveedor tiene clave.
+Después, `remote-harness install` regenera los lanzadores y `remote-harness provider key openrouter` guarda la clave en el mismo almacén que las claves del propio daemon (Llavero en macOS, Secret Service o archivo `0600` en Linux). El lanzador lee la clave solo dentro de la ventana de tmux, nunca en una línea de comandos, y el daemon solo la usa para mostrar tus créditos en la app. `doctor` informa de si cada perfil con proveedor tiene clave.
 
 ## Perfiles de Codex
 
@@ -96,7 +102,7 @@ Un perfil puede ejecutar OpenAI Codex CLI en vez de Claude Code: define `"agent"
 
 `remote-harness install` escribe el lanzador del perfil (abre `codex` con el `CODEX_HOME` correcto) y fusiona los hooks del daemon en `<CODEX_HOME>/hooks.json`, junto a los tuyos y con copia de seguridad; tu `config.toml` no se toca. **Codex pide una vez confiar en los hooks nuevos**: abre `codex` y elige "Trust all and continue" (o revísalos en `/hooks`). Hasta entonces sus sesiones aparecen de solo lectura y las aprobaciones se quedan en el terminal. `doctor` comprueba que `codex` está en el `PATH` y que los hooks están instalados.
 
-Lo que funciona como en Claude Code: la lista de sesiones (rollouts recientes en `sessions/`), la conversación, prompts, fotos y teclas, iniciar y reanudar desde el móvil, push, estado en vivo y aprobaciones con Permitir / Denegar. Diferencias: el chip de modo muestra la política de aprobación y solo cambia con `/permissions` en el terminal, no hay "Siempre" (los hooks de Codex no crean reglas), ni opción de worktree, ni proveedor.
+Lo que funciona como en Claude Code: la lista de sesiones (rollouts recientes en `sessions/`), la conversación, prompts, fotos y teclas, iniciar y reanudar desde el móvil (en un worktree con `codex --worktree`, y con nombre, enviado como `/rename`), push, estado en vivo, aprobaciones con Permitir / Denegar, Mejorar dictado y mensajes de commit generados (con `codex exec`). Diferencias: el chip de modo muestra el perfil de permisos y alterna entre solo lectura y workspace (`/permissions`, Codex 0.164 o posterior); el acceso total solo en el terminal. No hay "Siempre" (los hooks de Codex no crean reglas) ni proveedor.
 
 ## Lanzadores y alias
 
@@ -104,7 +110,7 @@ Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>
 
 ## Servicio en segundo plano
 
-`remote-harness service install` mantiene el daemon en marcha después de cerrar el terminal y lo inicia al iniciar sesión: un LaunchAgent en macOS (aparece como elemento de inicio), una unidad de usuario de systemd en Linux (`~/.config/systemd/user/claude-remote.service`). En servidores Linux a los que llegas por SSH, la instalación ofrece `loginctl enable-linger`, para que el servicio sobreviva al cierre de sesión. Sin systemd (contenedores, algunos WSL) ejecuta `remote-harness start` tú mismo, por ejemplo en una ventana de tmux. En WSL la instalación también puede crear una tarea programada de Windows que inicie la distribución al iniciar sesión.
+`remote-harness service install` mantiene el daemon en marcha después de cerrar el terminal y lo inicia al iniciar sesión: un LaunchAgent en macOS (aparece como elemento de inicio), una unidad de usuario de systemd en Linux (`~/.config/systemd/user/claude-remote.service`). En servidores Linux a los que llegas por SSH, la instalación ofrece `loginctl enable-linger`, para que el servicio sobreviva al cierre de sesión; [Servidor en la nube](/es/docs/cloud-server/) explica cómo ejecutar el daemon en una VM en la nube. Sin systemd (contenedores, algunos WSL) ejecuta `remote-harness start` tú mismo, por ejemplo en una ventana de tmux. En WSL la instalación también puede crear una tarea programada de Windows que inicie la distribución al iniciar sesión.
 
 `remote-harness service status` muestra si está cargado; el menú de la bandeja lo reinicia.
 
@@ -114,10 +120,29 @@ El servicio comprueba su canal en el remoto de git cada 6 horas y muestra una no
 
 ## Icono de la bandeja
 
-El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección, el emparejamiento en la terminal y **Cambiar el token…** (los móviles emparejados deben emparejarse de nuevo). **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, y en WSL, el daemon funciona sin interfaz.
+El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección y el emparejamiento en la terminal; cada código es de un solo uso y caduca en 5 minutos. **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, y en WSL, el daemon funciona sin interfaz.
+
+## Alojar tu propio relay de conexión
+
+Cuando el móvil no alcanza el ordenador directamente, el daemon y la app se encuentran en un relay de conexión: `us.relay.remoteharness.app` y `br.relay.remoteharness.app` por defecto. El relay solo reenvía el tráfico que el daemon y la app cifran de extremo a extremo; no puede leer sesiones, prompts ni archivos, y no guarda registros de lo que pasa ni de direcciones IP. Ejecutar el tuyo es un contenedor:
+
+```sh
+docker build -t remote-harness-relay apps/relay
+docker run -d --restart unless-stopped -p 8080:8080 remote-harness-relay
+```
+
+Ponlo detrás de un proxy que termine el TLS (Traefik, Caddy, nginx), para que se acceda por `wss://`, y define `RELAY_CLIENT_IP_HEADER` con la cabecera en la que el proxy pone la dirección del cliente (`X-Real-Ip`, por ejemplo), para que los límites por dirección vean al cliente real. `GET /healthz` responde `{"status":"ok"}`. Los límites vienen del entorno: `RELAY_MAX_DEVICES` (10 móviles por ordenador), `RELAY_MAX_FRAME_BYTES` (8 MB), `RELAY_ROOM_RATE_BYTES` y `RELAY_ROOM_BURST_BYTES` (ancho de banda por ordenador), `RELAY_IDLE_TIMEOUT`, `RELAY_IP_CONNECTS_PER_MINUTE`, `RELAY_IP_BURST` y `RELAY_IP_MAX_CONNS`.
+
+Después añádelo al archivo de configuración del daemon, en lugar de los relays por defecto o antes de ellos:
+
+```json
+{ "relays": ["wss://relay.example.com"] }
+```
+
+Vuelve a emparejar el móvil después: el código de emparejamiento le dice a la app qué relay usar.
 
 ## Datos y registros
 
 Todo lo que guarda el daemon está en `~/.remote-harness/`: `config.json`, `state.json` (las sesiones conocidas), `secrets/` (claves de proveedor cuando el almacén es el archivo), `models-cache.json`, `bin/` (lanzadores), `logs/` y `src/` (el código que compiló el instalador). Adjunta los registros a un informe de error tras quitar tokens y contenido de sesiones.
 
-Variables de entorno: `REMOTE_HARNESS_HOME` cambia la carpeta de datos, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` fuerza el almacén del token, `REMOTE_HARNESS_LANG` fija el idioma.
+Variables de entorno: `REMOTE_HARNESS_HOME` cambia la carpeta de datos, `REMOTE_HARNESS_TOKEN_STORE=keychain|secret-tool|file` fuerza el almacén de secretos (las claves del daemon y las de proveedor), `REMOTE_HARNESS_LANG` fija el idioma.

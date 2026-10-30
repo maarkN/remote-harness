@@ -60,6 +60,7 @@ function setup(now = Date.now) {
       state: 'running',
       permissionMode: null,
       approvalPolicy: null,
+      permissionProfile: null,
       controllable: true,
       paneId: '%1',
       updatedAt: '',
@@ -203,6 +204,14 @@ describe('SubagentTracker', () => {
     expect(store.get('sess')?.subagents[0]).toMatchObject({ state: 'done', agentType: 'Plan' })
     tracker!.handleHook(hookEvent('Stop', { session_id: 'sess', background_tasks: [{ id: 1 }, { id: 2 }] }))
     expect(store.get('sess')?.backgroundTasks).toBe(2)
+    // A workflow's agent stops after the turn: its hook carries the session's list too.
+    tracker!.handleHook(
+      hookEvent('SubagentStop', { session_id: 'sess', agent_id: 'a2', background_tasks: [{ id: 1 }] }),
+    )
+    expect(store.get('sess')?.backgroundTasks).toBe(1)
+    // Without the list (older Claude Code), the count stays.
+    tracker!.handleHook(hookEvent('SubagentStop', { session_id: 'sess', agent_id: 'a3' }))
+    expect(store.get('sess')?.backgroundTasks).toBe(1)
   })
 
   test('counts tool uses incrementally, keeps the start time and settles the count on SubagentStop', async () => {

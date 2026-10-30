@@ -53,10 +53,14 @@ export const paths = {
   config: () => join(dataHome(), 'config.json'),
   state: () => join(dataHome(), 'state.json'),
   hookSecret: () => join(dataHome(), 'hook-secret'),
-  tokenFile: () => join(dataHome(), 'token'),
+  /** The daemon identity in the file store (Noise and relay keys), when neither Keychain nor Secret Service is used. */
+  identityFile: () => join(dataHome(), 'secrets', 'daemon-identity'),
+  /** Devices paired with this daemon (public keys, names): `features/pairing`. */
+  pairedDevices: () => join(dataHome(), 'paired-devices.json'),
   /** Token store picked on Linux (`secret-tool` or `file`), kept so every run uses the same one. */
   tokenStoreChoice: () => join(dataHome(), 'token-store'),
   rulesLog: () => join(dataHome(), 'rules-log.jsonl'),
+  approvalLog: () => join(dataHome(), 'approvals.jsonl'),
   devices: () => join(dataHome(), 'devices.json'),
   mute: () => join(dataHome(), 'mute.json'),
   liveFollows: () => join(dataHome(), 'live-follows.json'),

@@ -1,10 +1,11 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import {
   type AndroidConfig,
   type ConfigPlugin,
   type ExportedConfig,
+  IOSConfig,
   withAndroidManifest,
   withAppBuildGradle,
   withAppDelegate,
@@ -15,6 +16,17 @@ import {
   withPodfile,
   withXcodeProject,
 } from 'expo/config-plugins'
+import { QUERY_FOLDERS, queryArraysXml, shortcutsXml } from './modules/voice-assistant/android-actions.ts'
+import {
+  INTENT_STRINGS,
+  SHORTCUT_PHRASES,
+  STRINGS_LANGUAGES,
+  stringCatalog,
+  stringsFile,
+} from './modules/voice-assistant/app-intents/strings.ts'
+import enUS from './src/core/i18n/locales/en-US.ts'
+import esES from './src/core/i18n/locales/es-ES.ts'
+import ptBR from './src/core/i18n/locales/pt-BR.ts'
 
 /** Dark theme background (splash and adaptive icon backdrop; the artwork changes in #84). */
 const BACKGROUND = '#0D0D0D'
@@ -61,6 +73,7 @@ const SYSTEM_PROMPTS = {
     NSMicrophoneUsageDescription: 'The microphone is used to record voice messages for the prompt.',
     NSSpeechRecognitionUsageDescription:
       'Speech recognition turns your voice messages into text, on this device.',
+    NSFaceIDUsageDescription: 'Face ID confirms that it is you before a permission rule is deleted.',
   },
   'pt-BR': {
     NSCameraUsageDescription:
@@ -71,6 +84,7 @@ const SYSTEM_PROMPTS = {
     NSMicrophoneUsageDescription: 'O microfone é usado para gravar mensagens de voz do prompt.',
     NSSpeechRecognitionUsageDescription:
       'O reconhecimento de voz transforma suas mensagens de voz em texto, neste aparelho.',
+    NSFaceIDUsageDescription: 'O Face ID confirma que é você antes de apagar uma regra de permissão.',
   },
   es: {
     NSCameraUsageDescription:
@@ -81,6 +95,7 @@ const SYSTEM_PROMPTS = {
     NSMicrophoneUsageDescription: 'El micrófono se usa para grabar mensajes de voz del mensaje.',
     NSSpeechRecognitionUsageDescription:
       'El reconocimiento de voz convierte tus mensajes de voz en texto, en este dispositivo.',
+    NSFaceIDUsageDescription: 'Face ID confirma que eres tú antes de borrar una regla de permiso.',
   },
 }
 /** Languages the system offers for the app (matching the catalogs pt-BR, en-US and es-ES). */
@@ -340,6 +355,60 @@ const withIconAliasDeepLinks: ConfigPlugin = (config) =>
     return mod
   })
 
+const SHORTCUTS_META_DATA = 'android.app.shortcuts'
+
+/**
+ * Points the launcher entries (`MainActivity` and the icon aliases, one of which is the launcher
+ * when an alternate icon is on) at `@xml/shortcuts`, where Google Assistant reads the App Actions.
+ * Idempotent.
+ */
+export function addShortcutsMetaData(application: AndroidConfig.Manifest.ManifestApplication): void {
+  const entries = [
+    ...(application.activity ?? []).filter((activity) => activity.$['android:name'] === MAIN_ACTIVITY),
+    ...(application['activity-alias'] ?? []).filter(
+      (alias) => alias.$?.['android:targetActivity'] === MAIN_ACTIVITY,
+    ),
+  ]
+  // `@expo/config-plugins` does not type `<meta-data>` on activities, though the manifest has it.
+  for (const entry of entries as { 'meta-data'?: { $: Record<string, string> }[] }[]) {
+    const metaData = (entry['meta-data'] ?? []).filter(
+      (item) => item.$['android:name'] !== SHORTCUTS_META_DATA,
+    )
+    entry['meta-data'] = [
+      ...metaData,
+      { $: { 'android:name': SHORTCUTS_META_DATA, 'android:resource': '@xml/shortcuts' } },
+    ]
+  }
+}
+
+/**
+ * Google Assistant App Actions (#418): `res/xml/shortcuts.xml`, the custom intents' query patterns per
+ * language and the meta-data on the launcher entries. Applied before the `plugins` list, so its
+ * manifest mod runs after `expo-alternate-app-icons` added the aliases.
+ */
+const withAssistantActions: ConfigPlugin = (config) => {
+  const withFiles = withDangerousMod(config, [
+    'android',
+    (config) => {
+      const res = join(config.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res')
+      mkdirSync(join(res, 'xml'), { recursive: true })
+      writeFileSync(join(res, 'xml', 'shortcuts.xml'), shortcutsXml(config.android?.package ?? APP_ID))
+      for (const [language, folder] of Object.entries(QUERY_FOLDERS) as [
+        keyof typeof QUERY_FOLDERS,
+        string,
+      ][]) {
+        mkdirSync(join(res, folder), { recursive: true })
+        writeFileSync(join(res, folder, 'assistant_queries.xml'), queryArraysXml(language))
+      }
+      return config
+    },
+  ])
+  return withAndroidManifest(withFiles, (mod) => {
+    for (const application of mod.modResults.manifest.application ?? []) addShortcutsMetaData(application)
+    return mod
+  })
+}
+
 /** Target `expo-widgets` creates (and recreates on every prebuild) for the Live Activity. */
 const WIDGET_TARGET = 'ExpoWidgetsTarget'
 /** Asset the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`). */
@@ -390,6 +459,195 @@ const withLiveActivityIcon: ConfigPlugin = (config) => {
   })
 }
 
+/** Widget kind of the iOS Home Screen / Lock Screen widget (`src/features/widgets/SessionsWidget.tsx`). */
+const IOS_WIDGET = 'SessionsWidget'
+/** Android widget names (`src/features/widgets/android/SessionsWidgetAndroid.tsx`). */
+const ANDROID_WIDGETS = { small: 'SessionsSmall', medium: 'SessionsMedium' } as const
+
+/**
+ * Widget gallery (iOS) and picker (Android) texts per system language, from the app's catalogs. The
+ * iOS gallery shows the English strings of the generated Swift, looked up as keys in the widget
+ * extension's `Localizable.strings`.
+ */
+const WIDGET_GALLERY = {
+  en: enUS.widgets,
+  'pt-BR': ptBR.widgets,
+  es: esES.widgets,
+} as const
+/** Android resource folders of the non-default languages. */
+const ANDROID_VALUES_FOLDERS = { 'pt-BR': 'values-pt-rBR', es: 'values-es' } as const
+
+const stringsEscape = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+const xmlEscape = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, "\\'")
+
+/** `Localizable.strings` of the widget extension for one language: English gallery text → translation. */
+export function widgetGalleryStrings(language: keyof typeof WIDGET_GALLERY): string {
+  const en = WIDGET_GALLERY.en
+  const own = WIDGET_GALLERY[language]
+  return [
+    [en.galleryName, own.galleryName],
+    [en.galleryDescription, own.galleryDescription],
+  ]
+    .map(([key, value]) => `"${stringsEscape(key ?? '')}" = "${stringsEscape(value ?? '')}";`)
+    .join('\n')
+    .concat('\n')
+}
+
+/**
+ * Android string resources of the widget picker: the labels (default language too) and, per
+ * translation, the descriptions under the names `react-native-android-widget` writes the default in.
+ */
+export function widgetPickerStrings(language: keyof typeof WIDGET_GALLERY): string {
+  const own = WIDGET_GALLERY[language]
+  const items: [string, string][] = [
+    ['widget_sessions_small_label', own.smallName],
+    ['widget_sessions_medium_label', own.mediumName],
+    ...(language === 'en'
+      ? []
+      : ([
+          [`widget_${ANDROID_WIDGETS.small.toLowerCase()}_description`, own.galleryDescription],
+          [`widget_${ANDROID_WIDGETS.medium.toLowerCase()}_description`, own.galleryDescription],
+        ] as [string, string][])),
+  ]
+  const body = items
+    .map(([name, value]) => `  <string name="${name}">${xmlEscape(value)}</string>`)
+    .join('\n')
+  return `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n${body}\n</resources>\n`
+}
+
+/**
+ * Localized widget gallery and picker texts. iOS: one `<lang>.lproj` folder per language in the
+ * widget extension, wired as a folder reference into its Resources phase (after `expo-widgets`
+ * recreated the target, like `withLiveActivityIcon`). Android: `widget_strings.xml` in `res/values` and per language.
+ */
+const withWidgetGalleryStrings: ConfigPlugin = (config) => {
+  const languages = Object.keys(WIDGET_GALLERY) as (keyof typeof WIDGET_GALLERY)[]
+  const withIosFiles = withDangerousMod(config, [
+    'ios',
+    (config) => {
+      for (const language of languages) {
+        const folder = join(config.modRequest.platformProjectRoot, WIDGET_TARGET, `${language}.lproj`)
+        mkdirSync(folder, { recursive: true })
+        writeFileSync(join(folder, 'Localizable.strings'), widgetGalleryStrings(language))
+      }
+      return config
+    },
+  ])
+  const withIosProject = withXcodeProject(withIosFiles, (config) => {
+    const project = config.modResults
+    const target = project.findTargetKey(WIDGET_TARGET)
+    const group = project.findPBXGroupKey({ name: WIDGET_TARGET })
+    if (!target || !group)
+      throw new Error(`withWidgetGalleryStrings: ${WIDGET_TARGET} not found; check expo-widgets`)
+    const phases: { comment?: string }[] = project.pbxNativeTargetSection()[target]?.buildPhases ?? []
+    if (!phases.some((phase) => phase.comment === 'Resources')) {
+      project.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target)
+    }
+    for (const language of languages) {
+      const file = project.addFile(`${language}.lproj`, group, { lastKnownFileType: 'folder' })
+      if (!file) continue
+      file.uuid = project.generateUuid()
+      file.target = target
+      project.addToPbxBuildFileSection(file)
+      project.addToPbxResourcesBuildPhase(file)
+    }
+    return config
+  })
+  return withDangerousMod(withIosProject, [
+    'android',
+    (config) => {
+      const res = join(config.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res')
+      for (const language of languages) {
+        const folder = join(res, language === 'en' ? 'values' : ANDROID_VALUES_FOLDERS[language])
+        mkdirSync(folder, { recursive: true })
+        writeFileSync(join(folder, 'widget_strings.xml'), widgetPickerStrings(language))
+      }
+      return config
+    },
+  ])
+}
+
+/** Folder of the app target that receives the Siri / Shortcuts intents (`modules/voice-assistant`). */
+const APP_INTENTS_DIR = 'AppIntents'
+const APP_INTENTS_SOURCE = './modules/voice-assistant/app-intents'
+
+/**
+ * Files the intents add to the app target: their Swift sources (App Intents metadata is only
+ * extracted from the app target, so they cannot live in the module's pod), the String Catalog and the
+ * per-language phrases generated from `app-intents/strings.ts`.
+ */
+export function appIntentFiles(sourceFiles: readonly string[]): { swift: string[]; resources: string[] } {
+  return {
+    swift: sourceFiles.filter((file) => file.endsWith('.swift')).sort(),
+    resources: [
+      'Localizable.xcstrings',
+      ...STRINGS_LANGUAGES.map((language) => `${language}.lproj/AppShortcuts.strings`),
+    ],
+  }
+}
+
+/** Siri / Shortcuts (#417): copies the intents into `ios/<App>/AppIntents` and adds them to the app target. */
+const withVoiceAssistantIntents: ConfigPlugin = (config) => {
+  const withFiles = withDangerousMod(config, [
+    'ios',
+    (config) => {
+      const { projectRoot, platformProjectRoot, projectName } = config.modRequest
+      const source = join(projectRoot, APP_INTENTS_SOURCE)
+      const target = join(platformProjectRoot, projectName ?? '', APP_INTENTS_DIR)
+      mkdirSync(target, { recursive: true })
+      for (const file of appIntentFiles(readdirSync(source)).swift) {
+        copyFileSync(join(source, file), join(target, file))
+      }
+      writeFileSync(join(target, 'Localizable.xcstrings'), stringCatalog(INTENT_STRINGS))
+      for (const language of STRINGS_LANGUAGES) {
+        mkdirSync(join(target, `${language}.lproj`), { recursive: true })
+        writeFileSync(
+          join(target, `${language}.lproj`, 'AppShortcuts.strings'),
+          stringsFile(SHORTCUT_PHRASES, language),
+        )
+      }
+      return config
+    },
+  ])
+  return withXcodeProject(withFiles, (config) => {
+    const project = config.modResults
+    const groupName = config.modRequest.projectName ?? ''
+    const files = appIntentFiles(readdirSync(join(config.modRequest.projectRoot, APP_INTENTS_SOURCE)))
+    // The catalogs' languages (the template only lists `en`); quoted as Xcode writes `pt-BR`.
+    for (const region of ['"pt-BR"', 'es']) project.addKnownRegion(region)
+    // Paths start at `ios/`, like the template's `RemoteHarness/AppDelegate.swift`.
+    const folder = `${groupName}/${APP_INTENTS_DIR}`
+    for (const file of files.swift) {
+      IOSConfig.XcodeUtils.addBuildSourceFileToGroup({ filepath: `${folder}/${file}`, groupName, project })
+    }
+    for (const file of files.resources) {
+      const filepath = `${folder}/${file}`
+      // One group per `<lang>.lproj` (as Expo does for `InfoPlist.strings`): files of the same name
+      // in one group would be skipped as duplicates. The groups have no path of their own.
+      const lproj = file.split('/').find((part) => part.endsWith('.lproj'))
+      const fileGroup = lproj ? `${groupName}/${APP_INTENTS_DIR}/${lproj}` : groupName
+      if (lproj) IOSConfig.XcodeUtils.ensureGroupRecursively(project, fileGroup)
+      IOSConfig.XcodeUtils.addResourceFileToGroup({
+        filepath,
+        groupName: fileGroup,
+        project,
+        isBuildFile: true,
+      })
+      if (!file.endsWith('.xcstrings')) continue
+      // The xcode library does not know String Catalogs; Xcode compiles them only with this type.
+      const references: Record<string, { path?: string; lastKnownFileType?: string }> =
+        project.pbxFileReferenceSection()
+      for (const reference of Object.values(references)) {
+        if (typeof reference === 'object' && reference.path?.replace(/"/g, '') === filepath) {
+          reference.lastKnownFileType = 'text.json.xcstrings'
+        }
+      }
+    }
+    return config
+  })
+}
+
 /**
  * `locales` (the iOS system prompts above) also lands in the Android string resources, per language
  * and without a default, which the release lint (`lintVitalRelease`) rejects as extra translations.
@@ -403,6 +661,30 @@ const withIosOnlyLocaleStrings: ConfigPlugin = (config) =>
         /\nandroid \{\n/,
         `\nandroid {\n    ${marker}\n    lint {\n        disable 'ExtraTranslation'\n    }\n`,
       )
+    }
+    return mod
+  })
+
+/** WorkManager of `react-native-android-widget`, which runs the widgets' headless task. */
+const WORK_MANAGER_VERSION = '2.8.1'
+
+/**
+ * Expo modules bring `work-runtime-ktx` 2.7.1 while the widgets bring `work-runtime` 2.8.1, where the
+ * ktx classes moved: both on the classpath fail `checkDuplicateClasses`. Pin the ktx artifact to the
+ * same version (an empty shell since 2.8).
+ */
+const withSingleWorkManager: ConfigPlugin = (config) =>
+  withAppBuildGradle(config, (mod) => {
+    const marker = '// remote-harness: one WorkManager version'
+    if (!mod.modResults.contents.includes(marker)) {
+      mod.modResults.contents += [
+        '',
+        marker,
+        'configurations.all {',
+        `    resolutionStrategy.force 'androidx.work:work-runtime-ktx:${WORK_MANAGER_VERSION}'`,
+        '}',
+        '',
+      ].join('\n')
     }
     return mod
   })
@@ -459,13 +741,23 @@ const withFirebase: ConfigPlugin = (config) => {
 }
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const expo = withIconAliasDeepLinks(
-    withIosOnlyLocaleStrings(
-      withLiveActivityIcon(
-        withUserLeaveHintMainActivity(
-          withKeyCommandMainActivity(
-            withKeyCommandAppDelegate(
-              withKeyCommandBridgingHeader(withPerIdiomOrientation(withSceneLifecycle(appConfig(config)))),
+  const expo = withAssistantActions(
+    withIconAliasDeepLinks(
+      withSingleWorkManager(
+        withIosOnlyLocaleStrings(
+          withVoiceAssistantIntents(
+            withLiveActivityIcon(
+              withWidgetGalleryStrings(
+                withUserLeaveHintMainActivity(
+                  withKeyCommandMainActivity(
+                    withKeyCommandAppDelegate(
+                      withKeyCommandBridgingHeader(
+                        withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -475,7 +767,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '0.21.0'
+const APP_VERSION = '1.0.1'
 /**
  * Android `versionCode` from the version (0.20.0 → 20000): Google Play only takes a bundle whose code
  * is higher than every one uploaded before, so it follows the version instead of staying at 1.
@@ -507,8 +799,9 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     ...(firebase.ios ? { googleServicesFile: GOOGLE_SERVICES.ios } : {}),
     supportsTablet: true,
     infoPlist: {
-      // Personal dev build talking ws:// to the computer over Tailscale (WireGuard encrypts the link).
-      NSAppTransportSecurity: { NSAllowsArbitraryLoads: true, NSAllowsLocalNetworking: true },
+      // The direct path is ws:// to the computer's address on the network, every byte of it a Noise
+      // frame encrypted end to end; everything else (relay, updates, push) is https / wss.
+      NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
       NSLocalNetworkUsageDescription: SYSTEM_PROMPTS.en.NSLocalNetworkUsageDescription,
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -553,6 +846,8 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     'expo-router',
     'expo-status-bar',
     'expo-secure-store',
+    // Native crypto for the Noise channel (X25519, ChaCha20-Poly1305); OpenSSL only, no libsodium.
+    'react-native-quick-crypto',
     'expo-font',
     ['expo-localization', { supportedLocales: { ios: APP_LOCALIZATIONS, android: APP_LOCALIZATIONS } }],
     [
@@ -584,6 +879,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
         microphonePermission: SYSTEM_PROMPTS.en.NSMicrophoneUsageDescription,
       },
     ],
+    ['expo-local-authentication', { faceIDPermission: SYSTEM_PROMPTS.en.NSFaceIDUsageDescription }],
     [
       'expo-speech-recognition',
       {
@@ -594,18 +890,70 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     [
       'expo-notifications',
       {
-        enableBackgroundRemoteNotifications: false,
+        // Widget refresh pushes (`content-available`) wake the app in the background.
+        enableBackgroundRemoteNotifications: true,
         icon: './assets/notification-icon.png',
         color: ACCENT,
         defaultChannel: NOTIFICATION_CHANNEL,
       },
     ],
-    // Live Activity of running sessions: widget extension, App Group and remote (FCM) updates.
-    ['expo-widgets', { enablePushNotifications: true, frequentUpdates: true }],
+    // Live Activity of running sessions and the Home Screen / Lock Screen widget: widget extension,
+    // App Group and remote (FCM) updates. Android widgets come from react-native-android-widget.
+    [
+      'expo-widgets',
+      {
+        enablePushNotifications: true,
+        frequentUpdates: true,
+        widgets: [
+          {
+            name: IOS_WIDGET,
+            displayName: WIDGET_GALLERY.en.galleryName,
+            description: WIDGET_GALLERY.en.galleryDescription,
+            supportedFamilies: [
+              'systemSmall',
+              'systemMedium',
+              'accessoryCircular',
+              'accessoryRectangular',
+              'accessoryInline',
+            ],
+            contentMarginsDisabled: false,
+            android: null,
+          },
+        ],
+      },
+    ],
+    [
+      'react-native-android-widget',
+      {
+        widgets: [
+          {
+            name: ANDROID_WIDGETS.small,
+            label: '@string/widget_sessions_small_label',
+            description: WIDGET_GALLERY.en.galleryDescription,
+            minWidth: '110dp',
+            minHeight: '110dp',
+            targetCellWidth: 2,
+            targetCellHeight: 2,
+            resizeMode: 'horizontal|vertical',
+          },
+          {
+            name: ANDROID_WIDGETS.medium,
+            label: '@string/widget_sessions_medium_label',
+            description: WIDGET_GALLERY.en.galleryDescription,
+            minWidth: '250dp',
+            minHeight: '110dp',
+            targetCellWidth: 4,
+            targetCellHeight: 2,
+            resizeMode: 'horizontal|vertical',
+          },
+        ],
+      },
+    ],
     [
       'expo-build-properties',
       {
-        // ws:// to the daemon over Tailscale (WireGuard encrypts the link); Android blocks cleartext by default.
+        // The direct path is ws:// to the computer's address on the network (Noise frames, encrypted
+        // end to end). Android cannot allow cleartext per IP range, so it stays allowed app-wide.
         android: { usesCleartextTraffic: true },
         ios: {
           // The precompiled Expo modules are built with one Swift version and fail to import with a

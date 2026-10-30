@@ -14,6 +14,10 @@ export type PermissionMode = z.infer<typeof PermissionModeSchema>
 export const SelectableModeSchema = z.enum(['default', 'acceptEdits', 'plan', 'auto'])
 export type SelectableMode = z.infer<typeof SelectableModeSchema>
 
+/** Codex permission presets the app may request (`/permissions :read-only|:workspace`); never full access. */
+export const CodexPresetSchema = z.enum(['read-only', 'workspace'])
+export type CodexPreset = z.infer<typeof CodexPresetSchema>
+
 /** Coding agents the app knows (badge, color); only those with a daemon adapter can run. */
 export const AgentIdSchema = z.enum(['claude', 'codex', 'kimi', 'qwen'])
 export type AgentId = z.infer<typeof AgentIdSchema>
@@ -132,6 +136,8 @@ export const SessionSchema = z.object({
   permissionMode: PermissionModeSchema.nullable(),
   /** Codex: the approval policy (`on-request`, `never`, …); `null` for Claude Code, until known and from older daemons. */
   approvalPolicy: z.string().nullable().default(null),
+  /** Codex: the permission profile (`:read-only`, `:workspace`, `:danger-full-access` or a named one); `null` for Claude Code and until known. */
+  permissionProfile: z.string().nullable().default(null),
   controllable: z.boolean(),
   paneId: z.string().nullable(),
   updatedAt: z.string(),
@@ -181,6 +187,30 @@ export const WorktreeInfoSchema = z.object({
   unpushed: z.number().int().nonnegative(),
 })
 export type WorktreeInfo = z.infer<typeof WorktreeInfoSchema>
+
+/** How a file differs from `HEAD`; an untracked file is `added`. */
+export const ChangeStatusSchema = z.enum(['added', 'modified', 'deleted', 'renamed'])
+export type ChangeStatus = z.infer<typeof ChangeStatusSchema>
+
+/** A file of a session's working tree that differs from `HEAD` (`changes.result`). */
+export const ChangedFileSchema = z.object({
+  /** Relative to the checkout root. */
+  path: z.string(),
+  /** `renamed` only: the path in `HEAD`. */
+  oldPath: z.string().nullable(),
+  status: ChangeStatusSchema,
+  /** `null` when unknown (binary, or an untracked file too big to count). */
+  added: z.number().int().nonnegative().nullable(),
+  deleted: z.number().int().nonnegative().nullable(),
+  binary: z.boolean(),
+  /** A lockfile or generated output: the app starts it collapsed. */
+  generated: z.boolean(),
+  untracked: z.boolean(),
+})
+export type ChangedFile = z.infer<typeof ChangedFileSchema>
+
+/** Lines of a file's diff per `changes.diffResult`. */
+export const CHANGES_DIFF_PAGE = 2000
 
 /**
  * What to do with a session's worktree: `delete` only when clean and pushed; `push-delete` commits
@@ -270,9 +300,85 @@ export type TranscriptEntryKind = TranscriptEntry['kind']
 export const RuleScopeSchema = z.enum(['profile', 'project'])
 export type RuleScope = z.infer<typeof RuleScopeSchema>
 
+/**
+ * An always-allow rule of a settings file: `app` when a device created it ("allow always", in the
+ * daemon's rules log, undone by `ruleId`), `hand` when it was written on the computer.
+ */
+export const ListedRuleSchema = z.discriminatedUnion('origin', [
+  z.object({ origin: z.literal('app'), rule: z.string(), ruleId: z.string(), createdAt: z.string() }),
+  z.object({ origin: z.literal('hand'), rule: z.string() }),
+])
+export type ListedRule = z.infer<typeof ListedRuleSchema>
+
+/** A settings file with always-allow rules: a profile's `settings.json` or a project's `settings.local.json`. */
+export const RuleFileSchema = z.object({
+  /** Absolute path; `rules.delete` only accepts a path the daemon listed. */
+  file: z.string(),
+  scope: RuleScopeSchema,
+  /** Scope `profile`: the profile the file belongs to. */
+  profileId: z.string().nullable(),
+  /** Scope `project`: the project folder. */
+  project: z.string().nullable(),
+  rules: z.array(ListedRuleSchema),
+})
+export type RuleFile = z.infer<typeof RuleFileSchema>
+
+/** Most entries `approvals.result` carries. */
+export const APPROVALS_LIST_LIMIT = 500
+
+/** What an approval log entry records. */
+export const ApprovalActionSchema = z.enum(['allow', 'deny', 'undo', 'delete'])
+export type ApprovalAction = z.infer<typeof ApprovalActionSchema>
+
+/**
+ * One entry of the daemon's approval log: a decision answered from a device or a rule undone or
+ * deleted. `target` is the live status's short sanitized target; never the tool input.
+ */
+export const ApprovalEntrySchema = z.object({
+  id: z.string(),
+  at: z.string(),
+  action: ApprovalActionSchema,
+  /** An `allow` that also created an always-allow rule. */
+  always: z.boolean().optional(),
+  /** `null` when the action came from the computer (CLI). */
+  device: z.object({ id: z.string(), name: z.string() }).nullable(),
+  sessionId: z.string().nullable(),
+  /** Base name of the session's folder. */
+  folder: z.string().nullable(),
+  tool: z.string().nullable(),
+  target: z.string().nullable(),
+  /** Rule actions and an `always` allow: the rule text (it is in the settings file anyway). */
+  rule: z.string().nullable(),
+  /** The rules log ID of that rule, for undo. */
+  ruleId: z.string().nullable(),
+})
+export type ApprovalEntry = z.infer<typeof ApprovalEntrySchema>
+
 /** Platform of a paired phone; picks the push payload block (APNs or Android). */
 export const DevicePlatformSchema = z.enum(['ios', 'android'])
 export type DevicePlatform = z.infer<typeof DevicePlatformSchema>
+
+/** A device paired with the daemon, as `devices.list` shows it (times as ISO strings). */
+export const PairedDeviceInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  platform: z.string(),
+  pairedAt: z.string(),
+  lastSeen: z.string().nullable(),
+  /** The device that asked. */
+  current: z.boolean(),
+})
+export type PairedDeviceInfo = z.infer<typeof PairedDeviceInfoSchema>
+
+/** Where devices reach the daemon: direct `host:port` addresses and the home connection relay. */
+export const DaemonPathsSchema = z.object({
+  addresses: z.array(z.string()),
+  /** The home relay (`wss://…`), null while the daemon has none (off, or none answers). */
+  relay: z.string().nullable(),
+  /** The relays the daemon may use, to find it when its home relay changed. */
+  relays: z.array(z.string()),
+})
+export type DaemonPaths = z.infer<typeof DaemonPathsSchema>
 
 /**
  * Where a daemon without a Firebase service account sends this phone's pushes: the push relay and
@@ -501,6 +607,8 @@ export const PermissionRequestInfoSchema = z.object({
   tool: z.string(),
   input: z.record(z.string(), z.unknown()),
   suggestedRule: z.string().nullable(),
+  /** The agent accepts always-allow rules with the answer (false for Codex); older daemons: true. */
+  rules: z.boolean().default(true),
   defaultScope: RuleScopeSchema,
   createdAt: z.string(),
   expiresAt: z.string(),

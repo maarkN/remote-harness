@@ -7,6 +7,7 @@ import { useDaemonClient } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { makeStyles, maxContentWidth, radius, space, useTheme } from '@/core/theme'
+import { DemoBanner } from '@/features/demo/components/DemoBanner'
 import { ConnectionBanner, Screen, Text } from '@/ui'
 import { TranscriptImagesContext } from '../images/use-transcript-image'
 import { useConversationBench } from '../performance/use-conversation-bench'
@@ -146,6 +147,7 @@ export function ConversationScreen({
       <ConversationAgent.Provider value={agent}>
         <Screen>
           <ConnectionBanner />
+          <DemoBanner />
           {header}
           <View
             ref={anchor}

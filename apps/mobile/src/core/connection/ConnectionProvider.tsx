@@ -1,24 +1,27 @@
 import { type ReactNode, useEffect } from 'react'
 import { AppState } from 'react-native'
 import { credentialsStorage } from '../storage/credentials'
-import { useConnectionStore } from './connection-store'
+import { setComputerStorage, useConnectionStore } from './connection-store'
 
-/** Loads saved credentials once and keeps the socket alive across foreground/background. */
+setComputerStorage(credentialsStorage)
+
+/** Loads the paired computers once and keeps the active one's socket alive across foreground/background. */
 export function ConnectionProvider({ children }: { children: ReactNode }) {
-  const setCredentials = useConnectionStore((s) => s.setCredentials)
+  const loadComputers = useConnectionStore((s) => s.loadComputers)
 
   useEffect(() => {
     let cancelled = false
-    credentialsStorage
-      .load()
-      .then((credentials) => {
-        if (!cancelled) setCredentials(credentials)
+    Promise.all([credentialsStorage.loadAll(), credentialsStorage.dropLegacy().catch(() => false)])
+      .then(([{ computers, active }, legacy]) => {
+        if (cancelled) return
+        loadComputers(computers, active)
+        if (computers.length === 0 && legacy) useConnectionStore.setState({ pairAgain: true })
       })
-      .catch(() => setCredentials(null))
+      .catch(() => loadComputers([], null))
     return () => {
       cancelled = true
     }
-  }, [setCredentials])
+  }, [loadComputers])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {

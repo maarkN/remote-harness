@@ -41,13 +41,6 @@ The setup SHALL add the launcher directory to the PATH in the user's zsh and/or 
 - **WHEN** `$SHELL` is bash and `~/.zshrc` does not exist
 - **THEN** only `~/.bashrc` receives the PATH block
 
-### Requirement: WSL networking
-Inside WSL the setup SHALL find a Tailscale address either from Tailscale running in WSL or from mirrored networking, and MUST explain how to enable one of them when none is found.
-
-#### Scenario: Tailscale only on Windows
-- **WHEN** Tailscale runs on Windows, WSL uses NAT networking and the user accepts mirrored networking
-- **THEN** `networkingMode=mirrored` is merged into `.wslconfig` (with a backup) and the user is told to run `wsl --shutdown`
-
 ### Requirement: Daemon running on Windows logon
 On WSL the setup SHALL offer systemd in WSL and an optional logon task so the daemon runs without opening a terminal. The task SHALL be named "Remote Harness"; a task named "Claude Remote" (created before the rename) SHALL count as the logon task, be deleted when the task is created again and be removed by `service uninstall` too.
 
@@ -58,3 +51,14 @@ On WSL the setup SHALL offer systemd in WSL and an optional logon task so the da
 #### Scenario: Task from before the rename
 - **WHEN** a machine has the "Claude Remote" task and the setup creates the logon task again
 - **THEN** the "Remote Harness" task is created and the "Claude Remote" one is deleted
+
+### Requirement: WSL direct path
+Inside WSL the setup SHALL explain that phones reach the daemon through the connection relay whatever the networking mode, and SHALL offer mirrored networking (merged into `.wslconfig` with a backup) so that devices on the same network can also use the direct path.
+
+#### Scenario: NAT networking
+- **WHEN** WSL uses NAT networking and the user accepts mirrored networking
+- **THEN** `networkingMode=mirrored` is merged into `.wslconfig` (with a backup) and the user is told to run `wsl --shutdown`
+
+#### Scenario: Declined
+- **WHEN** the user keeps NAT networking
+- **THEN** the setup continues and phones connect through the relay

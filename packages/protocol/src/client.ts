@@ -25,7 +25,6 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('auth'),
     id,
-    token: z.string().min(1),
     protocolVersion: z.number().int(),
     client: z.string().optional(),
   }),
@@ -80,6 +79,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('queue.remove'), id, sessionId, itemId: z.string().min(1) }),
   z.object({ type: z.literal('queue.sendNow'), id, sessionId, itemId: z.string().min(1) }),
   z.object({ type: z.literal('queue.flush'), id, sessionId }),
+  /** Delivers the first queued prompt now (a notification action); `not_found` when the queue is empty. */
+  z.object({ type: z.literal('queue.sendNext'), id, sessionId }),
   z.object({ type: z.literal('session.setMode'), id, sessionId, mode: z.string() }),
   z.object({
     type: z.literal('permission.respond'),
@@ -101,6 +102,10 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     // Optional for apps paired before Android support (they are iOS).
     platform: DevicePlatformSchema.optional(),
     relay: PushRelaySchema.optional(),
+    /** This build draws turn pushes itself on Android (data messages with Reply / Interrupt). */
+    turnActions: z.boolean().optional(),
+    /** This build has widgets fed by the widget refresh push (data only, `event: "widgets"`). */
+    widgets: z.boolean().optional(),
   }),
   /** This phone turned push off: the daemon forgets its token. */
   z.object({ type: z.literal('device.unregister'), id, fcmToken: z.string().min(1) }),
@@ -221,6 +226,64 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     targetId: z.string().min(1),
     muted: z.boolean(),
   }),
+  /** The devices paired with the daemon; answered with `devices.result`. */
+  z.object({ type: z.literal('devices.list'), id }),
+  /** Unpairs a device (possibly this one): its connections close with 4007; answered with `ack`. */
+  z.object({ type: z.literal('devices.revoke'), id, deviceId: z.string().min(1) }),
+  /** A single-use pairing code to add another device; answered with `pairing.code`. */
+  z.object({ type: z.literal('pairing.create'), id }),
+  /** The permission requests waiting now; answered with `permissions.result`. */
+  z.object({ type: z.literal('permissions.list'), id }),
+  /** The session's working-tree changes against `HEAD`; answered with `changes.result`. */
+  z.object({ type: z.literal('changes.list'), id, sessionId }),
+  /**
+   * Commits exactly `paths` of the change list (after creating `newBranch` when given); answered with
+   * `changes.committed`. Refused with `session_busy` while the session runs, unless `force`.
+   */
+  z.object({
+    type: z.literal('changes.commit'),
+    id,
+    sessionId,
+    paths: z.array(z.string().min(1)).min(1),
+    message: z.string().trim().min(1).max(10_000),
+    newBranch: z.string().min(1).max(200).optional(),
+    force: z.boolean().optional(),
+  }),
+  /** Pushes the current branch to `origin`; answered with `changes.pushed`. Same gate as commit. */
+  z.object({ type: z.literal('changes.push'), id, sessionId, force: z.boolean().optional() }),
+  /** Pushes, then opens a PR with `gh` against the default branch; answered with `changes.prOpened`. */
+  z.object({
+    type: z.literal('changes.pr'),
+    id,
+    sessionId,
+    title: z.string().trim().min(1).max(500),
+    body: z.string().max(50_000),
+    force: z.boolean().optional(),
+  }),
+  /** A commit message (from `paths`' diff) or a PR title and body, written by the profile's agent CLI. */
+  z.object({
+    type: z.literal('changes.generate'),
+    id,
+    sessionId,
+    kind: z.enum(['commit', 'pr']),
+    paths: z.array(z.string().min(1)).optional(),
+  }),
+  /** A page of one changed file's diff (only a path of the change list); answered with `changes.diffResult`. */
+  z.object({
+    type: z.literal('changes.diff'),
+    id,
+    sessionId,
+    path: z.string().min(1),
+    offset: z.number().int().nonnegative().optional(),
+  }),
+  /** The always-allow rules of the computer's settings files; answered with `rules.result`. */
+  z.object({ type: z.literal('rules.list'), id }),
+  /** Removes an app-created rule from its file (by its rules log ID); answered with `ack`. */
+  z.object({ type: z.literal('rules.undo'), id, ruleId: z.string().min(1) }),
+  /** Removes a rule from a file `rules.list` lists (any other path: `not_found`); answered with `ack`. */
+  z.object({ type: z.literal('rules.delete'), id, file: z.string().min(1), rule: z.string().min(1) }),
+  /** The approval log (last 30 days, most recent first); answered with `approvals.result`. */
+  z.object({ type: z.literal('approvals.list'), id }),
 ])
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>

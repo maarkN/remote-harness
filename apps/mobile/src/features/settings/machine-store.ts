@@ -1,32 +1,38 @@
 import * as SecureStore from 'expo-secure-store'
 import { useEffect } from 'react'
-import { create } from 'zustand'
 import { useConnectionStore } from '@/core/connection'
 import { resolveMachineName, setMachineName } from '@/core/i18n/machine'
 
-const ALIAS_KEY = 'remote-harness.machine-alias'
+/** The alias of the version with a single computer; moved onto the active computer once. */
+const LEGACY_ALIAS_KEY = 'remote-harness.machine-alias'
 
-/** Name the user gave the paired computer in this app (null = use the host name the daemon reports). */
-export const useMachineStore = create<{ alias: string | null }>(() => ({ alias: null }))
-
-/** Loads the saved alias; called once at app start. */
+/** Moves the old single alias onto the active computer; called once at app start. */
 export async function restoreMachineAlias(): Promise<void> {
-  const saved = await SecureStore.getItemAsync(ALIAS_KEY).catch(() => null)
-  useMachineStore.setState({ alias: saved?.trim() || null })
+  const saved = (await SecureStore.getItemAsync(LEGACY_ALIAS_KEY).catch(() => null))?.trim()
+  if (!saved) return
+  const { activeId, credentials, renameComputer } = useConnectionStore.getState()
+  if (!activeId || credentials?.alias) return
+  await renameComputer(activeId, saved)
+  await SecureStore.deleteItemAsync(LEGACY_ALIAS_KEY).catch(() => undefined)
 }
 
+/** Renames the active computer on this device (null: back to the host name). */
 export async function setMachineAlias(alias: string | null): Promise<void> {
-  const value = alias?.trim() || null
-  useMachineStore.setState({ alias: value })
-  if (value) await SecureStore.setItemAsync(ALIAS_KEY, value).catch(() => undefined)
-  else await SecureStore.deleteItemAsync(ALIAS_KEY).catch(() => undefined)
+  const { activeId, renameComputer } = useConnectionStore.getState()
+  if (activeId) await renameComputer(activeId, alias)
 }
 
-/** The alias, else the host name from the daemon's handshake, else null (not paired or unknown). */
+/** The active computer's alias, else the host name from the daemon's handshake, else its paired name. */
 export function useMachineName(): string | null {
-  const alias = useMachineStore((s) => s.alias)
+  const alias = useConnectionStore((s) => s.credentials?.alias ?? null)
   const host = useConnectionStore((s) => s.hello?.host)
-  return resolveMachineName(alias, host)
+  const paired = useConnectionStore((s) => s.credentials?.name ?? null)
+  return resolveMachineName(alias, host) ?? resolveMachineName(paired, null)
+}
+
+/** The active computer's alias (null when it has none). */
+export function useMachineAlias(): string | null {
+  return useConnectionStore((s) => s.credentials?.alias ?? null)
 }
 
 /** Keeps the catalogs' `{{machine}}` in step with the connection and the alias (root layout). */
