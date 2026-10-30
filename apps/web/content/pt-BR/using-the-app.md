@@ -60,6 +60,10 @@ Enquanto o agente delega trabalho, o menu do cabeçalho mostra **Subagentes (N �
 
 No iOS, uma sessão em andamento mostra uma Live Activity na tela de bloqueio e na Dynamic Island com o estado, o passo atual e o tempo decorrido; um pedido de permissão acrescenta os botões Permitir e Negar. No Android é uma notificação silenciosa sem botões: toque para responder no app. Nunca leva a conversa. Desligue em Ajustes → Notificações → Status ao vivo.
 
+## Widgets
+
+Adicione o widget **Sessões** para ver o computador ativo sem abrir o app. No iOS: pequeno (quantas sessões esperam você e quantas estão trabalhando), médio (até três sessões, a permissão pendente primeiro, com Negar e Permitir para o pedido mais antigo) e na tela de bloqueio (as contagens e seus limites de uso de 5 horas e semanal). No Android: um widget pequeno e um médio na tela inicial com o mesmo conteúdo. Negar e Permitir funcionam com o app fechado; tocar numa sessão abre ela. Os widgets mostram quando foram atualizados: o app os atualiza enquanto está aberto, e o computador manda um push sem conteúdo nenhum que faz o celular buscar o estado novo pela própria conexão criptografada, então os títulos das sessões nunca passam por um push.
+
 ## Notificações e silêncio
 
 As notificações push avisam quando uma sessão precisa de permissão, termina um turno ou faz uma pergunta; levam um título, o perfil e o id da sessão, nunca o conteúdo. Ajustes → Notificações tem o interruptor deste celular, um botão de teste e o interruptor do status ao vivo. Silencie um perfil ou uma sessão pela linha dela ou pelo menu da sessão; a linha **Silenciados** nos Ajustes lista tudo o que está silenciado.

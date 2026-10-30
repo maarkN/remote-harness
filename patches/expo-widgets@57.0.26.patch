@@ -127,6 +127,75 @@ index 5f34eb2b67a0c2389c8ad8e09c71aa391a0c65ef..83fe5f8363cd94625d0a4068917814e6
    func getPushToken() throws -> String? {
      guard #available(iOS 16.1, *) else { throw LiveActivitiesNotSupportedException() }
  
+diff --git a/ios/Widgets/Buttons.swift b/ios/Widgets/Buttons.swift
+index 55fb9b3d5fa04d38ab8c2a8b3de7f7656afc401e..9210986b4db9541d936231609dd528ddb9c2949f 100644
+--- a/ios/Widgets/Buttons.swift
++++ b/ios/Widgets/Buttons.swift
+@@ -9,29 +9,48 @@ final class ButtonProps: ExpoUI.ButtonProps {
+   @Field var environmentString: String?
+ }
+ 
++/// Widget button targets with this prefix are performed in the app's process, also when the app is
++/// not running (`LiveActivityIntent`), so the app hears about them; other targets stay in the widget
++/// extension, where the layout's button handler runs.
++let appProcessTargetPrefix = "app:"
++
+ @available(iOS 17.0, *)
+ struct WidgetButtonView: ExpoSwiftUI.View {
+   @ObservedObject var props: ButtonProps
+ 
+   var body: some View {
+-    SwiftUI.Button(
+-      role: props.role?.toNativeRole(),
+-      intent: WidgetUserInteraction(
+-        source: props.source,
+-        target: props.target,
+-        entryIndex: props.entryIndex,
+-        environmentString: props.environmentString
+-      )
+-    ) {
+-      if let label = props.label {
+-        if let systemImage = props.systemImage {
+-          Label(title: { Text(label) }, icon: { Image(systemName: systemImage) })
+-        } else {
+-          Text(label)
+-        }
++    if props.target?.hasPrefix(appProcessTargetPrefix) == true {
++      SwiftUI.Button(
++        role: props.role?.toNativeRole(),
++        intent: LiveActivityUserInteraction(source: props.source, target: props.target)
++      ) {
++        label
++      }
++    } else {
++      SwiftUI.Button(
++        role: props.role?.toNativeRole(),
++        intent: WidgetUserInteraction(
++          source: props.source,
++          target: props.target,
++          entryIndex: props.entryIndex,
++          environmentString: props.environmentString
++        )
++      ) {
++        label
++      }
++    }
++  }
++
++  @ViewBuilder
++  private var label: some View {
++    if let label = props.label {
++      if let systemImage = props.systemImage {
++        Label(title: { Text(label) }, icon: { Image(systemName: systemImage) })
+       } else {
+-        Children()
++        Text(label)
+       }
++    } else {
++      Children()
+     }
+   }
+ }
 diff --git a/ios/WidgetsModule.swift b/ios/WidgetsModule.swift
 index b1b4295e22726e6fe501aa5e514b56061dea57a1..478487f0c70cd61fb48140a740aea1b7dac49569 100644
 --- a/ios/WidgetsModule.swift

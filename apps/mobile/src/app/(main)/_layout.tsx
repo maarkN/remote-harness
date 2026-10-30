@@ -25,6 +25,7 @@ import { backAction } from '@/features/shortcuts/logic'
 import { setShortcutsSheetOpen, useShortcutsStore } from '@/features/shortcuts/store'
 import { useSessionShortcuts } from '@/features/shortcuts/use-session-shortcuts'
 import { useDaemonSync } from '@/features/sync/use-daemon-sync'
+import { useWidgets } from '@/features/widgets/use-widgets'
 import { IconButton, MasterDetailLayout, stackScreenOptions } from '@/ui'
 
 /**
@@ -75,6 +76,7 @@ export default function MainLayout() {
   usePush()
   useLiveStatus()
   useLiveFollow()
+  useWidgets()
   useAssistantSessions()
   const { layout, portrait } = useLayout()
   const pathname = usePathname()

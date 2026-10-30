@@ -24,6 +24,9 @@ import {
   stringCatalog,
   stringsFile,
 } from './modules/voice-assistant/app-intents/strings.ts'
+import enUS from './src/core/i18n/locales/en-US.ts'
+import esES from './src/core/i18n/locales/es-ES.ts'
+import ptBR from './src/core/i18n/locales/pt-BR.ts'
 
 /** Dark theme background (splash and adaptive icon backdrop; the artwork changes in #84). */
 const BACKGROUND = '#0D0D0D'
@@ -456,6 +459,115 @@ const withLiveActivityIcon: ConfigPlugin = (config) => {
   })
 }
 
+/** Widget kind of the iOS Home Screen / Lock Screen widget (`src/features/widgets/SessionsWidget.tsx`). */
+const IOS_WIDGET = 'SessionsWidget'
+/** Android widget names (`src/features/widgets/android/SessionsWidgetAndroid.tsx`). */
+const ANDROID_WIDGETS = { small: 'SessionsSmall', medium: 'SessionsMedium' } as const
+
+/**
+ * Widget gallery (iOS) and picker (Android) texts per system language, from the app's catalogs. The
+ * iOS gallery shows the English strings of the generated Swift, looked up as keys in the widget
+ * extension's `Localizable.strings`.
+ */
+const WIDGET_GALLERY = {
+  en: enUS.widgets,
+  'pt-BR': ptBR.widgets,
+  es: esES.widgets,
+} as const
+/** Android resource folders of the non-default languages. */
+const ANDROID_VALUES_FOLDERS = { 'pt-BR': 'values-pt-rBR', es: 'values-es' } as const
+
+const stringsEscape = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+const xmlEscape = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, "\\'")
+
+/** `Localizable.strings` of the widget extension for one language: English gallery text → translation. */
+export function widgetGalleryStrings(language: keyof typeof WIDGET_GALLERY): string {
+  const en = WIDGET_GALLERY.en
+  const own = WIDGET_GALLERY[language]
+  return [
+    [en.galleryName, own.galleryName],
+    [en.galleryDescription, own.galleryDescription],
+  ]
+    .map(([key, value]) => `"${stringsEscape(key ?? '')}" = "${stringsEscape(value ?? '')}";`)
+    .join('\n')
+    .concat('\n')
+}
+
+/**
+ * Android string resources of the widget picker: the labels (default language too) and, per
+ * translation, the descriptions under the names `react-native-android-widget` writes the default in.
+ */
+export function widgetPickerStrings(language: keyof typeof WIDGET_GALLERY): string {
+  const own = WIDGET_GALLERY[language]
+  const items: [string, string][] = [
+    ['widget_sessions_small_label', own.smallName],
+    ['widget_sessions_medium_label', own.mediumName],
+    ...(language === 'en'
+      ? []
+      : ([
+          [`widget_${ANDROID_WIDGETS.small.toLowerCase()}_description`, own.galleryDescription],
+          [`widget_${ANDROID_WIDGETS.medium.toLowerCase()}_description`, own.galleryDescription],
+        ] as [string, string][])),
+  ]
+  const body = items
+    .map(([name, value]) => `  <string name="${name}">${xmlEscape(value)}</string>`)
+    .join('\n')
+  return `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n${body}\n</resources>\n`
+}
+
+/**
+ * Localized widget gallery and picker texts. iOS: one `<lang>.lproj` folder per language in the
+ * widget extension, wired as a folder reference into its Resources phase (after `expo-widgets`
+ * recreated the target, like `withLiveActivityIcon`). Android: `widget_strings.xml` in `res/values` and per language.
+ */
+const withWidgetGalleryStrings: ConfigPlugin = (config) => {
+  const languages = Object.keys(WIDGET_GALLERY) as (keyof typeof WIDGET_GALLERY)[]
+  const withIosFiles = withDangerousMod(config, [
+    'ios',
+    (config) => {
+      for (const language of languages) {
+        const folder = join(config.modRequest.platformProjectRoot, WIDGET_TARGET, `${language}.lproj`)
+        mkdirSync(folder, { recursive: true })
+        writeFileSync(join(folder, 'Localizable.strings'), widgetGalleryStrings(language))
+      }
+      return config
+    },
+  ])
+  const withIosProject = withXcodeProject(withIosFiles, (config) => {
+    const project = config.modResults
+    const target = project.findTargetKey(WIDGET_TARGET)
+    const group = project.findPBXGroupKey({ name: WIDGET_TARGET })
+    if (!target || !group)
+      throw new Error(`withWidgetGalleryStrings: ${WIDGET_TARGET} not found; check expo-widgets`)
+    const phases: { comment?: string }[] = project.pbxNativeTargetSection()[target]?.buildPhases ?? []
+    if (!phases.some((phase) => phase.comment === 'Resources')) {
+      project.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target)
+    }
+    for (const language of languages) {
+      const file = project.addFile(`${language}.lproj`, group, { lastKnownFileType: 'folder' })
+      if (!file) continue
+      file.uuid = project.generateUuid()
+      file.target = target
+      project.addToPbxBuildFileSection(file)
+      project.addToPbxResourcesBuildPhase(file)
+    }
+    return config
+  })
+  return withDangerousMod(withIosProject, [
+    'android',
+    (config) => {
+      const res = join(config.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res')
+      for (const language of languages) {
+        const folder = join(res, language === 'en' ? 'values' : ANDROID_VALUES_FOLDERS[language])
+        mkdirSync(folder, { recursive: true })
+        writeFileSync(join(folder, 'widget_strings.xml'), widgetPickerStrings(language))
+      }
+      return config
+    },
+  ])
+}
+
 /** Folder of the app target that receives the Siri / Shortcuts intents (`modules/voice-assistant`). */
 const APP_INTENTS_DIR = 'AppIntents'
 const APP_INTENTS_SOURCE = './modules/voice-assistant/app-intents'
@@ -610,11 +722,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       withIosOnlyLocaleStrings(
         withVoiceAssistantIntents(
           withLiveActivityIcon(
-            withUserLeaveHintMainActivity(
-              withKeyCommandMainActivity(
-                withKeyCommandAppDelegate(
-                  withKeyCommandBridgingHeader(
-                    withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+            withWidgetGalleryStrings(
+              withUserLeaveHintMainActivity(
+                withKeyCommandMainActivity(
+                  withKeyCommandAppDelegate(
+                    withKeyCommandBridgingHeader(
+                      withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+                    ),
                   ),
                 ),
               ),
@@ -750,14 +864,65 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     [
       'expo-notifications',
       {
-        enableBackgroundRemoteNotifications: false,
+        // Widget refresh pushes (`content-available`) wake the app in the background.
+        enableBackgroundRemoteNotifications: true,
         icon: './assets/notification-icon.png',
         color: ACCENT,
         defaultChannel: NOTIFICATION_CHANNEL,
       },
     ],
-    // Live Activity of running sessions: widget extension, App Group and remote (FCM) updates.
-    ['expo-widgets', { enablePushNotifications: true, frequentUpdates: true }],
+    // Live Activity of running sessions and the Home Screen / Lock Screen widget: widget extension,
+    // App Group and remote (FCM) updates. Android widgets come from react-native-android-widget.
+    [
+      'expo-widgets',
+      {
+        enablePushNotifications: true,
+        frequentUpdates: true,
+        widgets: [
+          {
+            name: IOS_WIDGET,
+            displayName: WIDGET_GALLERY.en.galleryName,
+            description: WIDGET_GALLERY.en.galleryDescription,
+            supportedFamilies: [
+              'systemSmall',
+              'systemMedium',
+              'accessoryCircular',
+              'accessoryRectangular',
+              'accessoryInline',
+            ],
+            contentMarginsDisabled: false,
+            android: null,
+          },
+        ],
+      },
+    ],
+    [
+      'react-native-android-widget',
+      {
+        widgets: [
+          {
+            name: ANDROID_WIDGETS.small,
+            label: '@string/widget_sessions_small_label',
+            description: WIDGET_GALLERY.en.galleryDescription,
+            minWidth: '110dp',
+            minHeight: '110dp',
+            targetCellWidth: 2,
+            targetCellHeight: 2,
+            resizeMode: 'horizontal|vertical',
+          },
+          {
+            name: ANDROID_WIDGETS.medium,
+            label: '@string/widget_sessions_medium_label',
+            description: WIDGET_GALLERY.en.galleryDescription,
+            minWidth: '250dp',
+            minHeight: '110dp',
+            targetCellWidth: 4,
+            targetCellHeight: 2,
+            resizeMode: 'horizontal|vertical',
+          },
+        ],
+      },
+    ],
     [
       'expo-build-properties',
       {
