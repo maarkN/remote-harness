@@ -125,6 +125,17 @@ export const AccountLimitsSchema = z.object({
 })
 export type AccountLimits = z.infer<typeof AccountLimitsSchema>
 
+/**
+ * What a session last did, for the list's preview: its last prompt, reply or tool call as one line of
+ * plain text (at most `LAST_ACTIVITY_MAX_CHARS`), with the entry's time. Never sent in push payloads.
+ */
+export const LastActivitySchema = z.object({
+  kind: z.enum(['user', 'assistant', 'tool']),
+  text: z.string(),
+  at: z.string(),
+})
+export type LastActivity = z.infer<typeof LastActivitySchema>
+
 export const SessionSchema = z.object({
   id: z.string(),
   profileId: z.string(),
@@ -147,6 +158,8 @@ export const SessionSchema = z.object({
   checkout: CheckoutSchema.nullable().default(null),
   /** `null` until the session's status line reports (and from older daemons). */
   status: SessionStatusSchema.nullable().default(null),
+  /** `null` until the daemon reads the transcript (and from older daemons). */
+  lastActivity: LastActivitySchema.nullable().default(null),
 })
 export type Session = z.infer<typeof SessionSchema>
 

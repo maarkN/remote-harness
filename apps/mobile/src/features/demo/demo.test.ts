@@ -74,6 +74,7 @@ describe('demo fixtures', () => {
       const session = SessionSchema.parse(demoSession(fixture, index, NOW))
       expect(session.cwd.startsWith(`${DEMO_HOME}/code/`)).toBe(true)
       expect(session.controllable).toBe(fixture.state !== 'ended')
+      expect(session.lastActivity?.text).toBeTruthy()
       const entries = demoTranscript(fixture, NOW)
       for (const entry of entries) TranscriptEntrySchema.parse(entry)
       expect(entries.map((e) => e.cursor)).toEqual(entries.map((_, i) => i))
@@ -255,7 +256,9 @@ describe('demo daemon', () => {
       ['assistant_text', labels.reply],
     ])
     expect(entries[0]?.cursor).toBe(count)
-    expect(ofType('session.updated').at(-1)).toMatchObject({ session: { state: 'idle' } })
+    expect(ofType('session.updated').at(-1)).toMatchObject({
+      session: { state: 'idle', lastActivity: { kind: 'assistant', text: labels.reply } },
+    })
     // A resume from the last cursor gets nothing again.
     const resumed = send({ type: 'session.subscribe', sessionId: IDLE.id, sinceCursor: entries[1]?.cursor })
     expect(replyTo(resumed).entries).toEqual([])

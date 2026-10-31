@@ -209,6 +209,7 @@ function record(id: string, profileId = 'claudin'): SessionRecord {
     updatedAt: '2026-10-18T10:00:00.000Z',
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: null,
     status: null,
     transcriptPath: null,

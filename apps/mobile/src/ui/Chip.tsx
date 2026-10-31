@@ -10,11 +10,14 @@ export function Chip({
   label,
   selected = false,
   ghost = false,
+  accessibilityLabel,
   onPress,
 }: {
   label: string
   selected?: boolean
   ghost?: boolean
+  /** Read instead of `label` when the label alone is ambiguous (a bare value). */
+  accessibilityLabel?: string
   onPress: () => void
 }) {
   const styles = useStyles()
@@ -22,6 +25,7 @@ export function Chip({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,

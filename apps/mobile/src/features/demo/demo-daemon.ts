@@ -4,6 +4,7 @@ import {
   type ClientMessageOf,
   type ErrorCode,
   KeySchema,
+  lastActivityOf,
   type MuteState,
   type PermissionRequestInfo,
   PROTOCOL_VERSION,
@@ -514,6 +515,8 @@ export class DemoDaemon {
     state.nextIndex += entries.length
     state.entries.push(...added)
     this.sendEntries(state, added)
+    const lastActivity = lastActivityOf(state.entries, iso(now))
+    if (lastActivity) this.update(state, { lastActivity }, false)
   }
 
   private sendEntries(state: DemoState, entries: TranscriptEntry[]): void {

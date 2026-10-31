@@ -126,3 +126,34 @@ export class TranscriptFile {
     return { entries: lines.flatMap((l) => this.format.parseLine(l.text, l.cursor)), gap: from > cursor + 1 }
   }
 }
+
+/**
+ * Entries of the last `bytes` of a transcript, without indexing it (the first, partial line of the
+ * window is dropped). `complete` when the window held the whole file. A missing file reads as empty.
+ */
+export async function readTailEntries(
+  path: string,
+  format: TranscriptFormat = claudeTranscript,
+  bytes = 64 * 1024,
+): Promise<{ entries: TranscriptEntry[]; complete: boolean }> {
+  let handle: Awaited<ReturnType<typeof open>>
+  try {
+    handle = await open(path, 'r')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { entries: [], complete: true }
+    throw error
+  }
+  try {
+    const { size } = await handle.stat()
+    const length = Math.min(bytes, size)
+    const buffer = Buffer.alloc(length)
+    await handle.read(buffer, 0, length, size - length)
+    const complete = length === size
+    const lines = buffer.toString('utf8').split('\n')
+    // The window's first line is cut unless it starts the file; the last one may still be written.
+    if (!complete) lines.shift()
+    return { entries: lines.filter(Boolean).flatMap((text) => format.parseLine(text, 0)), complete }
+  } finally {
+    await handle.close()
+  }
+}

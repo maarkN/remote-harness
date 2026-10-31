@@ -957,6 +957,12 @@ const ptBR = {
     subagents_other: '+{{count}} subagentes',
     muted: 'silenciada',
     sort: { recent: 'Recentes', state: 'Por estado', label: 'Ordenar' },
+    density: { compact: 'Compacta', expanded: 'Expandida', label: 'Densidade da lista' },
+    lastActivity: {
+      user: 'Último prompt: {{text}}',
+      assistant: 'Última resposta: {{text}}',
+      tool: 'Última ferramenta: {{text}}',
+    },
     all: 'todos',
     active: 'ativas',
     ended: 'encerradas',
@@ -1107,6 +1113,8 @@ const ptBR = {
       light: 'Claro',
     },
     themeDone: 'Concluído',
+    expandedList: 'Lista de sessões expandida',
+    expandedListHint: 'Mostra o último prompt, resposta ou ferramenta abaixo de cada sessão.',
     appIcon: {
       title: 'Ícone do app',
       row: 'Ícone do app · {{icon}}',

@@ -4,8 +4,10 @@ import type { DaemonContext } from '../../main.ts'
 import { adapterOf } from '../agents/index.ts'
 import type { SessionStore } from '../sessions/store.ts'
 import { oneLine } from '../sessions/transcript-meta.ts'
+import type { SessionRecord } from '../sessions/types.ts'
 import { mergeStatus } from './format.ts'
 import { type EntryListener, type StreamTarget, TranscriptService } from './service.ts'
+import { readTailEntries } from './transcript-file.ts'
 
 /** Resolves the transcript file for a session or one of its subagents. */
 export type TranscriptPathResolver = (sessionId: string, agentId?: string) => string | null
@@ -83,6 +85,11 @@ export function registerTranscriptFeature(
     service,
     /** Follows a session's own transcript (not its subagents') for daemon-side listeners. */
     follow: (sessionId: string, listener: EntryListener) => service.follow(target(sessionId), listener),
+    /** The last `bytes` of a session's own transcript, in its agent's format, without indexing it. */
+    readTail: (session: SessionRecord, bytes: number) =>
+      session.transcriptPath
+        ? readTailEntries(session.transcriptPath, adapterOf(session.agent).transcript, bytes)
+        : Promise.resolve({ entries: [], complete: true }),
     /** Lets other features (subagents) teach the stream how to find more transcripts. */
     addResolver(resolver: TranscriptPathResolver) {
       resolvers.push(resolver)

@@ -24,6 +24,7 @@ const session: Session = {
   updatedAt: '2026-10-14T00:00:00Z',
   subagents: [],
   backgroundTasks: 0,
+  lastActivity: null,
   checkout: { root: '/tmp', branch: 'main' },
   status: { model: 'Opus 5.5', effort: 'high', context: { usedTokens: 124_000, size: 200_000, percent: 62 } },
 }

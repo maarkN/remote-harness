@@ -32,6 +32,7 @@ import { restoreLiveStatusSetting } from '@/features/live-status/settings-store'
 import { restorePerformanceSetting } from '@/features/performance/store'
 import { usePerformanceMonitoring } from '@/features/performance/use-performance'
 import { restorePushSettings } from '@/features/push/push-settings-store'
+import { restoreSessionDensity } from '@/features/sessions/density-store'
 import { restoreSessionPrefs } from '@/features/sessions/prefs-store'
 import { restoreSessionSort } from '@/features/sessions/sort-store'
 import { restoreAppIconPreference, useApplyAppIcon } from '@/features/settings/app-icon-store'
@@ -78,6 +79,7 @@ export default function RootLayout() {
     void restoreThemePreference()
     void restoreAppIconPreference()
     void restoreSessionSort()
+    void restoreSessionDensity()
     void restoreSessionPrefs()
     void restorePushSettings()
     void restoreOpenAfterCreateSettings()

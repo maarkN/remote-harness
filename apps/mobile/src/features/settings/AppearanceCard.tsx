@@ -1,7 +1,7 @@
 import { Check, ChevronRight } from 'lucide-react-native'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   dark,
@@ -14,10 +14,14 @@ import {
   useTheme,
   useThemeStore,
 } from '@/core/theme'
+import { setSessionDensity, useSessionDensityStore } from '@/features/sessions/density-store'
 import { Button, Card, Text } from '@/ui'
 import { type ThemeRow, themeRowLabel, themeRows } from './theme-picker'
 
-/** Settings → Appearance: a select row opening a modal with the scrollable theme list. */
+/**
+ * Settings → Appearance: a select row opening a modal with the scrollable theme list, and the session
+ * list's density (expanded rows preview the last activity).
+ */
 export function AppearanceCard() {
   const { t } = useTranslation()
   const preference = useThemeStore((s) => s.preference)
@@ -38,7 +42,30 @@ export function AppearanceCard() {
         <ThemeRowChevron />
       </Pressable>
       <ThemePickerSheet visible={open} onClose={() => setOpen(false)} />
+      <ExpandedListRow />
     </Card>
+  )
+}
+
+function ExpandedListRow() {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const expanded = useSessionDensityStore((s) => s.density === 'expanded')
+  return (
+    <View style={[layout.row, layout.spaced]}>
+      <View style={layout.flex}>
+        <Text size="sm">{t('settings.expandedList')}</Text>
+        <Text size="xs" color="textMuted">
+          {t('settings.expandedListHint')}
+        </Text>
+      </View>
+      <Switch
+        value={expanded}
+        onValueChange={(value) => void setSessionDensity(value ? 'expanded' : 'compact')}
+        accessibilityLabel={t('settings.expandedList')}
+        trackColor={{ true: colors.accent, false: colors.borderStrong }}
+      />
+    </View>
   )
 }
 
@@ -112,6 +139,7 @@ function ThemeOptionRow({ row, onPress }: { row: ThemeRow; onPress: () => void }
 const layout = StyleSheet.create({
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  spaced: { marginTop: space.md },
   pressed: { opacity: 0.7 },
   list: { maxHeight: 420 },
   listContent: { gap: space.xs },
