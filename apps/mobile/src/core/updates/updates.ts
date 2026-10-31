@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store'
 import * as Updates from 'expo-updates'
 import { create } from 'zustand'
+import { readMigratedKey } from '../storage/migrate-key'
 import {
   channelHeaders,
   DEFAULT_CHANNEL,
@@ -28,7 +29,8 @@ export const useUpdatesStore = create<UpdatesState>(() => ({
   channel: DEFAULT_CHANNEL,
 }))
 
-const CHANNEL_KEY = 'claude-remote.update-channel'
+const CHANNEL_KEY = 'remote-harness.update-channel'
+const LEGACY_CHANNEL_KEY = 'claude-remote.update-channel'
 
 /** False in development builds and in builds without an update server. */
 export const updatesEnabled = Updates.isEnabled
@@ -46,7 +48,7 @@ export function runningUpdate() {
 
 /** Loads the chosen channel and applies it; call once before the first check. */
 export async function restoreChannel(): Promise<void> {
-  const saved = await SecureStore.getItemAsync(CHANNEL_KEY).catch(() => null)
+  const saved = await readMigratedKey(CHANNEL_KEY, LEGACY_CHANNEL_KEY)
   const channel = isUpdateChannel(saved) ? saved : DEFAULT_CHANNEL
   Updates.setUpdateRequestHeadersOverride(channelHeaders(channel))
   useUpdatesStore.setState({ channel })
