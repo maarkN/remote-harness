@@ -6,6 +6,7 @@ import {
   isKeepAwakeMode,
   type KeepAwakeMode,
   loadConfig,
+  renameProfileInConfig,
   updateConfigFile,
 } from '../../core/config.ts'
 import { messagesFor } from '../../core/i18n/index.ts'
@@ -15,6 +16,7 @@ import { createDesktop } from '../../infra/desktop.ts'
 import { currentWsl, resolvePlatform } from '../../infra/platform.ts'
 import { spawnJsonLines, trayAssetsDir, trayCommand } from '../../infra/tray-helper.ts'
 import type { DaemonContext } from '../../main.ts'
+import { agentFor } from '../agents/index.ts'
 import { showInTerminal } from '../pane/show-in-terminal.ts'
 import type { PushSetting } from '../push/mode.ts'
 import { LaunchdService } from '../service/launchd.ts'
@@ -33,10 +35,14 @@ import {
   pendingSummary,
   TRAY_ACTIONS,
   TRAY_PREFIXES,
+  type TrayDevice,
+  type TrayMenuState,
+  type TrayNetwork,
   type TrayPending,
   type TrayProfile,
   type TraySession,
 } from './menu.ts'
+import { buildTrayPopover } from './popover.ts'
 import { RemoteUpdates } from './remote.ts'
 import { TrayHost } from './tray-host.ts'
 
@@ -55,8 +61,12 @@ export type TrayShellDeps = {
   pendingPermissions: () => PermissionRequestInfo[]
   /** Answers a request like the app does; `always` saves the suggested rule. */
   respond: (requestId: string, decision: 'allow' | 'deny', always: boolean) => void
-  /** Registered phones and whether push is configured. */
-  phones: () => { count: number; push: boolean }
+  /** The paired devices (with the paths they are connected by now) and whether push is on. */
+  devices: () => { push: boolean; items: TrayDevice[] }
+  /** Unpairs a device like `remote-harness devices revoke`; false when there is no such device. */
+  revokeDevice: (deviceId: string) => Promise<boolean>
+  /** Where devices reach this daemon. */
+  network: () => TrayNetwork
   /** Graceful close of a session (change 57). */
   closeSession: (sessionId: string) => Promise<unknown>
   /** Delivers `/rename <name>` to a controllable session's pane, like any other input. */
@@ -99,8 +109,11 @@ export async function registerUpdatesFeature(
   /** Commit whose update failed: automatic updates do not retry it (the menu still can). */
   let failedCommit: string | null = null
   const startedAt = new Date()
-  /** The helper reported it can open the Preferences/Sessions windows (macOS). */
+  /** The helper reported it can open the Preferences/Sessions windows, and shows the popover (macOS). */
   let helperWindows = false
+  let helperPopover = false
+  /** Profiles renamed from the tray: the config has the name, `hello` keeps the start-time one. */
+  const profileNames = new Map<string, string>()
   /** Renamed while not controllable: sent as `/rename` once the session is controllable again. */
   const pendingRenames = new Set<string>()
 
@@ -184,8 +197,9 @@ export async function registerUpdatesFeature(
         (id, value) => void onTrayClick(id, value),
         ctx.logger,
         undefined,
-        (windows) => {
+        ({ windows, popover }) => {
           helperWindows = windows
+          helperPopover = popover
           if (windows) void refreshStartAtLogin()
           refreshMenu()
         },
@@ -196,7 +210,8 @@ export async function registerUpdatesFeature(
   const shellState = () => {
     const shell = deps.shell
     if (!shell) return {}
-    const profileName = (id: string) => shell.profiles.find((p) => p.id === id)?.name ?? id
+    const profileOf = (id: string) => shell.profiles.find((p) => p.id === id)
+    const profileName = (id: string) => profileNames.get(id) ?? profileOf(id)?.name ?? id
     const sessions: TraySession[] = deps.store.all().map((s) => ({
       id: s.id,
       title: s.title || s.cwd,
@@ -210,9 +225,11 @@ export async function registerUpdatesFeature(
     }))
     const profiles: TrayProfile[] = shell.profiles.map((p) => ({
       id: p.id,
-      name: p.name,
+      name: profileName(p.id),
       agent: p.agent ?? 'claude',
+      agentName: agentFor(p).name,
       color: p.color,
+      folder: shortenHome(p.configDir),
     }))
     const oldest = shell
       .pendingPermissions()
@@ -227,6 +244,9 @@ export async function registerUpdatesFeature(
           profile: profileName(oldest.profileId),
           summary: pendingSummary(oldest),
           canAlways: oldest.suggestedRule !== null,
+          agent: deps.store.get(oldest.sessionId)?.agent ?? profileOf(oldest.profileId)?.agent ?? 'claude',
+          profileColor: profileOf(oldest.profileId)?.color ?? null,
+          createdAt: oldest.createdAt,
         }
       : null
     return {
@@ -235,11 +255,15 @@ export async function registerUpdatesFeature(
       sessions,
       profiles,
       pending,
-      phones: shell.phones(),
+      devices: shell.devices(),
+      network: shell.network(),
+      locale,
+      now: Date.now(),
       canStart: shell.profiles.length > 0,
       pairing: shell.pairing(),
       qr: platform === 'darwin',
       windows: helperWindows,
+      popover: helperPopover,
       prefs: {
         permissions: settings.trayPermissions,
         keepAwake: shell.keepAwake.mode(),
@@ -252,28 +276,29 @@ export async function registerUpdatesFeature(
     }
   }
 
-  const refreshMenu = () =>
-    tray?.update(
-      buildTrayMenu(
-        {
-          version: DAEMON_VERSION,
-          channel: settings.update.channel,
-          auto: settings.update.auto,
-          available: checker?.state.available
-            ? {
-                version: updateLabel(checker.state.available, DAEMON_VERSION),
-                downgrade: checker.state.available.downgrade,
-              }
-            : null,
-          checking: checker?.checking ?? false,
-          updating: launcher.updating,
-          canUpdate: checker !== null,
-          canRestart: underServiceManager(),
-          ...shellState(),
-        },
-        m.tray,
-      ),
+  const refreshMenu = () => {
+    if (!tray) return
+    const state: TrayMenuState = {
+      version: DAEMON_VERSION,
+      channel: settings.update.channel,
+      auto: settings.update.auto,
+      available: checker?.state.available
+        ? {
+            version: updateLabel(checker.state.available, DAEMON_VERSION),
+            downgrade: checker.state.available.downgrade,
+          }
+        : null,
+      checking: checker?.checking ?? false,
+      updating: launcher.updating,
+      canUpdate: checker !== null,
+      canRestart: underServiceManager(),
+      ...shellState(),
+    }
+    const menu = buildTrayMenu(state, m.tray)
+    tray.update(
+      helperPopover && state.sessions ? { ...menu, popover: buildTrayPopover(state, m.tray) } : menu,
     )
+  }
 
   // A busy session must not flood the helper: changes coalesce into one rebuild.
   let refreshTimer: NodeJS.Timeout | undefined
@@ -423,6 +448,16 @@ export async function registerUpdatesFeature(
           deps.store.upsert(sessionId, { title: name })
           pendingRenames.add(sessionId)
         }
+      } else if (id.startsWith(TRAY_PREFIXES.revoke) && shell) {
+        // The hub's close and `device.revoked` refresh the menu.
+        await shell.revokeDevice(id.slice(TRAY_PREFIXES.revoke.length))
+      } else if (id.startsWith(TRAY_PREFIXES.profileName) && shell) {
+        const profileId = id.slice(TRAY_PREFIXES.profileName.length)
+        const name = value?.trim()
+        if (name && (await renameProfileInConfig(profileId, name))) {
+          profileNames.set(profileId, name)
+          refreshMenu()
+        }
       } else if (id === TRAY_ACTIONS.prefMachineName) {
         await updateConfigFile({ machineName: value?.trim() || undefined })
         await reload()
@@ -473,6 +508,12 @@ export async function registerUpdatesFeature(
     ctx.bus.on('permission.requested', scheduleRefresh)
     ctx.bus.on('permission.resolved', scheduleRefresh)
     ctx.bus.on('permission.handover', scheduleRefresh)
+    // Devices: pairing ends in an authenticated connection; revoking closes them and is announced.
+    ctx.onClientConnected((connection) => {
+      scheduleRefresh()
+      connection.onClose(scheduleRefresh)
+    })
+    ctx.bus.on('device.revoked', scheduleRefresh)
   }
 
   void tray?.launch().then(refreshMenu)

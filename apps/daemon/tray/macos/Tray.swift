@@ -26,7 +26,18 @@ struct PrefRowWire: Decodable {
   let value: String?
   let options: [PrefOptionWire]?
   let style: String?
+  /// The question a destructive button asks before it runs.
+  let confirm: String?
   let text: String?
+  /// `entry` rows: `online` / `offline`, and the row's action.
+  let tone: String?
+  let button: PrefButtonWire?
+}
+struct PrefButtonWire: Decodable {
+  let id: String
+  let label: String
+  let style: String?
+  let confirm: String?
 }
 struct PrefOptionWire: Decodable {
   let id: String
@@ -34,6 +45,7 @@ struct PrefOptionWire: Decodable {
   let checked: Bool
 }
 struct PrefSectionWire: Decodable {
+  let title: String?
   let rows: [PrefRowWire]
 }
 struct PrefTabWire: Decodable, Identifiable {
@@ -75,6 +87,74 @@ struct TraySessionsWindowWire: Decodable {
   let renamePrompt: TrayRenamePromptWire
 }
 
+// MARK: - Popover wire (mirrors the daemon's `TrayPopover`; every string already translated)
+
+struct TrayPillWire: Decodable {
+  let label: String
+  let tone: String
+}
+struct PopoverActionWire: Decodable, Identifiable {
+  let id: String
+  let label: String
+  let detail: String?
+  let enabled: Bool?
+  let style: String?
+  let items: [PopoverActionWire]?
+}
+struct PopoverHeaderWire: Decodable {
+  let title: String
+  let subtitle: String
+  let pill: TrayPillWire
+}
+struct PopoverPendingWire: Decodable {
+  let label: String
+  let createdAt: String
+  let agent: String
+  let title: String
+  let profile: String
+  let profileColor: String?
+  let summary: String
+  let actions: [PopoverActionWire]
+}
+struct PopoverSessionWire: Decodable, Identifiable {
+  let id: String
+  let agent: String
+  let title: String
+  let detail: String
+  let pill: TrayPillWire
+  let action: String?
+  let menu: [PopoverActionWire]
+}
+struct PopoverSessionsWire: Decodable {
+  let label: String
+  let detail: String
+  let rows: [PopoverSessionWire]
+  let more: PopoverActionWire?
+  let ended: PopoverActionWire?
+  let empty: String?
+}
+struct PopoverDeviceWire: Decodable, Identifiable {
+  let id: String
+  let name: String
+  let platform: String
+  let detail: String
+  let pill: TrayPillWire
+}
+struct PopoverDevicesWire: Decodable {
+  let label: String
+  let detail: String
+  let rows: [PopoverDeviceWire]
+  let empty: String?
+  let action: String
+}
+struct TrayPopoverWire: Decodable {
+  let header: PopoverHeaderWire
+  let pending: PopoverPendingWire?
+  let sessions: PopoverSessionsWire
+  let devices: PopoverDevicesWire
+  let actions: [[PopoverActionWire]]
+}
+
 struct TrayMessage: Decodable {
   let type: String
   let tooltip: String?
@@ -85,6 +165,8 @@ struct TrayMessage: Decodable {
   let sessions: [TraySessionWire]?
   let sessionsWindow: TraySessionsWindowWire?
   let prefsWindow: TrayPrefsWindowWire?
+  /// The popover's cards; present once the daemon knows this helper shows the popover.
+  let popover: TrayPopoverWire?
 }
 
 /// Data the Preferences/Sessions windows render; updated on the main thread as menu messages
@@ -93,6 +175,9 @@ final class TrayState: ObservableObject {
   @Published var sessions: [TraySessionWire] = []
   @Published var sessionsWindow: TraySessionsWindowWire?
   @Published var prefsWindow: TrayPrefsWindowWire?
+  @Published var popover: TrayPopoverWire?
+  /// The Preferences window's selected tab (`prefs:<tab>` opens it on that tab).
+  @Published var prefsTab = "general"
 }
 
 final class Tray: NSObject {
@@ -101,6 +186,9 @@ final class Tray: NSObject {
   let data = TrayState()
   private var prefsWindow: NSWindow?
   private var sessionsWindow: NSWindow?
+  /// The cards popover, shown instead of the menu once the daemon sends `popover`.
+  private let popover = NSPopover()
+  private lazy var popoverHost = NSHostingController(rootView: PopoverView(state: data, tray: self))
 
   override init() {
     super.init()
@@ -108,6 +196,29 @@ final class Tray: NSObject {
       button.image = Tray.glyph("idle")
       button.image?.accessibilityDescription = "Remote Harness"
     }
+    popover.behavior = .transient
+    popover.animates = false
+  }
+
+  @objc private func togglePopover(_ sender: Any?) {
+    if popover.isShown {
+      popover.performClose(sender)
+      return
+    }
+    guard let button = statusItem.button else { return }
+    if popover.contentViewController == nil {
+      if #available(macOS 13.0, *) { popoverHost.sizingOptions = [.preferredContentSize] }
+      popover.contentViewController = popoverHost
+    }
+    popover.contentSize = popoverHost.view.fittingSize
+    NSApp.activate(ignoringOtherApps: true)
+    popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+  }
+
+  /// A popover click: the popover closes first (a prompt or a window may follow), then the action runs.
+  func popoverAction(_ id: String) {
+    popover.performClose(nil)
+    dispatch(id)
   }
 
   /// The Remote Harness mark in its bold weight (three reins meeting in one ring), drawn from the
@@ -150,6 +261,9 @@ final class Tray: NSObject {
     return image
   }
 
+  /// The mark as a template image, for the popover header.
+  static func markImage() -> NSImage { glyph("idle") }
+
   func apply(_ message: TrayMessage) {
     guard message.type == "menu" else { return }
     let next = message.icon ?? "idle"
@@ -160,10 +274,19 @@ final class Tray: NSObject {
       button.alphaValue = next == "offline" ? 0.4 : 1
     }
     statusItem.button?.toolTip = message.tooltip
-    statusItem.menu = build(message.items ?? [])
     if let sessions = message.sessions { data.sessions = sessions }
     if let sessionsWindow = message.sessionsWindow { data.sessionsWindow = sessionsWindow }
     if let prefsWindow = message.prefsWindow { data.prefsWindow = prefsWindow }
+    if let cards = message.popover {
+      // The popover replaces the menu: a click on the icon toggles it.
+      data.popover = cards
+      statusItem.menu = nil
+      statusItem.button?.target = self
+      statusItem.button?.action = #selector(togglePopover(_:))
+      if popover.isShown { popover.contentSize = popoverHost.view.fittingSize }
+    } else {
+      statusItem.menu = build(message.items ?? [])
+    }
   }
 
   private func build(_ items: [TrayItem]) -> NSMenu {
@@ -243,6 +366,8 @@ final class Tray: NSObject {
   func dispatch(_ id: String) {
     if id == "prefs", data.prefsWindow != nil {
       showPreferences()
+    } else if id.hasPrefix("prefs:"), data.prefsWindow != nil {
+      showPreferences(tab: String(id.dropFirst("prefs:".count)))
     } else if id == "see-all" {
       showSessions()
     } else if id.hasPrefix("rename:") {
@@ -253,19 +378,19 @@ final class Tray: NSObject {
   }
 
   /// Confirms destructive buttons (the window has no nested-submenu trick the menu uses) and sends
-  /// everything else straight through.
-  func sendAction(_ id: String, _ value: String?, confirmLabel: String? = nil) {
-    if let confirmLabel, !Tray.confirm(confirmLabel) { return }
+  /// everything else straight through. `question` is the alert's text, `confirmLabel` its button.
+  func sendAction(_ id: String, _ value: String?, confirmLabel: String? = nil, question: String? = nil) {
+    if let confirmLabel, !confirm(confirmLabel, question: question) { return }
     var payload: [String: Any] = ["type": "click", "id": id]
     if let value { payload["value"] = value }
     emit(payload)
   }
 
-  private static func confirm(_ label: String) -> Bool {
+  private func confirm(_ label: String, question: String?) -> Bool {
     let alert = NSAlert()
-    alert.messageText = label
+    alert.messageText = question ?? label
     alert.addButton(withTitle: label)
-    alert.addButton(withTitle: "Cancel")
+    alert.addButton(withTitle: data.sessionsWindow?.renamePrompt.cancel ?? "Cancel")
     NSApp.activate(ignoringOtherApps: true)
     return alert.runModal() == .alertFirstButtonReturn
   }
@@ -287,7 +412,8 @@ final class Tray: NSObject {
     emit(["type": "click", "id": "rename:\(sessionId)", "value": name])
   }
 
-  private func showPreferences() {
+  private func showPreferences(tab: String? = nil) {
+    if let tab { data.prefsTab = tab }
     if prefsWindow == nil {
       let hosting = NSHostingController(rootView: PreferencesView(state: data, tray: self))
       let window = NSWindow(contentViewController: hosting)
@@ -323,21 +449,55 @@ struct PreferencesView: View {
   let tray: Tray
 
   var body: some View {
-    TabView {
+    TabView(selection: $state.prefsTab) {
       ForEach(state.prefsWindow?.tabs ?? []) { tab in
-        Form {
-          ForEach(Array(tab.sections.enumerated()), id: \.offset) { _, section in
-            ForEach(Array(section.rows.enumerated()), id: \.offset) { _, row in
-              PrefRowView(row: row, tray: tray)
-            }
-          }
-        }
-        .padding(16)
-        .tabItem { Text(tab.label) }
-        .tag(tab.id)
+        PrefTabView(tab: tab, tray: tray)
+          .tabItem { Text(tab.label) }
+          .tag(tab.id)
       }
     }
-    .frame(width: 480, height: 380)
+    .frame(width: 720, height: 440)
+  }
+}
+
+/// One tab: grouped boxes (macOS 13+, like the prototype), else the plain form in a scroll view.
+struct PrefTabView: View {
+  let tab: PrefTabWire
+  let tray: Tray
+
+  private var form: some View {
+    Form {
+      ForEach(Array(tab.sections.enumerated()), id: \.offset) { _, section in
+        PrefSectionView(section: section, tray: tray)
+      }
+    }
+  }
+
+  var body: some View {
+    if #available(macOS 13.0, *) {
+      form.formStyle(.grouped)
+    } else {
+      ScrollView { form.padding(16) }
+    }
+  }
+}
+
+struct PrefSectionView: View {
+  let section: PrefSectionWire
+  let tray: Tray
+
+  var body: some View {
+    if let title = section.title {
+      Section(header: Text(title).font(.headline).padding(.top, 6)) { rows }
+    } else {
+      Section { rows }
+    }
+  }
+
+  private var rows: some View {
+    ForEach(Array(section.rows.enumerated()), id: \.offset) { _, row in
+      PrefRowView(row: row, tray: tray)
+    }
   }
 }
 
@@ -386,7 +546,28 @@ struct PrefRowView: View {
       }
     case "button":
       Button(row.label ?? "") {
-        tray.sendAction(row.id ?? "", nil, confirmLabel: row.style == "destructive" ? row.label : nil)
+        tray.sendAction(
+          row.id ?? "", nil, confirmLabel: row.style == "destructive" ? row.label : nil, question: row.confirm)
+      }
+    case "entry":
+      HStack {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(row.label ?? "")
+          if let hint = row.hint {
+            Text(hint).font(.caption).foregroundStyle(.secondary)
+          }
+        }
+        Spacer()
+        if let value = row.value {
+          Text(value).font(.caption).foregroundColor(row.tone == "online" ? Palette.success : .secondary)
+        }
+        if let button = row.button {
+          Button(button.label) {
+            tray.sendAction(
+              button.id, nil, confirmLabel: button.style == "destructive" ? button.label : nil,
+              question: button.confirm)
+          }
+        }
       }
     case "qr":
       if let text = row.text, let image = Tray.qrForPreview(text) {
@@ -460,6 +641,412 @@ struct SessionRowView: View {
   }
 }
 
+// MARK: - Popover
+
+/// The popover's colors: the identity's state colors, deeper in the light appearance so text keeps
+/// its contrast. Agent colors are fixed in every appearance, like in the app.
+enum Palette {
+  static func dynamic(dark: (CGFloat, CGFloat, CGFloat), light: (CGFloat, CGFloat, CGFloat)) -> Color {
+    Color(
+      nsColor: NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let (r, g, b) = isDark ? dark : light
+        return NSColor(srgbRed: r / 255, green: g / 255, blue: b / 255, alpha: 1)
+      })
+  }
+  static let accent = dynamic(dark: (232, 163, 61), light: (168, 106, 18))
+  static let success = dynamic(dark: (127, 176, 105), light: (62, 125, 42))
+  static let danger = dynamic(dark: (224, 108, 117), light: (192, 57, 43))
+  static let warning = dynamic(dark: (243, 220, 122), light: (138, 109, 0))
+
+  static func tone(_ tone: String) -> Color {
+    switch tone {
+    case "running", "accent": return accent
+    case "idle", "online": return success
+    case "waiting": return warning
+    default: return Color.secondary
+    }
+  }
+
+  static func agent(_ agent: String) -> Color {
+    let rgb: (Double, Double, Double)
+    switch agent {
+    case "claude": rgb = (217, 119, 87)
+    case "codex": rgb = (47, 191, 143)
+    case "kimi": rgb = (91, 155, 245)
+    case "qwen": rgb = (140, 108, 245)
+    default: return Color.gray
+    }
+    return Color(.sRGB, red: rgb.0 / 255, green: rgb.1 / 255, blue: rgb.2 / 255)
+  }
+
+  /// `#61afef` from the config; nil when it is not a 6-digit hex color.
+  static func hex(_ value: String?) -> Color? {
+    guard let value, value.hasPrefix("#"), value.count == 7, let int = Int(value.dropFirst(), radix: 16)
+    else { return nil }
+    return Color(
+      .sRGB, red: Double((int >> 16) & 0xFF) / 255, green: Double((int >> 8) & 0xFF) / 255,
+      blue: Double(int & 0xFF) / 255)
+  }
+}
+
+let monoFont = Font.system(size: 12.5, design: .monospaced)
+
+struct PopoverView: View {
+  @ObservedObject var state: TrayState
+  let tray: Tray
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      if let cards = state.popover {
+        PopoverHeader(header: cards.header)
+        Divider()
+        if let pending = cards.pending {
+          PendingCard(pending: pending, tray: tray)
+        }
+        SectionLabel(label: cards.sessions.label, detail: cards.sessions.detail)
+        ForEach(cards.sessions.rows) { row in SessionRow(row: row, tray: tray) }
+        if let empty = cards.sessions.empty { MutedRow(text: empty) }
+        if let more = cards.sessions.more { LinkRow(action: more, tray: tray) }
+        if let ended = cards.sessions.ended { LinkRow(action: ended, tray: tray) }
+        SectionLabel(label: cards.devices.label, detail: cards.devices.detail)
+        ForEach(cards.devices.rows) { row in
+          DeviceRow(row: row) { tray.popoverAction(cards.devices.action) }
+        }
+        if let empty = cards.devices.empty { MutedRow(text: empty) }
+        Divider().padding(.top, 6)
+        VStack(alignment: .leading, spacing: 0) {
+          ForEach(Array(cards.actions.enumerated()), id: \.offset) { index, group in
+            if index > 0 { Divider().padding(.vertical, 4).padding(.horizontal, 6) }
+            ForEach(group) { action in ActionRow(action: action, tray: tray) }
+          }
+        }
+        .padding(6)
+      }
+    }
+    .font(monoFont)
+    .frame(width: 372)
+  }
+}
+
+struct PopoverHeader: View {
+  let header: PopoverHeaderWire
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Image(nsImage: Tray.markImage())
+        .renderingMode(.template)
+        .resizable()
+        .frame(width: 22, height: 22)
+        .foregroundColor(Palette.accent)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(header.title).font(.system(size: 13, weight: .bold, design: .monospaced))
+        Text(header.subtitle).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+          .lineLimit(1).truncationMode(.tail)
+      }
+      Spacer(minLength: 4)
+      Pill(pill: header.pill)
+    }
+    .padding(.horizontal, 14)
+    .padding(.top, 12)
+    .padding(.bottom, 10)
+  }
+}
+
+struct SectionLabel: View {
+  let label: String
+  var detail: String? = nil
+  var trailing: AnyView? = nil
+
+  var body: some View {
+    HStack {
+      Text(label.uppercased())
+        .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+        .tracking(1)
+        .foregroundColor(.secondary)
+      Spacer()
+      if let trailing { trailing }
+      if let detail {
+        Text(detail).font(.system(size: 10.5, design: .monospaced)).foregroundColor(.secondary.opacity(0.7))
+      }
+    }
+    .padding(.horizontal, 14)
+    .padding(.top, 10)
+    .padding(.bottom, 4)
+  }
+}
+
+struct Pill: View {
+  let pill: TrayPillWire
+
+  var body: some View {
+    let color = Palette.tone(pill.tone)
+    HStack(spacing: 5) {
+      Circle().fill(color).frame(width: 6, height: 6)
+      Text(pill.label).font(.system(size: 11, design: .monospaced)).lineLimit(1)
+    }
+    .foregroundColor(color)
+    .padding(.horizontal, 7)
+    .padding(.vertical, 2)
+    .background(Capsule().fill(color.opacity(0.16)))
+    .fixedSize()
+  }
+}
+
+struct AgentBadge: View {
+  let agent: String
+
+  var body: some View {
+    Text(String(agent.prefix(2)))
+      .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+      .foregroundColor(.white)
+      .frame(width: 18, height: 18)
+      .background(RoundedRectangle(cornerRadius: 4).fill(Palette.agent(agent)))
+  }
+}
+
+/// A full-width row that highlights on hover, like a menu item.
+struct HoverRow<Content: View>: View {
+  let action: (() -> Void)?
+  @ViewBuilder let content: () -> Content
+  @State private var hovering = false
+
+  var body: some View {
+    content()
+      .padding(.horizontal, 14)
+      .padding(.vertical, 6)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(hovering && action != nil ? Color.primary.opacity(0.07) : Color.clear)
+      .contentShape(Rectangle())
+      .onHover { hovering = $0 }
+      .onTapGesture { action?() }
+  }
+}
+
+struct PendingCard: View {
+  let pending: PopoverPendingWire
+  let tray: Tray
+
+  private static let iso: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+
+  private var since: Date? {
+    Self.iso.date(from: pending.createdAt) ?? ISO8601DateFormatter().date(from: pending.createdAt)
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack {
+        Text(pending.label.uppercased())
+          .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+          .tracking(1)
+          .foregroundColor(.secondary)
+        Spacer()
+        if let since {
+          TimelineView(.periodic(from: Date(), by: 1)) { context in
+            Text(Self.elapsed(since, context.date))
+              .font(.system(size: 10.5, design: .monospaced))
+              .foregroundColor(.secondary.opacity(0.7))
+          }
+        }
+      }
+      .padding(.horizontal, 14)
+      .padding(.top, 10)
+      .padding(.bottom, 4)
+      VStack(alignment: .leading, spacing: 7) {
+        HStack(spacing: 8) {
+          AgentBadge(agent: pending.agent)
+          Text(pending.title).bold().lineLimit(1).truncationMode(.tail)
+          Spacer(minLength: 4)
+          Text(pending.profile).font(.system(size: 11, design: .monospaced))
+            .foregroundColor(Palette.hex(pending.profileColor) ?? .secondary)
+        }
+        Text(pending.summary)
+          .font(.system(size: 12, design: .monospaced))
+          .lineLimit(1).truncationMode(.tail)
+          .padding(.horizontal, 9)
+          .padding(.vertical, 6)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.08)))
+        HStack(spacing: 6) {
+          ForEach(pending.actions) { action in
+            let color = action.style == "allow" ? Palette.success : action.style == "deny" ? Palette.danger : Color.secondary
+            Button(action: { tray.popoverAction(action.id) }) {
+              Text(action.label)
+                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                .foregroundColor(action.style == nil ? .primary : color)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .background(RoundedRectangle(cornerRadius: 7).stroke(color.opacity(0.8), lineWidth: 1))
+          }
+        }
+      }
+      .padding(.horizontal, 11)
+      .padding(.vertical, 9)
+      .background(RoundedRectangle(cornerRadius: 10).fill(Palette.warning.opacity(0.06)))
+      .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.warning, lineWidth: 1))
+      .padding(.horizontal, 14)
+      .padding(.top, 4)
+      .padding(.bottom, 6)
+    }
+  }
+
+  /// `0:52`, `12:03`, `1:02:03`: digits only, nothing to translate.
+  static func elapsed(_ from: Date, _ to: Date) -> String {
+    let total = max(0, Int(to.timeIntervalSince(from)))
+    let (h, m, s) = (total / 3600, (total % 3600) / 60, total % 60)
+    return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
+  }
+}
+
+struct SessionRow: View {
+  let row: PopoverSessionWire
+  let tray: Tray
+
+  var body: some View {
+    HoverRow(action: row.action.map { id in { tray.popoverAction(id) } }) {
+      HStack(spacing: 9) {
+        AgentBadge(agent: row.agent)
+        VStack(alignment: .leading, spacing: 1) {
+          Text(row.title).lineLimit(1).truncationMode(.tail)
+          Text(row.detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+            .lineLimit(1).truncationMode(.middle)
+        }
+        Spacer(minLength: 4)
+        Pill(pill: row.pill)
+      }
+    }
+    .contextMenu {
+      ForEach(row.menu) { item in
+        Button(item.label) { tray.popoverAction(item.id) }.disabled(item.enabled == false)
+      }
+    }
+  }
+}
+
+struct DeviceRow: View {
+  let row: PopoverDeviceWire
+  let open: () -> Void
+
+  var body: some View {
+    HoverRow(action: open) {
+      HStack(spacing: 9) {
+        Image(systemName: row.platform == "ios" || row.platform == "android" ? "iphone" : "ipad")
+          .frame(width: 18)
+          .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 1) {
+          Text(row.name).lineLimit(1)
+          Text(row.detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+            .lineLimit(1)
+        }
+        Spacer(minLength: 4)
+        Pill(pill: row.pill)
+      }
+    }
+  }
+}
+
+struct MutedRow: View {
+  let text: String
+
+  var body: some View {
+    Text(text)
+      .foregroundColor(.secondary)
+      .padding(.horizontal, 14)
+      .padding(.vertical, 6)
+  }
+}
+
+/// "See all sessions…" and the ended count: a muted row with a chevron, opening the Sessions window.
+struct LinkRow: View {
+  let action: PopoverActionWire
+  let tray: Tray
+
+  var body: some View {
+    HoverRow(action: { tray.popoverAction(action.id) }) {
+      HStack {
+        Text(action.label).foregroundColor(.secondary).padding(.leading, 27)
+        Spacer()
+        Text("›").foregroundColor(.secondary)
+      }
+    }
+  }
+}
+
+struct ActionRow: View {
+  let action: PopoverActionWire
+  let tray: Tray
+  @State private var hovering = false
+
+  /// Standard shortcuts of the quick actions, by id (drawn and bound by the helper).
+  private var shortcut: (KeyEquivalent, String)? {
+    switch action.id {
+    case "new": return ("n", "⌘N")
+    case "prefs": return (",", "⌘,")
+    case "quit": return ("q", "⌘Q")
+    default: return nil
+    }
+  }
+
+  var body: some View {
+    let enabled = action.enabled != false
+    Group {
+      if let items = action.items {
+        Menu {
+          ForEach(items) { item in Button(item.label) { tray.popoverAction(item.id) } }
+        } label: {
+          Text(action.label)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        // The borderless menu button brings its own inset: 7 + 3 lines it up with the other rows.
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        Button(action: { tray.popoverAction(action.id) }) {
+          HStack {
+            Text(action.label).foregroundColor(enabled ? .primary : .secondary)
+            Spacer()
+            if let detail = action.detail {
+              Text(detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary.opacity(0.7))
+            }
+            if let shortcut {
+              Text(shortcut.1).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary.opacity(0.7))
+            }
+          }
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .background(RoundedRectangle(cornerRadius: 6).fill(hovering && enabled ? Color.primary.opacity(0.07) : Color.clear))
+        .onHover { hovering = $0 }
+        .modifier(ShortcutModifier(shortcut: shortcut?.0))
+      }
+    }
+  }
+}
+
+struct ShortcutModifier: ViewModifier {
+  let shortcut: KeyEquivalent?
+
+  func body(content: Content) -> some View {
+    if let shortcut {
+      content.keyboardShortcut(shortcut, modifiers: .command)
+    } else {
+      content
+    }
+  }
+}
+
 func emit(_ object: [String: Any]) {
   guard let data = try? JSONSerialization.data(withJSONObject: object),
     let line = String(data: data, encoding: .utf8)
@@ -482,5 +1069,5 @@ Thread.detachNewThread {
   DispatchQueue.main.async { exit(0) }
 }
 
-emit(["type": "ready", "windows": true])
+emit(["type": "ready", "windows": true, "popover": true])
 app.run()
