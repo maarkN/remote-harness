@@ -309,6 +309,21 @@ describe('TrayHost', () => {
     ])
   })
 
+  test('passes notifications to a running helper and drops them otherwise', async () => {
+    const fake = fakeProcess()
+    const host = new TrayHost(
+      async () => fake.process,
+      () => {},
+      silentLogger,
+    )
+    host.notify('dropped', '')
+    await host.launch()
+    host.notify('Remote Harness 0.12.0 available', 'Update from the tray')
+    expect(fake.process.sent).toEqual([
+      { type: 'notify', title: 'Remote Harness 0.12.0 available', body: 'Update from the tray' },
+    ])
+  })
+
   test('stays headless after an early exit, retries a later crash', async () => {
     vi.useFakeTimers()
     try {
@@ -370,9 +385,28 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       buildDir: join(home.dir(), 'tray'),
     }
     expect(await trayCommand({ ...linux, env: {} })).toEqual({ unavailable: 'no graphical session' })
+    // WSL: the Windows helper through PowerShell, the C# source converted to a Windows path.
     expect(await trayCommand({ ...linux, wsl: true, env: { DISPLAY: ':0' } })).toEqual({
-      unavailable: 'no tray in WSL',
+      unavailable: 'no Windows interop',
     })
+    const interop = fakeExecutor((call) =>
+      call.file === 'wslpath' ? { stdout: "\\\\wsl.localhost\\Ubuntu\\rh\\it's\\Tray.cs\n" } : undefined,
+    )
+    const windows = await trayCommand({ ...linux, wsl: true, exec: interop, env: {} })
+    expect(interop.calls[0]?.args).toEqual(['-w', join(assetsDir!, 'windows', 'Tray.cs')])
+    expect(windows).toMatchObject({ command: 'powershell.exe' })
+    const args = 'args' in windows ? windows.args : []
+    expect(args.slice(0, -1)).toEqual([
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-WindowStyle',
+      'Hidden',
+      '-Command',
+    ])
+    expect(args.at(-1)).toContain("Add-Type -Path '\\\\wsl.localhost\\Ubuntu\\rh\\it''s\\Tray.cs'")
+    expect(args.at(-1)).toContain('[RemoteHarness.TrayApp]::Run()')
     expect(await trayCommand({ ...linux, env: { WAYLAND_DISPLAY: 'wayland-0' } })).toEqual({
       command: 'python3',
       args: [join(assetsDir!, 'linux', 'tray.py')],
