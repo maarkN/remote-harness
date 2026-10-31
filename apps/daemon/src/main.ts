@@ -29,6 +29,7 @@ import { type ConnectivityOptions, registerConnectivityFeature } from './feature
 import { registerDiagnosticsFeature } from './features/diagnostics/index.ts'
 import { HookReceiver } from './features/hooks/receiver.ts'
 import { registerInputFeature } from './features/input/index.ts'
+import { registerLastActivityFeature } from './features/last-activity/index.ts'
 import { registerLifecycleFeature } from './features/lifecycle/index.ts'
 import { registerLiveStatusFeature } from './features/live-status/index.ts'
 import { registerModeFeature } from './features/mode/index.ts'
@@ -328,6 +329,7 @@ async function registerFeatures(
     sessions.service.noteActivity(id, at),
   )
   registerSubagentsFeature(ctx, sessions.store, transcript.addResolver)
+  registerLastActivityFeature(ctx, sessions.store, transcript.readTail)
   registerStatusLineFeature(ctx, sessions.store)
   const sessionLock = new KeyedMutex()
   const attachments = registerAttachmentsFeature(ctx, sessions.store)

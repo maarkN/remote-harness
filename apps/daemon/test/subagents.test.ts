@@ -66,6 +66,7 @@ function setup(now = Date.now) {
       updatedAt: '',
       subagents: [],
       backgroundTasks: 0,
+      lastActivity: null,
       checkout: null,
       status: null,
       transcriptPath,

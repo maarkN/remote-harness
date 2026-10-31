@@ -957,6 +957,12 @@ const enUS = {
     subagents_other: '+{{count}} subagents',
     muted: 'muted',
     sort: { recent: 'Recent', state: 'By state', label: 'Sort' },
+    density: { compact: 'Compact', expanded: 'Expanded', label: 'List density' },
+    lastActivity: {
+      user: 'Last prompt: {{text}}',
+      assistant: 'Last reply: {{text}}',
+      tool: 'Last tool: {{text}}',
+    },
     all: 'all',
     active: 'active',
     ended: 'ended',
@@ -1106,6 +1112,8 @@ const enUS = {
       light: 'Light',
     },
     themeDone: 'Done',
+    expandedList: 'Expanded session list',
+    expandedListHint: 'Shows the last prompt, reply or tool under each session.',
     appIcon: {
       title: 'App icon',
       row: 'App icon · {{icon}}',

@@ -958,6 +958,12 @@ const esES = {
     subagents_other: '+{{count}} subagentes',
     muted: 'silenciada',
     sort: { recent: 'Recientes', state: 'Por estado', label: 'Ordenar' },
+    density: { compact: 'Compacta', expanded: 'Expandida', label: 'Densidad de la lista' },
+    lastActivity: {
+      user: 'Último prompt: {{text}}',
+      assistant: 'Última respuesta: {{text}}',
+      tool: 'Última herramienta: {{text}}',
+    },
     all: 'todos',
     active: 'activas',
     ended: 'terminadas',
@@ -1109,6 +1115,8 @@ const esES = {
       light: 'Claro',
     },
     themeDone: 'Listo',
+    expandedList: 'Lista de sesiones expandida',
+    expandedListHint: 'Muestra el último prompt, respuesta o herramienta debajo de cada sesión.',
     appIcon: {
       title: 'Icono de la app',
       row: 'Icono de la app · {{icon}}',

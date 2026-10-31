@@ -33,6 +33,7 @@ function record(id: string, patch: Partial<SessionRecord> = {}): SessionRecord {
     updatedAt: '2026-10-18T10:00:00Z',
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: null,
     status: null,
     transcriptPath: null,

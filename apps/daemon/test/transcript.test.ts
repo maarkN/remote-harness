@@ -14,7 +14,7 @@ import {
   parseTranscriptLine,
 } from '../src/features/transcript/parser.ts'
 import { TranscriptService } from '../src/features/transcript/service.ts'
-import { TranscriptFile } from '../src/features/transcript/transcript-file.ts'
+import { readTailEntries, TranscriptFile } from '../src/features/transcript/transcript-file.ts'
 import { fakeConnection, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -365,6 +365,32 @@ describe('TranscriptFile', () => {
     const capped = await file.since(0, 5)
     expect(capped.gap).toBe(true)
     expect(Math.min(...capped.entries.map((e) => e.cursor))).toBeGreaterThanOrEqual(file.lineCount - 5)
+  })
+})
+
+describe('readTailEntries', () => {
+  const line = (text: string) =>
+    JSON.stringify({ type: 'assistant', uuid: text, message: { content: [{ type: 'text', text }] } })
+
+  test('reads the whole file when it fits', async () => {
+    const path = join(home.dir(), 't.jsonl')
+    await writeFile(path, `${line('one')}\n${line('two')}\n`)
+    const tail = await readTailEntries(path)
+    expect(tail.complete).toBe(true)
+    expect(tail.entries.map((e) => (e.kind === 'assistant_text' ? e.text : e.kind))).toEqual(['one', 'two'])
+  })
+
+  test('drops the cut first line of a window', async () => {
+    const path = join(home.dir(), 't.jsonl')
+    const last = line('last')
+    await writeFile(path, `${line('x'.repeat(500))}\n${last}\n`)
+    const tail = await readTailEntries(path, undefined, last.length + 20)
+    expect(tail.complete).toBe(false)
+    expect(tail.entries.map((e) => (e.kind === 'assistant_text' ? e.text : e.kind))).toEqual(['last'])
+  })
+
+  test('a missing file is empty', async () => {
+    expect(await readTailEntries(join(home.dir(), 'none.jsonl'))).toEqual({ entries: [], complete: true })
   })
 })
 
