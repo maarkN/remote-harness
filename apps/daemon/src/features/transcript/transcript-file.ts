@@ -14,6 +14,8 @@ export class TranscriptFile {
   /** lineStarts[i] = byte offset of line i; lineStarts[lineCount] = end of the last complete line. */
   private readonly lineStarts: number[] = [0]
   private queue: Promise<unknown> = Promise.resolve()
+  /** Formats with `upserts`: the line where each entry key first appeared. */
+  private readonly firstLine = new Map<string, number>()
 
   constructor(
     readonly path: string,
@@ -55,7 +57,12 @@ export class TranscriptFile {
         for (let i = 0; i < buffer.length; i++) {
           if (buffer[i] !== 0x0a) continue
           const text = buffer.subarray(lineStart, i).toString('utf8')
-          lines.push({ cursor: this.lineCount, text })
+          const cursor = this.lineCount
+          if (this.format.upserts && text) {
+            for (const entry of this.format.parseLine(text, cursor))
+              if (!this.firstLine.has(entry.key)) this.firstLine.set(entry.key, cursor)
+          }
+          lines.push({ cursor, text })
           this.lineStarts.push(start + i + 1)
           lineStart = i + 1
         }
@@ -64,6 +71,17 @@ export class TranscriptFile {
         await handle.close()
       }
     })
+  }
+
+  /**
+   * The entries of a line. For formats with `upserts`, entries whose key first appeared on an earlier
+   * line are dropped, so a message the agent appended again shows once (only lines read by `sync`
+   * are indexed).
+   */
+  entries(line: RawLine): TranscriptEntry[] {
+    const entries = this.format.parseLine(line.text, line.cursor)
+    if (!this.format.upserts) return entries
+    return entries.filter((entry) => (this.firstLine.get(entry.key) ?? line.cursor) >= line.cursor)
   }
 
   /** Reads complete lines in [from, to). */
@@ -105,7 +123,7 @@ export class TranscriptFile {
       const lines = await this.readLines(start, end)
       for (let i = lines.length - 1; i >= 0 && count < limit; i--) {
         const line = lines[i]!
-        const entries = this.format.parseLine(line.text, line.cursor)
+        const entries = this.entries(line)
         if (entries.length === 0) continue
         chunks.push(entries)
         count += entries.length
@@ -123,8 +141,14 @@ export class TranscriptFile {
   async since(cursor: number, maxLines = 2_000): Promise<{ entries: TranscriptEntry[]; gap: boolean }> {
     const from = Math.max(cursor + 1, this.lineCount - maxLines)
     const lines = await this.readLines(from, this.lineCount)
-    return { entries: lines.flatMap((l) => this.format.parseLine(l.text, l.cursor)), gap: from > cursor + 1 }
+    return { entries: lines.flatMap((l) => this.entries(l)), gap: from > cursor + 1 }
   }
+}
+
+/** The first entry of each key, in order (a message appended again shows once). */
+function firstOfEachKey(entries: readonly TranscriptEntry[]): TranscriptEntry[] {
+  const seen = new Set<string>()
+  return entries.filter((entry) => !seen.has(entry.key) && seen.add(entry.key))
 }
 
 /**
@@ -152,7 +176,8 @@ export async function readTailEntries(
     const lines = buffer.toString('utf8').split('\n')
     // The window's first line is cut unless it starts the file; the last one may still be written.
     if (!complete) lines.shift()
-    return { entries: lines.filter(Boolean).flatMap((text) => format.parseLine(text, 0)), complete }
+    const entries = lines.filter(Boolean).flatMap((text) => format.parseLine(text, 0))
+    return { entries: format.upserts ? firstOfEachKey(entries) : entries, complete }
   } finally {
     await handle.close()
   }

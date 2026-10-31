@@ -10,10 +10,9 @@ import {
   wrapStatusLine,
 } from '../status-line/wrapper.ts'
 import { removePathBlock, renderLauncher, upsertPathBlock } from './launcher.ts'
-import { HOOK_EVENTS } from './payloads.ts'
 import {
-  CODEX_HOOK_EVENTS,
   type HookInstallOptions,
+  hookEventsFor,
   isOurHook,
   mergeOurHooks,
   removeOurHooks,
@@ -61,9 +60,8 @@ export async function hasOurHooks(profile: Profile): Promise<boolean> {
     | { hooks?: Record<string, unknown> }
     | undefined
   const style = agentFor(profile).hooks.style
-  const events = style === 'codex-hooks' ? CODEX_HOOK_EVENTS : HOOK_EVENTS
-  return events.every((event) => {
-    const groups = settings?.hooks?.[event]
+  return hookEventsFor(style).every(([key]) => {
+    const groups = settings?.hooks?.[key]
     return (
       Array.isArray(groups) &&
       groups.some(

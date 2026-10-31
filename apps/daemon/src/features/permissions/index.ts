@@ -1,9 +1,11 @@
+import type { PermissionRequestInfo } from '@remote-harness/protocol'
 import { effectiveLocale } from '../../core/config.ts'
 import { DaemonError } from '../../core/errors.ts'
 import { messagesFor } from '../../core/i18n/index.ts'
 import { paths } from '../../core/paths.ts'
 import type { DaemonContext } from '../../main.ts'
 import type { Connection } from '../../transport/connection.ts'
+import { adapterOf } from '../agents/index.ts'
 import type { EntryListener } from '../transcript/service.ts'
 import { type ApprovalEvent, ApprovalLog } from './approval-log.ts'
 import { type DecidedRequest, PermissionBroker } from './broker.ts'
@@ -23,6 +25,8 @@ export function registerPermissionsFeature(
   follow?: FollowTranscript,
   /** Folders of the known sessions, whose project settings hold project rules. */
   sessionCwds: () => readonly string[] = () => [],
+  /** The tmux pane of a live session (to type into an agent's approval dialog). */
+  paneOf: (sessionId: string) => string | null = () => null,
 ) {
   const rulesLog = new RulesLog(paths.rulesLog())
   const approvals = new ApprovalLog(paths.approvalLog())
@@ -87,7 +91,20 @@ export function registerPermissionsFeature(
     }
   }
 
+  /** Types the phone's answer into the session's approval dialog, if it is on screen. */
+  const answerDialog = async (info: PermissionRequestInfo, behavior: 'allow' | 'deny') => {
+    const dialog = adapterOf(ctx.profiles.find((p) => p.id === info.profileId)?.agent).approvalDialog
+    const pane = paneOf(info.sessionId)
+    if (!dialog || !pane) return false
+    if (!dialog.isOpen(await ctx.tmux.capturePane(pane))) return false
+    await ctx.tmux.sendKeys(pane, behavior === 'allow' ? dialog.allowKeys : dialog.denyKeys)
+    // Tool name only: inputs are session content.
+    ctx.logger.info({ tool: info.tool, behavior }, 'permission answered in the agent dialog')
+    return true
+  }
+
   const broker = new PermissionBroker(ctx.hub, {
+    answerDialog,
     timeoutMs: ctx.config.permissionTimeoutSec * 1000,
     questionTimeoutMs: ctx.config.questionTimeoutSec * 1000,
     watch,
@@ -118,9 +135,15 @@ export function registerPermissionsFeature(
   const ruleFiles = async () => listRuleFiles(ruleSources(ctx.profiles, sessionCwds()), await rulesLog.list())
 
   ctx.hookReceiver.setResponder('PermissionRequest', (hook, signal) => broker.handle(hook, signal))
+  // The dialog shows once this hook returns: the request is opened and the hook answered at once.
+  ctx.hookReceiver.setResponder('PermissionDialog', async (hook) => {
+    const dialog = adapterOf(ctx.profiles.find((p) => p.id === hook.profileId)?.agent).approvalDialog
+    if (dialog) broker.openDialog(hook, dialog)
+    return {}
+  })
   const by = (connection: Connection) => connection.deviceId ?? null
-  ctx.router.register('permission.respond', (msg, connection) => {
-    broker.respond(
+  ctx.router.register('permission.respond', async (msg, connection) => {
+    await broker.respond(
       msg.requestId,
       { behavior: msg.decision, always: msg.decision === 'allow' ? msg.always : undefined },
       by(connection),

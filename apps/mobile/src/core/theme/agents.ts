@@ -1,5 +1,5 @@
 /** Coding agents the app can tell apart. */
-export const AGENT_IDS = ['claude', 'codex', 'kimi', 'qwen'] as const
+export const AGENT_IDS = ['claude', 'codex', 'gemini', 'kimi', 'qwen'] as const
 export type AgentId = (typeof AGENT_IDS)[number]
 
 /**
@@ -9,6 +9,7 @@ export type AgentId = (typeof AGENT_IDS)[number]
 export const AGENT_COLORS: Record<AgentId, string> = {
   claude: '#D97757',
   codex: '#2FBF8F',
+  gemini: '#E3729E',
   kimi: '#5B9BF5',
   qwen: '#8C6CF5',
 }
@@ -17,6 +18,7 @@ export const AGENT_COLORS: Record<AgentId, string> = {
 export const AGENT_NAMES: Record<AgentId, string> = {
   claude: 'Claude Code',
   codex: 'Codex',
+  gemini: 'Gemini CLI',
   kimi: 'Kimi',
   qwen: 'Qwen',
 }
@@ -25,6 +27,7 @@ export const AGENT_NAMES: Record<AgentId, string> = {
 export const AGENT_CODES: Record<AgentId, string> = {
   claude: 'cl',
   codex: 'cx',
+  gemini: 'gm',
   kimi: 'ki',
   qwen: 'qw',
 }

@@ -17,9 +17,13 @@ const PROFILE_MARKERS = ['.claude.json', 'settings.json', '.credentials.json', '
 const CODEX_DIR = '.codex'
 const CODEX_MARKERS = ['config.toml', 'auth.json', 'sessions']
 const CODEX_COLOR = '#2FBF8F'
+/** `~/.gemini` (Gemini CLI's default config dir) counts once Gemini CLI has written one of these. */
+const GEMINI_DIR = '.gemini'
+const GEMINI_MARKERS = ['settings.json', 'oauth_creds.json', 'projects.json', 'tmp']
+const GEMINI_COLOR = '#E3729E'
 const ALIAS = /^[a-z][a-z0-9_-]{0,31}$/
 /** The launcher runs `claude` and its directory comes first on PATH; these would call themselves. */
-const RESERVED_ALIASES = new Set(['claude', 'codex', 'claude-remote', 'remote-harness', 'tmux'])
+const RESERVED_ALIASES = new Set(['claude', 'codex', 'gemini', 'claude-remote', 'remote-harness', 'tmux'])
 export const PROFILE_COLORS = ['#D97757', '#61AFEF', '#98C379', '#C678DD', '#E5C07B', '#56B6C2']
 
 export function tildify(path: string, home = homedir()): string {
@@ -32,8 +36,8 @@ function looksLikeConfigDir(path: string): boolean {
 }
 
 /**
- * Claude Code config dirs in the home, `~/.claude` first, as `~/...` paths, then `~/.codex` when
- * Codex has used it. `~/.claude-*` dirs only count when Claude Code has written to them, so other
+ * Claude Code config dirs in the home, `~/.claude` first, as `~/...` paths, then `~/.codex` and
+ * `~/.gemini` when Codex and Gemini CLI have used them. `~/.claude-*` dirs only count when Claude Code has written to them, so other
  * tools' `~/.claude-x` data is skipped.
  */
 export async function detectConfigDirs(home = homedir()): Promise<string[]> {
@@ -46,15 +50,24 @@ export async function detectConfigDirs(home = homedir()): Promise<string[]> {
   }
   const codex = join(home, CODEX_DIR)
   const hasCodex = (await isDirectory(codex)) && CODEX_MARKERS.some((m) => existsSync(join(codex, m)))
+  const geminiDir = join(home, GEMINI_DIR)
+  const hasGemini =
+    (await isDirectory(geminiDir)) && GEMINI_MARKERS.some((m) => existsSync(join(geminiDir, m)))
   return [
     ...found.sort((a, b) => (a === '.claude' ? -1 : b === '.claude' ? 1 : a.localeCompare(b))),
     ...(hasCodex ? [CODEX_DIR] : []),
+    ...(hasGemini ? [GEMINI_DIR] : []),
   ].map((n) => `~/${n}`)
 }
 
 /** `~/.codex` and `~/.codex-<name>` hold a Codex home rather than a Claude Code config dir. */
 export function isCodexDir(configDir: string): boolean {
   return /(^|\/)\.codex(-[\w.-]+)?\/?$/.test(configDir)
+}
+
+/** A folder named `.gemini` holds a Gemini CLI config (its parent goes in `GEMINI_CLI_HOME`). */
+export function isGeminiDir(configDir: string): boolean {
+  return /(^|\/)\.gemini\/?$/.test(configDir)
 }
 
 export function sameDir(a: string, b: string): boolean {
@@ -79,6 +92,19 @@ export function suggestProfile(
     const id = codexSuffix ? `cdx-${codexSuffix.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}` : 'cdx'
     const name = codexSuffix ? `Codex ${capitalize(codexSuffix.replace(/[-_.]+/g, ' '))}` : 'Codex'
     return { id, name, configDir, color: CODEX_COLOR, agent: 'codex' }
+  }
+  if (isGeminiDir(configDir)) {
+    // `~/.gemini` is `gem`; another home's `.gemini` (`~/work/.gemini`) is named after that home.
+    const home = /([\w.-]+)\/\.gemini\/?$/.exec(configDir)?.[1]
+    const own = !home || home === '~'
+    const suffix = own ? '' : home.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
+    return {
+      id: own ? 'gem' : `gem-${suffix}`,
+      name: own ? 'Gemini' : `Gemini ${capitalize(home.replace(/[-_.]+/g, ' '))}`,
+      configDir,
+      color: GEMINI_COLOR,
+      agent: 'gemini',
+    }
   }
   const suffix = /\.claude-([\w.-]+)$/.exec(configDir)?.[1]
   const id = suffix ? `claude-${suffix.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}` : 'claudin'

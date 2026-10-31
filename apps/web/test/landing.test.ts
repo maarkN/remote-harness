@@ -134,7 +134,7 @@ describe('renderLanding', () => {
     expect(html).toContain('scroll-snap-type: x mandatory')
   })
 
-  test.each(WEB_LOCALES)('%s: agent chips in product order, Codex supported', (locale) => {
+  test.each(WEB_LOCALES)('%s: agent chips in product order, Codex and Gemini CLI supported', (locale) => {
     const html = renderLanding(locale)
     const a = CATALOGS[locale].agents
     const strip = html.slice(
@@ -148,6 +148,7 @@ describe('renderLanding', () => {
     expect(chips).toEqual([
       ['claude', false],
       ['codex', false],
+      ['gemini', false],
       ['kimi', true],
       ['qwen', true],
       ['openrouter', false],
@@ -156,6 +157,9 @@ describe('renderLanding', () => {
     // The agents node of "How it works" shows a Codex alias with its mark.
     expect(html).toContain(`<span>${agentMark('codex', 14)}codex → ~/.codex</span>`)
     expect(CATALOGS[locale].faq.items[1]?.a).toContain('Codex CLI')
+    expect(strip).toContain(`${esc(a.gemini)}</span>`)
+    expect(html).toContain(`<span>${agentMark('gemini', 14)}gem → ~/.gemini</span>`)
+    expect(CATALOGS[locale].faq.items[1]?.a).toContain('Gemini CLI')
   })
 
   test.each(WEB_LOCALES)('%s: the iPhone & iPad card opens the install link when configured', (locale) => {

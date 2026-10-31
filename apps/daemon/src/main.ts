@@ -333,8 +333,11 @@ async function registerFeatures(
   registerStatusLineFeature(ctx, sessions.store)
   const sessionLock = new KeyedMutex()
   const attachments = registerAttachmentsFeature(ctx, sessions.store)
-  const permissions = registerPermissionsFeature(ctx, transcript.follow, () =>
-    sessions.store.all().map((s) => s.cwd),
+  const permissions = registerPermissionsFeature(
+    ctx,
+    transcript.follow,
+    () => sessions.store.all().map((s) => s.cwd),
+    (id) => sessions.store.get(id)?.paneId ?? null,
   )
   const hasPendingPermission = (id: string) => permissions.broker.hasPending(id)
   const input = registerInputFeature(ctx, sessions.store, sessionLock, attachments.store)
@@ -400,12 +403,15 @@ async function registerFeatures(
         pendingPermissions: () => permissions.broker.list(),
         respond: (requestId, decision, always) => {
           const info = permissions.broker.list().find((p) => p.requestId === requestId)
-          permissions.broker.respond(requestId, {
-            behavior: decision,
-            ...(always && decision === 'allow' && info?.suggestedRule
-              ? { always: { rule: info.suggestedRule, scope: info.defaultScope } }
-              : {}),
-          })
+          // A dialog that is gone resolves the request: nothing else to tell the tray.
+          void permissions.broker
+            .respond(requestId, {
+              behavior: decision,
+              ...(always && decision === 'allow' && info?.suggestedRule
+                ? { always: { rule: info.suggestedRule, scope: info.defaultScope } }
+                : {}),
+            })
+            ?.catch(() => undefined)
         },
         devices: () => ({ push: push.mode() !== 'off', items: tray.pairedDevices() }),
         closeSession: (id) => lifecycle.closer.close(id),

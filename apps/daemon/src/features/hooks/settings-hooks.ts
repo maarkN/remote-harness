@@ -23,8 +23,11 @@ function shellQuote(value: string): string {
 
 export type HookInstallOptions = { port: number; secret: string; permissionTimeoutSec: number }
 
-/** Where the hooks are written: Claude Code's `settings.json` or Codex's `hooks.json` (same shape). */
-export type HookStyle = 'claude-settings' | 'codex-hooks'
+/**
+ * Where the hooks are written: Claude Code's `settings.json`, Codex's `hooks.json` or Gemini CLI's
+ * `settings.json` (same shape, Gemini's own event names).
+ */
+export type HookStyle = 'claude-settings' | 'codex-hooks' | 'gemini-hooks'
 
 /**
  * Codex has no Notification or SubagentStop for us; the rest match Claude Code's names and stdin.
@@ -39,6 +42,24 @@ export const CODEX_HOOK_EVENTS: readonly HookEventName[] = [
   'Interrupt',
   'SessionEnd',
 ]
+
+/**
+ * Gemini CLI's events and the daemon events they are posted as. `BeforeAgent` carries the prompt and
+ * `AfterAgent` ends the turn; `Notification` only announces a tool approval dialog.
+ */
+export const GEMINI_HOOK_EVENTS: Readonly<Record<string, HookEventName>> = {
+  SessionStart: 'SessionStart',
+  BeforeAgent: 'UserPromptSubmit',
+  AfterAgent: 'Stop',
+  Notification: 'PermissionDialog',
+  SessionEnd: 'SessionEnd',
+}
+
+/** The hooks a style installs: the key in the hooks file and the daemon event it posts. */
+export function hookEventsFor(style: HookStyle): readonly (readonly [string, HookEventName])[] {
+  if (style === 'gemini-hooks') return Object.entries(GEMINI_HOOK_EVENTS)
+  return (style === 'codex-hooks' ? CODEX_HOOK_EVENTS : HOOK_EVENTS).map((event) => [event, event] as const)
+}
 
 function curlHeaders(secret: string): string {
   return [
@@ -71,6 +92,21 @@ export function buildCodexHookEntry(event: HookEventName, options: HookInstallOp
     type: 'command',
     command: `curl -s -m ${ending ? 2 : 5} -o /dev/null ${post} >/dev/null 2>&1 || true`,
     timeout: ending ? 3 : 10,
+  }
+}
+
+/**
+ * Gemini CLI runs command hooks only, in the shell with its environment (`$TMUX_PANE` and the
+ * launcher's profile are set), with timeouts in milliseconds. None of its hooks can answer an
+ * approval, so every output is discarded and the hook returns at once.
+ */
+export function buildGeminiHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
+  const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
+  const ending = event === 'SessionEnd'
+  return {
+    type: 'command',
+    command: `curl -s -m ${ending ? 2 : 5} -o /dev/null -X POST -H 'content-type: application/json' ${curlHeaders(options.secret)} --data-binary @- ${url} >/dev/null 2>&1 || true`,
+    timeout: ending ? 3_000 : 10_000,
   }
 }
 
@@ -128,10 +164,14 @@ export function mergeOurHooks<T extends Settings>(
 ): T & { hooks: Record<string, HookGroup[]> } {
   const clean = removeOurHooks(settings)
   const hooks: Record<string, HookGroup[]> = { ...(clean.hooks ?? {}) }
-  const codex = style === 'codex-hooks'
-  for (const event of codex ? CODEX_HOOK_EVENTS : HOOK_EVENTS) {
-    const entry = codex ? buildCodexHookEntry(event, options) : buildHookEntry(event, options)
-    hooks[event] = [...(hooks[event] ?? []), { hooks: [entry] }]
+  const build =
+    style === 'codex-hooks'
+      ? buildCodexHookEntry
+      : style === 'gemini-hooks'
+        ? buildGeminiHookEntry
+        : buildHookEntry
+  for (const [key, event] of hookEventsFor(style)) {
+    hooks[key] = [...(hooks[key] ?? []), { hooks: [build(event, options)] }]
   }
   return { ...clean, hooks }
 }

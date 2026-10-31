@@ -99,6 +99,8 @@ export async function installAll(
   }
   if (profiles.some((p) => agentFor(p).hooks.style === 'codex-hooks'))
     lines.push({ status: 'skip', text: m.codexTrust })
+  if (profiles.some((p) => agentFor(p).hooks.style === 'gemini-hooks'))
+    lines.push({ status: 'skip', text: m.geminiTrust })
   return lines
 }
 

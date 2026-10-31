@@ -3,7 +3,7 @@ title: Documentação
 description: Como instalar, parear, usar e resolver problemas do Remote Harness.
 ---
 
-O Remote Harness permite acompanhar e comandar, pelo celular, sessões do Claude Code e do Codex que rodam no tmux do seu próprio computador, de qualquer lugar e com criptografia de ponta a ponta. Estas páginas cobrem o lado de quem usa; o código, a arquitetura e as especificações estão no [repositório](https://github.com/maarkN/remote-harness).
+O Remote Harness permite acompanhar e comandar, pelo celular, sessões do Claude Code, do Codex e do Gemini CLI que rodam no tmux do seu próprio computador, de qualquer lugar e com criptografia de ponta a ponta. Estas páginas cobrem o lado de quem usa; o código, a arquitetura e as especificações estão no [repositório](https://github.com/maarkN/remote-harness).
 
 ## Páginas
 

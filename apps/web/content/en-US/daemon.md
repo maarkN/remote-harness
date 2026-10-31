@@ -104,6 +104,18 @@ A profile can run OpenAI Codex CLI instead of Claude Code: set `"agent": "codex"
 
 What works like Claude Code: the session list (recent rollouts under `sessions/`), the conversation, prompts, photos and keys, starting and resuming from the phone (in a worktree with `codex --worktree`, and with a name, sent as `/rename`), push, live status, approvals with Allow / Deny, Polish dictation and generated commit messages (through `codex exec`). Differences: the mode chip shows the permission profile and switches between read only and workspace (`/permissions`, Codex 0.164 or later); full access only in the terminal. There is no "Always" (Codex hooks cannot add rules) and no provider.
 
+## Gemini CLI profiles
+
+A profile can run Google's Gemini CLI: set `"agent": "gemini"` and point `configDir` at a Gemini config folder, which is always named `.gemini` (`~/.gemini` by default; for another one, `~/work/.gemini`, the launcher sets `GEMINI_CLI_HOME=~/work`). `remote-harness setup` offers `~/.gemini` when Gemini CLI has used it.
+
+```json
+{ "id": "gem", "name": "Gemini", "configDir": "~/.gemini", "color": "#E3729E", "agent": "gemini" }
+```
+
+`remote-harness install` writes the profile's launcher (it opens `gemini`) and merges the daemon's hooks into `<configDir>/settings.json`, next to your own hooks and settings and with a backup. **Gemini CLI runs no hooks in a folder it does not trust**: when `gemini` asks, trust the folder (or use `/permissions`). Until then its sessions there are listed read-only and approvals stay in the terminal. `doctor` checks that `gemini` is on the `PATH` and that the hooks are installed.
+
+What works like Claude Code: the session list (recent session files under `tmp/`), the conversation (shell commands, file edits and searches shown like Claude Code's), prompts, photos and keys, starting and resuming from the phone, push and live status. Approvals: Gemini CLI hooks cannot approve a tool, so when its approval dialog opens the phone gets Allow / Deny and the daemon presses the dialog's own keys in the terminal ("Allow once" or Esc); if the dialog was already answered there, the app says so. Differences: no "Always", no mode switch (and never YOLO), no worktree or name at start, no Polish dictation or generated messages, and no provider.
+
 ## Launchers and aliases
 
 Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added to the `PATH` of `~/.zshrc` and `~/.bashrc`). Run the alias instead of `claude`, with the same arguments: it opens Claude Code in a window of the `claude-remote` tmux session with the right `CLAUDE_CONFIG_DIR` and attaches your terminal to it. The plain `claude` command is never changed.

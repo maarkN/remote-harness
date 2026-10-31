@@ -63,6 +63,7 @@ export const claudeCode: AgentAdapter = {
   modes: true,
   presets: null,
   permissionRules: true,
+  approvalDialog: null,
   polish: {
     args: (text, systemPrompt = POLISH_SYSTEM_PROMPT) => [
       '-p',

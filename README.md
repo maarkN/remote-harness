@@ -4,7 +4,7 @@
 
 # Remote Harness
 
-**Follow and drive your coding agents — Claude Code and Codex CLI — running on your Mac, Linux or Windows (WSL) machine, from your iPhone or Android phone.**
+**Follow and drive your coding agents — Claude Code, Codex CLI and Gemini CLI — running on your Mac, Linux or Windows (WSL) machine, from your iPhone or Android phone.**
 
 A small daemon on your computer, a native app on your phone, an end-to-end encrypted link in between.<br/>A relay that can't read your sessions, no account-wide notifications, every profile in one list.
 
@@ -51,7 +51,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 
 - **Computer:** macOS, Linux and Windows (WSL2), installed with one command and updated with `remote-harness update` (or automatically, from the menu bar).
 - **Phone:** iOS/iPadOS and Android 10+. Not in the stores yet: install the Android APK from the releases or build the app yourself ([getting started](https://remoteharness.app/docs/getting-started/#install-the-app)); TestFlight and Google Play are in progress ([#161](https://github.com/maarkN/remote-harness/issues/161)). Installed builds get JavaScript updates over the air.
-- **Agents:** Claude Code (any number of accounts, also through OpenRouter) and Codex CLI. Kimi and Qwen Code are planned.
+- **Agents:** Claude Code (any number of accounts, also through OpenRouter) Codex CLI and Gemini CLI. Kimi and Qwen Code are planned.
 - **Languages:** the app, the CLI, notifications and the [site](https://remoteharness.app) in English, Brazilian Portuguese and Spanish.
 
 ## What it does
@@ -59,7 +59,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 | | |
 |---|---|
 | 📋 **One list, every profile** | Sessions from all your profiles (`~/.claude`, `~/.claude-work`, `~/.codex`, …), sorted by what moved last, with live state (running, waiting, idle) and a "waiting for you" strip on top. |
-| 🤖 **Claude Code and Codex** | Claude Code profiles — on your Anthropic accounts or [OpenRouter](https://openrouter.ai) models — and Codex CLI profiles side by side, each with its own launcher. |
+| 🤖 **Claude Code, Codex and Gemini CLI** | Claude Code profiles — on your Anthropic accounts or [OpenRouter](https://openrouter.ai) models — Codex CLI and Gemini CLI profiles side by side, each with its own launcher. |
 | 💬 **Live conversation** | The same history you see on the computer: markdown, thinking, tool calls, diffs, results — streamed in real time and paginated. |
 | ⌨️ **Send prompts** | Type into the very same process that is open on the computer, `Esc` and `Ctrl+C` included. Queue follow-ups while the agent works (or send now), keep a draft per session, dictate on-device and attach photos. |
 | ✅ **Approve permissions** | Allow, deny or **always allow** (written as a rule by Claude Code itself, undoable in Settings → Permissions → Rules or with `remote-harness rules undo`); every answer from a device lands in the approval log (Settings → Permissions → Activity, `remote-harness approvals list`). Answer the agent's questions and approve its plans. |
@@ -102,6 +102,8 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 Sessions started with plain `claude` (outside tmux) still show up — read-only — and can be resumed from the phone.
 
 **Codex CLI** works the same way through its own command hooks (`<CODEX_HOME>/hooks.json`) and session rollouts: start, resume, prompts, Allow/Deny on permission requests and the conversation, without worktrees or "always allow" rules.
+
+**Gemini CLI** reports through its own hooks in `settings.json` (in folders it trusts) and its session files under `~/.gemini/tmp/`. Its hooks cannot approve a tool, so Allow/Deny from the phone is typed into Gemini's own approval dialog in the tmux pane.
 
 ## Security model
 
@@ -175,7 +177,7 @@ pnpm --filter @remote-harness/mobile ios               # app on the iOS simulato
 - Sessions must run inside tmux to be controllable; others are read-only until resumed.
 - The computer must be awake. The service keeps it from idle-sleeping while sessions run (`remote-harness keep-awake`), but the app cannot wake a computer that already sleeps: Wake-on-LAN only works on the computer's own network, so it needs another always-on device there ([design notes](docs/design/remote-wake.md)).
 - Permission-mode switching reads the Claude Code status line, so a TUI change may need a label update (they live in one tested table).
-- Codex sessions cannot start in their own worktree, and permission requests offer Allow and Deny only.
+- Codex and Gemini CLI permission requests offer Allow and Deny only; Gemini CLI sessions cannot start in a worktree or switch modes from the app, and a folder Gemini CLI does not trust runs no hooks (its sessions there stay read-only).
 - Translations beyond English, Brazilian Portuguese and Spanish are welcome.
 
 ## Contributing
@@ -186,4 +188,4 @@ Issues and pull requests are welcome! Read [CONTRIBUTING.md](CONTRIBUTING.md) fo
 
 [MIT](LICENSE) © Marco Filho
 
-<sub>Remote Harness is an independent project and is not affiliated with, endorsed by or sponsored by Anthropic or OpenAI. "Claude" and "Claude Code" are trademarks of Anthropic, PBC; "Codex" is a trademark of OpenAI.</sub>
+<sub>Remote Harness is an independent project and is not affiliated with, endorsed by or sponsored by Anthropic, OpenAI or Google. "Claude" and "Claude Code" are trademarks of Anthropic, PBC; "Codex" is a trademark of OpenAI; "Gemini" is a trademark of Google LLC.</sub>

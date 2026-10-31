@@ -110,6 +110,7 @@ export const codex: AgentAdapter = {
   modes: false,
   presets: { command: (preset) => `/permissions ${PRESET_PROFILES[preset]}` },
   permissionRules: false,
+  approvalDialog: null,
   // No session file (`--ephemeral`), no MCP servers or user model settings (`--ignore-user-config`),
   // no writes (`--sandbox read-only`); exec has no system-prompt flag, so the instructions lead the prompt.
   polish: {

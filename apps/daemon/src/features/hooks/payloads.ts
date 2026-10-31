@@ -18,12 +18,22 @@ export const HOOK_EVENTS = [
  */
 export const CODEX_ONLY_HOOK_EVENTS = ['Interrupt'] as const
 
-export type HookEventName = (typeof HOOK_EVENTS)[number] | (typeof CODEX_ONLY_HOOK_EVENTS)[number]
+/**
+ * The agent is about to show its own approval dialog, which no hook can answer (Gemini CLI's
+ * `Notification`): the phone's answer is typed into the pane (see `AgentAdapter.approvalDialog`).
+ */
+export const DIALOG_HOOK_EVENTS = ['PermissionDialog'] as const
+
+export type HookEventName =
+  | (typeof HOOK_EVENTS)[number]
+  | (typeof CODEX_ONLY_HOOK_EVENTS)[number]
+  | (typeof DIALOG_HOOK_EVENTS)[number]
 
 export function isHookEventName(value: string): value is HookEventName {
   return (
     (HOOK_EVENTS as readonly string[]).includes(value) ||
-    (CODEX_ONLY_HOOK_EVENTS as readonly string[]).includes(value)
+    (CODEX_ONLY_HOOK_EVENTS as readonly string[]).includes(value) ||
+    (DIALOG_HOOK_EVENTS as readonly string[]).includes(value)
   )
 }
 

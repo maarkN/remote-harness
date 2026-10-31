@@ -95,6 +95,7 @@ describe('codex modes and new session', () => {
     expect(canStartInWorktree('claude')).toBe(true)
     expect(canStartInWorktree('codex')).toBe(true)
     expect(canStartInWorktree('kimi')).toBe(false)
+    expect(canStartInWorktree('gemini')).toBe(false)
   })
 
   test('permissions chip: built-in profiles translated, named ones as is, else the policy', () => {

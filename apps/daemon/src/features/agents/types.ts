@@ -28,6 +28,21 @@ export type TranscriptSummary = {
 }
 
 /**
+ * An approval dialog the agent shows in its TUI and no hook can answer (Gemini CLI): the phone's
+ * answer is typed into the pane while the dialog is on screen.
+ */
+export type ApprovalDialog = {
+  /** The tool and input shown on the phone, from the payload of the hook announcing the dialog. */
+  request(payload: Record<string, unknown>): { tool: string; input: Record<string, unknown> }
+  /** The dialog is on this pane capture (and its allow option is the one `allowKeys` picks). */
+  isOpen(screen: string): boolean
+  /** tmux keys that allow this one call. */
+  allowKeys: string[]
+  /** tmux keys that reject it. */
+  denyKeys: string[]
+}
+
+/**
  * What differs between coding-agent CLIs as far as the daemon is concerned. The session registry,
  * transport, push, mute and pane features stay agent-agnostic and ask the session's adapter.
  */
@@ -41,6 +56,10 @@ export type AgentAdapter = {
   configDirEnv: string | null
   /** Config dir used when a profile does not say otherwise ("~/.claude"); launched with the variable unset. */
   defaultConfigDir: string
+  /** Value of `configDirEnv` for a profile's config dir; the dir itself when absent. */
+  configDirEnvValue?(configDir: string): string
+  /** Whether a profile's config dir can be one of this CLI's (all when absent). */
+  acceptsConfigDir?(configDir: string): boolean
   /** Arguments that resume an existing session. */
   resumeArgs(sessionId: string): string[]
   /** Arguments that start in a new git worktree with that name; null when the CLI cannot. */
@@ -71,7 +90,7 @@ export type AgentAdapter = {
     beforeSubmit: string[]
   }
   /** Where the daemon's hooks go and in which shape. */
-  hooks: { style: 'claude-settings' | 'codex-hooks'; file(configDir: string): string }
+  hooks: { style: 'claude-settings' | 'codex-hooks' | 'gemini-hooks'; file(configDir: string): string }
   /** The daemon wraps the CLI's status line (Claude Code only). */
   statusLine: boolean
   /** Profiles may route the CLI through a model provider (OpenRouter). */
@@ -88,6 +107,8 @@ export type AgentAdapter = {
    * a failed hook, so its requests get Allow / Deny only.
    */
   permissionRules: boolean
+  /** The approval dialog answered through the pane; null when hooks answer approvals (or nothing does). */
+  approvalDialog: ApprovalDialog | null
   /**
    * One non-interactive call with a small model and no tools: rewrites a dictated transcript, or
    * (with its own system prompt, the material on stdin) writes a commit message. `null` when the CLI
