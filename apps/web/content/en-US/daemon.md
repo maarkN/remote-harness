@@ -116,6 +116,18 @@ A profile can run Google's Gemini CLI: set `"agent": "gemini"` and point `config
 
 What works like Claude Code: the session list (recent session files under `tmp/`), the conversation (shell commands, file edits and searches shown like Claude Code's), prompts, photos and keys, starting and resuming from the phone, push and live status. Approvals: Gemini CLI hooks cannot approve a tool, so when its approval dialog opens the phone gets Allow / Deny and the daemon presses the dialog's own keys in the terminal ("Allow once" or Esc); if the dialog was already answered there, the app says so. Differences: no "Always", no mode switch (and never YOLO), no worktree or name at start, no Polish dictation or generated messages, and no provider.
 
+## Kimi CLI profiles
+
+A profile can run Moonshot's Kimi CLI: set `"agent": "kimi"` and point `configDir` at the Kimi data dir (`KIMI_SHARE_DIR`, `~/.kimi` by default). `remote-harness setup` offers `~/.kimi` when Kimi CLI has used it.
+
+```json
+{ "id": "km", "name": "Kimi", "configDir": "~/.kimi", "color": "#5B9BF5", "agent": "kimi" }
+```
+
+`remote-harness install` writes the profile's launcher (it opens `kimi` with `KIMI_SHARE_DIR` set) and adds the daemon's hooks to `<configDir>/config.toml` as `[[hooks]]` tables, at the end and with a backup; every other line of the file stays as it is. If your `config.toml` sets `hooks = [...]` as a single key, install leaves it alone and `doctor` reports the hooks as missing: turn it into `[[hooks]]` tables first. `doctor` checks that `kimi` is on the `PATH` and that the hooks are installed.
+
+What works like Claude Code: the session list (recent sessions under `sessions/`), the conversation (shell commands, file edits and searches shown like Claude Code's), prompts, photos and keys, starting and resuming from the phone, push and live status. Approvals: Kimi CLI has no hook for them, so while a Kimi session runs the daemon looks at its tmux pane every second; when the approval panel shows, the phone gets Allow / Deny and the daemon presses the panel's own keys ("Approve once" or "Reject"). Answered in the terminal, the request goes away by itself. Differences: no "Always" (no "approve for this session" either), no plan mode, yolo or afk from the app, no worktree or name at start, no Polish dictation or generated messages, and no provider. A turn cancelled with Esc stays "running" in the app until the next prompt.
+
 ## Launchers and aliases
 
 Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added to the `PATH` of `~/.zshrc` and `~/.bashrc`). Run the alias instead of `claude`, with the same arguments: it opens Claude Code in a window of the `claude-remote` tmux session with the right `CLAUDE_CONFIG_DIR` and attaches your terminal to it. The plain `claude` command is never changed.

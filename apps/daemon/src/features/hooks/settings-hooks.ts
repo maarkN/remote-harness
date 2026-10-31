@@ -101,13 +101,21 @@ export function buildCodexHookEntry(event: HookEventName, options: HookInstallOp
  * approval, so every output is discarded and the hook returns at once.
  */
 export function buildGeminiHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
-  const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
-  const ending = event === 'SessionEnd'
   return {
     type: 'command',
-    command: `curl -s -m ${ending ? 2 : 5} -o /dev/null -X POST -H 'content-type: application/json' ${curlHeaders(options.secret)} --data-binary @- ${url} >/dev/null 2>&1 || true`,
-    timeout: ending ? 3_000 : 10_000,
+    command: postCommand(event, options),
+    timeout: event === 'SessionEnd' ? 3_000 : 10_000,
   }
+}
+
+/**
+ * A shell command posting the hook's stdin to the daemon and discarding the answer (agents whose
+ * hooks cannot answer an approval: Gemini CLI, Kimi CLI). `SessionEnd` gives up after 2 seconds.
+ */
+export function postCommand(event: HookEventName, options: HookInstallOptions): string {
+  const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
+  const seconds = event === 'SessionEnd' ? 2 : 5
+  return `curl -s -m ${seconds} -o /dev/null -X POST -H 'content-type: application/json' ${curlHeaders(options.secret)} --data-binary @- ${url} >/dev/null 2>&1 || true`
 }
 
 export function buildHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {

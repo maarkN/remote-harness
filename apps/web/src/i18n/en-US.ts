@@ -9,7 +9,7 @@ export const enUS = {
   meta: {
     title: 'Remote Harness: follow and drive your coding agents from your phone',
     description:
-      'Self-hosted: Claude Code, Codex or Gemini CLI runs in tmux on your own machine, Remote Harness streams the conversation to your phone, encrypted end to end. Permissions, prompts and new sessions from anywhere.',
+      'Self-hosted: Claude Code, Codex, Gemini CLI or Kimi CLI runs in tmux on your own machine, Remote Harness streams the conversation to your phone, encrypted end to end. Permissions, prompts and new sessions from anywhere.',
   },
   nav: {
     skip: 'Skip to content',
@@ -25,7 +25,7 @@ export const enUS = {
   hero: {
     eyebrow: 'End-to-end encrypted · tmux · open source',
     title: 'Follow and drive your coding agents from your phone.',
-    lead: 'Claude Code, Codex or Gemini CLI runs in tmux on your own machine. Remote Harness streams the conversation to your phone from anywhere, encrypted end to end, so you can read what the agent did, answer its permission requests, send the next prompt and start new sessions.',
+    lead: 'Claude Code, Codex, Gemini CLI or Kimi CLI runs in tmux on your own machine. Remote Harness streams the conversation to your phone from anywhere, encrypted end to end, so you can read what the agent did, answer its permission requests, send the next prompt and start new sessions.',
     install: 'Install on your machine',
     app: 'Get the app',
     platforms: 'macOS · Linux · Windows (WSL2)',
@@ -178,12 +178,13 @@ export const enUS = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Your agents, in tmux',
-      body: 'One window per session, one alias per profile, for Claude Code, Codex or Gemini CLI.',
+      body: 'One window per session, one alias per profile, for Claude Code, Codex, Gemini CLI or Kimi CLI.',
       aliases: [
         { mark: 'claude' as MarkId, text: 'personal → ~/.claude' },
         { mark: 'claude' as MarkId, text: 'work → ~/.claude-work' },
         { mark: 'codex' as MarkId, text: 'codex → ~/.codex' },
         { mark: 'gemini' as MarkId, text: 'gem → ~/.gemini' },
+        { mark: 'kimi' as MarkId, text: 'km → ~/.kimi' },
         { mark: 'claude' as MarkId, text: 'openrouter → ~/.claude-openrouter' },
       ],
     },
@@ -295,7 +296,7 @@ export const enUS = {
       'tmux',
       'git',
       'ripgrep',
-      'claude, codex or gemini on PATH',
+      'claude, codex, gemini or kimi on PATH',
     ],
     appTitle: 'Get the app',
     ios: {
@@ -319,7 +320,7 @@ export const enUS = {
       },
       {
         q: 'Which agents are supported?',
-        a: 'Claude Code, Codex CLI and Gemini CLI, with every profile (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `~/.gemini`) in one list, including Claude Code profiles routed through OpenRouter. Kimi and Qwen Code are on the roadmap.',
+        a: 'Claude Code, Codex CLI, Gemini CLI and Kimi CLI, with every profile (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `~/.gemini`, `KIMI_SHARE_DIR`) in one list, including Claude Code profiles routed through OpenRouter. Qwen Code is on the roadmap.',
       },
       {
         q: 'Can it run my agent unsupervised?',

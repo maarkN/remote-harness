@@ -334,12 +334,17 @@ export class PermissionBroker {
    * waits for the phone without holding the hook, and `respond` types the answer into the dialog.
    * Timeouts, the terminal's answer and the session moving on resolve it like a hook's request.
    */
-  openDialog(hook: HookEvent, dialog: ApprovalDialog): void {
+  openDialog(hook: HookEvent, dialog: ApprovalDialog): string {
     const payload = hook.payload
     const { tool, input } = dialog.request(payload)
     const now = Date.now()
     const timeoutMs = this.options.timeoutMs
     this.endHandovers(payload.session_id)
+    // The agent shows one dialog at a time: a new one means the older was answered in the terminal.
+    for (const pending of [...this.pending.values()]) {
+      if (pending.dialog && pending.info.sessionId === payload.session_id)
+        pending.settle({ kind: 'moved', move: 'result' })
+    }
     const info: PermissionRequestInfo = {
       requestId: randomUUID(),
       sessionId: payload.session_id,
@@ -378,6 +383,13 @@ export class PermissionBroker {
         this.resolve(info, 'cancelled')
       }
     })
+    return info.requestId
+  }
+
+  /** A dialog request whose dialog left the screen without the phone: answered in the terminal. */
+  dialogGone(requestId: string): void {
+    const pending = this.pending.get(requestId)
+    if (pending?.dialog && !pending.dialog.answering) pending.settle({ kind: 'moved', move: 'result' })
   }
 
   /** Answers a question or plan approval; the first answer (phone or terminal) wins. */

@@ -21,9 +21,21 @@ const CODEX_COLOR = '#2FBF8F'
 const GEMINI_DIR = '.gemini'
 const GEMINI_MARKERS = ['settings.json', 'oauth_creds.json', 'projects.json', 'tmp']
 const GEMINI_COLOR = '#E3729E'
+/** `~/.kimi` (Kimi CLI's default KIMI_SHARE_DIR) counts once Kimi CLI has written one of these. */
+const KIMI_DIR = '.kimi'
+const KIMI_MARKERS = ['config.toml', 'kimi.json', 'sessions']
+const KIMI_COLOR = '#5B9BF5'
 const ALIAS = /^[a-z][a-z0-9_-]{0,31}$/
 /** The launcher runs `claude` and its directory comes first on PATH; these would call themselves. */
-const RESERVED_ALIASES = new Set(['claude', 'codex', 'gemini', 'claude-remote', 'remote-harness', 'tmux'])
+const RESERVED_ALIASES = new Set([
+  'claude',
+  'codex',
+  'gemini',
+  'kimi',
+  'claude-remote',
+  'remote-harness',
+  'tmux',
+])
 export const PROFILE_COLORS = ['#D97757', '#61AFEF', '#98C379', '#C678DD', '#E5C07B', '#56B6C2']
 
 export function tildify(path: string, home = homedir()): string {
@@ -36,9 +48,9 @@ function looksLikeConfigDir(path: string): boolean {
 }
 
 /**
- * Claude Code config dirs in the home, `~/.claude` first, as `~/...` paths, then `~/.codex` and
- * `~/.gemini` when Codex and Gemini CLI have used them. `~/.claude-*` dirs only count when Claude Code has written to them, so other
- * tools' `~/.claude-x` data is skipped.
+ * Claude Code config dirs in the home, `~/.claude` first, as `~/...` paths, then `~/.codex`,
+ * `~/.gemini` and `~/.kimi` when Codex, Gemini CLI and Kimi CLI have used them. `~/.claude-*` dirs
+ * only count when Claude Code has written to them, so other tools' `~/.claude-x` data is skipped.
  */
 export async function detectConfigDirs(home = homedir()): Promise<string[]> {
   const entries = await readdir(home).catch(() => [] as string[])
@@ -50,6 +62,8 @@ export async function detectConfigDirs(home = homedir()): Promise<string[]> {
   }
   const codex = join(home, CODEX_DIR)
   const hasCodex = (await isDirectory(codex)) && CODEX_MARKERS.some((m) => existsSync(join(codex, m)))
+  const kimiDir = join(home, KIMI_DIR)
+  const hasKimi = (await isDirectory(kimiDir)) && KIMI_MARKERS.some((m) => existsSync(join(kimiDir, m)))
   const geminiDir = join(home, GEMINI_DIR)
   const hasGemini =
     (await isDirectory(geminiDir)) && GEMINI_MARKERS.some((m) => existsSync(join(geminiDir, m)))
@@ -57,6 +71,7 @@ export async function detectConfigDirs(home = homedir()): Promise<string[]> {
     ...found.sort((a, b) => (a === '.claude' ? -1 : b === '.claude' ? 1 : a.localeCompare(b))),
     ...(hasCodex ? [CODEX_DIR] : []),
     ...(hasGemini ? [GEMINI_DIR] : []),
+    ...(hasKimi ? [KIMI_DIR] : []),
   ].map((n) => `~/${n}`)
 }
 
@@ -68,6 +83,11 @@ export function isCodexDir(configDir: string): boolean {
 /** A folder named `.gemini` holds a Gemini CLI config (its parent goes in `GEMINI_CLI_HOME`). */
 export function isGeminiDir(configDir: string): boolean {
   return /(^|\/)\.gemini\/?$/.test(configDir)
+}
+
+/** `~/.kimi` and `~/.kimi-<name>` hold a Kimi CLI data dir (`KIMI_SHARE_DIR`). */
+export function isKimiDir(configDir: string): boolean {
+  return /(^|\/)\.kimi(-[\w.-]+)?\/?$/.test(configDir)
 }
 
 export function sameDir(a: string, b: string): boolean {
@@ -92,6 +112,12 @@ export function suggestProfile(
     const id = codexSuffix ? `cdx-${codexSuffix.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}` : 'cdx'
     const name = codexSuffix ? `Codex ${capitalize(codexSuffix.replace(/[-_.]+/g, ' '))}` : 'Codex'
     return { id, name, configDir, color: CODEX_COLOR, agent: 'codex' }
+  }
+  if (isKimiDir(configDir)) {
+    const kimiSuffix = /\.kimi-([\w.-]+)\/?$/.exec(configDir)?.[1]
+    const id = kimiSuffix ? `km-${kimiSuffix.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}` : 'km'
+    const name = kimiSuffix ? `Kimi ${capitalize(kimiSuffix.replace(/[-_.]+/g, ' '))}` : 'Kimi'
+    return { id, name, configDir, color: KIMI_COLOR, agent: 'kimi' }
   }
   if (isGeminiDir(configDir)) {
     // `~/.gemini` is `gem`; another home's `.gemini` (`~/work/.gemini`) is named after that home.

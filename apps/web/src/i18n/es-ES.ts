@@ -4,7 +4,7 @@ export const esES: WebMessages = {
   meta: {
     title: 'Remote Harness: sigue y dirige tus agentes de código desde el móvil',
     description:
-      'Autoalojado: Claude Code, Codex o Gemini CLI se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil con cifrado de extremo a extremo. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
+      'Autoalojado: Claude Code, Codex, Gemini CLI o Kimi CLI se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil con cifrado de extremo a extremo. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
   },
   nav: {
     skip: 'Ir al contenido',
@@ -20,7 +20,7 @@ export const esES: WebMessages = {
   hero: {
     eyebrow: 'Cifrado de extremo a extremo · tmux · código abierto',
     title: 'Sigue y dirige tus agentes de código desde el móvil.',
-    lead: 'Claude Code, Codex o Gemini CLI se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil desde cualquier lugar, con cifrado de extremo a extremo: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas.',
+    lead: 'Claude Code, Codex, Gemini CLI o Kimi CLI se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil desde cualquier lugar, con cifrado de extremo a extremo: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas.',
     install: 'Instalar en la máquina',
     app: 'Descargar la app',
     platforms: 'macOS · Linux · Windows (WSL2)',
@@ -178,12 +178,13 @@ export const esES: WebMessages = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Tus agentes, en tmux',
-      body: 'Una ventana por sesión, un alias por perfil, para Claude Code, Codex o Gemini CLI.',
+      body: 'Una ventana por sesión, un alias por perfil, para Claude Code, Codex, Gemini CLI o Kimi CLI.',
       aliases: [
         { mark: 'claude', text: 'personal → ~/.claude' },
         { mark: 'claude', text: 'trabajo → ~/.claude-work' },
         { mark: 'codex', text: 'codex → ~/.codex' },
         { mark: 'gemini', text: 'gem → ~/.gemini' },
+        { mark: 'kimi', text: 'km → ~/.kimi' },
         { mark: 'claude', text: 'openrouter → ~/.claude-openrouter' },
       ],
     },
@@ -295,7 +296,7 @@ export const esES: WebMessages = {
       'tmux',
       'git',
       'ripgrep',
-      'claude, codex o gemini en el PATH',
+      'claude, codex, gemini o kimi en el PATH',
     ],
     appTitle: 'Descargar la app',
     ios: {
@@ -319,7 +320,7 @@ export const esES: WebMessages = {
       },
       {
         q: '¿Qué agentes están soportados?',
-        a: 'Claude Code, Codex CLI y Gemini CLI, con todos los perfiles (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `~/.gemini`) en una sola lista, incluidos los perfiles de Claude Code enrutados por OpenRouter. Kimi y Qwen Code están en la hoja de ruta.',
+        a: 'Claude Code, Codex CLI, Gemini CLI y Kimi CLI, con todos los perfiles (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `~/.gemini`, `KIMI_SHARE_DIR`) en una sola lista, incluidos los perfiles de Claude Code enrutados por OpenRouter. Qwen Code está en la hoja de ruta.',
       },
       {
         q: '¿Puede ejecutar mi agente sin supervisión?',

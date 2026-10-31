@@ -92,6 +92,8 @@ A profile can also run **Codex** (`cx` badge, green): its sessions show the perm
 
 A profile can also run **Gemini CLI** (`gm` badge, pink): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny, answered in Gemini's own dialog in the terminal. See [Gemini CLI profiles](/en/docs/daemon/#gemini-cli-profiles).
 
+A profile can also run **Kimi CLI** (`ki` badge, blue): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny, answered in Kimi's own approval panel in the terminal. See [Kimi CLI profiles](/en/docs/daemon/#kimi-cli-profiles).
+
 ## Settings
 
 - **Machine**: the connection and its path (direct or via relay), the machine's name (an alias of your choice, else its hostname), the daemon version, and **Forget this machine**.
