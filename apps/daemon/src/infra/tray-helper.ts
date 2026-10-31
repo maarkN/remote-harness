@@ -72,8 +72,32 @@ export function trayAssetsDir(): string | null {
 export type TrayCommand = { command: string; args: string[] } | { unavailable: string }
 
 /**
- * How to start the tray helper here, compiling the macOS one on first use (cached by source hash).
- * WSL and Linux sessions without a display get `unavailable` with the reason.
+ * The PowerShell that compiles and runs the Windows helper (`Add-Type` on its C# source, read straight
+ * from the distribution through `\\wsl.localhost`). `-Command` leaves stdin to the helper.
+ */
+export function windowsTrayArgs(sourceWindowsPath: string): string[] {
+  const path = sourceWindowsPath.replaceAll("'", "''")
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `Add-Type -Path '${path}' -ReferencedAssemblies System.Windows.Forms, System.Drawing, System.Web.Extensions`,
+    '[RemoteHarness.TrayApp]::Run()',
+  ].join('; ')
+  return [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-WindowStyle',
+    'Hidden',
+    '-Command',
+    script,
+  ]
+}
+
+/**
+ * How to start the tray helper here, compiling the macOS one on first use (cached by source hash); in
+ * WSL, the Windows one through PowerShell. Linux sessions without a display, and WSL without interop,
+ * get `unavailable` with the reason.
  */
 export async function trayCommand(o: {
   platform: Platform
@@ -101,7 +125,13 @@ export async function trayCommand(o: {
     }
     return { command: binary, args: [] }
   }
-  if (o.wsl) return { unavailable: 'no tray in WSL' }
+  if (o.wsl) {
+    // The icon lives on the Windows host: PowerShell compiles the C# helper, reached through interop.
+    const converted = await o.exec('wslpath', ['-w', join(o.assetsDir, 'windows', 'Tray.cs')])
+    const path = converted.stdout.trim()
+    if (converted.exitCode !== 0 || !path) return { unavailable: 'no Windows interop' }
+    return { command: 'powershell.exe', args: windowsTrayArgs(path) }
+  }
   if (!o.env.DISPLAY && !o.env.WAYLAND_DISPLAY) return { unavailable: 'no graphical session' }
   return { command: 'python3', args: [join(o.assetsDir, 'linux', 'tray.py')] }
 }

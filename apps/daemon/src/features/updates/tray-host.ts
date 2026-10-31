@@ -81,6 +81,11 @@ export class TrayHost {
     this.process?.send(menu)
   }
 
+  /** A desktop notification shown by the helper (the Windows one); dropped while none runs. */
+  notify(title: string, body: string): void {
+    this.process?.send({ type: 'notify', title, body })
+  }
+
   stop(): void {
     this.stopped = true
     clearTimeout(this.timer)

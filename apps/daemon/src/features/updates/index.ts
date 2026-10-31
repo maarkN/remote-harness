@@ -95,8 +95,14 @@ export async function registerUpdatesFeature(
   },
 ) {
   const platform = resolvePlatform()
-  const wsl = currentWsl(platform) !== null
-  const desktop = createDesktop(ctx.exec, platform, { wsl })
+  const wslInfo = currentWsl(platform)
+  const wsl = wslInfo !== null
+  // In WSL, notifications become Windows ones through the tray helper (declared below, used later).
+  const desktop = createDesktop(ctx.exec, platform, {
+    wsl,
+    distro: wslInfo?.distro ?? null,
+    notify: (title, body) => tray?.notify(title, body),
+  })
   const locale = effectiveLocale(ctx.config)
   const m = messagesFor(locale).updates
   const source = updateSource(deps.options.cliPath, installerSourceDir())
