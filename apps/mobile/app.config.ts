@@ -848,6 +848,8 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     'expo-secure-store',
     // Native crypto for the Noise channel (X25519, ChaCha20-Poly1305); OpenSSL only, no libsodium.
     'react-native-quick-crypto',
+    // History cache (ADR 0004): SQLCipher-encrypted SQLite, with FTS5 for search.
+    ['expo-sqlite', { useSQLCipher: true, enableFTS: true }],
     'expo-font',
     ['expo-localization', { supportedLocales: { ios: APP_LOCALIZATIONS, android: APP_LOCALIZATIONS } }],
     [

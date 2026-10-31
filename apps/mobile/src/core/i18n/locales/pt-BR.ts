@@ -148,6 +148,7 @@ const ptBR = {
     },
   },
   conversation: {
+    offlineCopy: 'Offline · mostrando a cópia salva neste aparelho',
     turnDuration: 'Turno concluído em {{duration}}',
     compacted: 'Conversa compactada',
     compactedWithTrigger: 'Conversa compactada {{trigger}}',

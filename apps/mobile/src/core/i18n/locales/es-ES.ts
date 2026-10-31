@@ -148,6 +148,7 @@ const esES = {
     },
   },
   conversation: {
+    offlineCopy: 'Sin conexión · mostrando la copia guardada en este dispositivo',
     turnDuration: 'Turno completado en {{duration}}',
     compacted: 'Conversación compactada',
     compactedWithTrigger: 'Conversación compactada {{trigger}}',
