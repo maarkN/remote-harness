@@ -27,6 +27,7 @@ import {
   UnknownEntry,
   UserMessage,
 } from './components/Messages'
+import { OfflineCopyNotice } from './components/OfflineCopyNotice'
 import { PromptHistorySheet } from './components/PromptHistorySheet'
 import { ToolCallCard } from './components/ToolCallCard'
 import { useFollowStore } from './follow-store'
@@ -149,6 +150,7 @@ export function ConversationScreen({
           <ConnectionBanner />
           <DemoBanner />
           {header}
+          <OfflineCopyNotice hasEntries={stream.entries.length > 0} />
           <View
             ref={anchor}
             style={styles.flex}

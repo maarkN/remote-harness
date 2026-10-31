@@ -151,6 +151,7 @@ const enUS = {
     },
   },
   conversation: {
+    offlineCopy: 'Offline · showing the copy saved on this device',
     turnDuration: 'Turn completed in {{duration}}',
     compacted: 'Conversation compacted',
     compactedWithTrigger: 'Conversation compacted {{trigger}}',
