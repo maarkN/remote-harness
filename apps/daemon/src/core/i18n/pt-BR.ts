@@ -97,6 +97,9 @@ export const ptBR = {
       kimiHooks: (id: string, path: string) => `hooks do Kimi CLI do perfil ${id} (${path})`,
       kimiAccountWithoutProfile: (dir: string) =>
         `Conta do Kimi CLI encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
+      qwenHooks: (id: string, path: string) => `hooks do Qwen Code do perfil ${id} (${path})`,
+      qwenAccountWithoutProfile: (dir: string) =>
+        `Conta do Qwen Code encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
       runInstall: 'rode `remote-harness install`',
       service: (name: string, detail: string) => `serviço em segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',

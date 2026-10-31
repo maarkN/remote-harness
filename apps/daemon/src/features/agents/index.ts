@@ -3,12 +3,13 @@ import { claudeCode } from './claude.ts'
 import { codex } from './codex.ts'
 import { gemini } from './gemini.ts'
 import { kimi } from './kimi.ts'
+import { qwen } from './qwen.ts'
 import type { AgentAdapter } from './types.ts'
 
 export type { AgentAdapter, ApprovalDialog, TranscriptLocation, TranscriptSummary } from './types.ts'
 
 /** Adapters by agent id; an id without one is known to the protocol but cannot run yet. */
-const ADAPTERS: Partial<Record<AgentId, AgentAdapter>> = { claude: claudeCode, codex, gemini, kimi }
+const ADAPTERS: Partial<Record<AgentId, AgentAdapter>> = { claude: claudeCode, codex, gemini, kimi, qwen }
 
 /** The agent a profile launches: Claude Code when the config does not say. */
 export function profileAgentId(profile: Pick<Profile, 'agent'> | undefined): AgentId {

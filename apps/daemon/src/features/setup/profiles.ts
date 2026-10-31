@@ -25,6 +25,10 @@ const GEMINI_COLOR = '#E3729E'
 const KIMI_DIR = '.kimi'
 const KIMI_MARKERS = ['config.toml', 'kimi.json', 'sessions']
 const KIMI_COLOR = '#5B9BF5'
+/** `~/.qwen` (Qwen Code's default QWEN_HOME) counts once Qwen Code has written one of these. */
+const QWEN_DIR = '.qwen'
+const QWEN_MARKERS = ['settings.json', 'installation_id', 'oauth_creds.json', 'projects']
+const QWEN_COLOR = '#8C6CF5'
 const ALIAS = /^[a-z][a-z0-9_-]{0,31}$/
 /** The launcher runs `claude` and its directory comes first on PATH; these would call themselves. */
 const RESERVED_ALIASES = new Set([
@@ -32,6 +36,7 @@ const RESERVED_ALIASES = new Set([
   'codex',
   'gemini',
   'kimi',
+  'qwen',
   'claude-remote',
   'remote-harness',
   'tmux',
@@ -49,7 +54,7 @@ function looksLikeConfigDir(path: string): boolean {
 
 /**
  * Claude Code config dirs in the home, `~/.claude` first, as `~/...` paths, then `~/.codex`,
- * `~/.gemini` and `~/.kimi` when Codex, Gemini CLI and Kimi CLI have used them. `~/.claude-*` dirs
+ * `~/.gemini`, `~/.kimi` and `~/.qwen` when those agents have used them. `~/.claude-*` dirs
  * only count when Claude Code has written to them, so other tools' `~/.claude-x` data is skipped.
  */
 export async function detectConfigDirs(home = homedir()): Promise<string[]> {
@@ -62,6 +67,8 @@ export async function detectConfigDirs(home = homedir()): Promise<string[]> {
   }
   const codex = join(home, CODEX_DIR)
   const hasCodex = (await isDirectory(codex)) && CODEX_MARKERS.some((m) => existsSync(join(codex, m)))
+  const qwenDir = join(home, QWEN_DIR)
+  const hasQwen = (await isDirectory(qwenDir)) && QWEN_MARKERS.some((m) => existsSync(join(qwenDir, m)))
   const kimiDir = join(home, KIMI_DIR)
   const hasKimi = (await isDirectory(kimiDir)) && KIMI_MARKERS.some((m) => existsSync(join(kimiDir, m)))
   const geminiDir = join(home, GEMINI_DIR)
@@ -72,6 +79,7 @@ export async function detectConfigDirs(home = homedir()): Promise<string[]> {
     ...(hasCodex ? [CODEX_DIR] : []),
     ...(hasGemini ? [GEMINI_DIR] : []),
     ...(hasKimi ? [KIMI_DIR] : []),
+    ...(hasQwen ? [QWEN_DIR] : []),
   ].map((n) => `~/${n}`)
 }
 
@@ -83,6 +91,11 @@ export function isCodexDir(configDir: string): boolean {
 /** A folder named `.gemini` holds a Gemini CLI config (its parent goes in `GEMINI_CLI_HOME`). */
 export function isGeminiDir(configDir: string): boolean {
   return /(^|\/)\.gemini\/?$/.test(configDir)
+}
+
+/** `~/.qwen` and `~/.qwen-<name>` hold a Qwen Code config dir (`QWEN_HOME`). */
+export function isQwenDir(configDir: string): boolean {
+  return /(^|\/)\.qwen(-[\w.-]+)?\/?$/.test(configDir)
 }
 
 /** `~/.kimi` and `~/.kimi-<name>` hold a Kimi CLI data dir (`KIMI_SHARE_DIR`). */
@@ -112,6 +125,12 @@ export function suggestProfile(
     const id = codexSuffix ? `cdx-${codexSuffix.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}` : 'cdx'
     const name = codexSuffix ? `Codex ${capitalize(codexSuffix.replace(/[-_.]+/g, ' '))}` : 'Codex'
     return { id, name, configDir, color: CODEX_COLOR, agent: 'codex' }
+  }
+  if (isQwenDir(configDir)) {
+    const qwenSuffix = /\.qwen-([\w.-]+)\/?$/.exec(configDir)?.[1]
+    const id = qwenSuffix ? `qw-${qwenSuffix.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}` : 'qw'
+    const name = qwenSuffix ? `Qwen Code ${capitalize(qwenSuffix.replace(/[-_.]+/g, ' '))}` : 'Qwen Code'
+    return { id, name, configDir, color: QWEN_COLOR, agent: 'qwen' }
   }
   if (isKimiDir(configDir)) {
     const kimiSuffix = /\.kimi-([\w.-]+)\/?$/.exec(configDir)?.[1]

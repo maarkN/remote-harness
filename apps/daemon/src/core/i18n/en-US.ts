@@ -98,6 +98,9 @@ export const enUS = {
       kimiHooks: (id: string, path: string) => `Kimi CLI hooks for profile ${id} (${path})`,
       kimiAccountWithoutProfile: (dir: string) =>
         `Kimi CLI account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
+      qwenHooks: (id: string, path: string) => `Qwen Code hooks for profile ${id} (${path})`,
+      qwenAccountWithoutProfile: (dir: string) =>
+        `Qwen Code account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
       runInstall: 'run `remote-harness install`',
       service: (name: string, detail: string) => `background service ${name} (${detail})`,
       serviceHint: 'optional: `remote-harness service install`',

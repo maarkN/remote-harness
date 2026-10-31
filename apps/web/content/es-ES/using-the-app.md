@@ -94,6 +94,8 @@ Un perfil también puede ejecutar **Gemini CLI** (insignia `gm`, rosa): sus sesi
 
 Un perfil también puede ejecutar **Kimi CLI** (insignia `ki`, azul): sus sesiones muestran comandos de shell, ediciones y búsquedas en archivos como las de Claude Code, y aprobaciones con Permitir / Denegar, respondidas en el propio panel de aprobación de Kimi en el terminal. Consulta [Perfiles de Kimi CLI](/es/docs/daemon/#perfiles-de-kimi-cli).
 
+Un perfil también puede ejecutar **Qwen Code** (insignia `qw`, violeta): sus sesiones muestran comandos de shell, ediciones y búsquedas en archivos como las de Claude Code, y aprobaciones con Permitir / Denegar. Consulta [Perfiles de Qwen Code](/es/docs/daemon/#perfiles-de-qwen-code).
+
 ## Ajustes
 
 - **Máquina**: la conexión y su camino (directo o por relay), el nombre de la máquina (un alias a tu elección, si no su hostname), la versión del daemon y **Olvidar esta máquina**.

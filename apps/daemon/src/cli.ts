@@ -72,6 +72,7 @@ import {
   isCodexDir,
   isGeminiDir,
   isKimiDir,
+  isQwenDir,
   sameDir,
   tildify,
 } from './features/setup/profiles.ts'
@@ -459,6 +460,21 @@ program
       for (const dir of kimiDirs) {
         if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
           console.log(`· ${d.kimiAccountWithoutProfile(dir)}`)
+        }
+      }
+      // Qwen Code profiles: the CLI on the PATH and the daemon's hooks in their settings.json.
+      const qwenProfiles = resolved.filter((p) => agentFor(p).id === 'qwen')
+      const qwenDirs = (await detectConfigDirs()).filter(isQwenDir)
+      if (qwenProfiles.length > 0 || qwenDirs.length > 0) {
+        const which = await execaExecutor('which', ['qwen'])
+        check(which.exitCode === 0, 'qwen', d.notOnPath)
+      }
+      for (const profile of qwenProfiles) {
+        check(await hasOurHooks(profile), d.qwenHooks(profile.id, settingsPath(profile)), d.runInstall)
+      }
+      for (const dir of qwenDirs) {
+        if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
+          console.log(`· ${d.qwenAccountWithoutProfile(dir)}`)
         }
       }
       const { kind: storeKind } = await selectStore()

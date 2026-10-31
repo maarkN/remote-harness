@@ -94,6 +94,8 @@ A profile can also run **Gemini CLI** (`gm` badge, pink): its sessions show shel
 
 A profile can also run **Kimi CLI** (`ki` badge, blue): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny, answered in Kimi's own approval panel in the terminal. See [Kimi CLI profiles](/en/docs/daemon/#kimi-cli-profiles).
 
+A profile can also run **Qwen Code** (`qw` badge, violet): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny. See [Qwen Code profiles](/en/docs/daemon/#qwen-code-profiles).
+
 ## Settings
 
 - **Machine**: the connection and its path (direct or via relay), the machine's name (an alias of your choice, else its hostname), the daemon version, and **Forget this machine**.

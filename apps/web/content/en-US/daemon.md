@@ -128,6 +128,18 @@ A profile can run Moonshot's Kimi CLI: set `"agent": "kimi"` and point `configDi
 
 What works like Claude Code: the session list (recent sessions under `sessions/`), the conversation (shell commands, file edits and searches shown like Claude Code's), prompts, photos and keys, starting and resuming from the phone, push and live status. Approvals: Kimi CLI has no hook for them, so while a Kimi session runs the daemon looks at its tmux pane every second; when the approval panel shows, the phone gets Allow / Deny and the daemon presses the panel's own keys ("Approve once" or "Reject"). Answered in the terminal, the request goes away by itself. Differences: no "Always" (no "approve for this session" either), no plan mode, yolo or afk from the app, no worktree or name at start, no Polish dictation or generated messages, and no provider. A turn cancelled with Esc stays "running" in the app until the next prompt.
 
+## Qwen Code profiles
+
+A profile can run Qwen Code: set `"agent": "qwen"` and point `configDir` at the Qwen config dir (`QWEN_HOME`, `~/.qwen` by default). `remote-harness setup` offers `~/.qwen` when Qwen Code has used it.
+
+```json
+{ "id": "qw", "name": "Qwen Code", "configDir": "~/.qwen", "color": "#8C6CF5", "agent": "qwen" }
+```
+
+`remote-harness install` writes the profile's launcher (it opens `qwen` with `QWEN_HOME` set) and merges the daemon's hooks into `<configDir>/settings.json`, next to your own hooks and settings and with a backup. `doctor` checks that `qwen` is on the `PATH` and that the hooks are installed.
+
+What works like Claude Code: the session list (recent transcripts under `projects/`), the conversation (shell commands, file edits and searches shown like Claude Code's), prompts, photos and keys, starting and resuming from the phone, push, live status and approvals with Allow / Deny through Qwen's own permission hook. Differences: no "Always", no approval mode switch (and never `auto` or YOLO), no worktree or name at start, no Polish dictation or generated messages, and no provider. A custom `QWEN_RUNTIME_DIR` is not supported yet.
+
 ## Launchers and aliases
 
 Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added to the `PATH` of `~/.zshrc` and `~/.bashrc`). Run the alias instead of `claude`, with the same arguments: it opens Claude Code in a window of the `claude-remote` tmux session with the right `CLAUDE_CONFIG_DIR` and attaches your terminal to it. The plain `claude` command is never changed.

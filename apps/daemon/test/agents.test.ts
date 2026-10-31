@@ -1,6 +1,6 @@
 import { copyFile, mkdir, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Profile } from '@remote-harness/protocol'
+import { AgentIdSchema, type Profile } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { resolveProfiles } from '../src/core/config.ts'
 import { silentLogger } from '../src/core/logger.ts'
@@ -90,18 +90,16 @@ describe('agent adapters', () => {
     expect(codex.polish?.parse('')).toBeNull()
   })
 
-  test('agents without an adapter are known to the protocol but cannot run', () => {
-    expect(hasAgentAdapter('claude')).toBe(true)
-    expect(hasAgentAdapter('codex')).toBe(true)
-    expect(hasAgentAdapter('kimi')).toBe(true)
-    expect(hasAgentAdapter('qwen')).toBe(false)
-    expect(() => agentFor({ agent: 'qwen' })).toThrow(/no adapter for agent qwen/)
+  test('every agent the protocol knows has an adapter; records without one are Claude Code', () => {
+    for (const id of AgentIdSchema.options) {
+      expect(hasAgentAdapter(id)).toBe(true)
+      expect(agentFor({ agent: id }).id).toBe(id)
+    }
     expect(adapterOf(undefined).id).toBe('claude')
-    expect(adapterOf('qwen').id).toBe('claude')
     expect(adapterOf('codex').id).toBe('codex')
   })
 
-  test('resolveProfiles keeps Claude Code and Codex profiles and drops those without an adapter', async () => {
+  test('resolveProfiles keeps the profiles of every agent', async () => {
     const dir = join(home.dir(), '.claude')
     await mkdir(dir, { recursive: true })
     const config = {
@@ -112,7 +110,7 @@ describe('agent adapters', () => {
       ],
     }
     const resolved = await resolveProfiles(config as Parameters<typeof resolveProfiles>[0], silentLogger)
-    expect(resolved.map((p) => p.id)).toEqual(['claudin', 'cdx'])
+    expect(resolved.map((p) => p.id)).toEqual(['claudin', 'cdx', 'qwen'])
   })
 })
 
