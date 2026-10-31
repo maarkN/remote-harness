@@ -70,7 +70,7 @@ describe('localLiveProps', () => {
       activity: '',
       task: '',
       notifiedAt: 9,
-      link: 'claude-remote://session/a',
+      link: 'remoteharness://session/a',
       labels: {
         working: 'trabalhando',
         waiting: 'esperando',

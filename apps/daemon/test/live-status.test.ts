@@ -557,7 +557,7 @@ describe('buildLiveMessage', () => {
         host: 'a-long-host-name.local',
         session: 'x'.repeat(120),
         path: `~/${'p'.repeat(120)}`,
-        link: `claude-remote://session/${'s'.repeat(36)}`,
+        link: `remoteharness://session/${'s'.repeat(36)}`,
       },
       pt,
       { showTask: true, notifiedAt: 1_800_000_000_000 },

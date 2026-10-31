@@ -777,7 +777,7 @@ const ANDROID_VERSION_CODE = APP_VERSION.split('.').reduce((code, part) => code 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,
   name: 'Remote Harness',
-  slug: 'claude-remote',
+  slug: 'remote-harness',
   version: APP_VERSION,
   // Fixed, not detected: Expo adds `web` when `react-dom` resolves, which pnpm's bin shims allow
   // (their NODE_PATH) but Xcode's build phase does not, so the update runtime (fingerprint) of

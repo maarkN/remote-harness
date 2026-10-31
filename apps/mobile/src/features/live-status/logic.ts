@@ -127,7 +127,7 @@ export function localLiveProps(
     activity: state === 'done' ? t('liveStatus.finished') : '',
     task: '',
     notifiedAt: now,
-    link: `claude-remote://session/${session.id}`,
+    link: `remoteharness://session/${session.id}`,
     labels: {
       working: t('liveStatus.labels.working'),
       waiting: t('liveStatus.labels.waiting'),
@@ -157,7 +157,7 @@ export type Reconciled = {
   map: ActivityMap
 }
 
-/** The session a Live Activity's deep link opens (`claude-remote://session/<id>`), or `null`. */
+/** The session a Live Activity's deep link opens (`remoteharness://session/<id>`), or `null`. */
 export function sessionIdFromActivityUrl(url: string | null | undefined): string | null {
   const match = /^(?:claude-remote|remoteharness):\/\/session\/([^/?#]+)/.exec(url ?? '')
   return match?.[1] ? decodeURIComponent(match[1]) : null

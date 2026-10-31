@@ -55,7 +55,7 @@ export async function registerLiveStatusFeature(
         session: session?.title ?? '',
         path: session ? shortenHome(session.cwd) : '',
         // The computer goes with the link, so a tap on another computer's card switches to it.
-        link: `claude-remote://session/${sessionId}${ctx.daemonId ? `?computer=${ctx.daemonId}` : ''}`,
+        link: `remoteharness://session/${sessionId}${ctx.daemonId ? `?computer=${ctx.daemonId}` : ''}`,
       }
     },
     isMuted: options.isMuted,
@@ -152,7 +152,7 @@ export async function registerLiveStatusFeature(
         return service.startByPush(registrationFor(sessionId, device), {
           startToken: device.startToken ?? '',
           ...(device.startRelay ? { startRelay: device.startRelay } : {}),
-          url: `claude-remote://session/${sessionId}`,
+          url: `remoteharness://session/${sessionId}`,
           alert: { title: session?.title || profileName, body: messages.live.states.working },
         })
       case 'push':

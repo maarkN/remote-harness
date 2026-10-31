@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store'
 import { create } from 'zustand'
+import { readMigratedKey } from '../../core/storage/migrate-key'
 
-const VOICE_POLISH_KEY = 'claude-remote.voice-polish'
+const VOICE_POLISH_KEY = 'remote-harness.voice-polish'
+const LEGACY_VOICE_POLISH_KEY = 'claude-remote.voice-polish'
 
 type VoicePolishState = { enabled: boolean }
 
@@ -10,7 +12,7 @@ export const useVoicePolishStore = create<VoicePolishState>(() => ({ enabled: fa
 
 /** Loads the persisted choice; called once at app startup (`app/_layout.tsx`), before any recording can start. */
 export async function restoreVoicePolish(): Promise<void> {
-  const saved = await SecureStore.getItemAsync(VOICE_POLISH_KEY).catch(() => null)
+  const saved = await readMigratedKey(VOICE_POLISH_KEY, LEGACY_VOICE_POLISH_KEY)
   useVoicePolishStore.setState({ enabled: saved === 'true' })
 }
 
