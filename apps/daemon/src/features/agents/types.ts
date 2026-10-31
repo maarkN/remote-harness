@@ -104,7 +104,7 @@ export type AgentAdapter = {
   }
   /** Where the daemon's hooks go and in which shape. */
   hooks: {
-    style: 'claude-settings' | 'codex-hooks' | 'gemini-hooks' | 'kimi-toml'
+    style: 'claude-settings' | 'codex-hooks' | 'gemini-hooks' | 'kimi-toml' | 'qwen-settings'
     file(configDir: string): string
   }
   /** The daemon wraps the CLI's status line (Claude Code only). */

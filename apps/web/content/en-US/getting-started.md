@@ -6,7 +6,7 @@ applies: 0.7+
 
 ## Requirements
 
-- A computer running macOS, Linux (systemd recommended) or Windows 10 2004+ / 11 through WSL2, with `tmux`, `git`, `rg` (ripgrep), `zsh` and `claude` (or `codex`, `gemini`, `kimi`) on the `PATH`. The installer adds the missing tools.
+- A computer running macOS, Linux (systemd recommended) or Windows 10 2004+ / 11 through WSL2, with `tmux`, `git`, `rg` (ripgrep), `zsh` and `claude` (or `codex`, `gemini`, `kimi`, `qwen`) on the `PATH`. The installer adds the missing tools.
 - Node 24+. The installer downloads a private Node into `~/.remote-harness/node` when it is missing, without touching your system Node.
 - Nothing to install on the phone besides the app, no VPN: at home the app reaches the computer directly, elsewhere through an end-to-end encrypted connection relay.
 - An iPhone or iPad (iOS 17+) or an Android phone (Android 10+).

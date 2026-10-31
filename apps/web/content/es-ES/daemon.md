@@ -128,6 +128,18 @@ Un perfil puede ejecutar Kimi CLI de Moonshot: define `"agent": "kimi"` y apunta
 
 Lo que funciona como en Claude Code: la lista de sesiones (sesiones recientes en `sessions/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push y estado en vivo. Aprobaciones: Kimi CLI no tiene hook para ellas, así que mientras una sesión de Kimi se ejecuta el daemon mira su panel de tmux cada segundo; cuando aparece el panel de aprobación, el móvil recibe Permitir / Denegar y el daemon pulsa las teclas del propio panel ("Approve once" o "Reject"). Si respondes en el terminal, la petición desaparece sola. Diferencias: sin "Siempre" (ni "aprobar en esta sesión"), sin modo plan, yolo ni afk desde la app, sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor. Un turno cancelado con Esc sigue "en ejecución" en la app hasta el siguiente prompt.
 
+## Perfiles de Qwen Code
+
+Un perfil puede ejecutar Qwen Code: define `"agent": "qwen"` y apunta `configDir` a la carpeta de configuración de Qwen (`QWEN_HOME`, `~/.qwen` por defecto). `remote-harness setup` ofrece `~/.qwen` cuando Qwen Code ya la usó.
+
+```json
+{ "id": "qw", "name": "Qwen Code", "configDir": "~/.qwen", "color": "#8C6CF5", "agent": "qwen" }
+```
+
+`remote-harness install` escribe el lanzador del perfil (abre `qwen` con el `QWEN_HOME` correcto) y combina los hooks del daemon en `<configDir>/settings.json`, junto a tus hooks y ajustes y con copia de seguridad. `doctor` comprueba que `qwen` está en el `PATH` y que los hooks están instalados.
+
+Lo que funciona como en Claude Code: la lista de sesiones (transcripts recientes en `projects/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push, estado en vivo y aprobaciones con Permitir / Denegar mediante el propio hook de permisos de Qwen. Diferencias: sin "Siempre", sin cambio de modo de aprobación (y nunca `auto` ni YOLO), sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor. Un `QWEN_RUNTIME_DIR` personalizado aún no está soportado.
+
 ## Lanzadores y alias
 
 Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>` (añadido al `PATH` en `~/.zshrc` y `~/.bashrc`). Ejecuta el alias en vez de `claude`, con los mismos argumentos: abre Claude Code en una ventana de la sesión `claude-remote` de tmux con el `CLAUDE_CONFIG_DIR` correcto y conecta tu terminal a ella. El comando `claude` a secas nunca se modifica.

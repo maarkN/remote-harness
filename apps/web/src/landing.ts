@@ -260,7 +260,7 @@ function agents(m: WebMessages): string {
   <span class="agchip">${agentMark('codex')}${esc(a.codex)}</span>
   <span class="agchip">${agentMark('gemini')}${esc(a.gemini)}</span>
   <span class="agchip">${agentMark('kimi')}${esc(a.kimi)}</span>
-  <span class="agchip soon">${agentMark('qwen')}${esc(a.qwen)} <small>${esc(a.soon)}</small></span>
+  <span class="agchip">${agentMark('qwen')}${esc(a.qwen)}</span>
   <span class="agchip">${agentMark('openrouter')}${esc(a.openrouter)} <small>${esc(a.openrouterNote)}</small></span>
 </div>`
 }

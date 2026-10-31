@@ -27,7 +27,7 @@ export type HookInstallOptions = { port: number; secret: string; permissionTimeo
  * Where the hooks are written: Claude Code's `settings.json`, Codex's `hooks.json` or Gemini CLI's
  * `settings.json` (same shape, Gemini's own event names).
  */
-export type HookStyle = 'claude-settings' | 'codex-hooks' | 'gemini-hooks'
+export type HookStyle = 'claude-settings' | 'codex-hooks' | 'gemini-hooks' | 'qwen-settings'
 
 /**
  * Codex has no Notification or SubagentStop for us; the rest match Claude Code's names and stdin.
@@ -55,9 +55,24 @@ export const GEMINI_HOOK_EVENTS: Readonly<Record<string, HookEventName>> = {
   SessionEnd: 'SessionEnd',
 }
 
+/**
+ * Qwen Code's events (Claude Code's names) and the daemon events they are posted as; `StopFailure`
+ * ends a turn that failed, which leaves the session as ready as `Stop`.
+ */
+export const QWEN_HOOK_EVENTS: Readonly<Record<string, HookEventName>> = {
+  SessionStart: 'SessionStart',
+  UserPromptSubmit: 'UserPromptSubmit',
+  PermissionRequest: 'PermissionRequest',
+  Notification: 'Notification',
+  Stop: 'Stop',
+  StopFailure: 'Stop',
+  SessionEnd: 'SessionEnd',
+}
+
 /** The hooks a style installs: the key in the hooks file and the daemon event it posts. */
 export function hookEventsFor(style: HookStyle): readonly (readonly [string, HookEventName])[] {
   if (style === 'gemini-hooks') return Object.entries(GEMINI_HOOK_EVENTS)
+  if (style === 'qwen-settings') return Object.entries(QWEN_HOOK_EVENTS)
   return (style === 'codex-hooks' ? CODEX_HOOK_EVENTS : HOOK_EVENTS).map((event) => [event, event] as const)
 }
 
@@ -172,8 +187,9 @@ export function mergeOurHooks<T extends Settings>(
 ): T & { hooks: Record<string, HookGroup[]> } {
   const clean = removeOurHooks(settings)
   const hooks: Record<string, HookGroup[]> = { ...(clean.hooks ?? {}) }
+  // Qwen Code runs command hooks like Codex's: the permission hook prints the daemon's answer.
   const build =
-    style === 'codex-hooks'
+    style === 'codex-hooks' || style === 'qwen-settings'
       ? buildCodexHookEntry
       : style === 'gemini-hooks'
         ? buildGeminiHookEntry

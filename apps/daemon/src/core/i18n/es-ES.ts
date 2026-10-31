@@ -99,6 +99,9 @@ export const esES = {
       kimiHooks: (id: string, path: string) => `hooks de Kimi CLI del perfil ${id} (${path})`,
       kimiAccountWithoutProfile: (dir: string) =>
         `Cuenta de Kimi CLI encontrada en ${dir} sin un perfil. Ejecuta \`remote-harness setup\` para añadirla.`,
+      qwenHooks: (id: string, path: string) => `hooks de Qwen Code del perfil ${id} (${path})`,
+      qwenAccountWithoutProfile: (dir: string) =>
+        `Cuenta de Qwen Code encontrada en ${dir} sin un perfil. Ejecuta \`remote-harness setup\` para añadirla.`,
       runInstall: 'ejecuta `remote-harness install`',
       service: (name: string, detail: string) => `servicio en segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',

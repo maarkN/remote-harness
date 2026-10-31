@@ -128,6 +128,18 @@ O `remote-harness install` grava o atalho do perfil (ele abre o `kimi` com o `KI
 
 O que funciona como no Claude Code: a lista de sessões (sessões recentes em `sessions/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push e status ao vivo. Aprovações: o Kimi CLI não tem hook para elas, então enquanto uma sessão do Kimi roda o daemon olha o painel do tmux dela a cada segundo; quando o painel de aprovação aparece, o celular recebe Permitir / Negar e o daemon aperta as teclas do próprio painel ("Approve once" ou "Reject"). Se você responder no terminal, o pedido some sozinho. Diferenças: sem "Sempre" (nem "aprovar nesta sessão"), sem modo plano, yolo ou afk pelo app, sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor. Um turno cancelado com Esc continua "rodando" no app até o próximo prompt.
 
+## Perfis do Qwen Code
+
+Um perfil pode rodar o Qwen Code: defina `"agent": "qwen"` e aponte o `configDir` para a pasta de configuração do Qwen (`QWEN_HOME`, `~/.qwen` por padrão). O `remote-harness setup` oferece a `~/.qwen` quando o Qwen Code já a usou.
+
+```json
+{ "id": "qw", "name": "Qwen Code", "configDir": "~/.qwen", "color": "#8C6CF5", "agent": "qwen" }
+```
+
+O `remote-harness install` grava o atalho do perfil (ele abre o `qwen` com o `QWEN_HOME` certo) e mescla os hooks do daemon no `<configDir>/settings.json`, ao lado dos seus hooks e configurações e com backup. O `doctor` confere se o `qwen` está no `PATH` e se os hooks estão instalados.
+
+O que funciona como no Claude Code: a lista de sessões (transcripts recentes em `projects/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push, status ao vivo e aprovações com Permitir / Negar pelo próprio hook de permissão do Qwen. Diferenças: sem "Sempre", sem troca de modo de aprovação (e nunca `auto` nem YOLO), sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor. Um `QWEN_RUNTIME_DIR` personalizado ainda não é suportado.
+
 ## Atalhos e aliases
 
 Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` do tmux com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. O comando `claude` puro nunca é alterado.

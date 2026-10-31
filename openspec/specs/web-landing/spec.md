@@ -100,7 +100,7 @@ The hero SHALL show one phone frame with three slides, in order: the session lis
 - **THEN** auto-advance stops until focus leaves it
 
 ### Requirement: Works with strip
-Under the hero, the "Works with" strip SHALL show one chip per agent or provider, each with its mark, in this order: Claude Code, Codex CLI, Gemini CLI, Kimi, Qwen Code, OpenRouter models. Supported agents (Claude Code, Codex CLI, Gemini CLI, Kimi) SHALL be shown as available; agents that are not supported yet (Qwen Code) SHALL be dimmed with a dashed border and a translated "soon" tag; OpenRouter SHALL carry a translated "via profiles" note. Every text on the page that says which agents are supported (FAQ, how it works, requirements, docs) SHALL agree with the strip in the three languages.
+Under the hero, the "Works with" strip SHALL show one chip per agent or provider, each with its mark, in this order: Claude Code, Codex CLI, Gemini CLI, Kimi, Qwen Code, OpenRouter models. Every agent chip SHALL be shown as available, with no "soon" tag; OpenRouter SHALL carry a translated "via profiles" note. Every text on the page that says which agents are supported (FAQ, how it works, requirements, docs) SHALL agree with the strip in the three languages.
 
 #### Scenario: Codex is supported
 - **WHEN** a visitor looks at the "Works with" strip
@@ -115,12 +115,16 @@ Under the hero, the "Works with" strip SHALL show one chip per agent or provider
 - **THEN** Kimi is the fourth chip, styled like Claude Code and without the "soon" tag
 
 #### Scenario: Agents still coming
-- **WHEN** a visitor looks at the Qwen Code chip
-- **THEN** it is dimmed and tagged "soon", and OpenRouter comes last with "via profiles"
+- **WHEN** a visitor looks at the "Works with" strip
+- **THEN** no agent chip is dimmed or tagged "soon"
+
+#### Scenario: Qwen Code is supported
+- **WHEN** a visitor looks at the "Works with" strip
+- **THEN** Qwen Code is the fifth chip, styled like Claude Code and without the "soon" tag, and OpenRouter comes last with "via profiles"
 
 #### Scenario: FAQ agrees
 - **WHEN** a visitor opens "Which agents are supported?" in any language
-- **THEN** the answer names Claude Code, Codex CLI, Gemini CLI and Kimi as supported and Qwen Code as planned
+- **THEN** the answer names Claude Code, Codex CLI, Gemini CLI, Kimi CLI and Qwen Code as supported and no agent as planned
 
 ### Requirement: Device registration docs
 The getting started docs SHALL explain, in the three languages, that the over-the-air iPhone & iPad build is ad-hoc and installs only on devices registered in the developer team, how to find a device's UDID, that it is sent privately to the maintainer (never in a public issue), and that building from source with one's own developer account has no such list. The install link page's registration hint SHALL link to that section.
