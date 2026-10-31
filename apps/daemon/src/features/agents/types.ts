@@ -32,10 +32,21 @@ export type TranscriptSummary = {
  * answer is typed into the pane while the dialog is on screen.
  */
 export type ApprovalDialog = {
-  /** The tool and input shown on the phone, from the payload of the hook announcing the dialog. */
+  /**
+   * How the daemon learns the dialog is up: a hook announcing it (`PermissionDialog`, Gemini CLI),
+   * or the pane of a running session checked every second (Kimi CLI, which announces nothing).
+   */
+  detect: 'hook' | 'screen'
+  /**
+   * The tool and input shown on the phone, from the payload of the hook announcing the dialog (or,
+   * for `screen`, the pending tool call of the transcript as `tool_name` / `tool_input` and the
+   * pane capture as `screen`).
+   */
   request(payload: Record<string, unknown>): { tool: string; input: Record<string, unknown> }
   /** The dialog is on this pane capture (and its allow option is the one `allowKeys` picks). */
   isOpen(screen: string): boolean
+  /** What tells one open dialog from the next (`screen` detection); null when none is open. */
+  identify(screen: string): string | null
   /** tmux keys that allow this one call. */
   allowKeys: string[]
   /** tmux keys that reject it. */
@@ -60,6 +71,8 @@ export type AgentAdapter = {
   configDirEnvValue?(configDir: string): string
   /** Whether a profile's config dir can be one of this CLI's (all when absent). */
   acceptsConfigDir?(configDir: string): boolean
+  /** The transcript of a session, for CLIs whose hooks do not say (Kimi CLI); absent otherwise. */
+  transcriptPath?(configDir: string, sessionId: string, cwd: string): string
   /** Arguments that resume an existing session. */
   resumeArgs(sessionId: string): string[]
   /** Arguments that start in a new git worktree with that name; null when the CLI cannot. */
@@ -90,7 +103,10 @@ export type AgentAdapter = {
     beforeSubmit: string[]
   }
   /** Where the daemon's hooks go and in which shape. */
-  hooks: { style: 'claude-settings' | 'codex-hooks' | 'gemini-hooks'; file(configDir: string): string }
+  hooks: {
+    style: 'claude-settings' | 'codex-hooks' | 'gemini-hooks' | 'kimi-toml'
+    file(configDir: string): string
+  }
   /** The daemon wraps the CLI's status line (Claude Code only). */
   statusLine: boolean
   /** Profiles may route the CLI through a model provider (OpenRouter). */

@@ -116,6 +116,18 @@ Un perfil puede ejecutar Gemini CLI de Google: define `"agent": "gemini"` y apun
 
 Lo que funciona como en Claude Code: la lista de sesiones (archivos de sesión recientes en `tmp/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push y estado en vivo. Aprobaciones: los hooks de Gemini CLI no pueden aprobar una herramienta, así que cuando se abre su diálogo de aprobación el móvil recibe Permitir / Denegar y el daemon pulsa las teclas del propio diálogo en el terminal ("Allow once" o Esc); si el diálogo ya se respondió allí, la app lo indica. Diferencias: sin "Siempre", sin cambio de modo (y nunca YOLO), sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor.
 
+## Perfiles de Kimi CLI
+
+Un perfil puede ejecutar Kimi CLI de Moonshot: define `"agent": "kimi"` y apunta `configDir` a la carpeta de datos de Kimi (`KIMI_SHARE_DIR`, `~/.kimi` por defecto). `remote-harness setup` ofrece `~/.kimi` cuando Kimi CLI ya la usó.
+
+```json
+{ "id": "km", "name": "Kimi", "configDir": "~/.kimi", "color": "#5B9BF5", "agent": "kimi" }
+```
+
+`remote-harness install` escribe el lanzador del perfil (abre `kimi` con el `KIMI_SHARE_DIR` correcto) y añade los hooks del daemon a `<configDir>/config.toml` como tablas `[[hooks]]`, al final y con copia de seguridad; el resto de líneas del archivo se quedan como están. Si tu `config.toml` define `hooks = [...]` como una sola clave, install no lo toca y `doctor` muestra los hooks como ausentes: cámbialo antes a tablas `[[hooks]]`. `doctor` comprueba que `kimi` está en el `PATH` y que los hooks están instalados.
+
+Lo que funciona como en Claude Code: la lista de sesiones (sesiones recientes en `sessions/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push y estado en vivo. Aprobaciones: Kimi CLI no tiene hook para ellas, así que mientras una sesión de Kimi se ejecuta el daemon mira su panel de tmux cada segundo; cuando aparece el panel de aprobación, el móvil recibe Permitir / Denegar y el daemon pulsa las teclas del propio panel ("Approve once" o "Reject"). Si respondes en el terminal, la petición desaparece sola. Diferencias: sin "Siempre" (ni "aprobar en esta sesión"), sin modo plan, yolo ni afk desde la app, sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor. Un turno cancelado con Esc sigue "en ejecución" en la app hasta el siguiente prompt.
+
 ## Lanzadores y alias
 
 Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>` (añadido al `PATH` en `~/.zshrc` y `~/.bashrc`). Ejecuta el alias en vez de `claude`, con los mismos argumentos: abre Claude Code en una ventana de la sesión `claude-remote` de tmux con el `CLAUDE_CONFIG_DIR` correcto y conecta tu terminal a ella. El comando `claude` a secas nunca se modifica.

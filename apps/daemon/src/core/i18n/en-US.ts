@@ -95,6 +95,9 @@ export const enUS = {
       geminiHooks: (id: string, path: string) => `Gemini CLI hooks for profile ${id} (${path})`,
       geminiAccountWithoutProfile: (dir: string) =>
         `Gemini CLI account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
+      kimiHooks: (id: string, path: string) => `Kimi CLI hooks for profile ${id} (${path})`,
+      kimiAccountWithoutProfile: (dir: string) =>
+        `Kimi CLI account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
       runInstall: 'run `remote-harness install`',
       service: (name: string, detail: string) => `background service ${name} (${detail})`,
       serviceHint: 'optional: `remote-harness service install`',

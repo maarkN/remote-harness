@@ -3,7 +3,14 @@ import type { FastifyInstance } from 'fastify'
 import type { EventBus } from '../../core/event-bus.ts'
 import type { DaemonEvents } from '../../core/events.ts'
 import type { Logger } from '../../core/logger.ts'
-import { type HookEvent, type HookEventName, HookPayloadSchema, isHookEventName } from './payloads.ts'
+import { agentFor } from '../agents/index.ts'
+import {
+  type HookEvent,
+  type HookEventName,
+  type HookPayload,
+  HookPayloadSchema,
+  isHookEventName,
+} from './payloads.ts'
 
 export const PANE_HEADER = 'x-claude-remote-pane'
 export const PROFILE_HEADER = 'x-claude-remote-profile'
@@ -34,6 +41,13 @@ export function resolveProfileId(
   return header
 }
 
+/** The payload with the transcript path its agent derives when the hook does not say (Kimi CLI). */
+export function withTranscriptPath(payload: HookPayload, profile: Profile | undefined): HookPayload {
+  if (payload.transcript_path || !payload.cwd || !profile) return payload
+  const path = agentFor(profile).transcriptPath?.(profile.configDir, payload.session_id, payload.cwd)
+  return path ? { ...payload, transcript_path: path } : payload
+}
+
 export class HookReceiver {
   private readonly responders = new Map<HookEventName, HookResponder>()
 
@@ -56,15 +70,19 @@ export class HookReceiver {
         this.logger.warn({ event, issues: parsed.error.issues }, 'invalid hook payload')
         return reply.code(400).send({ error: 'invalid payload' })
       }
+      const profileId = resolveProfileId(
+        headerValue(request.headers[PROFILE_HEADER]),
+        parsed.data.transcript_path,
+        this.profiles,
+      )
       const hook: HookEvent = {
         event,
-        payload: parsed.data,
-        paneId: headerValue(request.headers[PANE_HEADER]),
-        profileId: resolveProfileId(
-          headerValue(request.headers[PROFILE_HEADER]),
-          parsed.data.transcript_path,
-          this.profiles,
+        payload: withTranscriptPath(
+          parsed.data,
+          this.profiles.find((p) => p.id === profileId),
         ),
+        paneId: headerValue(request.headers[PANE_HEADER]),
+        profileId,
         receivedAt: new Date().toISOString(),
       }
       this.logger.debug({ event, session: hook.payload.session_id, pane: hook.paneId }, 'hook received')

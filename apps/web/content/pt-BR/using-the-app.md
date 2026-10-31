@@ -92,6 +92,8 @@ Um perfil também pode rodar o **Codex** (selo `cx`, verde): as sessões dele mo
 
 Um perfil também pode rodar o **Gemini CLI** (selo `gm`, rosa): as sessões dele mostram comandos de shell, edições e buscas em arquivos como as do Claude Code, e aprovações com Permitir / Negar, respondidas no próprio diálogo do Gemini no terminal. Veja [Perfis do Gemini CLI](/pt-br/docs/daemon/#perfis-do-gemini-cli).
 
+Um perfil também pode rodar o **Kimi CLI** (selo `ki`, azul): as sessões dele mostram comandos de shell, edições e buscas em arquivos como as do Claude Code, e aprovações com Permitir / Negar, respondidas no próprio painel de aprovação do Kimi no terminal. Veja [Perfis do Kimi CLI](/pt-br/docs/daemon/#perfis-do-kimi-cli).
+
 ## Ajustes
 
 - **Máquina**: a conexão e o caminho (direto ou via relay), o nome da máquina (um apelido à sua escolha, senão o hostname), a versão do daemon e **Esquecer esta máquina**.

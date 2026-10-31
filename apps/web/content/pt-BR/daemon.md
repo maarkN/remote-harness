@@ -116,6 +116,18 @@ O `remote-harness install` grava o atalho do perfil (ele abre o `gemini`) e mesc
 
 O que funciona como no Claude Code: a lista de sessões (arquivos de sessão recentes em `tmp/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push e status ao vivo. Aprovações: os hooks do Gemini CLI não conseguem aprovar uma ferramenta, então quando o diálogo de aprovação dele abre o celular recebe Permitir / Negar e o daemon aperta as teclas do próprio diálogo no terminal ("Allow once" ou Esc); se o diálogo já foi respondido lá, o app avisa. Diferenças: sem "Sempre", sem troca de modo (e nunca YOLO), sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor.
 
+## Perfis do Kimi CLI
+
+Um perfil pode rodar o Kimi CLI da Moonshot: defina `"agent": "kimi"` e aponte o `configDir` para a pasta de dados do Kimi (`KIMI_SHARE_DIR`, `~/.kimi` por padrão). O `remote-harness setup` oferece a `~/.kimi` quando o Kimi CLI já a usou.
+
+```json
+{ "id": "km", "name": "Kimi", "configDir": "~/.kimi", "color": "#5B9BF5", "agent": "kimi" }
+```
+
+O `remote-harness install` grava o atalho do perfil (ele abre o `kimi` com o `KIMI_SHARE_DIR` certo) e adiciona os hooks do daemon ao `<configDir>/config.toml` como tabelas `[[hooks]]`, no fim e com backup; todas as outras linhas do arquivo ficam como estão. Se o seu `config.toml` define `hooks = [...]` como uma chave só, o install não mexe nele e o `doctor` mostra os hooks como ausentes: troque por tabelas `[[hooks]]` antes. O `doctor` confere se o `kimi` está no `PATH` e se os hooks estão instalados.
+
+O que funciona como no Claude Code: a lista de sessões (sessões recentes em `sessions/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push e status ao vivo. Aprovações: o Kimi CLI não tem hook para elas, então enquanto uma sessão do Kimi roda o daemon olha o painel do tmux dela a cada segundo; quando o painel de aprovação aparece, o celular recebe Permitir / Negar e o daemon aperta as teclas do próprio painel ("Approve once" ou "Reject"). Se você responder no terminal, o pedido some sozinho. Diferenças: sem "Sempre" (nem "aprovar nesta sessão"), sem modo plano, yolo ou afk pelo app, sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor. Um turno cancelado com Esc continua "rodando" no app até o próximo prompt.
+
 ## Atalhos e aliases
 
 Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` do tmux com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. O comando `claude` puro nunca é alterado.

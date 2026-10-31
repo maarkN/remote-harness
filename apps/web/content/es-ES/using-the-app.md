@@ -92,6 +92,8 @@ Un perfil también puede ejecutar **Codex** (insignia `cx`, verde): sus sesiones
 
 Un perfil también puede ejecutar **Gemini CLI** (insignia `gm`, rosa): sus sesiones muestran comandos de shell, ediciones y búsquedas en archivos como las de Claude Code, y aprobaciones con Permitir / Denegar, respondidas en el propio diálogo de Gemini en el terminal. Consulta [Perfiles de Gemini CLI](/es/docs/daemon/#perfiles-de-gemini-cli).
 
+Un perfil también puede ejecutar **Kimi CLI** (insignia `ki`, azul): sus sesiones muestran comandos de shell, ediciones y búsquedas en archivos como las de Claude Code, y aprobaciones con Permitir / Denegar, respondidas en el propio panel de aprobación de Kimi en el terminal. Consulta [Perfiles de Kimi CLI](/es/docs/daemon/#perfiles-de-kimi-cli).
+
 ## Ajustes
 
 - **Máquina**: la conexión y su camino (directo o por relay), el nombre de la máquina (un alias a tu elección, si no su hostname), la versión del daemon y **Olvidar esta máquina**.

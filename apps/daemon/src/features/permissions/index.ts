@@ -6,16 +6,22 @@ import { paths } from '../../core/paths.ts'
 import type { DaemonContext } from '../../main.ts'
 import type { Connection } from '../../transport/connection.ts'
 import { adapterOf } from '../agents/index.ts'
+import type { HookEvent } from '../hooks/payloads.ts'
 import type { EntryListener } from '../transcript/service.ts'
+import { readTailEntries } from '../transcript/transcript-file.ts'
 import { type ApprovalEvent, ApprovalLog } from './approval-log.ts'
 import { type DecidedRequest, PermissionBroker } from './broker.ts'
 import { entryMove, hookMovesOn, type Move } from './handover.ts'
 import { listRuleFiles, ruleSources } from './rule-listing.ts'
 import { RulesLog } from './rules-log.ts'
+import { SCREEN_DIALOG_POLL_MS, ScreenDialogWatcher, type WatchedSession } from './screen-dialogs.ts'
 import { removeAllowRule } from './settings-rules.ts'
 
 /** Follows a session's transcript (see `registerTranscriptFeature().follow`). */
 export type FollowTranscript = (sessionId: string, listener: EntryListener) => Promise<() => void>
+
+/** A session of the registry, as the approval dialogs need it. */
+export type DialogSession = WatchedSession & { cwd: string; transcriptPath: string | null }
 
 /** The approval log drops expired entries at start and then once a day. */
 const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000
@@ -25,9 +31,10 @@ export function registerPermissionsFeature(
   follow?: FollowTranscript,
   /** Folders of the known sessions, whose project settings hold project rules. */
   sessionCwds: () => readonly string[] = () => [],
-  /** The tmux pane of a live session (to type into an agent's approval dialog). */
-  paneOf: (sessionId: string) => string | null = () => null,
+  /** The sessions of the registry (their panes hold the agents' approval dialogs). */
+  liveSessions: () => readonly DialogSession[] = () => [],
 ) {
+  const paneOf = (sessionId: string) => liveSessions().find((s) => s.id === sessionId)?.paneId ?? null
   const rulesLog = new RulesLog(paths.rulesLog())
   const approvals = new ApprovalLog(paths.approvalLog())
   const messages = messagesFor(effectiveLocale(ctx.config))
@@ -91,12 +98,18 @@ export function registerPermissionsFeature(
     }
   }
 
-  /** Types the phone's answer into the session's approval dialog, if it is on screen. */
+  const dialogOfProfile = (profileId: string) =>
+    adapterOf(ctx.profiles.find((p) => p.id === profileId)?.agent).approvalDialog
+
+  /** Types the phone's answer into the session's approval dialog, if it (the same one) is on screen. */
   const answerDialog = async (info: PermissionRequestInfo, behavior: 'allow' | 'deny') => {
-    const dialog = adapterOf(ctx.profiles.find((p) => p.id === info.profileId)?.agent).approvalDialog
+    const dialog = dialogOfProfile(info.profileId)
     const pane = paneOf(info.sessionId)
     if (!dialog || !pane) return false
-    if (!dialog.isOpen(await ctx.tmux.capturePane(pane))) return false
+    const screen = await ctx.tmux.capturePane(pane)
+    if (!dialog.isOpen(screen)) return false
+    const expected = watcher.identityOf(info.requestId)
+    if (expected !== undefined && dialog.identify(screen) !== expected) return false
     await ctx.tmux.sendKeys(pane, behavior === 'allow' ? dialog.allowKeys : dialog.denyKeys)
     // Tool name only: inputs are session content.
     ctx.logger.info({ tool: info.tool, behavior }, 'permission answered in the agent dialog')
@@ -137,10 +150,57 @@ export function registerPermissionsFeature(
   ctx.hookReceiver.setResponder('PermissionRequest', (hook, signal) => broker.handle(hook, signal))
   // The dialog shows once this hook returns: the request is opened and the hook answered at once.
   ctx.hookReceiver.setResponder('PermissionDialog', async (hook) => {
-    const dialog = adapterOf(ctx.profiles.find((p) => p.id === hook.profileId)?.agent).approvalDialog
-    if (dialog) broker.openDialog(hook, dialog)
+    const dialog = hook.profileId ? dialogOfProfile(hook.profileId) : null
+    if (dialog?.detect === 'hook') broker.openDialog(hook, dialog)
     return {}
   })
+
+  /**
+   * The tool call a session's transcript shows without a result yet: what its on-screen dialog
+   * asks about (the newest one).
+   */
+  const pendingTool = async (session: DialogSession) => {
+    if (!session.transcriptPath) return null
+    const format = adapterOf(ctx.profiles.find((p) => p.id === session.profileId)?.agent).transcript
+    const { entries } = await readTailEntries(session.transcriptPath, format).catch(() => ({ entries: [] }))
+    const answered = new Set(entries.flatMap((e) => (e.kind === 'tool_result' ? [e.toolUseId] : [])))
+    const use = entries.findLast((e) => e.kind === 'tool_use' && !answered.has(e.toolUseId))
+    return use?.kind === 'tool_use' ? { name: use.name, input: use.input } : null
+  }
+
+  const watcher = new ScreenDialogWatcher({
+    sessions: liveSessions,
+    dialogOf: (session) => {
+      const dialog = dialogOfProfile(session.profileId)
+      return dialog?.detect === 'screen' ? dialog : null
+    },
+    capture: (paneId) => ctx.tmux.capturePane(paneId),
+    open: async (session, dialog, screen) => {
+      const watched = liveSessions().find((s) => s.id === session.id)
+      const tool = watched ? await pendingTool(watched) : null
+      const hook: HookEvent = {
+        event: 'PermissionDialog',
+        payload: {
+          session_id: session.id,
+          cwd: watched?.cwd ?? '',
+          screen,
+          ...(tool ? { tool_name: tool.name, tool_input: tool.input } : {}),
+        },
+        paneId: session.paneId,
+        profileId: session.profileId,
+        receivedAt: new Date().toISOString(),
+      }
+      // Like the hook Gemini sends: the session shows as waiting.
+      ctx.bus.emit('hook', hook)
+      return broker.openDialog(hook, dialog)
+    },
+    isPending: (requestId) => broker.list().some((info) => info.requestId === requestId && !info.terminal),
+    gone: (requestId) => broker.dialogGone(requestId),
+  })
+  if (ctx.profiles.some((p) => adapterOf(p.agent).approvalDialog?.detect === 'screen')) {
+    const timer = setInterval(() => void watcher.tick(), SCREEN_DIALOG_POLL_MS)
+    ctx.onStop(() => clearInterval(timer))
+  }
   const by = (connection: Connection) => connection.deviceId ?? null
   ctx.router.register('permission.respond', async (msg, connection) => {
     await broker.respond(

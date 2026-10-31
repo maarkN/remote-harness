@@ -94,6 +94,9 @@ export const ptBR = {
       geminiHooks: (id: string, path: string) => `hooks do Gemini CLI do perfil ${id} (${path})`,
       geminiAccountWithoutProfile: (dir: string) =>
         `Conta do Gemini CLI encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
+      kimiHooks: (id: string, path: string) => `hooks do Kimi CLI do perfil ${id} (${path})`,
+      kimiAccountWithoutProfile: (dir: string) =>
+        `Conta do Kimi CLI encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
       runInstall: 'rode `remote-harness install`',
       service: (name: string, detail: string) => `serviço em segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',

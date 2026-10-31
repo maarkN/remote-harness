@@ -93,10 +93,11 @@ describe('agent adapters', () => {
   test('agents without an adapter are known to the protocol but cannot run', () => {
     expect(hasAgentAdapter('claude')).toBe(true)
     expect(hasAgentAdapter('codex')).toBe(true)
-    expect(hasAgentAdapter('kimi')).toBe(false)
-    expect(() => agentFor({ agent: 'kimi' })).toThrow(/no adapter for agent kimi/)
+    expect(hasAgentAdapter('kimi')).toBe(true)
+    expect(hasAgentAdapter('qwen')).toBe(false)
+    expect(() => agentFor({ agent: 'qwen' })).toThrow(/no adapter for agent qwen/)
     expect(adapterOf(undefined).id).toBe('claude')
-    expect(adapterOf('kimi').id).toBe('claude')
+    expect(adapterOf('qwen').id).toBe('claude')
     expect(adapterOf('codex').id).toBe('codex')
   })
 
@@ -107,7 +108,7 @@ describe('agent adapters', () => {
       profiles: [
         { id: 'claudin', name: 'Personal', configDir: dir, color: '#000000' },
         { id: 'cdx', name: 'Codex', configDir: dir, color: '#000000', agent: 'codex' as const },
-        { id: 'kimi', name: 'Kimi', configDir: dir, color: '#000000', agent: 'kimi' as const },
+        { id: 'qwen', name: 'Qwen', configDir: dir, color: '#000000', agent: 'qwen' as const },
       ],
     }
     const resolved = await resolveProfiles(config as Parameters<typeof resolveProfiles>[0], silentLogger)

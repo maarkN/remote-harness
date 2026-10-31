@@ -67,7 +67,14 @@ import {
   installServiceFromCli,
   userRcFiles,
 } from './features/setup/install.ts'
-import { detectConfigDirs, isCodexDir, isGeminiDir, sameDir, tildify } from './features/setup/profiles.ts'
+import {
+  detectConfigDirs,
+  isCodexDir,
+  isGeminiDir,
+  isKimiDir,
+  sameDir,
+  tildify,
+} from './features/setup/profiles.ts'
 import { runSetupWizard, SetupAborted } from './features/setup/wizard.ts'
 import { COMMANDS_RELOAD_ROUTE } from './features/shell/index.ts'
 import { STATUS_LINE_SCRIPT } from './features/status-line/wrapper.ts'
@@ -437,6 +444,21 @@ program
       for (const dir of geminiDirs) {
         if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
           console.log(`· ${d.geminiAccountWithoutProfile(dir)}`)
+        }
+      }
+      // Kimi CLI profiles: the CLI on the PATH and the daemon's tables in config.toml.
+      const kimiProfiles = resolved.filter((p) => agentFor(p).id === 'kimi')
+      const kimiDirs = (await detectConfigDirs()).filter(isKimiDir)
+      if (kimiProfiles.length > 0 || kimiDirs.length > 0) {
+        const which = await execaExecutor('which', ['kimi'])
+        check(which.exitCode === 0, 'kimi', d.notOnPath)
+      }
+      for (const profile of kimiProfiles) {
+        check(await hasOurHooks(profile), d.kimiHooks(profile.id, settingsPath(profile)), d.runInstall)
+      }
+      for (const dir of kimiDirs) {
+        if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
+          console.log(`· ${d.kimiAccountWithoutProfile(dir)}`)
         }
       }
       const { kind: storeKind } = await selectStore()

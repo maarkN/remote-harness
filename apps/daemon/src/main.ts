@@ -337,7 +337,7 @@ async function registerFeatures(
     ctx,
     transcript.follow,
     () => sessions.store.all().map((s) => s.cwd),
-    (id) => sessions.store.get(id)?.paneId ?? null,
+    () => sessions.store.all(),
   )
   const hasPendingPermission = (id: string) => permissions.broker.hasPending(id)
   const input = registerInputFeature(ctx, sessions.store, sessionLock, attachments.store)

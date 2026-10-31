@@ -65,6 +65,7 @@ function text(value: unknown): string | null {
  * cancels ("No, suggest changes").
  */
 export const geminiApprovalDialog: ApprovalDialog = {
+  detect: 'hook',
   request(payload) {
     const details =
       typeof payload.details === 'object' && payload.details !== null
@@ -94,6 +95,8 @@ export const geminiApprovalDialog: ApprovalDialog = {
     }
   },
   isOpen: (screen) => screen.includes('Allow once') && screen.includes('No, suggest changes'),
+  // A new dialog comes with its own hook, which resolves the older request.
+  identify: () => null,
   allowKeys: ['1'],
   denyKeys: ['Escape'],
 }

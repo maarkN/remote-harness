@@ -9,6 +9,7 @@ import {
   unwrapStatusLine,
   wrapStatusLine,
 } from '../status-line/wrapper.ts'
+import { installedKimiEvents, KIMI_HOOK_EVENTS, mergeKimiHooks, removeKimiHooks } from './kimi-hooks.ts'
 import { removePathBlock, renderLauncher, upsertPathBlock } from './launcher.ts'
 import {
   type HookInstallOptions,
@@ -51,15 +52,22 @@ export function settingsPath(profile: Profile): string {
 
 export async function installHooks(profile: Profile, options: HookInstallOptions): Promise<boolean> {
   const style = agentFor(profile).hooks.style
+  // Kimi CLI keeps its hooks as tables in config.toml; a file with an inline `hooks` key is left alone.
+  if (style === 'kimi-toml')
+    return updateTextFile(settingsPath(profile), (text) => mergeKimiHooks(text, options) ?? text)
   return updateSettings(settingsPath(profile), (s) => mergeOurHooks(s, options, style))
 }
 
 /** Every hook the daemon needs is in the profile's hooks file (doctor). */
 export async function hasOurHooks(profile: Profile): Promise<boolean> {
+  const style = agentFor(profile).hooks.style
+  if (style === 'kimi-toml') {
+    const installed = installedKimiEvents(await readText(settingsPath(profile)).catch(() => ''))
+    return Object.keys(KIMI_HOOK_EVENTS).every((event) => installed.has(event))
+  }
   const settings = (await readJsonFile(settingsPath(profile)).catch(() => undefined)) as
     | { hooks?: Record<string, unknown> }
     | undefined
-  const style = agentFor(profile).hooks.style
   return hookEventsFor(style).every(([key]) => {
     const groups = settings?.hooks?.[key]
     return (
@@ -74,6 +82,8 @@ export async function hasOurHooks(profile: Profile): Promise<boolean> {
 }
 
 export async function uninstallHooks(profile: Profile): Promise<boolean> {
+  if (agentFor(profile).hooks.style === 'kimi-toml')
+    return updateTextFile(settingsPath(profile), removeKimiHooks)
   return updateSettings(settingsPath(profile), (s) => removeOurHooks(s))
 }
 
