@@ -54,3 +54,10 @@ The repository SHALL keep, at `apps/mobile/store/app-access.md`, the instruction
 #### Scenario: Reviewer opens the app
 - **WHEN** a reviewer follows the App access instructions
 - **THEN** they reach the session list through **Try the demo** without any sign-in
+
+### Requirement: Expo project slug
+The app SHALL use `remote-harness` as its Expo project slug, matching the npm scope and the CLI name.
+
+#### Scenario: Build configuration
+- **WHEN** the Expo config is resolved
+- **THEN** the slug is `remote-harness`

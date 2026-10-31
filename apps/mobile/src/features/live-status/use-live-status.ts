@@ -219,7 +219,7 @@ export function useLiveStatus() {
         try {
           entry.instance = SessionActivity.start(
             localLiveProps(session, entry, tRef.current),
-            `claude-remote://session/${session.id}`,
+            `remoteharness://session/${session.id}`,
           )
         } catch {
           // Live Activities turned off for the app in iOS Settings.

@@ -767,7 +767,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.0.1'
+const APP_VERSION = '1.0.2'
 /**
  * Android `versionCode` from the version (0.20.0 → 20000): Google Play only takes a bundle whose code
  * is higher than every one uploaded before, so it follows the version instead of staying at 1.
@@ -777,7 +777,7 @@ const ANDROID_VERSION_CODE = APP_VERSION.split('.').reduce((code, part) => code 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,
   name: 'Remote Harness',
-  slug: 'claude-remote',
+  slug: 'remote-harness',
   version: APP_VERSION,
   // Fixed, not detected: Expo adds `web` when `react-dom` resolves, which pnpm's bin shims allow
   // (their NODE_PATH) but Xcode's build phase does not, so the update runtime (fingerprint) of
