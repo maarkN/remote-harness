@@ -9,7 +9,7 @@ import type {
 } from '@remote-harness/protocol'
 import { DaemonError } from '../../core/errors.ts'
 import type { Broadcaster } from '../../transport/connection.ts'
-import { adapterOf } from '../agents/index.ts'
+import { type ApprovalDialog, adapterOf } from '../agents/index.ts'
 import { localSettingsRoot } from '../checkout/worktree-copy.ts'
 import type { HookEvent } from '../hooks/payloads.ts'
 import {
@@ -66,6 +66,8 @@ type Pending = {
   /** The agent accepts rules and mode changes in the answer (Claude Code). */
   rules: boolean
   settle: (outcome: Outcome) => void
+  /** Answered by typing into the agent's own dialog (no hook holds the request); see `openDialog`. */
+  dialog?: { answering: boolean }
 }
 
 /** A request whose hook stopped waiting while the agent's dialog may still be open. */
@@ -92,6 +94,11 @@ export type BrokerOptions = {
   watch?: (sessionId: string, onMove: (move: Move) => void) => () => void
   defaultScope: RuleScope
   profiles: readonly Profile[]
+  /**
+   * Types a decision into the session's approval dialog (`openDialog` requests); false when the
+   * dialog is not on screen, so nothing was typed.
+   */
+  answerDialog?: (info: PermissionRequestInfo, behavior: Decision['behavior']) => Promise<boolean>
   /** Called after a decision is sent to the agent (with the rule file, for an always-allow). */
   onDecided?: (decided: DecidedRequest) => void
   /** `move`: the session moved on while the hook still waited (answered in the terminal). */
@@ -278,8 +285,16 @@ export class PermissionBroker {
     return buildHookOutput(decision, this.options.denyMessage)
   }
 
-  respond(requestId: string, decision: Decision, by?: DecidedBy): void {
+  /**
+   * Takes the phone's decision. Requests answered through a dialog resolve once the keys are typed
+   * (the promise rejects with `already_resolved` when the dialog is gone); the others at once.
+   */
+  respond(requestId: string, decision: Decision, by?: DecidedBy): Promise<void> | undefined {
     const pending = this.open(requestId)
+    if (pending.dialog) {
+      if (decision.always) throw new DaemonError('bad_request', 'this agent does not take permission rules')
+      return this.typeDecision(pending, pending.dialog, decision, by)
+    }
     if (decision.always && !pending.rules)
       throw new DaemonError('bad_request', 'this agent does not take permission rules')
     if (decision.always && !parseRule(decision.always.rule))
@@ -288,6 +303,81 @@ export class PermissionBroker {
     if (decision.behavior === 'allow' && pending.info.interaction)
       throw new DaemonError('bad_request', 'interactive requests take permission.answer')
     pending.settle({ kind: 'decision', decision, by })
+    return undefined
+  }
+
+  private async typeDecision(
+    pending: Pending,
+    dialog: { answering: boolean },
+    decision: Decision,
+    by: DecidedBy,
+  ): Promise<void> {
+    if (dialog.answering) throw new DaemonError('already_resolved', 'request already being answered')
+    dialog.answering = true
+    let typed = false
+    try {
+      typed = (await this.options.answerDialog?.(pending.info, decision.behavior)) ?? false
+    } finally {
+      dialog.answering = false
+    }
+    // Resolved while typing (the session moved on, or ended): the keys went to a dialog that was there.
+    if (!this.pending.has(pending.info.requestId)) return
+    if (!typed) {
+      pending.settle({ kind: 'cancelled' })
+      throw new DaemonError('already_resolved', 'the dialog is no longer on screen')
+    }
+    pending.settle({ kind: 'decision', decision: { behavior: decision.behavior }, by })
+  }
+
+  /**
+   * The agent is about to show an approval dialog no hook can answer (Gemini CLI). The request
+   * waits for the phone without holding the hook, and `respond` types the answer into the dialog.
+   * Timeouts, the terminal's answer and the session moving on resolve it like a hook's request.
+   */
+  openDialog(hook: HookEvent, dialog: ApprovalDialog): void {
+    const payload = hook.payload
+    const { tool, input } = dialog.request(payload)
+    const now = Date.now()
+    const timeoutMs = this.options.timeoutMs
+    this.endHandovers(payload.session_id)
+    const info: PermissionRequestInfo = {
+      requestId: randomUUID(),
+      sessionId: payload.session_id,
+      profileId: hook.profileId ?? 'unknown',
+      tool,
+      input,
+      suggestedRule: null,
+      rules: false,
+      defaultScope: this.options.defaultScope,
+      createdAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + timeoutMs).toISOString(),
+    }
+    this.track(info, timeoutMs)
+    const cwd = payload.cwd ?? ''
+    void new Promise<Outcome>((resolve) => {
+      const timer = setTimeout(() => settle({ kind: 'expired' }), timeoutMs)
+      const settle = (result: Outcome) => {
+        if (!this.pending.delete(info.requestId)) return
+        clearTimeout(timer)
+        resolve(result)
+      }
+      this.pending.set(info.requestId, { info, cwd, rules: false, settle, dialog: { answering: false } })
+      this.broadcaster.broadcast({ type: 'permission.request', request: info })
+      this.options.onRequested?.(info)
+    }).then((outcome) => {
+      if (outcome.kind === 'expired') {
+        if (this.stopping) this.resolve(info, 'expired')
+        else this.handOver(info, 'expired')
+      } else if (outcome.kind === 'moved') {
+        this.resolve(info, 'cancelled', outcome.move)
+      } else if (outcome.kind === 'decision') {
+        const { behavior } = outcome.decision
+        this.resolve(info, behavior === 'allow' ? 'allowed' : 'denied')
+        this.options.onDecided?.({ info, behavior, cwd, by: outcome.by, rule: null })
+      } else {
+        this.resolve(info, 'cancelled')
+      }
+    })
   }
 
   /** Answers a question or plan approval; the first answer (phone or terminal) wins. */

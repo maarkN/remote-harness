@@ -86,13 +86,15 @@ fi
  * from the OS secret store inside the window and never crosses a command line.
  */
 export function renderLauncher(profile: Profile, options: LauncherOptions): string {
-  // Claude Code (CLAUDE_CONFIG_DIR, `claude`) or Codex (CODEX_HOME, `codex`).
+  // Claude Code (CLAUDE_CONFIG_DIR, `claude`), Codex (CODEX_HOME, `codex`) or Gemini CLI
+  // (GEMINI_CLI_HOME, the parent of the `.gemini` folder, `gemini`).
   const agent = agentFor(profile)
   const dirEnv = agent.configDirEnv ?? 'CLAUDE_CONFIG_DIR'
   const binEnv = agent.id === 'claude' ? 'CLAUDE_BIN' : `${agent.id.toUpperCase()}_BIN`
   const isDefault = isDefaultConfigDir(profile.configDir, options.home, agent.defaultConfigDir)
+  const dirValue = agent.configDirEnvValue?.(profile.configDir) ?? profile.configDir
   // The tmux server may have inherited another profile's config dir variable, so `env -u` clears it.
-  const configDir = isDefault ? `unset ${dirEnv}` : `export ${dirEnv}=${zshQuote(profile.configDir)}`
+  const configDir = isDefault ? `unset ${dirEnv}` : `export ${dirEnv}=${zshQuote(dirValue)}`
   const unsetInPane = isDefault ? `env -u ${dirEnv} ` : ''
   const configEnv = isDefault ? '' : `-e "${dirEnv}=$${dirEnv}" `
   const provider = agent.providers ? profile.provider : undefined

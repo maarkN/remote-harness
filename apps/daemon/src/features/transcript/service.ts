@@ -221,7 +221,7 @@ export class TranscriptService {
           const meta = stream.file.format.parseMeta(line.text)
           if (meta) this.onMeta(stream.sessionId, meta)
         }
-        entries.push(...stream.file.format.parseLine(line.text, line.cursor))
+        entries.push(...stream.file.entries(line))
       }
       this.emit(stream, entries)
       this.onActivity(stream.sessionId, Date.now())

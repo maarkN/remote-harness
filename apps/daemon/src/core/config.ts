@@ -223,6 +223,13 @@ export async function resolveProfiles(config: Config, logger: Logger): Promise<P
       continue
     }
     const configDir = expandHome(profile.configDir)
+    if (agentFor(profile).acceptsConfigDir?.(configDir) === false) {
+      logger.warn(
+        { profile: profile.id, agent, configDir },
+        'not a config dir of this agent, ignoring profile',
+      )
+      continue
+    }
     if (await isDirectory(configDir)) {
       result.push({ ...profile, configDir })
     } else {

@@ -93,6 +93,9 @@ export const esES = {
       codexHooks: (id: string, path: string) => `hooks de Codex del perfil ${id} (${path})`,
       codexAccountWithoutProfile: (dir: string) =>
         `Cuenta de Codex encontrada en ${dir} sin un perfil. Ejecuta \`remote-harness setup\` para añadirla.`,
+      geminiHooks: (id: string, path: string) => `hooks de Gemini CLI del perfil ${id} (${path})`,
+      geminiAccountWithoutProfile: (dir: string) =>
+        `Cuenta de Gemini CLI encontrada en ${dir} sin un perfil. Ejecuta \`remote-harness setup\` para añadirla.`,
       runInstall: 'ejecuta `remote-harness install`',
       service: (name: string, detail: string) => `servicio en segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',
@@ -266,6 +269,8 @@ export const esES = {
     hooksIn: (path: string) => `hooks en ${path}`,
     codexTrust:
       'Codex pide una vez confiar en los hooks nuevos: abre `codex` y elige "Trust all and continue" (o revísalos en /hooks). Hasta entonces sus sesiones son de solo lectura.',
+    geminiTrust:
+      'Gemini CLI no ejecuta hooks en una carpeta en la que no confía: cuando `gemini` pregunte, confía en la carpeta (o usa /permissions). Hasta entonces sus sesiones en esa carpeta son de solo lectura y las aprobaciones se quedan en el terminal.',
     launcherRemoved: (id: string) => `launcher ${id} eliminado`,
     hooksRemovedFrom: (path: string) => `hooks eliminados de ${path}`,
     statusLineIn: (path: string) => `status line en ${path}`,

@@ -4,7 +4,7 @@ export const esES: WebMessages = {
   meta: {
     title: 'Remote Harness: sigue y dirige tus agentes de código desde el móvil',
     description:
-      'Autoalojado: Claude Code o Codex se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil con cifrado de extremo a extremo. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
+      'Autoalojado: Claude Code, Codex o Gemini CLI se ejecuta en tmux en tu propia máquina y Remote Harness transmite la conversación a tu móvil con cifrado de extremo a extremo. Permisos, prompts y sesiones nuevas desde cualquier lugar.',
   },
   nav: {
     skip: 'Ir al contenido',
@@ -20,7 +20,7 @@ export const esES: WebMessages = {
   hero: {
     eyebrow: 'Cifrado de extremo a extremo · tmux · código abierto',
     title: 'Sigue y dirige tus agentes de código desde el móvil.',
-    lead: 'Claude Code o Codex se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil desde cualquier lugar, con cifrado de extremo a extremo: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas.',
+    lead: 'Claude Code, Codex o Gemini CLI se ejecuta en tmux en tu propia máquina. Remote Harness transmite la conversación a tu móvil desde cualquier lugar, con cifrado de extremo a extremo: lees lo que hizo el agente, respondes a sus peticiones de permiso, envías el siguiente prompt y abres sesiones nuevas.',
     install: 'Instalar en la máquina',
     app: 'Descargar la app',
     platforms: 'macOS · Linux · Windows (WSL2)',
@@ -154,6 +154,7 @@ export const esES: WebMessages = {
     openrouter: 'Modelos de OpenRouter',
     openrouterNote: 'vía perfiles',
     codex: 'Codex CLI',
+    gemini: 'Gemini CLI',
     kimi: 'Kimi',
     qwen: 'Qwen Code',
     soon: 'pronto',
@@ -177,11 +178,12 @@ export const esES: WebMessages = {
     link2: { top: 'hooks + tmux', bottom: 'send-keys · capture-pane' },
     agents: {
       title: 'Tus agentes, en tmux',
-      body: 'Una ventana por sesión, un alias por perfil, para Claude Code o Codex.',
+      body: 'Una ventana por sesión, un alias por perfil, para Claude Code, Codex o Gemini CLI.',
       aliases: [
         { mark: 'claude', text: 'personal → ~/.claude' },
         { mark: 'claude', text: 'trabajo → ~/.claude-work' },
         { mark: 'codex', text: 'codex → ~/.codex' },
+        { mark: 'gemini', text: 'gem → ~/.gemini' },
         { mark: 'claude', text: 'openrouter → ~/.claude-openrouter' },
       ],
     },
@@ -288,7 +290,13 @@ export const esES: WebMessages = {
       'Comprueba el sistema, instala lo que falte (Homebrew, apt, dnf, pacman o zypper), compila el daemon y abre la instalación guiada.',
     windowsNote:
       'En PowerShell. Configura WSL2 con Ubuntu cuando falta (reinicia si lo pide y vuelve a ejecutarlo) y después lanza el instalador de Linux dentro.',
-    requirements: ['Node 24+ (incluido si falta)', 'tmux', 'git', 'ripgrep', 'claude o codex en el PATH'],
+    requirements: [
+      'Node 24+ (incluido si falta)',
+      'tmux',
+      'git',
+      'ripgrep',
+      'claude, codex o gemini en el PATH',
+    ],
     appTitle: 'Descargar la app',
     ios: {
       title: 'iPhone y iPad',
@@ -311,7 +319,7 @@ export const esES: WebMessages = {
       },
       {
         q: '¿Qué agentes están soportados?',
-        a: 'Claude Code y Codex CLI, con todos los perfiles (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) en una sola lista, incluidos los perfiles de Claude Code enrutados por OpenRouter. Kimi y Qwen Code están en la hoja de ruta.',
+        a: 'Claude Code, Codex CLI y Gemini CLI, con todos los perfiles (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `~/.gemini`) en una sola lista, incluidos los perfiles de Claude Code enrutados por OpenRouter. Kimi y Qwen Code están en la hoja de ruta.',
       },
       {
         q: '¿Puede ejecutar mi agente sin supervisión?',
@@ -339,7 +347,7 @@ export const esES: WebMessages = {
     privacy: 'Privacidad',
     license: 'MIT',
     legal:
-      'Remote Harness es un proyecto independiente, sin afiliación, respaldo ni patrocinio de Anthropic, OpenAI, Moonshot AI, Alibaba Cloud ni OpenRouter. “Claude” y “Claude Code” son marcas de Anthropic, PBC; “Codex” es marca de OpenAI; Kimi, Qwen y OpenRouter y sus logotipos pertenecen a sus dueños. Las capturas muestran sesiones de demostración.',
+      'Remote Harness es un proyecto independiente, sin afiliación, respaldo ni patrocinio de Anthropic, OpenAI, Google, Moonshot AI, Alibaba Cloud ni OpenRouter. “Claude” y “Claude Code” son marcas de Anthropic, PBC; “Codex” es marca de OpenAI; “Gemini” es marca de Google LLC; Kimi, Qwen y OpenRouter y sus logotipos pertenecen a sus dueños. Las capturas muestran sesiones de demostración.',
     contributors: 'Colaboradores',
     madeBy: 'Hecho por',
   },

@@ -67,7 +67,7 @@ import {
   installServiceFromCli,
   userRcFiles,
 } from './features/setup/install.ts'
-import { detectConfigDirs, isCodexDir, sameDir, tildify } from './features/setup/profiles.ts'
+import { detectConfigDirs, isCodexDir, isGeminiDir, sameDir, tildify } from './features/setup/profiles.ts'
 import { runSetupWizard, SetupAborted } from './features/setup/wizard.ts'
 import { COMMANDS_RELOAD_ROUTE } from './features/shell/index.ts'
 import { STATUS_LINE_SCRIPT } from './features/status-line/wrapper.ts'
@@ -406,7 +406,8 @@ program
         check(result.exitCode === 0, d.profile(profile.id, profile.configDir), d.dirMissing)
       }
       // Codex profiles: the CLI on the PATH and the daemon's hooks in their hooks.json.
-      const codexProfiles = (await resolveProfiles(config, logger)).filter((p) => agentFor(p).id === 'codex')
+      const resolved = await resolveProfiles(config, logger)
+      const codexProfiles = resolved.filter((p) => agentFor(p).id === 'codex')
       const codexDirs = (await detectConfigDirs()).filter(isCodexDir)
       // Checked even without a configured profile when a Codex account was found (issue #244).
       if (codexProfiles.length > 0 || codexDirs.length > 0) {
@@ -420,6 +421,22 @@ program
       for (const dir of codexDirs) {
         if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
           console.log(`· ${d.codexAccountWithoutProfile(dir)}`)
+        }
+      }
+      // Gemini CLI profiles: the same checks, and folder trust instead of hook trust.
+      const geminiProfiles = resolved.filter((p) => agentFor(p).id === 'gemini')
+      const geminiDirs = (await detectConfigDirs()).filter(isGeminiDir)
+      if (geminiProfiles.length > 0 || geminiDirs.length > 0) {
+        const which = await execaExecutor('which', ['gemini'])
+        check(which.exitCode === 0, 'gemini', d.notOnPath)
+      }
+      for (const profile of geminiProfiles) {
+        check(await hasOurHooks(profile), d.geminiHooks(profile.id, settingsPath(profile)), d.runInstall)
+      }
+      if (geminiProfiles.length > 0) console.log(`· ${m.install.geminiTrust}`)
+      for (const dir of geminiDirs) {
+        if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
+          console.log(`· ${d.geminiAccountWithoutProfile(dir)}`)
         }
       }
       const { kind: storeKind } = await selectStore()

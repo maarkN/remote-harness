@@ -104,6 +104,18 @@ O `remote-harness install` grava o atalho do perfil (ele abre o `codex` com o `C
 
 O que funciona como no Claude Code: a lista de sessões (rollouts recentes em `sessions/`), a conversa, prompts, fotos e teclas, iniciar e retomar pelo celular (num worktree com `codex --worktree`, e com nome, enviado como `/rename`), push, status ao vivo, aprovações com Permitir / Negar, Aprimorar ditado e mensagens de commit geradas (via `codex exec`). Diferenças: o chip de modo mostra o perfil de permissões e alterna entre somente leitura e workspace (`/permissions`, Codex 0.164 ou mais novo); acesso total só no terminal. Não há "Sempre" (hooks do Codex não criam regras) nem provedor.
 
+## Perfis do Gemini CLI
+
+Um perfil pode rodar o Gemini CLI do Google: defina `"agent": "gemini"` e aponte o `configDir` para uma pasta de configuração do Gemini, que sempre se chama `.gemini` (`~/.gemini` por padrão; para outra, `~/work/.gemini`, o atalho define `GEMINI_CLI_HOME=~/work`). O `remote-harness setup` oferece a `~/.gemini` quando o Gemini CLI já a usou.
+
+```json
+{ "id": "gem", "name": "Gemini", "configDir": "~/.gemini", "color": "#E3729E", "agent": "gemini" }
+```
+
+O `remote-harness install` grava o atalho do perfil (ele abre o `gemini`) e mescla os hooks do daemon no `<configDir>/settings.json`, ao lado dos seus hooks e configurações e com backup. **O Gemini CLI não roda hooks numa pasta em que ele não confia**: quando o `gemini` perguntar, confie na pasta (ou use `/permissions`). Até lá, as sessões dele nessa pasta aparecem somente leitura e as aprovações ficam no terminal. O `doctor` confere se o `gemini` está no `PATH` e se os hooks estão instalados.
+
+O que funciona como no Claude Code: a lista de sessões (arquivos de sessão recentes em `tmp/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push e status ao vivo. Aprovações: os hooks do Gemini CLI não conseguem aprovar uma ferramenta, então quando o diálogo de aprovação dele abre o celular recebe Permitir / Negar e o daemon aperta as teclas do próprio diálogo no terminal ("Allow once" ou Esc); se o diálogo já foi respondido lá, o app avisa. Diferenças: sem "Sempre", sem troca de modo (e nunca YOLO), sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor.
+
 ## Atalhos e aliases
 
 Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` do tmux com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. O comando `claude` puro nunca é alterado.

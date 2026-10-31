@@ -90,6 +90,8 @@ A profile is a Claude Code account, that is a `CLAUDE_CONFIG_DIR`, with a name, 
 
 A profile can also run **Codex** (`cx` badge, green): its sessions show the permission profile (read only, workspace, full access) in place of the mode chip, where you can switch between read only and workspace, `exec(…)` and `apply_patch(…)` calls with their output and diff, and approvals with Allow / Deny. See [Codex profiles](/en/docs/daemon/#codex-profiles).
 
+A profile can also run **Gemini CLI** (`gm` badge, pink): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny, answered in Gemini's own dialog in the terminal. See [Gemini CLI profiles](/en/docs/daemon/#gemini-cli-profiles).
+
 ## Settings
 
 - **Machine**: the connection and its path (direct or via relay), the machine's name (an alias of your choice, else its hostname), the daemon version, and **Forget this machine**.

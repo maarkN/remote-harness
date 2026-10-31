@@ -19,8 +19,11 @@ export const CodexPresetSchema = z.enum(['read-only', 'workspace'])
 export type CodexPreset = z.infer<typeof CodexPresetSchema>
 
 /** Coding agents the app knows (badge, color); only those with a daemon adapter can run. */
-export const AgentIdSchema = z.enum(['claude', 'codex', 'kimi', 'qwen'])
+export const AgentIdSchema = z.enum(['claude', 'codex', 'gemini', 'kimi', 'qwen'])
 export type AgentId = z.infer<typeof AgentIdSchema>
+
+/** An agent id in a message: one this parser does not know yet reads as absent (Claude Code). */
+const wireAgentId = AgentIdSchema.optional().catch(undefined)
 
 /** Model gateways a profile can route Claude Code through; a profile without one uses the Anthropic account. */
 export const ProviderKindSchema = z.enum(['openrouter'])
@@ -50,6 +53,9 @@ export const ProfileSchema = z.object({
   provider: ProviderSchema.optional(),
 })
 export type Profile = z.infer<typeof ProfileSchema>
+
+/** A profile as the daemon sends it (`auth.ok`); the config file keeps the strict `ProfileSchema`. */
+export const WireProfileSchema = ProfileSchema.extend({ agent: wireAgentId })
 
 /** A model a provider lists; prices in USD per million tokens, `null` when the provider does not say. */
 export const ModelInfoSchema = z.object({
@@ -139,8 +145,8 @@ export type LastActivity = z.infer<typeof LastActivitySchema>
 export const SessionSchema = z.object({
   id: z.string(),
   profileId: z.string(),
-  /** The profile's agent; absent means Claude Code (older daemons). */
-  agent: AgentIdSchema.optional(),
+  /** The profile's agent; absent means Claude Code (older daemons, or an agent this parser does not know). */
+  agent: wireAgentId,
   cwd: z.string(),
   title: z.string(),
   state: SessionStateSchema,

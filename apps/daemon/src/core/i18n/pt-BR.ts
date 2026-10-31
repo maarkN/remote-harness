@@ -91,6 +91,9 @@ export const ptBR = {
       codexHooks: (id: string, path: string) => `hooks do Codex do perfil ${id} (${path})`,
       codexAccountWithoutProfile: (dir: string) =>
         `Conta do Codex encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
+      geminiHooks: (id: string, path: string) => `hooks do Gemini CLI do perfil ${id} (${path})`,
+      geminiAccountWithoutProfile: (dir: string) =>
+        `Conta do Gemini CLI encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
       runInstall: 'rode `remote-harness install`',
       service: (name: string, detail: string) => `serviço em segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',
@@ -263,6 +266,8 @@ export const ptBR = {
     hooksIn: (path: string) => `hooks em ${path}`,
     codexTrust:
       'O Codex pede uma vez para confiar em hooks novos: abra o `codex` e escolha "Trust all and continue" (ou revise em /hooks). Até lá, as sessões dele ficam somente leitura.',
+    geminiTrust:
+      'O Gemini CLI não roda hooks numa pasta em que ele não confia: quando o `gemini` perguntar, confie na pasta (ou use /permissions). Até lá, as sessões dele nessa pasta ficam somente leitura e as aprovações ficam no terminal.',
     launcherRemoved: (id: string) => `launcher ${id} removido`,
     hooksRemovedFrom: (path: string) => `hooks removidos de ${path}`,
     statusLineIn: (path: string) => `status line em ${path}`,

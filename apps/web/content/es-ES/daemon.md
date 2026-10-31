@@ -104,6 +104,18 @@ Un perfil puede ejecutar OpenAI Codex CLI en vez de Claude Code: define `"agent"
 
 Lo que funciona como en Claude Code: la lista de sesiones (rollouts recientes en `sessions/`), la conversación, prompts, fotos y teclas, iniciar y reanudar desde el móvil (en un worktree con `codex --worktree`, y con nombre, enviado como `/rename`), push, estado en vivo, aprobaciones con Permitir / Denegar, Mejorar dictado y mensajes de commit generados (con `codex exec`). Diferencias: el chip de modo muestra el perfil de permisos y alterna entre solo lectura y workspace (`/permissions`, Codex 0.164 o posterior); el acceso total solo en el terminal. No hay "Siempre" (los hooks de Codex no crean reglas) ni proveedor.
 
+## Perfiles de Gemini CLI
+
+Un perfil puede ejecutar Gemini CLI de Google: define `"agent": "gemini"` y apunta `configDir` a una carpeta de configuración de Gemini, que siempre se llama `.gemini` (`~/.gemini` por defecto; para otra, `~/work/.gemini`, el lanzador define `GEMINI_CLI_HOME=~/work`). `remote-harness setup` ofrece `~/.gemini` cuando Gemini CLI ya la usó.
+
+```json
+{ "id": "gem", "name": "Gemini", "configDir": "~/.gemini", "color": "#E3729E", "agent": "gemini" }
+```
+
+`remote-harness install` escribe el lanzador del perfil (abre `gemini`) y combina los hooks del daemon en `<configDir>/settings.json`, junto a tus hooks y ajustes y con copia de seguridad. **Gemini CLI no ejecuta hooks en una carpeta en la que no confía**: cuando `gemini` pregunte, confía en la carpeta (o usa `/permissions`). Hasta entonces sus sesiones en esa carpeta aparecen de solo lectura y las aprobaciones se quedan en el terminal. `doctor` comprueba que `gemini` está en el `PATH` y que los hooks están instalados.
+
+Lo que funciona como en Claude Code: la lista de sesiones (archivos de sesión recientes en `tmp/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push y estado en vivo. Aprobaciones: los hooks de Gemini CLI no pueden aprobar una herramienta, así que cuando se abre su diálogo de aprobación el móvil recibe Permitir / Denegar y el daemon pulsa las teclas del propio diálogo en el terminal ("Allow once" o Esc); si el diálogo ya se respondió allí, la app lo indica. Diferencias: sin "Siempre", sin cambio de modo (y nunca YOLO), sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor.
+
 ## Lanzadores y alias
 
 Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>` (añadido al `PATH` en `~/.zshrc` y `~/.bashrc`). Ejecuta el alias en vez de `claude`, con los mismos argumentos: abre Claude Code en una ventana de la sesión `claude-remote` de tmux con el `CLAUDE_CONFIG_DIR` correcto y conecta tu terminal a ella. El comando `claude` a secas nunca se modifica.

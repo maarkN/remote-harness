@@ -6,9 +6,9 @@ landing's mark (`apps/web/src/agent-marks.ts`), from lobe-icons (`@lobehub/icons
 landing by `agent-icons.test.ts`. "Claude" and "Claude Code" are trademarks of Anthropic, PBC; the
 README and the site footer carry the trademark note.
 
-The other icons (`CodexIcon`, `KimiIcon`, `QwenIcon`, `OpenRouterIcon`) are **neutral
-placeholders** — a diamond, a triangle, a hexagon and an outlined fork. They are not OpenAI's,
-Moonshot's, Alibaba's or OpenRouter's actual marks.
+The other icons (`CodexIcon`, `GeminiIcon`, `KimiIcon`, `QwenIcon`, `OpenRouterIcon`) are
+**neutral placeholders** — a diamond, a rounded square, a triangle, a hexagon and an outlined fork.
+They are not OpenAI's, Google's, Moonshot's, Alibaba's or OpenRouter's actual marks.
 
 ## Replacing a placeholder with the real mark
 

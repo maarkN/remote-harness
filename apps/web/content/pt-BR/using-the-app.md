@@ -90,6 +90,8 @@ Um perfil é uma conta do Claude Code, ou seja um `CLAUDE_CONFIG_DIR`, com nome,
 
 Um perfil também pode rodar o **Codex** (selo `cx`, verde): as sessões dele mostram o perfil de permissões (somente leitura, workspace, acesso total) no lugar do chip de modo, onde você alterna entre somente leitura e workspace, chamadas `exec(…)` e `apply_patch(…)` com saída e diff, e aprovações com Permitir / Negar. Veja [Perfis do Codex](/pt-br/docs/daemon/#perfis-do-codex).
 
+Um perfil também pode rodar o **Gemini CLI** (selo `gm`, rosa): as sessões dele mostram comandos de shell, edições e buscas em arquivos como as do Claude Code, e aprovações com Permitir / Negar, respondidas no próprio diálogo do Gemini no terminal. Veja [Perfis do Gemini CLI](/pt-br/docs/daemon/#perfis-do-gemini-cli).
+
 ## Ajustes
 
 - **Máquina**: a conexão e o caminho (direto ou via relay), o nome da máquina (um apelido à sua escolha, senão o hostname), a versão do daemon e **Esquecer esta máquina**.

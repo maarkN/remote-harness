@@ -6,6 +6,7 @@ import {
   LiveDataMessageSchema,
   LiveStatusPropsSchema,
   liveNotificationText,
+  ProfileSchema,
   parseClientMessage,
   parseServerMessage,
   type ServerMessage,
@@ -1048,5 +1049,47 @@ describe('session checkout', () => {
 
   test('no peers outside git', () => {
     expect(checkoutPeers(at('a', null), [at('a', null), at('b', null)])).toEqual([])
+  })
+})
+
+describe('agent ids', () => {
+  const snapshot = (agent: string) =>
+    parseServerMessage({ type: 'sessions.snapshot', replyTo: '1', sessions: [{ ...session, agent }] })
+
+  test('a Gemini session keeps its agent', () => {
+    expect(snapshot('gemini')).toMatchObject({ ok: true, value: { sessions: [{ agent: 'gemini' }] } })
+  })
+
+  test('an unknown agent reads as absent instead of rejecting the message', () => {
+    const result = snapshot('future-cli')
+    expect(result.ok).toBe(true)
+    if (result.ok && result.value.type === 'sessions.snapshot')
+      expect(result.value.sessions[0]?.agent).toBeUndefined()
+  })
+
+  test('an unknown agent on an auth.ok profile reads as absent', () => {
+    const result = parseServerMessage({
+      type: 'auth.ok',
+      protocolVersion: 2,
+      daemonVersion: '1.0.0',
+      host: 'mac',
+      profiles: [{ id: 'x', name: 'X', configDir: '/x', color: '#fff', agent: 'future-cli' }],
+      defaultRuleScope: 'project',
+      muted: { profiles: [], sessions: [] },
+      push: { mode: 'relay' },
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok && result.value.type === 'auth.ok') expect(result.value.profiles[0]?.agent).toBeUndefined()
+  })
+
+  test('the config file keeps rejecting an unknown agent', () => {
+    const parsed = ProfileSchema.safeParse({
+      id: 'x',
+      name: 'X',
+      configDir: '/x',
+      color: '#fff',
+      agent: 'gemni',
+    })
+    expect(parsed.success).toBe(false)
   })
 })
