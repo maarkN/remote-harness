@@ -5,15 +5,19 @@ import {
   MAX_TRAY_SESSIONS,
   MAX_TRAY_SESSIONS_WINDOW,
   pendingSummary,
+  relativeTime,
   TRAY_ACTIONS,
   type TrayItem,
   type TrayMenuState,
+  type TrayNetwork,
   type TraySession,
   trayIcon,
 } from '../src/features/updates/menu.ts'
 
 const en = messagesFor('en-US').updates.tray
 const pt = messagesFor('pt-BR').updates.tray
+
+const NOW = Date.parse('2026-10-18T09:41:00Z')
 
 const base: TrayMenuState = {
   version: '0.11.0',
@@ -28,8 +32,22 @@ const base: TrayMenuState = {
   since: '09:12',
   sessions: [],
   pending: null,
-  phones: { count: 1, push: true },
+  devices: {
+    push: true,
+    items: [
+      {
+        id: 'iphone',
+        name: 'iPhone',
+        platform: 'ios',
+        pairedAt: NOW - 3 * 86_400_000,
+        lastSeen: NOW - 60_000,
+        paths: ['relay'],
+      },
+    ],
+  },
   canStart: true,
+  locale: 'en-US',
+  now: NOW,
 }
 
 const session = (id: string, state: TraySession['state'], patch: Partial<TraySession> = {}): TraySession => ({
@@ -51,7 +69,7 @@ const labels = (items: TrayItem[]): string[] =>
   items.flatMap((i) => ('label' in i ? [i.label, ...('items' in i ? labels(i.items) : [])] : []))
 
 describe('tray shell menu', () => {
-  test('status line, phones and the shell actions', () => {
+  test('status line, devices and the shell actions', () => {
     const menu = buildTrayMenu(base, en)
     expect(menu.icon).toBe('idle')
     expect(menu.items[0]).toEqual({
@@ -59,16 +77,16 @@ describe('tray shell menu', () => {
       label: 'MacBook Pro · 0.11.0 · since 09:12',
       enabled: false,
     })
-    expect(labels(menu.items)).toContain('Phones · 1 · push ✓')
+    expect(labels(menu.items)).toContain('Devices · 1 · push ✓')
     expect(labels(menu.items)).toContain('No sessions')
     expect(ids(menu.items)).toEqual(
       expect.arrayContaining(['new', 'pair', 'docs', 'prefs', 'logs', 'doctor', 'quit']),
     )
     expect(
-      buildTrayMenu({ ...base, phones: { count: 0, push: false } }, pt).items.map((i) =>
+      buildTrayMenu({ ...base, devices: { push: false, items: [] } }, pt).items.map((i) =>
         'label' in i ? i.label : '',
       ),
-    ).toContain('Celulares · 0')
+    ).toContain('Dispositivos · 0')
   })
 
   test('sessions by recency with focus and close, ended ones collapsed, capped', () => {
@@ -124,6 +142,9 @@ describe('tray shell menu', () => {
       profile: 'Work',
       summary: 'Bash · gh pr create --fill --base main',
       canAlways: true,
+      agent: 'claude',
+      profileColor: '#61afef',
+      createdAt: '2026-01-01T00:00:00.000Z',
     }
     const menu = buildTrayMenu({ ...base, sessions: [session('b', 'waiting')], pending }, en)
     expect(menu.icon).toBe('waiting')
@@ -196,6 +217,9 @@ describe('tray shell menu', () => {
       profile: 'Work',
       summary: 'Bash · ls',
       canAlways: true,
+      agent: 'claude',
+      profileColor: '#61afef',
+      createdAt: '2026-01-01T00:00:00.000Z',
     }
     const quiet = buildTrayMenu({ ...base, pending, prefs: { ...prefs, permissions: false } }, en)
     expect(ids(quiet.items)).toContain('focus:b')
@@ -212,7 +236,16 @@ describe('tray shell menu', () => {
       showInMenuBar: true,
       startAtLogin: false,
     }
-    const profiles = [{ id: 'claudin', name: 'Work', agent: 'claude', color: '#D97757' }]
+    const profiles = [
+      {
+        id: 'claudin',
+        name: 'Work',
+        agent: 'claude',
+        agentName: 'Claude Code',
+        color: '#D97757',
+        folder: '~/.claude',
+      },
+    ]
     const menu = buildTrayMenu({ ...base, prefs, profiles, windows: true }, en)
     expect(menu.items).toContainEqual({ id: 'prefs', label: 'Preferences…' })
     expect(menu.items.some((i) => 'items' in i && 'label' in i && i.label === 'Preferences')).toBe(false)
@@ -239,7 +272,16 @@ describe('tray shell menu', () => {
     expect(noManagerTab?.sections[0]?.rows.some((r) => 'id' in r && r.id === 'pref:start-at-login')).toBe(
       false,
     )
-    expect(tab('profiles')?.sections[0]?.rows).toEqual([{ kind: 'value', label: 'Work', value: 'claude' }])
+    expect(tab('profiles')?.sections).toEqual([
+      {
+        title: 'Work',
+        rows: [
+          { kind: 'text', id: 'profile-name:claudin', label: 'Name', value: 'Work' },
+          { kind: 'value', label: 'Agent', value: 'Claude Code' },
+          { kind: 'value', label: 'Config folder', value: '~/.claude' },
+        ],
+      },
+    ])
     expect(menu.sessions).toEqual([]) // `base` has no sessions, but the field is still sent
     // Without windows, nothing is sent: the submenu already carries everything a thin helper needs.
     const thin = buildTrayMenu({ ...base, prefs, profiles }, en)
@@ -273,5 +315,129 @@ describe('tray shell menu', () => {
     const long = pendingSummary({ tool: 'Bash', input: { command: 'x'.repeat(100) } })
     expect(long.length).toBeLessThanOrEqual('Bash · '.length + 48)
     expect(long.endsWith('…')).toBe(true)
+  })
+
+  test('the status line names the paths, never an address', () => {
+    const network = {
+      direct: true,
+      addresses: ['192.168.1.20:7337'],
+      relay: true,
+      homeRelay: 'wss://r.example',
+    }
+    const status = (n: TrayNetwork) => buildTrayMenu({ ...base, network: n }, en).items[0]
+    expect(status(network)).toMatchObject({
+      label: 'MacBook Pro · direct + relay paths · 0.11.0 · since 09:12',
+    })
+    expect(status({ ...network, homeRelay: null })).toMatchObject({
+      label: expect.stringContaining('direct path'),
+    })
+    expect(status({ ...network, direct: false })).toMatchObject({
+      label: expect.stringContaining('relay path'),
+    })
+    expect(status({ ...network, addresses: [], relay: false })).toMatchObject({
+      label: expect.stringContaining('not reachable yet'),
+    })
+    expect(JSON.stringify(buildTrayMenu({ ...base, network }, en).items)).not.toContain('192.168.1.20')
+  })
+
+  test('each device with its state and a confirmed Revoke…', () => {
+    const offline = {
+      id: 'pixel',
+      name: 'Pixel',
+      platform: 'android',
+      pairedAt: NOW - 86_400_000,
+      lastSeen: null,
+      paths: [] as ('direct' | 'relay')[],
+    }
+    const items = buildTrayMenu(
+      { ...base, devices: { push: true, items: [...(base.devices?.items ?? []), offline] } },
+      en,
+    ).items
+    const iphone = items.find((i) => 'label' in i && i.label === 'iPhone · online · relay')
+    expect(iphone).toEqual({
+      type: 'submenu',
+      label: 'iPhone · online · relay',
+      items: [
+        { id: 'info:device:iphone', label: 'paired 3 days ago', enabled: false },
+        { type: 'separator' },
+        {
+          type: 'submenu',
+          label: 'Revoke…',
+          items: [{ id: 'revoke:iphone', label: 'Revoke and sign it out' }],
+        },
+      ],
+    })
+    expect(labels(items)).toContain('Pixel · offline')
+    expect(labels(items)).toContain('paired yesterday · not seen yet')
+    expect(labels(buildTrayMenu({ ...base, devices: { push: false, items: [] } }, en).items)).toContain(
+      'No paired devices',
+    )
+  })
+
+  test('relative times follow the locale', () => {
+    const es = messagesFor('es-ES').updates.tray
+    expect(relativeTime(NOW - 3 * 86_400_000, NOW, 'pt-BR', pt)).toBe('há 3 dias')
+    expect(relativeTime(NOW - 2 * 3_600_000, NOW, 'es-ES', es)).toBe('hace 2 horas')
+    expect(relativeTime(NOW - 10_000, NOW, 'en-US', en)).toBe('just now')
+  })
+
+  test('Preferences tabs in the prototype order, with Network and Devices', () => {
+    const prefs = {
+      permissions: true,
+      keepAwake: 'sessions' as const,
+      push: true,
+      machineName: 'MacBook Pro',
+      showInMenuBar: true,
+      startAtLogin: null,
+    }
+    const network = { direct: true, addresses: ['192.168.1.20:7337'], relay: true, homeRelay: null }
+    const menu = buildTrayMenu({ ...base, prefs, network, windows: true, canRestart: true }, en)
+    const tabs = menu.prefsWindow?.tabs ?? []
+    expect(tabs.map((t) => t.id)).toEqual([
+      'general',
+      'profiles',
+      'notifications',
+      'network',
+      'devices',
+      'pairing',
+      'updates',
+      'advanced',
+    ])
+    const rows = (id: string) =>
+      tabs.find((t) => t.id === id)?.sections.flatMap((section) => section.rows) ?? []
+    expect(rows('network')).toEqual(
+      expect.arrayContaining([
+        { kind: 'value', label: 'Status', value: 'On' },
+        { kind: 'value', label: 'Addresses', value: '192.168.1.20:7337' },
+        { kind: 'value', label: 'Home relay', value: 'No connection relay answers yet' },
+        { kind: 'value', label: 'Connected now', value: '0 direct · 1 relay' },
+      ]),
+    )
+    expect(rows('devices')).toEqual([
+      {
+        kind: 'entry',
+        label: 'iPhone',
+        hint: 'iOS · paired 3 days ago',
+        value: 'online · relay',
+        tone: 'online',
+        button: {
+          id: 'revoke:iphone',
+          label: 'Revoke…',
+          style: 'destructive',
+          confirm: 'Revoke iPhone? It has to pair again to reach this computer.',
+        },
+      },
+    ])
+    expect(rows('advanced')).toContainEqual({ kind: 'button', id: 'restart', label: 'Restart daemon' })
+    const relayed = buildTrayMenu(
+      {
+        ...base,
+        prefs,
+        network: { ...network, homeRelay: 'wss://relay.remoteharness.app/v1' },
+        windows: true,
+      },
+      en,
+    )
+    expect(JSON.stringify(relayed.prefsWindow)).toContain('"value":"relay.remoteharness.app"')
   })
 })

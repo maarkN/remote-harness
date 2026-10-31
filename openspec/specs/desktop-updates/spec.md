@@ -43,7 +43,7 @@ With `update.auto` on, the daemon SHALL apply an available update when no sessio
 - **THEN** the update waits until it is idle
 
 ### Requirement: Tray icon
-When a supported helper is available (macOS menu bar; Linux AppIndicator), the service daemon SHALL show a tray icon whose glyph encodes only the state: the mark as a template image when idle, the ring filled while any session works, an amber dot (the only color) while a permission waits, and 40 % opacity when the daemon is gone. The menu SHALL show, top to bottom: the status (`machine · version · since HH:MM`); **Waiting for you** with the oldest pending tool permission (`session title · Tool · detail`) and Allow, Always allow (when the daemon suggested a rule, saved like the app does), Deny and Open in terminal (tmux); **Sessions** by recency, each as `title · state` with its folder, profile and worktree, Open in terminal (tmux), Rename… and Close session (the graceful close), the ended ones collapsed in one submenu; **Phones** with the number of registered phones and whether push is on; New session…, Pair a phone…, Open the docs and Preferences…; then "Check for updates", "Update now" (when an update is available), the automatic updates toggle, the channel choice, "Open logs", "Restart daemon" (under a service manager), "Run doctor" and "Quit tray". The menu SHALL refresh on session and permission changes. A helper that reports it can open windows (macOS) SHALL list at most 5 live sessions before a trailing "See all sessions…" item; a helper without window support (Linux; Windows later) keeps listing up to 8. Without a helper the daemon MUST keep working headless. `tray: false` in the config SHALL disable it. All labels MUST be translated. The SwiftUI popover and the Windows tray are not part of this requirement; Pair a phone, Preferences, the Sessions window and rename have their own requirements below.
+When a supported helper is available (macOS menu bar; Linux AppIndicator), the service daemon SHALL show a tray icon whose glyph encodes only the state: the mark as a template image when idle, the ring filled while any session works, an amber dot (the only color) while a permission waits, and 40 % opacity when the daemon is gone. A helper that shows menus (Linux, and macOS only if the popover is unavailable) SHALL show, top to bottom: the status (`machine name · paths · version · since HH:MM`, where the paths say whether devices reach the computer by the direct path, the relay path, both or neither — never an address); **Waiting for you** with the oldest pending tool permission (`session title · Tool · detail`) and Allow, Always allow (when the daemon suggested a rule, saved like the app does), Deny and Open in terminal (tmux); **Sessions** by recency, each as `title · state` with its folder, profile and worktree, Open in terminal (tmux), Rename… and Close session (the graceful close), the ended ones collapsed in one submenu; **Devices** with whether push is on and each paired device as `name · online (path)` or `name · offline`, whose submenu shows when it paired and "Revoke…", a nested confirmation that revokes the device like `remote-harness devices revoke`; New session…, Pair a phone…, Open the docs and Preferences…; then "Check for updates", "Update now" (when an update is available), the automatic updates toggle, the channel choice, "Open logs", "Restart daemon" (under a service manager), "Run doctor" and "Quit tray". The menu SHALL refresh on session, permission and device changes (a device connecting, disconnecting, pairing or being revoked). A helper that reports it can open windows (macOS) SHALL list at most 5 live sessions before a trailing "See all sessions…" item; a helper without window support (Linux; Windows) keeps listing up to 8. Without a helper the daemon MUST keep working headless. `tray: false` in the config SHALL disable it. All labels MUST be translated. The popover has its own requirement, as do Pair a phone, Preferences, the Sessions window and rename.
 
 #### Scenario: Update from the menu bar
 - **WHEN** an update is available and the user chooses "Update now"
@@ -80,6 +80,14 @@ When a supported helper is available (macOS menu bar; Linux AppIndicator), the s
 #### Scenario: More than 5 sessions on Linux
 - **WHEN** 8 sessions are live and the helper does not support windows
 - **THEN** the menu keeps listing up to 8, as before, with no "See all sessions…" item
+
+#### Scenario: Revoke a device from the menu
+- **WHEN** the user picks Revoke… on a paired iPhone under Devices and confirms
+- **THEN** the iPhone is unpaired, its open connections close, it no longer gets pushes, and it disappears from the Devices section
+
+#### Scenario: Paths in the status line
+- **WHEN** the daemon listens on the direct path and is connected to its home relay
+- **THEN** the status line reads `<machine name> · direct + relay paths · <version> · since <HH:MM>`, with no IP address
 
 ### Requirement: Update from the app
 The daemon SHALL answer `daemon.update.check` with its update info (running version, channel, last check, the available update and whether it is a downgrade, what blocks updating, whether sessions are busy, and the last or current run), saving a given channel to the config first. It SHALL answer `daemon.update.start` by running the `remote-harness update` flow for the channel in a process that survives the service restart, and broadcast `daemon.update.info` whenever the run changes. It MUST refuse to start when it does not run from the installer's checkout, when it runs from sources, when it is not under a service manager, when a run is in progress or when no update is available, saying why. The refusal MUST be checked before a run is recorded, so a refused start leaves no failed run, and the reply SHALL say "an update is already running", "cannot update: <blocker>" or "already up to date". The run recorded for a start MUST NOT count as an update in progress when that same start spawns the updater; a start refused after its run was recorded (the offer went away meanwhile) SHALL reply with the same specific reason, never a generic one, and put the run record back as it was. The tray's "Update now" and automatic updates SHALL start the same way. The daemon MUST be able to start a later update after the updater exited without restarting it (for example "Already up to date"), and it SHALL check the channel again right away in that case. A failure to start the updater SHALL be recorded as a failed run with its error. The app SHALL show these reasons translated, and an update that keeps the version but has a newer commit as "<version> · new commits (<commit>)".
@@ -139,15 +147,17 @@ Once the daemon listens for the app, the tray's "Pair a phone" SHALL be a submen
 - **THEN** a new token is stored, the app connections close, and the QR shows the new token
 
 ### Requirement: Tray preferences
-On a helper that reports it can open windows (macOS), the tray's "Preferences…" SHALL open a native **Preferences window** instead of the config file, with tabs:
-- **General**: machine name (free text, shown elsewhere as the machine's display name), "Show in menu bar" (the `tray` config), "Show permission requests here" (`trayPermissions`), "Start at login" (installs or removes the login service).
-- **Updates**: the update channel, the automatic updates toggle and "Check for updates now", reflecting the same state and actions as the existing menu items.
+On a helper that reports it can open windows (macOS), the tray's "Preferences…" SHALL open a native **Preferences window** instead of the config file, with tabs in this order:
+- **General**: machine name (free text, shown elsewhere as the machine's display name), "Show in menu bar" (the `tray` config), "Show permission requests here" (`trayPermissions`), "Start at login" (installs or removes the login service), and the keep-awake mode.
+- **Profiles**: one group per configured profile with its name as an editable text field, and its agent and config folder read-only.
 - **Notifications**: "Push notifications & live status" (the `push` setting; its hint SHALL say it covers both), and a line pointing to the app for per-session mute rules.
-- **Profiles**: the configured profiles, read-only (name, agent, color).
-- **Pairing**: the pairing QR code and address, "Show the pairing in the terminal" and "Rotate token…", the same actions as the menu's Pair a phone submenu.
+- **Network**: whether the direct path is on and the addresses it advertises, whether the connection relay is on and the home relay (or that none answers yet), and how many devices are connected now by each path.
+- **Devices**: each paired device with its platform, when it paired, when it was last seen, whether it is online now and by which path, and "Revoke…", which asks for confirmation and then revokes it like `remote-harness devices revoke`.
+- **Pairing**: the pairing QR code and address and "Show the pairing in the terminal", the same actions as the menu's Pair a phone submenu.
+- **Updates**: the update channel, the automatic updates toggle and "Check for updates now", reflecting the same state and actions as the existing menu items.
 - **Advanced**: "Open the config file…", "Open the logs folder" and "Run doctor".
 
-Every change SHALL be written to the config file (read → merge → backup → atomic write) and applied without restarting the daemon, like the rest of the tray's settings. A helper without window support (Linux; Windows later) keeps "Preferences…" opening the config file directly.
+Every change SHALL be written to the config file (read → merge → backup → atomic write) and applied without restarting the daemon, like the rest of the tray's settings; a renamed profile shows its new name in the tray right away and in the app after the daemon's next start (the profiles it is given are fixed for the process's lifetime, like the rest of `hello`). An empty profile name SHALL be refused. A helper without window support (Linux; Windows) keeps "Preferences…" opening the config file directly.
 
 #### Scenario: Turn push off from the menu bar
 - **WHEN** the user turns off "Push notifications & live status" in the Preferences window
@@ -168,6 +178,18 @@ Every change SHALL be written to the config file (read → merge → backup → 
 #### Scenario: No window support
 - **WHEN** the helper does not report window support
 - **THEN** "Preferences…" opens the config file, as before
+
+#### Scenario: Rename a profile
+- **WHEN** the user changes the "Work" profile's name to "Acme" in the Profiles tab
+- **THEN** the config file's profile with that id has the name "Acme" and the tray's session rows show "Acme" right away
+
+#### Scenario: Network tab
+- **WHEN** the connection relay is on but no relay answers yet
+- **THEN** the Network tab shows the connection relay as on with no home relay yet, and the direct path with its addresses
+
+#### Scenario: Revoke from Preferences
+- **WHEN** the user picks Revoke… on a device in the Devices tab and confirms
+- **THEN** the device is revoked and disappears from the tab, the popover and the menu
 
 ### Requirement: Quit the tray or the service
 Under a service manager, the tray's Quit SHALL be a submenu with "Hide the icon (the service keeps running)" and "Stop the service until the next login". The latter MUST stop the service (`launchctl bootout` on macOS, `systemctl --user stop` on Linux) without uninstalling it, so it starts again at the next login. A daemon not under a service manager SHALL keep the single "Quit tray" item.
@@ -205,3 +227,29 @@ On a helper that reports it can open windows (macOS), each session SHALL offer a
 #### Scenario: Resuming an aliased session
 - **WHEN** a session with a pending alias becomes controllable again
 - **THEN** the daemon sends the alias as `/rename` to the new pane and stops treating it as a separate alias
+
+### Requirement: Tray popover
+A helper that reports popover support (macOS) SHALL show, when the menu bar icon is clicked, a popover with cards instead of the menu, following the system appearance (dark or light), with top to bottom:
+- a header with the product mark, "Remote Harness", `machine name · paths · version · since HH:MM` (the paths as in the menu's status line, never an address) and a state pill (running, updating or update available);
+- **Waiting for you**, only while a tool permission waits: a card with the agent's badge, the session title, the profile, `Tool · detail` and how long it has waited, and the answers Deny, Always (when the daemon suggested a rule) and Allow, or only Open in terminal (tmux) when "Show permission requests here" is off;
+- **Sessions** with the total and running counts: at most 5 live sessions as rows (agent badge, title, `folder · profile · worktree`, a state pill), a click opening the session in the terminal (tmux) when it is controllable and a context menu with Open in terminal (tmux), Rename… and Close session; "See all sessions…" when more are live and a row with the ended count, both opening the Sessions window; "No sessions" when there are none;
+- **Devices** with whether push is on: each paired device with when it paired and whether it is online now (and by which path) or offline, a click opening the Devices tab of the Preferences window; a hint to pair one when there are none;
+- the quick actions: New session…, Pair a phone… (the Pairing tab of the Preferences window once the daemon listens, else the pairing in the terminal), Open the docs, Preferences…, the update action (Check for updates with the channel, Update now with the version when an update is available, disabled while checking or updating) and Quit (with the hide-icon and stop-service choices under a service manager).
+
+Every label, count and time in the popover MUST come translated from the daemon; the helper only lays it out. The popover SHALL refresh live like the menu, and clicking an action SHALL close it.
+
+#### Scenario: Allow from the popover
+- **WHEN** a `Bash` permission waits and the user clicks Allow on its card
+- **THEN** the daemon answers the request as if the app had, the card disappears and the glyph loses its dot
+
+#### Scenario: Permissions only in the app
+- **WHEN** "Show permission requests here" is off and a permission waits
+- **THEN** the card shows the request with only Open in terminal (tmux)
+
+#### Scenario: More sessions than fit
+- **WHEN** 8 sessions are live
+- **THEN** the popover lists 5 and "See all sessions…" opens the Sessions window with all 8
+
+#### Scenario: Light appearance
+- **WHEN** macOS uses the light appearance
+- **THEN** the popover uses light backgrounds and dark text, keeping the amber accent and the state colors

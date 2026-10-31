@@ -55,6 +55,7 @@ import {
   registerUpdatesFeature,
   type TrayShellDeps,
 } from './features/updates/index.ts'
+import type { TrayDevice } from './features/updates/menu.ts'
 import { registerVoicePolishFeature } from './features/voice-polish/index.ts'
 import { registerWidgetsFeature } from './features/widgets/index.ts'
 import type { Executor } from './infra/exec.ts'
@@ -205,6 +206,24 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       const address = connectivity.addresses()[0] ?? connectivity.relay()
       return link && address ? { url: link.url, address } : null
     },
+    pairedDevices: () => {
+      const connected = hub.devicePaths()
+      return pairing.devices.devices().map((device) => ({
+        id: device.id,
+        name: device.name,
+        platform: device.platform,
+        pairedAt: device.pairedAt,
+        lastSeen: device.lastSeen ?? null,
+        paths: [...(connected.get(device.id) ?? [])],
+      }))
+    },
+    revokeDevice: (deviceId) => pairing.revoke(deviceId),
+    network: () => ({
+      direct: config.direct === 'on',
+      addresses: connectivity.addresses(),
+      relay: relayEnabled,
+      homeRelay: connectivity.relay(),
+    }),
   })
 
   await hooks.listen({ host: '127.0.0.1', port: options.hookPort ?? config.hookPort })
@@ -287,12 +306,17 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   }
 }
 
+/** The tray's view of pairing and connectivity, which exist before the features. */
+type TrayFromStart = Pick<TrayShellDeps, 'pairing' | 'revokeDevice' | 'network'> & {
+  pairedDevices: () => TrayDevice[]
+}
+
 /** Wires every feature module. Each feature registers its own handlers, hooks and listeners. */
 async function registerFeatures(
   ctx: DaemonContext,
   desktop: DesktopOptions | undefined,
   sleepInhibitor: SleepInhibitor | null,
-  pairing: Pick<TrayShellDeps, 'pairing'>,
+  tray: TrayFromStart,
 ): Promise<{
   mute: MuteStore
   pushMode: () => PushMode
@@ -381,10 +405,12 @@ async function registerFeatures(
               : {}),
           })
         },
-        phones: () => ({ count: push.devices.list().length, push: push.mode() !== 'off' }),
+        devices: () => ({ push: push.mode() !== 'off', items: tray.pairedDevices() }),
         closeSession: (id) => lifecycle.closer.close(id),
         renameSession: (id, name) => input.service.sendText(id, `/rename ${name}`),
-        ...pairing,
+        pairing: tray.pairing,
+        revokeDevice: tray.revokeDevice,
+        network: tray.network,
         keepAwake: {
           mode: () => power?.state().mode ?? ctx.config.keepAwake,
           set: async (mode) => {

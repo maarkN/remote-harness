@@ -2,6 +2,9 @@ import type { Logger } from '../../core/logger.ts'
 import type { TrayProcess } from '../../infra/tray-helper.ts'
 import type { TrayMenu } from './menu.ts'
 
+/** What the running helper can draw besides the menu. */
+export type HelperSupport = { windows: boolean; popover: boolean }
+
 const MAX_RESTARTS = 3
 const RESTART_DELAY_MS = 30_000
 
@@ -21,8 +24,11 @@ export class TrayHost {
     private readonly onClick: (id: string, value?: string) => void,
     private readonly logger: Logger,
     private readonly restartDelayMs = RESTART_DELAY_MS,
-    /** The helper reported `{type:'ready', windows}` — whether it can open the Preferences/Sessions windows. */
-    private readonly onReady: (windows: boolean) => void = () => {},
+    /**
+     * The helper reported `{type:'ready', windows, popover}`: whether it can open the Preferences/Sessions
+     * windows and whether it shows the popover instead of the menu.
+     */
+    private readonly onReady: (support: HelperSupport) => void = () => {},
   ) {}
 
   get running(): boolean {
@@ -43,15 +49,16 @@ export class TrayHost {
     this.process = process
     process.onMessage((message) => {
       if (!message || typeof message !== 'object') return
-      const { type, id, value, windows } = message as {
+      const { type, id, value, windows, popover } = message as {
         type?: unknown
         id?: unknown
         value?: unknown
         windows?: unknown
+        popover?: unknown
       }
       if (type === 'click' && typeof id === 'string')
         this.onClick(id, typeof value === 'string' ? value : undefined)
-      else if (type === 'ready') this.onReady(windows === true)
+      else if (type === 'ready') this.onReady({ windows: windows === true, popover: popover === true })
     })
     process.onExit((code, early) => {
       this.process = null

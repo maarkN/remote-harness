@@ -183,6 +183,36 @@ export async function updateConfigFile(
   return true
 }
 
+/**
+ * `profiles` as written in the config file with the profile `id` renamed (every other field, such as
+ * an unexpanded `~` in `configDir`, kept as is). Null when the name is blank or there is no such profile.
+ */
+export function withProfileName(profiles: unknown, id: string, name: string): unknown[] | null {
+  const trimmed = name.trim()
+  if (!trimmed || !Array.isArray(profiles)) return null
+  let found = false
+  const next = profiles.map((profile: unknown) => {
+    if (!profile || typeof profile !== 'object' || (profile as { id?: unknown }).id !== id) return profile
+    found = true
+    return { ...profile, name: trimmed }
+  })
+  return found ? next : null
+}
+
+/** Renames one profile in the config file; false when the name is blank or the profile is not there. */
+export async function renameProfileInConfig(
+  id: string,
+  name: string,
+  path = paths.config(),
+): Promise<boolean> {
+  const raw = await readJsonFile(path)
+  const profiles = raw && typeof raw === 'object' ? (raw as { profiles?: unknown }).profiles : undefined
+  const next = withProfileName(profiles, id, name)
+  if (!next) return false
+  await updateConfigFile({ profiles: next }, path)
+  return true
+}
+
 /** Expands `~` and drops profiles whose config dir does not exist or whose agent has no adapter yet. */
 export async function resolveProfiles(config: Config, logger: Logger): Promise<Profile[]> {
   const result: Profile[] = []
