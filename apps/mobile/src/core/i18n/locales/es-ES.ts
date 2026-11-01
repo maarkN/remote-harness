@@ -36,6 +36,14 @@ const esES = {
     subagent: 'Subagente',
     changes: 'Cambios',
   },
+  language: {
+    title: 'Idioma',
+    intro: 'Elige el idioma de la app. Puedes cambiarlo después en Ajustes → Idioma.',
+    system: 'El mismo del móvil',
+    systemHint: 'Ahora {{language}}',
+    hint: 'Los textos que vienen del ordenador (notificaciones push, la instalación) se quedan en el idioma elegido allí; el dictado tiene su propio idioma en Ajustes → Voz.',
+    continue: 'Continuar',
+  },
   connection: {
     path: { direct: 'directo', relay: 'por relay' },
     banner: {

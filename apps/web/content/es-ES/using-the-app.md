@@ -102,6 +102,7 @@ Un perfil también puede ejecutar **Qwen Code** (insignia `qw`, violeta): sus se
 - **Ordenadores**: todos los ordenadores emparejados; cambiar, renombrar en este dispositivo, olvidar o añadir otro.
 - **Dispositivos**: los móviles y tabletas emparejados con este ordenador y cuándo se vio cada uno por última vez. **Añadir dispositivo** muestra un código de emparejamiento de un solo uso (QR y enlace, válido 5 minutos) para escanear con el otro dispositivo; **Revocar** desconecta uno al momento, y tiene que volver a emparejarse.
 - **Apariencia**: Sistema, Oscuro, Claro, Dracula, Catppuccin Mocha y Catppuccin Latte.
+- **Idioma**: El mismo del móvil, Português (Brasil), English (US) o Español, aplicado al momento (la primera vez que se abre lo pregunta antes de emparejar). Los textos que vienen del ordenador, como las notificaciones y la instalación, se quedan en el idioma elegido en su configuración.
 - **Perfiles**: cada perfil con su agente, alias, carpeta de config, interruptor de notificaciones y, con proveedor, el proveedor, el modelo predeterminado y los créditos.
 - **Notificaciones**: push para este móvil, prueba, estado en vivo, los perfiles y sesiones silenciados.
 - **Voz**: el idioma de la transcripción.

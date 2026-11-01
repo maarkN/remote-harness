@@ -102,6 +102,7 @@ A profile can also run **Qwen Code** (`qw` badge, violet): its sessions show she
 - **Computers**: every paired computer; switch, rename on this device, forget, or add another one.
 - **Devices**: the phones and tablets paired with this computer and when each was last seen. **Add device** shows a single-use pairing code (QR and link, valid for 5 minutes) to scan with the other device; **Revoke** disconnects one at once, and it must pair again.
 - **Appearance**: System, Dark, Light, Dracula, Catppuccin Mocha and Catppuccin Latte.
+- **Language**: Same as the phone, Português (Brasil), English (US) or Español, applied at once (the first launch asks before pairing). Texts that come from the computer, such as notifications and the setup, keep the language chosen in its setup.
 - **Profiles**: each profile with its agent, alias, config dir, notifications switch and, with a provider, the provider, the default model and the credits.
 - **Notifications**: push for this phone, test, live status, the muted profiles and sessions.
 - **Voice**: the transcription language.

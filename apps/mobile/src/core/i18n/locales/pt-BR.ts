@@ -36,6 +36,14 @@ const ptBR = {
     subagent: 'Subagente',
     changes: 'Alterações',
   },
+  language: {
+    title: 'Idioma',
+    intro: 'Escolha o idioma do app. Dá para mudar depois em Configurações → Idioma.',
+    system: 'Mesmo do celular',
+    systemHint: 'Agora {{language}}',
+    hint: 'Os textos que vêm do computador (notificações push, a instalação) ficam no idioma escolhido lá; o ditado tem o próprio idioma em Configurações → Voz.',
+    continue: 'Continuar',
+  },
   connection: {
     path: { direct: 'direto', relay: 'via relay' },
     banner: {

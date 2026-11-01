@@ -1,20 +1,17 @@
 import type { Locale } from '@remote-harness/protocol'
-import { getLocales } from 'expo-localization'
-import { initReactI18next } from 'react-i18next'
 import { AppState } from 'react-native'
-import { createI18n } from './create'
-import { deviceLocale } from './device'
+import { i18n } from './instance'
+import { syncDeviceLanguage } from './language-store'
 
 export type { TFunction } from './create'
+export * from './language-store'
+export * from './preference'
+export { i18n }
 
-/** App-wide instance, following the phone language (per-app language included). */
-export const i18n = createI18n(deviceLocale(getLocales()), [initReactI18next])
-
-// The language can change while the app is in the background; pick it up on return.
+// The phone's language can change while the app is in the background; pick it up on return (it only
+// matters while the preference follows the phone, which the store decides).
 AppState.addEventListener('change', (state) => {
-  if (state !== 'active') return
-  const next = deviceLocale(getLocales())
-  if (next !== i18n.language) void i18n.changeLanguage(next)
+  if (state === 'active') syncDeviceLanguage()
 })
 
 /** Active locale, e.g. for `Intl` formatting. */
