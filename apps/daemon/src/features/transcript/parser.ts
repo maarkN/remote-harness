@@ -5,10 +5,13 @@
  */
 import type { ImageRef, TranscriptEntry } from '@remote-harness/protocol'
 import type { ImageData, TranscriptFormat, TranscriptMetaUpdate } from './format.ts'
+import { WORKFLOW_TOOL, workflowCall, workflowLaunch } from './workflow.ts'
 
 export type { ImageData, TranscriptMetaUpdate } from './format.ts'
 
 export const MAX_TOOL_RESULT_CHARS = 20_000
+/** A background task's result in its notification (a workflow's final report) is cut here. */
+export const MAX_TASK_RESULT_CHARS = 4_000
 const MAX_UNKNOWN_RAW_CHARS = 2_000
 
 /** Line types that carry metadata for Claude Code itself, never shown in the conversation. */
@@ -169,16 +172,23 @@ export function onlyTagsName(text: string): string | null {
   return first
 }
 
-/** Status, summary and note of a background task; ids, file paths, usage and result stay out. */
+/**
+ * Status, summary, note and (cut) result of a background task, with the tool call that started it so
+ * a workflow's card can take its notification; the task id, file paths and usage stay out.
+ */
 function taskNotification(body: string): SystemDraft {
   const status = tagContent(body, 'status') ?? ''
   const note = tagContent(body, 'note')
+  const toolUseId = tagContent(body, 'tool-use-id')
+  const result = tagContent(body, 'result')
   return {
     kind: 'system',
     subtype: 'task_notification',
     text: tagContent(body, 'summary') || status,
     status,
     ...(note ? { note } : {}),
+    ...(toolUseId ? { toolUseId } : {}),
+    ...(result ? { result: truncate(result, MAX_TASK_RESULT_CHARS).text } : {}),
   }
 }
 
@@ -253,6 +263,7 @@ function parseUser(line: Json, cursor: number): Draft[] {
       const images: ImageRef[] = []
       const raw = toolResultText(part.content, (image) => images.push(...counter.ref(image)))
       const { text, truncated } = truncate(raw, MAX_TOOL_RESULT_CHARS)
+      const launch = workflowLaunch(raw)
       drafts.push({
         kind: 'tool_result',
         toolUseId: str(part.tool_use_id) ?? '',
@@ -260,6 +271,7 @@ function parseUser(line: Json, cursor: number): Draft[] {
         isError: part.is_error === true,
         truncated,
         images,
+        ...(launch ? { workflow: launch } : {}),
       })
     } else if (part.type === 'text') {
       drafts.push(...userDrafts(str(part.text) ?? ''))
@@ -305,14 +317,18 @@ function parseAssistant(line: Json): Draft[] {
         break
       }
       case 'tool_use':
-      case 'server_tool_use':
+      case 'server_tool_use': {
+        const name = str(part.name) ?? 'tool'
+        const input = isObject(part.input) ? part.input : {}
         drafts.push({
           kind: 'tool_use',
           toolUseId: str(part.id) ?? '',
-          name: str(part.name) ?? 'tool',
-          input: isObject(part.input) ? part.input : {},
+          name,
+          input,
+          ...(name === WORKFLOW_TOOL ? { workflow: workflowCall(input) } : {}),
         })
         break
+      }
       default:
         break
     }

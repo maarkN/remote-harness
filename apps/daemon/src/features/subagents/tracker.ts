@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { open, readdir, readFile } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import type { SubagentInfo } from '@remote-harness/protocol'
 import { type FSWatcher, watch } from 'chokidar'
 import type { Logger } from '../../core/logger.ts'
@@ -19,6 +19,8 @@ export const INACTIVITY_MS = 2 * 60_000
 export const OUTCOME_CHECKS_MS = [3_000, 15_000, 60_000] as const
 /** How much of the end of the parent's transcript an outcome check reads. */
 const OUTCOME_TAIL_BYTES = 512 * 1024
+/** Under the subagents folder: one folder per workflow run (`wf_…`) with that run's agents. */
+export const WORKFLOWS_DIR = 'workflows'
 
 /** A name from the meta file or a hook: trimmed, and `null` when empty. */
 export function cleanName(value: unknown): string | null {
@@ -31,6 +33,25 @@ const NEWLINE = 0x0a
 /** `<project>/<session>.jsonl` → `<project>/<session>/subagents`. */
 export function subagentsDir(transcriptPath: string): string {
   return join(dirname(transcriptPath), basename(transcriptPath, '.jsonl'), 'subagents')
+}
+
+/**
+ * Which agent a file under the subagents folder `dir` belongs to: `agent-<id>.jsonl` at the top (a
+ * plain subagent, `runId` null) or `workflows/<run>/agent-<id>.jsonl` (an agent of that workflow run);
+ * null for any other file (meta files, the run's journal, deeper paths).
+ */
+export function agentFile(dir: string, path: string): { agentId: string; runId: string | null } | null {
+  const parts = relative(dir, path).split(/[\\/]+/)
+  const agentId = AGENT_FILE.exec(parts.at(-1) ?? '')?.[1]
+  if (!agentId) return null
+  if (parts.length === 1) return { agentId, runId: null }
+  const run = parts[1]
+  return parts.length === 3 && parts[0] === WORKFLOWS_DIR && run ? { agentId, runId: run } : null
+}
+
+/** The folder of an agent's transcript and meta file: the run's folder, or the subagents folder itself. */
+function agentDir(dir: string, runId: string | null | undefined): string {
+  return runId ? join(dir, WORKFLOWS_DIR, runId) : dir
 }
 
 /** Tool uses in complete transcript lines; the parser owns the format, malformed lines count nothing. */
@@ -69,7 +90,12 @@ type Tracked = {
   cursors: Map<string, Cursor>
   /** The parent's tool call that spawned each subagent (from its meta file). */
   toolUseIds: Map<string, string>
+  /** The workflow run each agent found under `workflows/<run>/` belongs to. */
+  runs: Map<string, string>
 }
+
+/** What the meta file names, each `null` when absent or blank. */
+type Names = { agentType: string | null; description: string | null; workflowPhase: string | null }
 
 /** Watches each live session's `subagents/` folder and keeps `session.subagents` up to date. */
 export class SubagentTracker {
@@ -103,11 +129,15 @@ export class SubagentTracker {
     if (!live && current) this.untrack(session.id)
   }
 
+  /** The agent's transcript: in its workflow run's folder when it belongs to one. */
   transcriptPath(sessionId: string, agentId: string): string | null {
     const session = this.store.get(sessionId)
     if (!session?.transcriptPath) return null
-    if (!session.subagents.some((s) => s.agentId === agentId)) return null
-    return join(subagentsDir(session.transcriptPath), `agent-${agentId}.jsonl`)
+    const sub = session.subagents.find((s) => s.agentId === agentId)
+    if (!sub) return null
+    const dir = subagentsDir(session.transcriptPath)
+    const runId = sub.workflowRunId ?? this.tracked.get(sessionId)?.runs.get(agentId)
+    return join(agentDir(dir, runId), `agent-${agentId}.jsonl`)
   }
 
   private track(sessionId: string, transcriptPath: string): void {
@@ -117,18 +147,25 @@ export class SubagentTracker {
       lastActivity: new Map(),
       cursors: new Map(),
       toolUseIds: new Map(),
+      runs: new Map(),
     }
     this.tracked.set(sessionId, tracked)
     this.attach(sessionId, tracked)
   }
 
+  /** A transcript file seen in the folder (or a run's folder): remembers its run and touches the agent. */
+  private seen(sessionId: string, tracked: Tracked, path: string): void {
+    const file = agentFile(tracked.dir, path)
+    if (!file) return
+    if (file.runId) tracked.runs.set(file.agentId, file.runId)
+    void this.touch(sessionId, file.agentId, tracked)
+  }
+
   private attach(sessionId: string, tracked: Tracked): void {
     if (tracked.watcher || !existsSync(tracked.dir)) return
-    const watcher = watch(tracked.dir, { depth: 0, ignoreInitial: false })
-    const onFile = (path: string) => {
-      const match = AGENT_FILE.exec(basename(path))
-      if (match?.[1]) void this.touch(sessionId, match[1], tracked)
-    }
+    // Depth 2 reaches `workflows/<run>/agent-*.jsonl`, the agents of a workflow run.
+    const watcher = watch(tracked.dir, { depth: 2, ignoreInitial: false })
+    const onFile = (path: string) => this.seen(sessionId, tracked, path)
     watcher.on('add', onFile)
     watcher.on('change', onFile)
     // chokidar lists the folder before watching it: files created in between are only caught by a rescan.
@@ -140,10 +177,17 @@ export class SubagentTracker {
   }
 
   private async rescan(sessionId: string, tracked: Tracked): Promise<void> {
-    const files = await readdir(tracked.dir).catch(() => [] as string[])
-    for (const file of files) {
-      const agentId = AGENT_FILE.exec(file)?.[1]
-      if (agentId && !tracked.lastActivity.has(agentId)) void this.touch(sessionId, agentId, tracked)
+    const list = (dir: string): Promise<string[]> =>
+      readdir(dir).then(
+        (files) => files.map((file) => join(dir, file)),
+        () => [],
+      )
+    const paths = await list(tracked.dir)
+    const runsDir = join(tracked.dir, WORKFLOWS_DIR)
+    for (const run of await list(runsDir)) paths.push(...(await list(run)))
+    for (const path of paths) {
+      const file = agentFile(tracked.dir, path)
+      if (file && !tracked.lastActivity.has(file.agentId)) this.seen(sessionId, tracked, path)
     }
   }
 
@@ -159,37 +203,58 @@ export class SubagentTracker {
   }
 
   /** The meta file's names (blank ones as `null`); it may not exist yet when the transcript does. */
-  private async readMeta(
-    tracked: Tracked,
-    agentId: string,
-  ): Promise<{ agentType: string | null; description: string | null }> {
+  private async readMeta(tracked: Tracked, agentId: string): Promise<Names> {
     try {
-      const meta = JSON.parse(
-        await readFile(join(tracked.dir, `agent-${agentId}.meta.json`), 'utf8'),
-      ) as Record<string, unknown>
+      const dir = agentDir(tracked.dir, tracked.runs.get(agentId))
+      const meta = JSON.parse(await readFile(join(dir, `agent-${agentId}.meta.json`), 'utf8')) as Record<
+        string,
+        unknown
+      >
       const toolUseId = cleanName(meta.toolUseId)
       if (toolUseId) tracked.toolUseIds.set(agentId, toolUseId)
-      return { agentType: cleanName(meta.agentType), description: cleanName(meta.description) }
+      return {
+        agentType: cleanName(meta.agentType),
+        description: cleanName(meta.description),
+        workflowPhase: cleanName(meta.workflowPhase),
+      }
     } catch {
-      return { agentType: null, description: null }
+      return { agentType: null, description: null, workflowPhase: null }
     }
   }
 
-  /** Fills missing names: the meta file again, then the prompt's first line as the description. */
+  /**
+   * Fills missing names: the meta file again (also while a run's agent has no phase yet), then the
+   * prompt's first line as the description.
+   */
   private async names(
     tracked: Tracked | undefined,
     agentId: string,
-    current: Pick<SubagentInfo, 'agentType' | 'description'> | undefined,
+    current: Pick<SubagentInfo, 'agentType' | 'description' | 'workflowPhase'> | undefined,
     cursor: Cursor | null,
-  ): Promise<{ agentType: string | null; description: string | null }> {
+  ): Promise<Names> {
     let agentType = current?.agentType ?? null
     let description = current?.description ?? null
-    if (tracked && (agentType === null || description === null)) {
+    let workflowPhase = current?.workflowPhase ?? null
+    const phaseMissing = workflowPhase === null && tracked?.runs.has(agentId) === true
+    if (tracked && (agentType === null || description === null || phaseMissing)) {
       const meta = await this.readMeta(tracked, agentId)
       agentType ??= meta.agentType
       description ??= meta.description
+      workflowPhase ??= meta.workflowPhase
     }
-    return { agentType, description: description ?? cursor?.prompt ?? null }
+    return { agentType, description: description ?? cursor?.prompt ?? null, workflowPhase }
+  }
+
+  /** The run fields of an agent's info: only for agents found under a run's folder. */
+  private runFields(
+    tracked: Tracked | undefined,
+    agentId: string,
+    current: Pick<SubagentInfo, 'workflowRunId'> | undefined,
+    names: Names,
+  ): Pick<SubagentInfo, 'workflowRunId' | 'workflowPhase'> {
+    const runId = tracked?.runs.get(agentId) ?? current?.workflowRunId
+    if (!runId) return {}
+    return { workflowRunId: runId, ...(names.workflowPhase ? { workflowPhase: names.workflowPhase } : {}) }
   }
 
   /** Consumes what the transcript gained since the last read; reads of one file never overlap. */
@@ -207,7 +272,8 @@ export class SubagentTracker {
       tracked.cursors.set(agentId, cursor)
     }
     const current = cursor
-    const run = current.pending.then(() => this.consume(join(tracked.dir, `agent-${agentId}.jsonl`), current))
+    const path = join(agentDir(tracked.dir, tracked.runs.get(agentId)), `agent-${agentId}.jsonl`)
+    const run = current.pending.then(() => this.consume(path, current))
     current.pending = run.catch(() => undefined)
     return run.then(() => current)
   }
@@ -273,10 +339,13 @@ export class SubagentTracker {
       return
     }
     const names = await this.names(tracked, agentId, current, cursor)
+    const run = this.runFields(tracked, agentId, current, names)
     if (current) {
       return this.update(sessionId, {
         ...current,
-        ...names,
+        agentType: names.agentType,
+        description: names.description,
+        ...run,
         updatedAt: now,
         startedAt: current.startedAt ?? cursor?.startedAt ?? null,
         toolCount: cursor?.tools ?? current.toolCount,
@@ -284,7 +353,9 @@ export class SubagentTracker {
     }
     this.update(sessionId, {
       agentId,
-      ...names,
+      agentType: names.agentType,
+      description: names.description,
+      ...run,
       state: 'running',
       updatedAt: now,
       startedAt: cursor?.startedAt ?? now,
@@ -303,6 +374,8 @@ export class SubagentTracker {
         agentId,
         agentType,
         description: existing?.description ?? null,
+        ...(existing?.workflowRunId ? { workflowRunId: existing.workflowRunId } : {}),
+        ...(existing?.workflowPhase ? { workflowPhase: existing.workflowPhase } : {}),
         state: 'done',
         updatedAt: hook.receivedAt,
         startedAt: existing?.startedAt ?? null,
@@ -338,9 +411,18 @@ export class SubagentTracker {
     if (
       current.toolCount !== cursor.tools ||
       current.description !== names.description ||
-      current.agentType !== names.agentType
-    )
-      this.update(sessionId, { ...current, ...names, toolCount: cursor.tools })
+      current.agentType !== names.agentType ||
+      (current.workflowPhase ?? null) !== names.workflowPhase
+    ) {
+      const run = this.runFields(tracked, agentId, current, names)
+      this.update(sessionId, {
+        ...current,
+        agentType: names.agentType,
+        description: names.description,
+        ...run,
+        toolCount: cursor.tools,
+      })
+    }
   }
 
   /** Reads how a finished subagent ended from the end of its parent's transcript. */

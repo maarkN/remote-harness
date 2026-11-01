@@ -3,11 +3,23 @@ import type { TFunction } from '../../core/i18n/create'
 
 type Of<K extends TranscriptEntry['kind']> = Extract<TranscriptEntry, { kind: K }>
 
+/** A `Workflow` call the daemon normalized (`workflow` present). */
+export type WorkflowUse = Of<'tool_use'> & { workflow: NonNullable<Of<'tool_use'>['workflow']> }
+
 export type TimelineItem =
   | { type: 'user'; key: string; text: string; images: ImageRef[] }
   | { type: 'assistant'; key: string; text: string }
   | { type: 'thinking'; key: string; text: string }
   | { type: 'tool'; key: string; use: Of<'tool_use'> | null; result: Of<'tool_result'> | null }
+  | {
+      type: 'workflow'
+      key: string
+      use: WorkflowUse
+      /** The launch result, once written (it names the run). */
+      result: Of<'tool_result'> | null
+      /** The task notification that ended the run, once written. */
+      notification: Of<'system'> | null
+    }
   | {
       type: 'system'
       key: string
@@ -21,13 +33,29 @@ export type TimelineItem =
     }
   | { type: 'unknown'; key: string; raw: string }
 
-/** Pairs each tool_use with its tool_result and maps the rest to display items, in order. */
+/** A background task's notification that names the call which started it (a workflow run's). */
+function isRunNotification(entry: TranscriptEntry): entry is Of<'system'> & { toolUseId: string } {
+  return (
+    entry.kind === 'system' && entry.subtype === 'task_notification' && typeof entry.toolUseId === 'string'
+  )
+}
+
+/**
+ * Pairs each tool_use with its tool_result (a `Workflow` call also with the notification that ended
+ * its run) and maps the rest to display items, in order.
+ */
 export function buildTimeline(entries: readonly TranscriptEntry[]): TimelineItem[] {
   const results = new Map<string, Of<'tool_result'>>()
+  const notifications = new Map<string, Of<'system'>>()
   const uses = new Set<string>()
+  const workflows = new Set<string>()
   for (const entry of entries) {
     if (entry.kind === 'tool_result') results.set(entry.toolUseId, entry)
-    if (entry.kind === 'tool_use') uses.add(entry.toolUseId)
+    if (entry.kind === 'tool_use') {
+      uses.add(entry.toolUseId)
+      if (entry.workflow) workflows.add(entry.toolUseId)
+    }
+    if (isRunNotification(entry)) notifications.set(entry.toolUseId, entry)
   }
   const items: TimelineItem[] = []
   for (const entry of entries) {
@@ -42,13 +70,30 @@ export function buildTimeline(entries: readonly TranscriptEntry[]): TimelineItem
         items.push({ type: 'thinking', key: entry.key, text: entry.text })
         break
       case 'tool_use':
-        items.push({ type: 'tool', key: entry.key, use: entry, result: results.get(entry.toolUseId) ?? null })
+        if (entry.workflow) {
+          items.push({
+            type: 'workflow',
+            key: entry.key,
+            use: { ...entry, workflow: entry.workflow },
+            result: results.get(entry.toolUseId) ?? null,
+            notification: notifications.get(entry.toolUseId) ?? null,
+          })
+        } else {
+          items.push({
+            type: 'tool',
+            key: entry.key,
+            use: entry,
+            result: results.get(entry.toolUseId) ?? null,
+          })
+        }
         break
       case 'tool_result':
         // Results of calls outside the loaded window are still shown, on their own.
         if (!uses.has(entry.toolUseId)) items.push({ type: 'tool', key: entry.key, use: null, result: entry })
         break
       case 'system':
+        // A workflow run's notification shows in its card while the call is in the loaded window.
+        if (isRunNotification(entry) && workflows.has(entry.toolUseId)) break
         items.push({
           type: 'system',
           key: entry.key,
@@ -73,24 +118,34 @@ export function buildTimeline(entries: readonly TranscriptEntry[]): TimelineItem
 export type Timeline = {
   entries: readonly TranscriptEntry[]
   items: TimelineItem[]
-  /** Item index of each tool call, to attach a result that arrives later. */
+  /** Item index of each tool call (workflow calls included), to attach a result that arrives later. */
   toolItems: ReadonlyMap<string, number>
   /** Results already placed, on their own or with their call. */
   results: ReadonlySet<string>
+  /** Run notifications already placed (in their card or on their own), by tool use id. */
+  notifications: ReadonlySet<string>
 }
 
-export const EMPTY_TIMELINE: Timeline = { entries: [], items: [], toolItems: new Map(), results: new Set() }
+export const EMPTY_TIMELINE: Timeline = {
+  entries: [],
+  items: [],
+  toolItems: new Map(),
+  results: new Set(),
+  notifications: new Set(),
+}
 
 function indexTimeline(entries: readonly TranscriptEntry[]): Timeline {
   const items = buildTimeline(entries)
   const toolItems = new Map<string, number>()
   const results = new Set<string>()
+  const notifications = new Set<string>()
   items.forEach((item, index) => {
-    if (item.type !== 'tool') return
+    if (item.type !== 'tool' && item.type !== 'workflow') return
     if (item.use) toolItems.set(item.use.toolUseId, index)
     if (item.result) results.add(item.result.toolUseId)
   })
-  return { entries, items, toolItems, results }
+  for (const entry of entries) if (isRunNotification(entry)) notifications.add(entry.toolUseId)
+  return { entries, items, toolItems, results, notifications }
 }
 
 /** `entries` starts with exactly the entries `previous` was built from (same objects, same order). */
@@ -110,28 +165,45 @@ export function extendTimeline(previous: Timeline, entries: readonly TranscriptE
   if (entries === previous.entries) return previous
   if (!extendsEntries(previous.entries, entries)) return indexTimeline(entries)
   const added = entries.slice(previous.entries.length)
-  // A call whose result was already placed on its own would have to move: rare, rebuild.
-  if (added.some((entry) => entry.kind === 'tool_use' && previous.results.has(entry.toolUseId)))
+  // A call whose result or run notification was already placed on its own would have to move: rare, rebuild.
+  if (
+    added.some(
+      (entry) =>
+        entry.kind === 'tool_use' &&
+        (previous.results.has(entry.toolUseId) || previous.notifications.has(entry.toolUseId)),
+    )
+  )
     return indexTimeline(entries)
   const items = previous.items.slice()
   const toolItems = new Map(previous.toolItems)
   const results = new Set(previous.results)
+  const notifications = new Set(previous.notifications)
   for (const entry of added) {
     if (entry.kind === 'tool_result') {
       const at = toolItems.get(entry.toolUseId)
       const item = at === undefined ? undefined : items[at]
       results.add(entry.toolUseId)
-      if (at !== undefined && item?.type === 'tool') {
+      if (at !== undefined && item && (item.type === 'tool' || item.type === 'workflow')) {
         items[at] = { ...item, result: entry }
+        continue
+      }
+    }
+    if (isRunNotification(entry)) {
+      const at = toolItems.get(entry.toolUseId)
+      const item = at === undefined ? undefined : items[at]
+      notifications.add(entry.toolUseId)
+      if (at !== undefined && item?.type === 'workflow') {
+        items[at] = { ...item, notification: entry }
         continue
       }
     }
     const [item] = buildTimeline([entry])
     if (!item) continue
-    if (item.type === 'tool' && item.use) toolItems.set(item.use.toolUseId, items.length)
+    if ((item.type === 'tool' || item.type === 'workflow') && item.use)
+      toolItems.set(item.use.toolUseId, items.length)
     items.push(item)
   }
-  return { entries, items, toolItems, results }
+  return { entries, items, toolItems, results, notifications }
 }
 
 /** Whether `a` comes strictly after `b` in transcript order (line cursor, then index). */

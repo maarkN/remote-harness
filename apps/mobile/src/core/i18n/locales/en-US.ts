@@ -1103,6 +1103,27 @@ const enUS = {
     more_one: '+{{count}} subagent ({{running}} running)',
     more_other: '+{{count}} subagents ({{running}} running)',
   },
+  workflow: {
+    /** The card's title when the script declares no name. */
+    title: 'Workflow',
+    status: {
+      starting: 'starting',
+      running: 'running',
+      done: '✓ done',
+      failed: '× failed',
+      stopped: '■ stopped',
+    },
+    phases_one: '{{count}} phase',
+    phases_other: '{{count}} phases',
+    agents_one: '{{count}} agent',
+    agents_other: '{{count}} agents',
+    running: '{{count}} running',
+    phasesTitle: 'Phases',
+    agentsTitle: 'Agents',
+    noAgents: 'No agents yet',
+    result: 'Result',
+    open: 'Workflow {{name}}: {{summary}}',
+  },
   settings: {
     machine: 'Machine',
     name: 'name',

@@ -13,6 +13,7 @@ import { TranscriptImagesContext } from '../images/use-transcript-image'
 import { useConversationBench } from '../performance/use-conversation-bench'
 import { sessionAgent } from '../sessions/agent'
 import { useSessionsStore } from '../sessions/store'
+import { WorkflowCard } from '../workflows/WorkflowCard'
 import { ConversationAgent } from './agent-context'
 import { keyboardOffset } from './autocorrect'
 import { KeyBar } from './components/KeyBar'
@@ -34,6 +35,7 @@ import { useFollowStore } from './follow-store'
 import { useKeyBarStore } from './key-bar-store'
 import { useKeyboardToolbarStore } from './keyboard-toolbar-store'
 import type { PromptHistoryItem } from './prompt-history'
+import { ConversationSession } from './session-context'
 import { loadOlder, selectStream, streamKey, subscribeTranscript, useTranscriptStore } from './store'
 import type { TimelineItem } from './timeline'
 import { useFollowScroll } from './use-follow-scroll'
@@ -48,6 +50,8 @@ function renderItem({ item }: { item: TimelineItem }) {
       return <ThinkingBlock text={item.text} />
     case 'tool':
       return <ToolCallCard use={item.use} result={item.result} />
+    case 'workflow':
+      return <WorkflowCard item={item} />
     case 'system':
       if (item.subtype === 'task_notification')
         return <TaskNotification text={item.text} status={item.status} note={item.note} />
@@ -144,84 +148,86 @@ export function ConversationScreen({
   }
 
   return (
-    <TranscriptImagesContext.Provider value={imageSource}>
-      <ConversationAgent.Provider value={agent}>
-        <Screen>
-          <ConnectionBanner />
-          <DemoBanner />
-          {header}
-          <OfflineCopyNotice hasEntries={stream.entries.length > 0} />
-          <View
-            ref={anchor}
-            style={styles.flex}
-            onLayout={() => anchor.current?.measureInWindow((_x, y) => setWindowY(y))}
-          >
-            <KeyboardAvoidingView
-              behavior={keyboardBehavior(Platform.OS)}
-              keyboardVerticalOffset={keyboardOffset(windowY)}
+    <ConversationSession.Provider value={sessionId}>
+      <TranscriptImagesContext.Provider value={imageSource}>
+        <ConversationAgent.Provider value={agent}>
+          <Screen>
+            <ConnectionBanner />
+            <DemoBanner />
+            {header}
+            <OfflineCopyNotice hasEntries={stream.entries.length > 0} />
+            <View
+              ref={anchor}
               style={styles.flex}
+              onLayout={() => anchor.current?.measureInWindow((_x, y) => setWindowY(y))}
             >
-              <View style={styles.flex}>
-                <FlashList
-                  ref={listRef}
-                  data={items}
-                  keyExtractor={(item) => item.key}
-                  getItemType={(item) => item.type}
-                  renderItem={renderItem}
-                  // Anchoring stays on (older pages do not move the viewport); following the end is done
-                  // here instead of FlashList's autoscroll, whose sticky "near the bottom" flag could pull
-                  // the user back while they start scrolling up (#38).
-                  maintainVisibleContentPosition={{ startRenderingFromBottom: true }}
-                  onStartReached={loadEarlier}
-                  onStartReachedThreshold={0.5}
-                  {...scrollProps}
-                  onLoad={bench.onDrawn}
-                  onContentSizeChange={(width, height) => {
-                    scrollProps.onContentSizeChange(width, height)
-                    bench.onDrawn()
-                  }}
-                  onScroll={(event) => {
-                    scrollProps.onScroll(event)
-                    bench.onScroll()
-                  }}
-                  // Fixed header: swapping it for the spinner would shift the content (anchoring ignores it).
-                  ListHeaderComponent={<View style={styles.top} />}
-                  ListEmptyComponent={
-                    <Text color="textMuted" style={styles.empty}>
-                      {stream.error != null ? errorMessage(stream.error, t) : t('conversation.loading')}
-                    </Text>
-                  }
-                  contentContainerStyle={styles.content}
-                />
-                {stream.loadingOlder ? (
-                  <ActivityIndicator color={colors.accentText} style={styles.loader} />
-                ) : null}
-                {unseen ? (
-                  <Pressable accessibilityRole="button" onPress={jumpToEnd} style={styles.unseen}>
-                    <Text size="xs" weight="bold" color="accentInk">
-                      {t('conversation.newMessages')}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              {footer}
-              {onKey && keyBarVisible ? <KeyBar onKey={onKey} disabled={!controllable} /> : null}
-              {composer}
-            </KeyboardAvoidingView>
-          </View>
-          {onHistoryClose ? (
-            <PromptHistorySheet
-              visible={historyOpen}
-              stream={stream}
-              onPick={jumpToPrompt}
-              onLoadEarlier={loadEarlier}
-              onClose={onHistoryClose}
-            />
-          ) : null}
-          {Platform.OS === 'ios' ? null : <LinkSheet />}
-        </Screen>
-      </ConversationAgent.Provider>
-    </TranscriptImagesContext.Provider>
+              <KeyboardAvoidingView
+                behavior={keyboardBehavior(Platform.OS)}
+                keyboardVerticalOffset={keyboardOffset(windowY)}
+                style={styles.flex}
+              >
+                <View style={styles.flex}>
+                  <FlashList
+                    ref={listRef}
+                    data={items}
+                    keyExtractor={(item) => item.key}
+                    getItemType={(item) => item.type}
+                    renderItem={renderItem}
+                    // Anchoring stays on (older pages do not move the viewport); following the end is done
+                    // here instead of FlashList's autoscroll, whose sticky "near the bottom" flag could pull
+                    // the user back while they start scrolling up (#38).
+                    maintainVisibleContentPosition={{ startRenderingFromBottom: true }}
+                    onStartReached={loadEarlier}
+                    onStartReachedThreshold={0.5}
+                    {...scrollProps}
+                    onLoad={bench.onDrawn}
+                    onContentSizeChange={(width, height) => {
+                      scrollProps.onContentSizeChange(width, height)
+                      bench.onDrawn()
+                    }}
+                    onScroll={(event) => {
+                      scrollProps.onScroll(event)
+                      bench.onScroll()
+                    }}
+                    // Fixed header: swapping it for the spinner would shift the content (anchoring ignores it).
+                    ListHeaderComponent={<View style={styles.top} />}
+                    ListEmptyComponent={
+                      <Text color="textMuted" style={styles.empty}>
+                        {stream.error != null ? errorMessage(stream.error, t) : t('conversation.loading')}
+                      </Text>
+                    }
+                    contentContainerStyle={styles.content}
+                  />
+                  {stream.loadingOlder ? (
+                    <ActivityIndicator color={colors.accentText} style={styles.loader} />
+                  ) : null}
+                  {unseen ? (
+                    <Pressable accessibilityRole="button" onPress={jumpToEnd} style={styles.unseen}>
+                      <Text size="xs" weight="bold" color="accentInk">
+                        {t('conversation.newMessages')}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {footer}
+                {onKey && keyBarVisible ? <KeyBar onKey={onKey} disabled={!controllable} /> : null}
+                {composer}
+              </KeyboardAvoidingView>
+            </View>
+            {onHistoryClose ? (
+              <PromptHistorySheet
+                visible={historyOpen}
+                stream={stream}
+                onPick={jumpToPrompt}
+                onLoadEarlier={loadEarlier}
+                onClose={onHistoryClose}
+              />
+            ) : null}
+            {Platform.OS === 'ios' ? null : <LinkSheet />}
+          </Screen>
+        </ConversationAgent.Provider>
+      </TranscriptImagesContext.Provider>
+    </ConversationSession.Provider>
   )
 }
 
