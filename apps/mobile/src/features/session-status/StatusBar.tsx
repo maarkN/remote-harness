@@ -1,7 +1,7 @@
 import type { SessionStatus } from '@remote-harness/protocol'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Keyboard, Pressable, StyleSheet, View } from 'react-native'
+import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native'
 import { makeStyles, radius, space } from '@/core/theme'
 import { Text } from '@/ui'
 import { useLimitsStore } from './limits-store'
@@ -13,24 +13,40 @@ type Gauge = StatusItem & { percent: number; level: NonNullable<StatusItem['leve
 /**
  * Second context line under the session header: model chip (with the effort), provider chip
  * (dashed, when known), branch, then the context and limit gauges; hidden when nothing is known.
- * Tapping it opens the status sheet.
+ * Tapping it opens the status sheet, whose last row leads to the Session details (`onDetails`).
  */
 export function StatusBar({
   status,
   profileId,
   branch = null,
   provider = null,
+  onDetails,
 }: {
   status: SessionStatus | null
   profileId: string
   branch?: string | null
   /** Filled once the protocol carries the session's provider (#109). */
   provider?: string | null
+  /** Opens the Session details sheet; the status sheet closes first. */
+  onDetails?: () => void
 }) {
   const { t } = useTranslation()
   const styles = useStyles()
   const limits = useLimitsStore((s) => s.byProfile[profileId])
   const [open, setOpen] = useState(false)
+  // iOS cannot present the details sheet while this one is still being dismissed: the handoff waits
+  // for the modal's `onDismiss` (iOS only). Android dialogs are independent, so it opens at once.
+  const [detailsPending, setDetailsPending] = useState(false)
+  const requestDetails = () => {
+    setOpen(false)
+    if (Platform.OS === 'ios') setDetailsPending(true)
+    else onDetails?.()
+  }
+  const onDismissed = () => {
+    if (!detailsPending) return
+    setDetailsPending(false)
+    onDetails?.()
+  }
   const items = statusItems(status, limits, Date.now())
   const gauges = items.filter((item): item is Gauge => item.percent !== null && item.level !== null)
   const model = modelLabel(status)
@@ -94,7 +110,14 @@ export function StatusBar({
           </Text>
         ) : null}
       </Pressable>
-      <StatusSheet visible={open} status={status} limits={limits} onClose={() => setOpen(false)} />
+      <StatusSheet
+        visible={open}
+        status={status}
+        limits={limits}
+        onClose={() => setOpen(false)}
+        onDetails={onDetails ? requestDetails : undefined}
+        onDismiss={onDismissed}
+      />
     </>
   )
 }

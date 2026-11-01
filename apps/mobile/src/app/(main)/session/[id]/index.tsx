@@ -278,6 +278,7 @@ export default function SessionRoute() {
                 profileId={session.profileId}
                 branch={session.checkout?.branch ?? null}
                 provider={provider}
+                onDetails={openDetails}
               />
             </>
           ) : null
