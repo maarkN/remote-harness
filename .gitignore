@@ -28,3 +28,5 @@ apps/mobile/certs/*key*.pem
 .annotations/
 # Store listing texts generated from apps/mobile/store/metadata.ts
 apps/mobile/store/fastlane/
+# Raw store captures from scripts/store-screenshots.mts
+apps/mobile/store/screenshots/

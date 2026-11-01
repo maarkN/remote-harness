@@ -9,9 +9,13 @@ import { setHidden, setPinned, useSessionPrefsStore } from '@/features/sessions/
 import type { DemoLabels } from './demo-daemon'
 import { DemoServer } from './demo-socket'
 import { demoComputer, withoutDemoSessions } from './fixtures'
+import { screenshotBuild } from './screenshot-build'
 
 let server: DemoServer | null = null
 let unsubscribe: (() => void) | null = null
+
+/** A build made for the store screenshots: the demo opens by itself, without its banner and card. */
+export const isScreenshotBuild = (): boolean => screenshotBuild(Constants.expoConfig?.extra)
 
 /**
  * Opens the offline demo: a demo computer with a key made for this run, connected through in-memory

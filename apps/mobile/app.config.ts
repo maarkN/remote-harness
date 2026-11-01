@@ -45,7 +45,7 @@ const APP_ICON_THEMES: Record<string, string> = {
   Latte: '#E6E9EF',
 }
 /** Same id on both stores; builds up to 0.19 used `tech.doctorx.clauderemote` (a separate app). */
-const APP_ID = 'com.alvyntech.remoteharness'
+export const APP_ID = 'com.alvyntech.remoteharness'
 /** Android notification channel; the daemon sends `android.notification.channelId` with this id. */
 const NOTIFICATION_CHANNEL = 'claude-remote'
 /**
@@ -115,6 +115,12 @@ const UPDATES_CERTIFICATE = './certs/certificate.pem'
 /** Push relay (Cloud Function) for daemons without a Firebase service account; absent = no relay. */
 const PUSH_RELAY_URL =
   process.env.REMOTE_HARNESS_PUSH_RELAY_URL || process.env.CLAUDE_REMOTE_PUSH_RELAY_URL || undefined
+/**
+ * Builds made for the store screenshots (`REMOTE_HARNESS_SCREENSHOTS=1`): the offline demo opens by
+ * itself and hides its banner and card, so the fictional computer looks like a paired one
+ * (`scripts/store-screenshots.mts` drives the simulator). Never set for a build that ships.
+ */
+const SCREENSHOTS = process.env.REMOTE_HARNESS_SCREENSHOTS === '1'
 const signedUpdates = existsSync(UPDATES_CERTIFICATE)
 if (CUSTOM_UPDATES_URL && !signedUpdates) {
   throw new Error(`REMOTE_HARNESS_UPDATES_URL needs a code-signing certificate at ${UPDATES_CERTIFICATE}`)
@@ -983,6 +989,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     firebase,
     ...(PUSH_RELAY_URL ? { pushRelay: PUSH_RELAY_URL } : {}),
     ...(EAS_PROJECT_ID ? { eas: { projectId: EAS_PROJECT_ID } } : {}),
+    ...(SCREENSHOTS ? { screenshots: true } : {}),
   },
   // React Compiler (babel-preset-expo wires it): automatic memoization; `pnpm compiler:report` lists what it skips.
   experiments: { typedRoutes: true, reactCompiler: true },
