@@ -40,6 +40,15 @@ const enUS = {
     subagent: 'Subagent',
     changes: 'Changes',
   },
+  language: {
+    title: 'Language',
+    intro: 'Choose the language of the app. You can change it later in Settings → Language.',
+    system: 'Same as the phone',
+    /** Under "Same as the phone": the language it resolves to right now. */
+    systemHint: 'Currently {{language}}',
+    hint: 'Texts from the computer (push notifications, the setup) keep the language chosen there; dictation has its own language in Settings → Voice.',
+    continue: 'Continue',
+  },
   connection: {
     path: { direct: 'direct', relay: 'via relay' },
     banner: {

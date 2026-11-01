@@ -5,6 +5,7 @@ import { useConnectionStore } from '@/core/connection'
 import { space } from '@/core/theme'
 import { DaemonUpdateCard } from '@/features/daemon-update/DaemonUpdateCard'
 import { DemoCard } from '@/features/demo/components/DemoCard'
+import { LanguageCard } from '@/features/language/LanguageCard'
 import { Screen, Text } from '@/ui'
 import { AppearanceCard } from './AppearanceCard'
 import { AppIconCard } from './AppIconCard'
@@ -18,9 +19,9 @@ import { PermissionsCard } from './PermissionsCard'
 import { ProfilesCard } from './ProfilesCard'
 
 /**
- * Machine → Computers → Devices → Appearance → App icon → Profiles → New session → Notifications →
- * Permissions → Computer → the route's cards (Voice, App). In the offline demo the Demo card takes the
- * place of Computers, and Notifications is left out (the demo never pushes).
+ * Machine → Computers → Devices → Appearance → Language → App icon → Profiles → New session →
+ * Notifications → Permissions → Computer → the route's cards (Voice, App). In the offline demo the Demo
+ * card takes the place of Computers, and Notifications is left out (the demo never pushes).
  */
 export function SettingsScreen({ children }: { children?: ReactNode }) {
   const demo = useConnectionStore((s) => s.demo)
@@ -32,6 +33,7 @@ export function SettingsScreen({ children }: { children?: ReactNode }) {
         {demo ? null : <ComputersCard />}
         <DevicesCard />
         <AppearanceCard />
+        <LanguageCard />
         <AppIconCard />
         <ProfilesCard />
         <NewSessionCard />

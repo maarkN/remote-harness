@@ -5,10 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { StyleSheet, TextInput, View } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
 import { useConnectionStore } from '@/core/connection'
+import { useLanguageStore } from '@/core/i18n'
 import { keys, onKeyCommand } from '@/core/keyboard/key-commands'
 import { edgeSwipeEnabled, inspectorMode, sidebarMode, useLayout } from '@/core/layout'
 import { space, useTheme } from '@/core/theme'
 import { useAssistantSessions } from '@/features/assistant/use-assistant-sessions'
+import { isScreenshotBuild } from '@/features/demo/demo-mode'
 import { InspectorPane } from '@/features/inspector/InspectorPane'
 import { setInspectorOpen, useInspectorStore } from '@/features/inspector/store'
 import { useLiveFollow } from '@/features/live-status/use-live-follow'
@@ -72,6 +74,9 @@ function useShellKeyCommands(pathname: string) {
 export default function MainLayout() {
   const { t } = useTranslation()
   const credentials = useConnectionStore((s) => s.credentials)
+  // The very first launch picks the language before pairing; screenshot builds go straight to the
+  // pairing screen, which opens the demo by itself.
+  const languageChosen = useLanguageStore((s) => s.chosen)
   useDaemonSync()
   usePush()
   useLiveStatus()
@@ -98,7 +103,7 @@ export default function MainLayout() {
     if (sidebar === 'overlay') setSidebarOpen(pathname === '/')
   }, [sidebar, pathname])
 
-  if (!credentials) return <Redirect href="/pair" />
+  if (!credentials) return <Redirect href={languageChosen || isScreenshotBuild() ? '/pair' : '/language'} />
 
   const sidebarContent = (
     <>

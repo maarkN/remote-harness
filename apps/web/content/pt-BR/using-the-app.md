@@ -102,6 +102,7 @@ Um perfil também pode rodar o **Qwen Code** (selo `qw`, violeta): as sessões d
 - **Computadores**: todos os computadores pareados; trocar, renomear neste aparelho, esquecer ou adicionar outro.
 - **Aparelhos**: os celulares e tablets pareados com este computador e quando cada um foi visto por último. **Adicionar aparelho** mostra um código de pareamento de uso único (QR e link, válido por 5 minutos) para escanear com o outro aparelho; **Revogar** desconecta um na hora, e ele precisa parear de novo.
 - **Aparência**: Sistema, Escuro, Claro, Dracula, Catppuccin Mocha e Catppuccin Latte.
+- **Idioma**: Mesmo do celular, Português (Brasil), English (US) ou Español, aplicado na hora (a primeira abertura pergunta antes do pareamento). Os textos que vêm do computador, como notificações e a instalação, ficam no idioma escolhido na configuração dele.
 - **Perfis**: cada perfil com agente, alias, pasta de config, interruptor de notificações e, com provedor, o provedor, o modelo padrão e os créditos.
 - **Notificações**: push para este celular, teste, status ao vivo, os perfis e sessões silenciados.
 - **Voz**: o idioma da transcrição.

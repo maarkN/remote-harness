@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ConnectionProvider, useConnectionStore } from '@/core/connection'
-import '@/core/i18n'
+import { restoreLanguagePreference, useLanguageStore } from '@/core/i18n'
 import { restoreThemePreference, ThemeProvider, useTheme } from '@/core/theme'
 import { useBackgroundUpdates } from '@/core/updates'
 import { restoreCommandRecents } from '@/features/autocomplete/recents-store'
@@ -64,7 +64,10 @@ export default function RootLayout() {
     JetBrainsMono_700Bold,
   })
   const credentialsLoaded = useConnectionStore((s) => s.credentialsLoaded)
-  const ready = fontsLoaded && credentialsLoaded
+  // The saved language is read before the first frame, so an explicit choice never flashes as the
+  // phone's language.
+  const languageRestored = useLanguageStore((s) => s.restored)
+  const ready = fontsLoaded && credentialsLoaded && languageRestored
   useBackgroundUpdates()
   usePerformanceMonitoring()
 
@@ -75,6 +78,7 @@ export default function RootLayout() {
   }, [credentialsLoaded])
 
   useEffect(() => {
+    void restoreLanguagePreference()
     void restorePerformanceSetting()
     void restoreThemePreference()
     void restoreAppIconPreference()
@@ -126,6 +130,8 @@ function Shell({ ready }: { ready: boolean }) {
             {ready ? (
               <Stack screenOptions={stackScreenOptions(theme)}>
                 <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                {/* The first-launch language step draws its own title and cannot be dismissed. */}
+                <Stack.Screen name="language" options={{ headerShown: false, gestureEnabled: false }} />
                 <Stack.Screen name="pair" options={{ title: t('nav.pair'), presentation: 'modal' }} />
                 <Stack.Screen
                   name="setup-guide"
