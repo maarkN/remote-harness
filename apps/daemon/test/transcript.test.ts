@@ -497,6 +497,20 @@ describe('TranscriptService', () => {
     ])
   })
 
+  test('a name in the backlog is applied when the transcript is opened (#474)', async () => {
+    const path = join(home.dir(), 'named.jsonl')
+    const lines = [
+      { type: 'user', uuid: 'u1', message: { role: 'user', content: 'hi' } },
+      { type: 'custom-title', customTitle: 'First name' },
+      { type: 'custom-title', customTitle: 'Login bug' },
+    ]
+    await writeFile(path, `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`)
+    const metas: unknown[] = []
+    service = new TranscriptService(silentLogger, (_id, meta) => metas.push(meta))
+    await service.subscribe({ sessionId: 's', path }, fakeConnection())
+    expect(metas).toEqual([{ customTitle: 'Login bug' }])
+  })
+
   test('follow feeds new entries only and keeps the stream while subscribers remain', async () => {
     const path = join(home.dir(), 'f.jsonl')
     await copyFile(fixture, path)

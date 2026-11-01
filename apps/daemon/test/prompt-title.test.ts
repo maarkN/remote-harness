@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { isCommandPrompt, isMarkupTitle, promptTitle } from '../src/features/sessions/prompt-title.ts'
+import {
+  isCommandPrompt,
+  isMarkupTitle,
+  promptTitle,
+  promptTitleSource,
+  renameTitle,
+  replacesTitle,
+} from '../src/features/sessions/prompt-title.ts'
 
 const pasted = (content: string) => `<pasted_content id="p1">${content}</pasted_content>`
 
@@ -64,5 +71,39 @@ describe('isCommandPrompt / isMarkupTitle', () => {
   test('a raw tag title is markup', () => {
     expect(isMarkupTitle('<pasted_content id=abc>…')).toBe(true)
     expect(isMarkupTitle('fix login')).toBe(false)
+  })
+
+  test('commands typed as is, without markup, are commands too (#474)', () => {
+    expect(isCommandPrompt('/clear')).toBe(true)
+    expect(isCommandPrompt('  /model opus')).toBe(true)
+    expect(isCommandPrompt('!ls -la')).toBe(true)
+    expect(isCommandPrompt('/')).toBe(false)
+    expect(isCommandPrompt('fix /etc/hosts')).toBe(false)
+    expect(promptTitleSource('/clear')).toBe('command')
+    expect(promptTitleSource('why does it fail?')).toBe('prompt')
+  })
+})
+
+describe('title precedence (#474)', () => {
+  test('a title only gives way to a stronger source; the first of a kind stays', () => {
+    expect(replacesTitle('folder', 'command')).toBe(true)
+    expect(replacesTitle('folder', 'prompt')).toBe(true)
+    expect(replacesTitle('command', 'prompt')).toBe(true)
+    expect(replacesTitle('command', 'command')).toBe(false)
+    expect(replacesTitle('prompt', 'prompt')).toBe(false)
+    expect(replacesTitle('prompt', 'command')).toBe(false)
+    expect(replacesTitle('prompt', 'custom')).toBe(true)
+    expect(replacesTitle('custom', 'prompt')).toBe(false)
+    expect(replacesTitle('custom', 'custom')).toBe(false)
+  })
+
+  test('/rename gives the name, typed as is or with the command markup', () => {
+    expect(renameTitle('/rename Login bug')).toBe('Login bug')
+    expect(renameTitle('<command-name>/rename</command-name>\n<command-args>Login  bug</command-args>')).toBe(
+      'Login bug',
+    )
+    expect(renameTitle('/rename')).toBeNull()
+    expect(renameTitle('/renamed it')).toBeNull()
+    expect(renameTitle('please rename the file')).toBeNull()
   })
 })
