@@ -79,54 +79,57 @@
   <section class="hero">
     <div class="sec-head">
       <span class="eyebrow">Ícones e marca · <a class="issue" href="https://github.com/maarkN/remote-harness/issues/84">#84</a></span>
-      <h1>O Tether: três rédeas, um anel</h1>
-      <p class="lead">Um <em>harness</em> é o que prende e conduz. A marca é literal: três rédeas que saem de três terminais (os agentes) e se encontram num anel (a sua mão, o telefone). Nada do spark do Claude: o laranja vira a cor do agente Claude Code, e a marca ganha o seu próprio acento, o âmbar dos monitores de fósforo.</p>
+      <h1>Cursor Signal: o prompt vaza do terminal</h1>
+      <p class="lead">Um bloco de cursor com o <code>&gt;</code> do prompt recortado e três arcos de sinal saindo para a direita: o terminal remoto, o prompt que "vaza" do computador para o telefone. Abstrato, sem o spark do Claude: o laranja vira a cor do agente Claude Code, e a marca fica com o seu próprio acento, o âmbar dos monitores de fósforo, sobre o escuro quente <code>#1C1A17</code>. Fontes do designer em <code>branding/</code>.</p>
     </div>
     <div class="big-mark"><svg class="mark"><use href="#rh-mark"/></svg></div>
   </section>
 
   <section class="sec">
-    <div class="sec-head"><span class="eyebrow">Construção</span><h2>Um símbolo, dois pesos, três nós</h2>
-      <p>Desenhado numa grade de 256. O peso regular serve do ícone do app ao README; o peso bold existe para menu bar, notificação e favicon, onde 24 px de traço viraria fiapo.</p></div>
+    <div class="sec-head"><span class="eyebrow">Construção</span><h2>Um bloco, um prompt, três arcos</h2>
+      <p>Desenhado numa grade de 256. O bloco do cursor tem 62 × 104 em (34, 76), cantos 13, com o <code>&gt;</code> recortado por um traço redondo de 16; os três arcos são concêntricos na borda direita do bloco (96, 128), raios 36 / 76 / 116, ±40°, traço 22. O peso regular serve do ícone do app ao README; o bold (recorte 24, arcos 28) existe para menu bar, notificação e favicon, onde o recorte fecharia.</p></div>
     <div class="grid">
       <div class="construct">
         <svg viewBox="0 0 256 256" aria-label="grade de construção">
           <defs><pattern id="gr" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="#2a2a2a" stroke-width="1"/></pattern></defs>
           <rect width="256" height="256" fill="url(#gr)"/>
-          <circle cx="128" cy="184" r="46" fill="none" stroke="#3a3836" stroke-dasharray="3 3"/>
-          <circle cx="128" cy="184" r="22" fill="none" stroke="#3a3836" stroke-dasharray="3 3"/>
-          <line x1="128" y1="0" x2="128" y2="256" stroke="#3a3836" stroke-dasharray="3 3"/>
+          <circle cx="96" cy="128" r="36" fill="none" stroke="#3a3836" stroke-dasharray="3 3"/>
+          <circle cx="96" cy="128" r="76" fill="none" stroke="#3a3836" stroke-dasharray="3 3"/>
+          <circle cx="96" cy="128" r="116" fill="none" stroke="#3a3836" stroke-dasharray="3 3"/>
+          <line x1="96" y1="0" x2="96" y2="256" stroke="#3a3836" stroke-dasharray="3 3"/>
+          <line x1="0" y1="128" x2="256" y2="128" stroke="#3a3836" stroke-dasharray="3 3"/>
           <use href="#rh-mark" width="256" height="256" color="#e8a33d"/>
           <g font-family="JetBrains Mono, monospace" font-size="9" fill="#8a8784">
-            <text x="176" y="188">r 34 · traço 24</text>
-            <text x="150" y="44">36 × 36 · rx 9</text>
-            <text x="6" y="250">ø 256 · óptico 128,132</text>
+            <text x="6" y="68">62 × 104 · rx 13</text>
+            <text x="6" y="198">recorte 16</text>
+            <text x="150" y="40">r 36 · 76 · 116</text>
+            <text x="150" y="226">±40° · traço 22</text>
           </g>
         </svg>
       </div>
       <div class="card">
-        <h3>Regular <span class="tiny">stroke 24</span></h3>
+        <h3>Regular <span class="tiny">recorte 16 · arcos 22</span></h3>
         <div class="iconrow">
           <figure><svg width="96" height="96" style="color:var(--accent)"><use href="#rh-mark"/></svg><figcaption>96</figcaption></figure>
           <figure><svg width="48" height="48" style="color:var(--accent)"><use href="#rh-mark"/></svg><figcaption>48</figcaption></figure>
           <figure><svg width="24" height="24" style="color:var(--accent)"><use href="#rh-mark"/></svg><figcaption>24</figcaption></figure>
         </div>
-        <h3 style="margin-top:14px">Bold <span class="tiny">stroke 34</span></h3>
+        <h3 style="margin-top:14px">Bold <span class="tiny">recorte 24 · arcos 28</span></h3>
         <div class="iconrow">
           <figure><svg width="48" height="48" style="color:var(--accent)"><use href="#rh-mark-bold"/></svg><figcaption>48</figcaption></figure>
           <figure><svg width="24" height="24" style="color:var(--accent)"><use href="#rh-mark-bold"/></svg><figcaption>24</figcaption></figure>
           <figure><svg width="16" height="16" style="color:var(--accent)"><use href="#rh-mark-bold"/></svg><figcaption>16</figcaption></figure>
         </div>
-        <p>Abaixo de 24 px, use sempre o bold. O anel e os três nós continuam legíveis a 16 px; as curvas viram quase retas e tudo bem.</p>
+        <p>Abaixo de 24 px, use sempre o bold. O recorte do prompt e os três arcos continuam legíveis a 16 px; os arcos ficam a um pixel um do outro e tudo bem.</p>
       </div>
       <div class="card">
-        <h3>Os nós contam a história</h3>
+        <h3>Os estados contam a história</h3>
         <div class="iconrow">
-          <figure><svg width="96" height="96" style="color:var(--fg);--n-l:var(--claude);--n-c:var(--codex);--n-r:var(--qwen)"><use href="#rh-mark"/></svg><figcaption>multi-agente</figcaption></figure>
-          <figure><svg width="96" height="96" style="color:var(--fg);--n-l:var(--claude);--n-c:var(--claude);--n-r:var(--claude)"><use href="#rh-mark"/></svg><figcaption>só Claude Code</figcaption></figure>
-          <figure><svg width="96" height="96" style="color:var(--accent);--ring:var(--accent)"><use href="#rh-mark"/></svg><figcaption>anel cheio = trabalhando</figcaption></figure>
+          <figure><svg width="96" height="96" style="color:var(--fg)"><use href="#rh-mark"/></svg><figcaption>idle</figcaption></figure>
+          <figure><svg width="96" height="96" style="color:var(--fg);--cutout:#fff"><use href="#rh-mark"/></svg><figcaption>bloco cheio = trabalhando</figcaption></figure>
+          <figure><svg width="96" height="96" style="color:var(--accent)"><use href="#rh-mark"/></svg><figcaption>âmbar = a marca</figcaption></figure>
         </div>
-        <p>No ícone do app o símbolo é monocromático (âmbar). Nos nós, a landing e o README podem pintar cada terminal com a cor do seu agente; o tray enche o anel quando alguma sessão está rodando.</p>
+        <p>No ícone do app o símbolo é monocromático (âmbar). No tray, o bloco cheio (o prompt some, como um cursor ocupado) diz que alguma sessão está rodando; um ponto âmbar sobre o arco de fora diz que uma espera por você (<a class="issue" href="https://github.com/maarkN/remote-harness/issues/495">#495</a>).</p>
       </div>
     </div>
   </section>
@@ -168,45 +171,42 @@
 
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">iOS</span><h2>Ícone do app</h2>
-      <p>Fundo escuro com um brilho âmbar atrás do anel; o símbolo ocupa 62% do canvas. A variante B (âmbar sólido) fica guardada para o tema claro e para o ícone alternativo em Ajustes, se um dia existir.</p></div>
+      <p>Fundo chapado <code>#1C1A17</code>, sem degradê nem brilho (<a class="issue" href="https://github.com/maarkN/remote-harness/issues/227">#227</a>); o símbolo ocupa 78% do canvas (200 de 256). As variantes da folha (invertida âmbar, clara <code>#F4F1EC</code> e mono) ficam em <code>assets/icon/</code>; os ícones alternativos por tema em Ajustes usam a mesma geometria com as cores de cada tema.</p></div>
     <div class="iconrow">
       <figure>
         <svg viewBox="0 0 1024 1024" class="ios-icon" width="180" height="180" aria-label="ícone iOS, variante A">
           <defs>
-            <linearGradient id="bgA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1a17"/><stop offset="1" stop-color="#0d0d0d"/></linearGradient>
-            <radialGradient id="glowA" cx="0.5" cy="0.68" r="0.5"><stop offset="0" stop-color="#e8a33d" stop-opacity="0.34"/><stop offset="1" stop-color="#e8a33d" stop-opacity="0"/></radialGradient>
+            <linearGradient id="bgA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1a17"/><stop offset="1" stop-color="#1c1a17"/></linearGradient>
           </defs>
           <rect width="1024" height="1024" fill="url(#bgA)"/>
-          <rect width="1024" height="1024" fill="url(#glowA)"/>
-          <use href="#rh-mark" x="192" y="182" width="640" height="640" color="#e8a33d"/>
+                    <use href="#rh-mark" x="112" y="112" width="800" height="800" color="#e8a33d"/>
         </svg>
         <figcaption>A · 1024 → 180 pt (recomendado)</figcaption>
       </figure>
       <figure>
-        <svg viewBox="0 0 1024 1024" class="ios-icon" width="120" height="120"><rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/><use href="#rh-mark" x="192" y="182" width="640" height="640" color="#e8a33d"/></svg>
+        <svg viewBox="0 0 1024 1024" class="ios-icon" width="120" height="120"><rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/><use href="#rh-mark" x="112" y="112" width="800" height="800" color="#e8a33d"/></svg>
         <figcaption>120</figcaption>
       </figure>
       <figure>
-        <svg viewBox="0 0 1024 1024" class="ios-icon" width="60" height="60"><rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/><use href="#rh-mark" x="192" y="182" width="640" height="640" color="#e8a33d"/></svg>
+        <svg viewBox="0 0 1024 1024" class="ios-icon" width="60" height="60"><rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/><use href="#rh-mark" x="112" y="112" width="800" height="800" color="#e8a33d"/></svg>
         <figcaption>60</figcaption>
       </figure>
       <figure>
-        <svg viewBox="0 0 1024 1024" class="ios-icon" width="40" height="40"><rect width="1024" height="1024" fill="url(#bgA)"/><use href="#rh-mark-bold" x="192" y="182" width="640" height="640" color="#e8a33d"/></svg>
+        <svg viewBox="0 0 1024 1024" class="ios-icon" width="40" height="40"><rect width="1024" height="1024" fill="url(#bgA)"/><use href="#rh-mark-bold" x="112" y="112" width="800" height="800" color="#e8a33d"/></svg>
         <figcaption>40 (bold)</figcaption>
       </figure>
       <figure style="margin-left:18px">
         <svg viewBox="0 0 1024 1024" class="ios-icon" width="180" height="180" aria-label="ícone iOS, variante B">
-          <defs><linearGradient id="bgB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0b352"/><stop offset="1" stop-color="#e09a2f"/></linearGradient></defs>
-          <rect width="1024" height="1024" fill="url(#bgB)"/>
-          <use href="#rh-mark" x="192" y="182" width="640" height="640" color="#1a1206"/>
+          <rect width="1024" height="1024" fill="#e8a33d"/>
+          <use href="#rh-mark" x="112" y="112" width="800" height="800" color="#1c1a17"/>
         </svg>
-        <figcaption>B · âmbar sólido (alternativo)</figcaption>
+        <figcaption>invertido · âmbar com a marca escura</figcaption>
       </figure>
     </div>
     <div class="homescreen">
       <figure><div class="app" style="background:#1d1d1f">🗂️</div>Files</figure>
       <figure><div class="app" style="background:linear-gradient(#5ac8fa,#007aff)">💬</div>Messages</figure>
-      <figure><svg viewBox="0 0 1024 1024" class="app" width="60" height="60"><rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/><use href="#rh-mark" x="192" y="182" width="640" height="640" color="#e8a33d"/></svg>Remote Harness</figure>
+      <figure><svg viewBox="0 0 1024 1024" class="app" width="60" height="60"><rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/><use href="#rh-mark" x="112" y="112" width="800" height="800" color="#e8a33d"/></svg>Remote Harness</figure>
       <figure><div class="app" style="background:#111">⌁</div>Tailscale</figure>
       <figure><div class="app" style="background:linear-gradient(#34c759,#248a3d)">📞</div>Phone</figure>
       <figure><div class="app" style="background:#fff">📷</div>Camera</figure>
@@ -217,12 +217,12 @@
 
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">Android</span><h2>Adaptive, monocromático e notificação</h2>
-      <p>Foreground na zona segura de 66% sobre fundo sólido <code>#0D0D0D</code>; a mesma arte sobrevive a qualquer máscara. O ícone temático (Material You) é o símbolo bold em branco; o sistema aplica o tom do papel de parede. A notificação usa o bold em 24 dp.</p></div>
+      <p>Foreground na zona segura de 66% sobre fundo sólido <code>#1C1A17</code>; a mesma arte sobrevive a qualquer máscara. O ícone temático (Material You) é o símbolo bold em branco; o sistema aplica o tom do papel de parede. A notificação usa o bold em 24 dp.</p></div>
     <div class="masks">
-      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="circle"><rect width="108" height="108" fill="#0d0d0d"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>círculo</figure>
-      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="rsq"><rect width="108" height="108" fill="#0d0d0d"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>rounded square</figure>
-      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="squircle"><rect width="108" height="108" fill="#0d0d0d"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>squircle</figure>
-      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="circle"><rect width="108" height="108" fill="#0d0d0d"/><rect x="18" y="18" width="72" height="72" fill="none" stroke="#f3dc7a" stroke-dasharray="2 2" stroke-width="0.8"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>zona segura 66 dp</figure>
+      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="circle"><rect width="108" height="108" fill="#1c1a17"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>círculo</figure>
+      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="rsq"><rect width="108" height="108" fill="#1c1a17"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>rounded square</figure>
+      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="squircle"><rect width="108" height="108" fill="#1c1a17"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>squircle</figure>
+      <figure><svg viewBox="0 0 108 108" width="96" height="96" class="circle"><rect width="108" height="108" fill="#1c1a17"/><rect x="18" y="18" width="72" height="72" fill="none" stroke="#f3dc7a" stroke-dasharray="2 2" stroke-width="0.8"/><use href="#rh-mark" x="18" y="18" width="72" height="72" color="#e8a33d"/></svg>zona segura 66 dp</figure>
       <figure style="margin-left:14px"><svg viewBox="0 0 108 108" width="96" height="96" class="circle"><rect width="108" height="108" fill="#e9ddc8"/><use href="#rh-mark-bold" x="24" y="24" width="60" height="60" color="#4a3a1e"/></svg>temático · claro</figure>
       <figure><svg viewBox="0 0 108 108" width="96" height="96" class="circle"><rect width="108" height="108" fill="#3b3327"/><use href="#rh-mark-bold" x="24" y="24" width="60" height="60" color="#f0dcbc"/></svg>temático · escuro</figure>
     </div>
@@ -232,19 +232,18 @@
 
   <section class="sec">
     <div class="sec-head"><span class="eyebrow">macOS</span><h2>Bundle do daemon e menu bar</h2>
-      <p>O app bundle (Itens de Login) usa a mesma arte do iOS num retângulo arredondado. Na menu bar, o glifo é um <em>template image</em> (preto, com alfa) para o sistema tingir; os estados vêm do anel e de um ponto âmbar, não de cor. Detalhes no <a href="tray.html">design do tray</a>.</p></div>
+      <p>O app bundle (Itens de Login) usa a mesma arte do iOS num retângulo arredondado. Na menu bar, o glifo é um <em>template image</em> (preto, com alfa) para o sistema tingir; os estados vêm do bloco cheio e de um ponto âmbar, não de cor. Detalhes no <a href="tray.html">design do tray</a>.</p></div>
     <div class="iconrow">
       <figure>
         <svg viewBox="0 0 1024 1024" width="128" height="128" style="border-radius:22%;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5)">
-          <rect width="1024" height="1024" fill="url(#bgA)"/><rect width="1024" height="1024" fill="url(#glowA)"/>
-          <rect x="6" y="6" width="1012" height="1012" rx="220" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="12"/>
-          <use href="#rh-mark" x="192" y="182" width="640" height="640" color="#e8a33d"/>
+          <rect width="1024" height="1024" fill="url(#bgA)"/>          <rect x="6" y="6" width="1012" height="1012" rx="220" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="12"/>
+          <use href="#rh-mark" x="112" y="112" width="800" height="800" color="#e8a33d"/>
         </svg>
         <figcaption>Remote Harness.app · 1024 (.icns)</figcaption>
       </figure>
       <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:10px">
-        <div class="menubar light"><span class="sp"></span><span class="g"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">idle</span><span class="g" style="--ring:currentColor"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">working</span><span class="g wait"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">waiting</span><span class="g off"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">offline</span><span>⌁</span><span>🔊</span><span>Seg 09:41</span></div>
-        <div class="menubar dark"><span class="sp"></span><span class="g"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">idle</span><span class="g" style="--ring:currentColor"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">working</span><span class="g wait"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">waiting</span><span class="g off"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">offline</span><span>⌁</span><span>🔊</span><span>Seg 09:41</span></div>
+        <div class="menubar light"><span class="sp"></span><span class="g"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">idle</span><span class="g" style="--cutout:#fff"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">working</span><span class="g wait"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">waiting</span><span class="g off"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">offline</span><span>⌁</span><span>🔊</span><span>Seg 09:41</span></div>
+        <div class="menubar dark"><span class="sp"></span><span class="g"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">idle</span><span class="g" style="--cutout:#fff"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">working</span><span class="g wait"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">waiting</span><span class="g off"><svg><use href="#rh-mark-bold"/></svg></span><span class="lbl">offline</span><span>⌁</span><span>🔊</span><span>Seg 09:41</span></div>
         <p class="tiny">Template 16 pt (@1x/@2x): `MenuBarIcon.pdf`. O ponto âmbar de "waiting" é a única cor permitida na menu bar.</p>
       </div>
     </div>
@@ -254,9 +253,9 @@
     <div class="sec-head"><span class="eyebrow">Web</span><h2>Favicon e Open Graph</h2></div>
     <div class="fav">
       <figure><div class="tab"><div class="sq"><svg width="12" height="12" style="color:#e8a33d"><use href="#rh-mark-bold"/></svg></div>Remote Harness</div><span>16 · aba do navegador</span></figure>
-      <figure><svg viewBox="0 0 64 64" width="32" height="32" style="border-radius:7px"><rect width="64" height="64" fill="#0d0d0d"/><use href="#rh-mark-bold" x="8" y="8" width="48" height="48" color="#e8a33d"/></svg><span>32</span></figure>
-      <figure><svg viewBox="0 0 64 64" width="48" height="48" style="border-radius:10px"><rect width="64" height="64" fill="#0d0d0d"/><use href="#rh-mark" x="8" y="8" width="48" height="48" color="#e8a33d"/></svg><span>48 · `favicon.png`</span></figure>
-      <figure><svg viewBox="0 0 64 64" width="48" height="48" style="border-radius:10px"><rect width="64" height="64" fill="#0d0d0d"/><use href="#rh-mark" x="8" y="8" width="48" height="48" color="#e8a33d"/></svg><span>180 · apple-touch-icon</span></figure>
+      <figure><svg viewBox="0 0 64 64" width="32" height="32" style="border-radius:7px"><rect width="64" height="64" fill="#1c1a17"/><use href="#rh-mark-bold" x="8" y="8" width="48" height="48" color="#e8a33d"/></svg><span>32</span></figure>
+      <figure><svg viewBox="0 0 64 64" width="48" height="48" style="border-radius:10px"><rect width="64" height="64" fill="#1c1a17"/><use href="#rh-mark" x="8" y="8" width="48" height="48" color="#e8a33d"/></svg><span>48 · `favicon.png`</span></figure>
+      <figure><svg viewBox="0 0 64 64" width="48" height="48" style="border-radius:10px"><rect width="64" height="64" fill="#1c1a17"/><use href="#rh-mark" x="8" y="8" width="48" height="48" color="#e8a33d"/></svg><span>180 · apple-touch-icon</span></figure>
     </div>
     <div class="banner" style="max-width:720px;aspect-ratio:1200/630;align-items:center">
       <svg><use href="#rh-mark"/></svg>
