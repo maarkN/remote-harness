@@ -137,7 +137,7 @@ describe('tagged user entries', () => {
     '</task-notification>',
   ].join('\n')
 
-  test('a task notification is a system entry with status, summary and note only', () => {
+  test('a task notification is a system entry with status, summary, note, tool use id and result', () => {
     const [entry, ...rest] = parseTranscriptLine(user(notification), 0)
     expect(rest).toEqual([])
     expect(entry).toMatchObject({
@@ -146,10 +146,21 @@ describe('tagged user entries', () => {
       status: 'stopped',
       text: 'Background agent "Review" didn\'t finish before the previous session ended',
       note: 'No completion record was found for it.',
+      toolUseId: 'toolu_1',
+      result: 'long result',
     })
+    // The task id, the output file and the usage stay out.
     const json = JSON.stringify(entry)
-    for (const hidden of ['/tmp/example', 'toolu_1', 'long result', 'total_tokens'])
-      expect(json).not.toContain(hidden)
+    for (const hidden of ['/tmp/example', '"t1"', 'total_tokens']) expect(json).not.toContain(hidden)
+  })
+
+  test('a notification without a tool use id or a result has neither field', () => {
+    const [entry] = parseTranscriptLine(
+      user('<task-notification><status>completed</status><summary>Done</summary></task-notification>'),
+      0,
+    )
+    expect(entry).not.toHaveProperty('toolUseId')
+    expect(entry).not.toHaveProperty('result')
   })
 
   test('several notifications in one entry, in a text part, without a note', () => {

@@ -3,7 +3,15 @@ import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
 import { diffForTool } from './diff'
 import { summarizeTool } from './summarize-tool'
-import { buildTimeline, mergeEntries, systemText, taskStatusText, taskTone } from './timeline'
+import {
+  buildTimeline,
+  EMPTY_TIMELINE,
+  extendTimeline,
+  mergeEntries,
+  systemText,
+  taskStatusText,
+  taskTone,
+} from './timeline'
 
 const en = createI18n('en-US').t
 const pt = createI18n('pt-BR').t
@@ -66,6 +74,80 @@ describe('timeline', () => {
       [e.user(2, 'b'), e.user(5, 'c'), e.user(1, 'x')],
     )
     expect(merged.map((x) => x.cursor)).toEqual([0, 1, 2, 5])
+  })
+})
+
+describe('workflow items (#440)', () => {
+  const call = {
+    name: 'review-changes',
+    description: 'Review the diff',
+    phases: [{ title: 'Review', detail: null }],
+  }
+  const wf = (c: number, id: string): TranscriptEntry => ({
+    ...base,
+    kind: 'tool_use',
+    toolUseId: id,
+    name: 'Workflow',
+    input: { script: '…' },
+    workflow: call,
+    cursor: c,
+    index: 0,
+    uuid: `w${c}`,
+    key: `w${c}:0`,
+  })
+  const launch = (c: number, id: string): TranscriptEntry => {
+    const result = e.result(c, id)
+    if (result.kind !== 'tool_result') throw new Error('not a result')
+    return { ...result, workflow: { taskId: 'w1', runId: 'wf_1', summary: 'Review the diff' } }
+  }
+  const done = (c: number, id: string | null): TranscriptEntry => ({
+    ...base,
+    kind: 'system',
+    subtype: 'task_notification',
+    text: 'Dynamic workflow "Review the diff" completed',
+    status: 'completed',
+    result: '{"ok":true}',
+    ...(id ? { toolUseId: id } : {}),
+    cursor: c,
+    index: 0,
+    uuid: `n${c}`,
+    key: `n${c}:0`,
+  })
+
+  test('a Workflow call with its launch and notification becomes one workflow item', () => {
+    const items = buildTimeline([wf(0, 'a'), launch(1, 'a'), e.use(2, 'b'), done(3, 'a')])
+    expect(items.map((i) => i.type)).toEqual(['workflow', 'tool'])
+    expect(items[0]).toMatchObject({
+      type: 'workflow',
+      use: { toolUseId: 'a', workflow: call },
+      result: { workflow: { runId: 'wf_1' } },
+      notification: { status: 'completed', result: '{"ok":true}' },
+    })
+  })
+
+  test('a Workflow call without the normalized field stays a tool item; a notification without its call stays a line', () => {
+    const plain = { ...e.use(0, 'a'), name: 'Workflow' } as TranscriptEntry
+    const items = buildTimeline([plain, done(1, 'a'), done(2, null)])
+    expect(items.map((i) => i.type)).toEqual(['tool', 'system', 'system'])
+  })
+
+  test('a launch and a notification arriving later attach to the card without rebuilding the rest', () => {
+    const first = extendTimeline(EMPTY_TIMELINE, [e.user(0, 'go'), wf(1, 'a')])
+    expect(first.items[1]).toMatchObject({ type: 'workflow', result: null, notification: null })
+    const second = extendTimeline(first, [...first.entries, launch(2, 'a')])
+    expect(second.items[0]).toBe(first.items[0])
+    expect(second.items[1]).toMatchObject({
+      type: 'workflow',
+      result: { toolUseId: 'a' },
+      notification: null,
+    })
+    const third = extendTimeline(second, [...second.entries, done(3, 'a')])
+    expect(third.items).toHaveLength(2)
+    expect(third.items[1]).toMatchObject({ type: 'workflow', notification: { status: 'completed' } })
+    expect(third.items[1]).not.toBe(second.items[1])
+    // A notification whose call is not loaded is a line of its own.
+    const fourth = extendTimeline(third, [...third.entries, done(4, 'zz')])
+    expect(fourth.items.at(-1)).toMatchObject({ type: 'system', subtype: 'task_notification' })
   })
 })
 
