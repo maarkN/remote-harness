@@ -1,32 +1,30 @@
-/* Injects the SVG sprite with the Remote Harness mark ("the Tether") so every page uses one source.
-   <svg><use href="#rh-mark"/></svg> — color via `color`, node colors via --n-l / --n-c / --n-r,
-   ring fill via --ring (tray "working" state). */
+/* Injects the SVG sprite with the Remote Harness mark ("Cursor Signal": a terminal cursor block with the `>`
+   prompt cut out of it and three signal arcs leaving it to the right) so every page uses one source — the
+   same 256-box geometry as apps/mobile/scripts/icons.mts.
+   <svg><use href="#rh-mark"/></svg> — color via `color`; `--cutout: #fff` fills the block solid (the prompt
+   disappears: the tray "working" state); the block alone can take another color via --block. */
 (function () {
   var sprite = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">',
     // Regular weight: app icon, splash, README, landing.
     '<symbol id="rh-mark" viewBox="0 0 256 256">',
-    '<g fill="none" stroke="currentColor" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">',
-    '<circle cx="128" cy="184" r="34" fill="var(--ring, none)"/>',
-    '<path d="M128 150V66"/>',
-    '<path d="M111 154C104 120 88 100 60 80"/>',
-    '<path d="M145 154C152 120 168 100 196 80"/>',
+    '<mask id="rh-cursor"><rect width="256" height="256" fill="#fff"/><path d="M51 104L79 128L51 152" fill="none" stroke="var(--cutout, #000)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></mask>',
+    '<rect x="34" y="76" width="62" height="104" rx="13" fill="var(--block, currentColor)" mask="url(#rh-cursor)"/>',
+    '<g fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round">',
+    '<path d="M123.6 104.9A36 36 0 0 1 123.6 151.1"/>',
+    '<path d="M154.2 79.1A76 76 0 0 1 154.2 176.9"/>',
+    '<path d="M184.9 53.4A116 116 0 0 1 184.9 202.6"/>',
     '</g>',
-    '<rect x="110" y="34" width="36" height="36" rx="9" fill="var(--n-c, currentColor)"/>',
-    '<rect x="36" y="52" width="36" height="36" rx="9" fill="var(--n-l, currentColor)"/>',
-    '<rect x="184" y="52" width="36" height="36" rx="9" fill="var(--n-r, currentColor)"/>',
     '</symbol>',
-    // Bold weight: menu bar, notification icon, favicon 16/32, anything under 24 px.
+    // Bold weight: menu bar, notification icon, favicon 16/32, anything under 24 px (wider cutout and arcs).
     '<symbol id="rh-mark-bold" viewBox="0 0 256 256">',
-    '<g fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">',
-    '<circle cx="128" cy="186" r="36" fill="var(--ring, none)"/>',
-    '<path d="M128 150V70"/>',
-    '<path d="M108 156C100 122 86 104 56 84"/>',
-    '<path d="M148 156C156 122 170 104 200 84"/>',
+    '<mask id="rh-cursor-bold"><rect width="256" height="256" fill="#fff"/><path d="M51 104L79 128L51 152" fill="none" stroke="var(--cutout, #000)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/></mask>',
+    '<rect x="34" y="76" width="62" height="104" rx="13" fill="var(--block, currentColor)" mask="url(#rh-cursor-bold)"/>',
+    '<g fill="none" stroke="currentColor" stroke-width="28" stroke-linecap="round">',
+    '<path d="M123.6 104.9A36 36 0 0 1 123.6 151.1"/>',
+    '<path d="M154.2 79.1A76 76 0 0 1 154.2 176.9"/>',
+    '<path d="M184.9 53.4A116 116 0 0 1 184.9 202.6"/>',
     '</g>',
-    '<rect x="104" y="24" width="48" height="48" rx="12" fill="var(--n-c, currentColor)"/>',
-    '<rect x="28" y="46" width="48" height="48" rx="12" fill="var(--n-l, currentColor)"/>',
-    '<rect x="180" y="46" width="48" height="48" rx="12" fill="var(--n-r, currentColor)"/>',
     '</symbol>',
     '</svg>',
   ].join('');

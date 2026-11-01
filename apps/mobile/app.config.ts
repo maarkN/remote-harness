@@ -30,6 +30,8 @@ import ptBR from './src/core/i18n/locales/pt-BR.ts'
 
 /** Dark theme background (splash and adaptive icon backdrop; the artwork changes in #84). */
 const BACKGROUND = '#0D0D0D'
+/** The flat warm dark behind the mark on the app icon: what `scripts/icons.mts` paints under it. */
+const ICON_BACKGROUND = '#1C1A17'
 /** Product accent (amber), same as `accent` in `src/core/theme/palettes.ts`. */
 const ACCENT = '#E8A33D'
 /**
@@ -820,7 +822,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       monochromeImage: './assets/adaptive-icon-monochrome.png',
-      backgroundColor: BACKGROUND,
+      backgroundColor: ICON_BACKGROUND,
     },
     // The composer stays above the keyboard by resizing the window (KeyboardAvoidingView is iOS only).
     softwareKeyboardLayoutMode: 'resize',
