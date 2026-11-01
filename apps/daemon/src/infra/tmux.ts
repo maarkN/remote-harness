@@ -8,17 +8,34 @@ export class TmuxError extends Error {
 
 const NO_SERVER = /no server running|error connecting to|no current client|can't find/i
 
+/**
+ * The tmux server Remote Harness addresses: its socket name (`tmux -L`) and the config it starts
+ * with (`tmux -f`), apart from the user's default server and their tmux.conf.
+ */
+export type TmuxServer = { socket: string; conf: string }
+
+/** The global tmux arguments that select `server`, before the command; none for the default server. */
+export function tmuxServerArgs(server: TmuxServer | null): string[] {
+  return server ? ['-L', server.socket, '-f', server.conf] : []
+}
+
 /** Single place that knows the tmux CLI. Every call goes through the injected executor. */
 export class TmuxClient {
   constructor(
     private readonly exec: Executor,
     private readonly bin = 'tmux',
+    /** `null`: the user's default server. */
+    readonly server: TmuxServer | null = null,
   ) {}
 
   private async run(args: string[], input?: string): Promise<string> {
     // Without a UTF-8 locale (e.g. under launchd) tmux replaces the tabs in -F output with "_";
     // -u makes it assume UTF-8 regardless of LANG/LC_*.
-    const result = await this.exec(this.bin, ['-u', ...args], input === undefined ? undefined : { input })
+    const result = await this.exec(
+      this.bin,
+      ['-u', ...tmuxServerArgs(this.server), ...args],
+      input === undefined ? undefined : { input },
+    )
     if (result.exitCode !== 0) throw new TmuxError(result.stderr.trim() || `tmux ${args[0]} failed`)
     return result.stdout
   }

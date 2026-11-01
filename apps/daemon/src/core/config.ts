@@ -34,6 +34,9 @@ export type ShellCommandsConfig = z.infer<typeof ShellCommandsConfigSchema>
 /** The project's connection relays (ADR-0003); `relays` in the config replaces them for self-hosting. */
 export const DEFAULT_RELAYS = ['wss://us.relay.remoteharness.app', 'wss://br.relay.remoteharness.app']
 
+/** Name of the Remote Harness tmux server (`tmux -L`), the `tmuxSocket` default. */
+export const DEFAULT_TMUX_SOCKET = 'remote-harness'
+
 export const ConfigSchema = z
   .object({
     profiles: z.array(ProfileSchema).min(1),
@@ -50,6 +53,13 @@ export const ConfigSchema = z
     pasteEnterDelayMs: z.number().int().nonnegative().default(80),
     recentDays: z.number().int().positive().default(7),
     tmuxSession: z.string().min(1).default('claude-remote'),
+    /**
+     * The tmux server (`tmux -L <name>`) the launchers and the daemon use, apart from the user's own
+     * tmux and its config; `null` = the user's default server, as before the dedicated one existed.
+     */
+    tmuxSocket: z.string().min(1).nullable().default(DEFAULT_TMUX_SOCKET),
+    /** Config of that server: Remote Harness's few settings, or those plus the user's own tmux.conf on top. */
+    tmuxConfig: z.enum(['minimal', 'user']).default('minimal'),
     /** Language of the CLI, setup and push texts; absent = the system language. */
     language: LocaleSchema.optional(),
     /** `off` sends no push nor live status; `auto` = Firebase service account if present, else the relay. */

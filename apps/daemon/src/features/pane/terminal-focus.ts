@@ -1,5 +1,6 @@
 import type { ExecStep } from '../../infra/desktop.ts'
 import type { Platform } from '../../infra/platform.ts'
+import type { TmuxServer } from '../../infra/tmux.ts'
 
 export type TerminalAppId = 'iterm2' | 'ghostty' | 'wezterm' | 'kitty' | 'alacritty' | 'terminal'
 
@@ -20,10 +21,14 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-/** Shell command that attaches to `paneId`'s session, window and pane (a pane id resolves all three). */
-export function attachCommand(paneId: string): string {
+/**
+ * Shell command that attaches to `paneId`'s session, window and pane (a pane id resolves all three)
+ * on `server`: the Remote Harness tmux server, or the default one when null.
+ */
+export function attachCommand(paneId: string, server: TmuxServer | null = null): string {
   const q = shellQuote(paneId)
-  return `tmux attach -t ${q} \\; select-window -t ${q} \\; select-pane -t ${q}`
+  const tmux = server ? `tmux -L ${shellQuote(server.socket)} -f ${shellQuote(server.conf)}` : 'tmux'
+  return `${tmux} attach -t ${q} \\; select-window -t ${q} \\; select-pane -t ${q}`
 }
 
 /** Darwin terminal apps, in the order they are preferred when more than one is running. */
@@ -102,9 +107,11 @@ export function planShowInTerminal(input: {
   /** `$TERMINAL` on Linux, when set. */
   terminalEnv: string | null
   paneId: string
+  /** The server the pane lives on; absent or null = the default server. */
+  tmuxServer?: TmuxServer | null
 }): ExecStep[] {
   const { platform, wsl, hasAttachedClient, runningProcessNames, terminalEnv, paneId } = input
-  const cmd = attachCommand(paneId)
+  const cmd = attachCommand(paneId, input.tmuxServer ?? null)
   if (platform === 'darwin') {
     const app = pickTerminalApp(runningProcessNames)
     return [hasAttachedClient ? app.activate() : app.openRunning(cmd)]

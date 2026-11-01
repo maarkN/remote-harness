@@ -49,6 +49,7 @@ import { registerShellFeature } from './features/shell/index.ts'
 import { registerStatusLineFeature } from './features/status-line/index.ts'
 import { registerSubagentsFeature } from './features/subagents/index.ts'
 import { registerSystemPermissionsFeature } from './features/system-permissions/index.ts'
+import { ensureTmuxConf, tmuxServerOf } from './features/tmux-server/conf.ts'
 import { registerTranscriptFeature } from './features/transcript/index.ts'
 import {
   type DesktopOptions,
@@ -143,6 +144,10 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const appProfiles = await profilesWithResolvableAgent(profiles, options.exec, logger)
   const identity = await ensureIdentity(options.secretStore)
   const hookSecret = await ensureHookSecret()
+  // The Remote Harness tmux server's config (`tmux -f`): written here too, so a daemon started by
+  // hand before `install` addresses the same server as the launchers.
+  await ensureTmuxConf(config)
+  const tmuxServer = tmuxServerOf(config)
 
   const bus = new EventBus<DaemonEvents>()
   const hub = new ClientHub()
@@ -189,7 +194,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     router,
     hooks,
     hookReceiver,
-    tmux: new TmuxClient(options.exec),
+    tmux: new TmuxClient(options.exec, 'tmux', tmuxServer),
     onStop: (fn) => stopHandlers.push(fn),
     onClientConnected: (fn) => connectHandlers.push(fn),
     pushSender: options.pushSender,

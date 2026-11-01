@@ -20,12 +20,22 @@ export function useTempHome(): { dir: () => string } {
   return { dir: () => dir }
 }
 
-/** \`args\` omits TmuxClient's global \`-u\` flag so tests read like the tmux command; \`rawArgs\` keeps it. */
+/**
+ * \`args\` omits TmuxClient's global flags (\`-u\`, then the server's \`-L\`/\`-f\`) so tests read like the
+ * tmux command; \`rawArgs\` keeps them.
+ */
 export type ExecCall = {
   file: string
   args: readonly string[]
   rawArgs: readonly string[]
   options?: ExecOptions
+}
+
+function tmuxCommandArgs(file: string, args: readonly string[]): readonly string[] {
+  if (file !== 'tmux' || args[0] !== '-u') return args
+  let rest = args.slice(1)
+  while (rest[0] === '-L' || rest[0] === '-f') rest = rest.slice(2)
+  return rest
 }
 
 /** Records calls and answers with a scripted responder. */
@@ -34,12 +44,7 @@ export function fakeExecutor(
 ): Executor & { calls: ExecCall[] } {
   const calls: ExecCall[] = []
   const exec = (async (file: string, args: readonly string[], options?: ExecOptions) => {
-    const call = {
-      file,
-      args: file === 'tmux' && args[0] === '-u' ? args.slice(1) : args,
-      rawArgs: args,
-      options,
-    }
+    const call = { file, args: tmuxCommandArgs(file, args), rawArgs: args, options }
     calls.push(call)
     const result = respond(call) ?? {}
     return { stdout: '', stderr: '', exitCode: 0, ...result }

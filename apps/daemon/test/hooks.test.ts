@@ -216,7 +216,8 @@ describe('launcher script quoting', () => {
     const seen = join(home.dir(), 'term')
     await writeFile(
       fake,
-      `#!/bin/sh\ncase "$1" in\nhas-session) exit 1 ;;\nnew-session) [ "$3" = -P ] && echo '%1 @1'; exit 0 ;;\nattach-session) printf '%s' "$TERM" > '${seen}' ;;\nesac\n`,
+      // The detached new-session creates the window; the attached one (the view) records TERM.
+      `#!/bin/sh\ncase "$1" in\nhas-session) exit 1 ;;\nnew-session) if [ "$2" = -d ]; then [ "$3" = -P ] && echo '%1 @1'; else printf '%s' "$TERM" > '${seen}'; fi; exit 0 ;;\nesac\n`,
       { mode: 0o755 },
     )
     const script = renderLauncher(
@@ -230,6 +231,77 @@ describe('launcher script quoting', () => {
     }
     expect(await attach('xterm-not-installed-anywhere')).toBe('xterm-256color')
     expect(await attach('vt100')).toBe('vt100')
+  })
+})
+
+describe('launcher on the Remote Harness tmux server', () => {
+  const server = { socket: 'remote-harness', conf: '/Users/u/.remote-harness/tmux.conf' }
+  const options = { tmuxSession: 's', tmuxBin: 'tmux', tmuxServer: server, home: '/Users/u' }
+  const profile: Profile = { id: 'p', name: 'P', configDir: '/Users/u/.claude', color: '' }
+
+  test('every tmux call selects the server and its config; null keeps the default server', () => {
+    const script = renderLauncher(profile, options)
+    execFileSync('zsh', ['-n', '-c', script])
+    expect(script).toContain(
+      `TMUX_CMD=("$TMUX_BIN" -L 'remote-harness' -f '/Users/u/.remote-harness/tmux.conf')`,
+    )
+    expect(script).not.toMatch(
+      /"\$TMUX_BIN" (has-session|new-window|new-session|attach-session|switch-client)/,
+    )
+    expect(renderLauncher(profile, { ...options, tmuxServer: null })).toContain('TMUX_CMD=("$TMUX_BIN")')
+  })
+
+  /** A fake tmux that logs every call with the caller's TMUX and answers like a server with one window. */
+  async function fakeTmux(): Promise<{ bin: string; log: () => Promise<string> }> {
+    const bin = join(home.dir(), 'tmux')
+    const log = join(home.dir(), 'tmux.log')
+    await writeFile(
+      bin,
+      `#!/bin/sh
+printf '%s | TMUX=%s\\n' "$*" "\${TMUX-unset}" >> '${log}'
+while [ "$1" = -L ] || [ "$1" = -f ]; do shift 2; done
+case "$1" in
+  has-session) exit 1 ;;
+  new-session) [ "$3" = -P ] && echo '%1 @1'; exit 0 ;;
+  display-message) echo /tmp/tmux-501/remote-harness ;;
+esac
+exit 0
+`,
+      { mode: 0o755 },
+    )
+    return { bin, log: () => readFile(log, 'utf8') }
+  }
+
+  test("inside another server's tmux: nests in the pane with the status off, never switch-client", async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    execFileSync('zsh', ['-c', script], {
+      env: { ...process.env, TMUX: '/tmp/tmux-501/default,123,0' },
+      cwd: home.dir(),
+    })
+    const log = await fake.log()
+    expect(log).toContain('-L remote-harness -f /Users/u/.remote-harness/tmux.conf has-session -t =s')
+    // One client creates the view, attaches to it and turns its status line off, with TMUX unset.
+    expect(log).toMatch(
+      /new-session -t =s -s s-view-\d+ ; set-option -t s-view-\d+ destroy-unattached on ; select-window -t =s-view-\d+:@1 ; set-option -t s-view-\d+ status off \| TMUX=unset/,
+    )
+    expect(log).not.toContain('switch-client')
+  })
+
+  test('inside a client of the Remote Harness server: switches that client', async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    execFileSync('zsh', ['-c', script], {
+      env: { ...process.env, TMUX: '/tmp/tmux-501/remote-harness,123,0' },
+      cwd: home.dir(),
+    })
+    const log = await fake.log()
+    // The view is created detached and the current client switched to it in the same command.
+    expect(log).toMatch(
+      /new-session -d -t =s -s s-view-\d+ ; .* ; switch-client -t =s-view-\d+ \| TMUX=\/tmp\/tmux-501\/remote-harness,123,0/,
+    )
+    expect(log).not.toContain('status off')
+    expect(log).not.toContain('TMUX=unset')
   })
 })
 

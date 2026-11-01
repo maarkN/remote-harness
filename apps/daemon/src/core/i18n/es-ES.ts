@@ -132,6 +132,11 @@ export const esES = {
       noRelayGrant:
         'ningún móvil tiene grant del relay: usa una build de la app con el push relay o guarda una cuenta de servicio de Firebase',
     },
+    tmux: {
+      description:
+        'ejecuta tmux en el servidor tmux de Remote Harness (sin argumentos: se adjunta a la sesión de los lanzadores)',
+      args: 'argumentos de tmux, p. ej. `ls` o `attach -t claude-remote`',
+    },
     install: {
       description:
         'instala los launchers, el PATH en ~/.zshrc / ~/.bashrc y los hooks de los perfiles configurados (sin preguntas)',
@@ -284,6 +289,9 @@ export const esES = {
     statusLineRestored: (path: string) => `status line restaurada en ${path}`,
     hookSecretRotated: (path: string) =>
       `secreto de los hooks renovado (las versiones antiguas lo ponían en la línea de comandos de curl); curl ahora lo lee de ${path} — un daemon en ejecución y las sesiones abiertas lo usan cuando se reinicien`,
+    tmuxConf: (path: string) => `configuración del servidor tmux en ${path}`,
+    legacyTmuxSessions: (session: string) =>
+      `las sesiones iniciadas antes de esta versión siguen en tu servidor tmux por defecto y ya no se gestionan: termínalas con \`tmux attach -t ${session}\`; las nuevas se abren en el servidor de Remote Harness (\`remote-harness tmux\`)`,
   },
   setup: {
     languageQuestion: 'Idioma',

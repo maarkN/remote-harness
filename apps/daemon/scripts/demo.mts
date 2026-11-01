@@ -26,6 +26,8 @@ import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DEFAULT_TMUX_SOCKET } from '../src/core/config.ts'
+import { renderTmuxConf } from '../src/features/tmux-server/conf.ts'
 import {
   conflictingPaths,
   DEMO_HOOK_PORT,
@@ -106,13 +108,19 @@ function readManifest(): string[] {
 }
 
 /**
- * The demo's tmux socket, named explicitly: tmux falls back to the user's default server when
- * `TMUX_TMPDIR` does not exist, so the script never relies on it alone.
+ * The demo's tmux socket: the Remote Harness server name under the demo's `TMUX_TMPDIR`, where the
+ * demo daemon's `tmux -L` lands too. Named explicitly because tmux falls back to the user's default
+ * server when `TMUX_TMPDIR` does not exist, so the script never relies on it alone. The server starts
+ * with the same generated config as the daemon's, never the user's tmux.conf.
  */
-const tmuxSocket = join(layout.tmuxDir, `tmux-${process.getuid?.() ?? 0}`, 'default')
+const tmuxSocket = join(layout.tmuxDir, `tmux-${process.getuid?.() ?? 0}`, DEFAULT_TMUX_SOCKET)
+const tmuxConf = join(layout.home, 'tmux.conf')
 
 function tmux(...tmuxArgs: string[]): string {
-  return execFileSync('tmux', ['-u', '-S', tmuxSocket, ...tmuxArgs], { env, encoding: 'utf8' }).trim()
+  return execFileSync('tmux', ['-u', '-S', tmuxSocket, '-f', tmuxConf, ...tmuxArgs], {
+    env,
+    encoding: 'utf8',
+  }).trim()
 }
 
 function git(cwd: string, ...gitArgs: string[]): void {
@@ -204,6 +212,7 @@ function writeSandbox(l: DemoLayout): void {
   }
   writeFileSync(join(l.home, 'config.json'), `${JSON.stringify(demoConfig(), null, 2)}\n`)
   writeFileSync(join(l.home, 'hook-secret'), hookSecret, { mode: 0o600 })
+  writeFileSync(tmuxConf, renderTmuxConf('minimal', root))
   for (const dir of Object.values(l.configDirs)) mkdirSync(join(dir, 'projects'), { recursive: true })
   mkdirSync(join(l.configDirs.codex, 'sessions'), { recursive: true })
 

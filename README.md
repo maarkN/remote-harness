@@ -88,13 +88,13 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
                                              └───────────────┬─────────────────┘
                                                              │ hooks
                                           ┌──────────────────┴──────────────────┐
-                                          │ tmux session "claude-remote"        │
+                                          │ tmux server "remote-harness"        │
                                           │  ├─ pessoal  → ~/.claude            │
                                           │  └─ trabalho → CLAUDE_CONFIG_DIR=…  │
                                           └─────────────────────────────────────┘
 ```
 
-1. You start Claude Code with a tiny launcher (one per account, named by you, e.g. `pessoal`, `trabalho`) that runs it inside a tmux window.
+1. You start Claude Code with a tiny launcher (one per account, named by you, e.g. `pessoal`, `trabalho`) that runs it inside a tmux window, on a tmux server of Remote Harness's own (`remote-harness tmux` attaches to it), so your own tmux and its config are left alone.
 2. Claude Code's HTTP hooks tell the daemon when a session starts, stops, needs permission or gets a prompt. A small status line wrapper also forwards the model, effort, context usage and usage limits — and then runs your own status line, so the terminal looks the same.
 3. The daemon tails the session transcript, reads the tmux pane, and serves everything to the app over a WebSocket encrypted end to end: directly on your network, or through the connection relay, which only forwards ciphertext.
 4. Prompts and keys go back through tmux; permission answers go back through the pending hook request.

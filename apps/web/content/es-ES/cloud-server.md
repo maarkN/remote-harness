@@ -42,7 +42,7 @@ Con `ufw` en la VM, ejecuta también `sudo ufw allow 7337/tcp`. Para apagar del 
 
 - **`TERM`**: entrar por SSH desde Ghostty o kitty envía un tipo de terminal que el servidor puede no conocer (`xterm-ghostty`, `xterm-kitty`). Los lanzadores recurren a `xterm-256color`; para conservar las funciones de tu terminal copia su descripción: `infocmp -x "$TERM" | ssh <host> -- tic -x -`. Mira [el alias dice "missing or unsuitable terminal"](/es/docs/troubleshooting/#el-alias-dice-missing-or-unsuitable-terminal).
 - **Locale**: las imágenes mínimas a menudo no tienen un locale UTF-8, y entonces tmux dibuja mal los recuadros y los acentos. Instala uno y defínelo en el perfil del shell: `sudo locale-gen es_ES.UTF-8` (Debian/Ubuntu), luego `export LANG=es_ES.UTF-8` en `~/.profile`. El propio daemon ya ejecuta tmux en modo UTF-8.
-- **Adjuntar**: tu alias abre la sesión en la sesión `claude-remote` de tmux y se adjunta a ella; desconéctate con `Ctrl-b d` antes de cerrar el SSH. La sesión sigue en marcha y controlable desde el móvil.
+- **Adjuntar**: tu alias abre la sesión en la sesión `claude-remote` del servidor tmux propio de Remote Harness y se adjunta a ella; desconéctate con `Ctrl-b d` antes de cerrar el SSH y vuelve con `remote-harness tmux` en tu próximo inicio de sesión. La sesión sigue en marcha y controlable desde el móvil.
 
 ## Conexiones inestables
 

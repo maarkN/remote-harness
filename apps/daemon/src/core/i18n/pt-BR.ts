@@ -130,6 +130,11 @@ export const ptBR = {
       noRelayGrant:
         'nenhum celular tem grant do relay: use um build do app com o push relay ou salve uma conta de serviço do Firebase',
     },
+    tmux: {
+      description:
+        'roda o tmux no servidor tmux do Remote Harness (sem argumentos: anexa à sessão dos launchers)',
+      args: 'argumentos do tmux, ex.: `ls` ou `attach -t claude-remote`',
+    },
     install: {
       description:
         'instala launchers, PATH no ~/.zshrc / ~/.bashrc e hooks nos perfis do config (sem perguntas)',
@@ -281,6 +286,9 @@ export const ptBR = {
     statusLineRestored: (path: string) => `status line restaurada em ${path}`,
     hookSecretRotated: (path: string) =>
       `segredo dos hooks trocado (versões antigas o punham na linha de comando do curl); o curl agora o lê de ${path} — um daemon rodando e as sessões abertas passam a usá-lo quando reiniciarem`,
+    tmuxConf: (path: string) => `configuração do servidor tmux em ${path}`,
+    legacyTmuxSessions: (session: string) =>
+      `sessões iniciadas antes desta versão continuam no seu servidor tmux padrão e não são mais gerenciadas: termine-as com \`tmux attach -t ${session}\`; as novas abrem no servidor do Remote Harness (\`remote-harness tmux\`)`,
   },
   setup: {
     languageQuestion: 'Idioma',

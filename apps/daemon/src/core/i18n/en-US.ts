@@ -130,6 +130,11 @@ export const enUS = {
       noRelayGrant:
         'no phone has a relay grant: use an app build with the push relay, or save a Firebase service account',
     },
+    tmux: {
+      description:
+        'run tmux on the Remote Harness tmux server (no arguments: attach to the launchers session)',
+      args: 'tmux arguments, e.g. `ls` or `attach -t claude-remote`',
+    },
     install: {
       description:
         'install launchers, PATH in ~/.zshrc / ~/.bashrc and hooks in the configured profiles (no questions)',
@@ -277,6 +282,9 @@ export const enUS = {
     statusLineRestored: (path: string) => `status line restored in ${path}`,
     hookSecretRotated: (path: string) =>
       `hooks secret replaced (older versions put it on curl's command line); curl now reads it from ${path} — a running daemon and the open sessions use it once restarted`,
+    tmuxConf: (path: string) => `tmux server config ${path}`,
+    legacyTmuxSessions: (session: string) =>
+      `sessions started before this version are still on your default tmux server and are no longer managed: finish them with \`tmux attach -t ${session}\`; new sessions open on the Remote Harness server (\`remote-harness tmux\`)`,
   },
   setup: {
     languageQuestion: 'Language',
