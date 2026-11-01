@@ -119,7 +119,9 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       computer,
       crypto: noiseCrypto,
       clientName: 'claude-remote-ios',
-      ...(demo ? { socketFactory: demo.socketFactory } : {}),
+      // The demo's sockets live in memory: no relay to race, and a busy start-up (first launch on
+      // a slow device) must not drop a handshake that is only waiting for the JavaScript thread.
+      ...(demo ? { socketFactory: demo.socketFactory, directTimeoutMs: 30_000 } : {}),
     })
     client.onStatus((status, error) => {
       set({ status, error, unreachable: client.unreachable })

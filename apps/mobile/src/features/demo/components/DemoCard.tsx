@@ -3,14 +3,18 @@ import { StyleSheet, View } from 'react-native'
 import { useConnectionStore } from '@/core/connection'
 import { space, useTheme } from '@/core/theme'
 import { Button, Card, Text } from '@/ui'
+import { isScreenshotBuild } from '../demo-mode'
 import { leaveDemoToPairing } from './DemoBanner'
 
-/** Settings → Demo: says the computer is fictional and leaves the demo (instead of Computers). */
+/**
+ * Settings → Demo: says the computer is fictional and leaves the demo (instead of Computers). Not in
+ * screenshot builds, where the demo passes for a paired computer.
+ */
 export function DemoCard() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const demo = useConnectionStore((s) => s.demo)
-  if (!demo) return null
+  if (!demo || isScreenshotBuild()) return null
   return (
     <Card accent={colors.accent}>
       <View style={styles.gap}>

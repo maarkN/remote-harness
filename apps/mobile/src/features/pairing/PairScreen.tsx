@@ -15,7 +15,7 @@ import {
 import { useConnectionStore } from '@/core/connection'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
-import { startDemo } from '@/features/demo/demo-mode'
+import { isScreenshotBuild, startDemo } from '@/features/demo/demo-mode'
 import { Button, Card, Screen, Text } from '@/ui'
 import { type ParsedPairingCode, pairingCodeFromRoute, parsePairingLink } from './parse-pairing-url'
 import { usePairing } from './use-pairing'
@@ -34,6 +34,17 @@ export function PairScreen() {
   // Only before the first pairing, so the demo never mixes with real computers.
   const canDemo = useConnectionStore((s) => s.computers.length === 0)
   const locked = useRef(false)
+
+  // Screenshot builds skip this screen: straight into the offline demo, as if a computer were paired,
+  // once start-up has settled (the demo's handshake must not compete with it for the JavaScript thread).
+  useEffect(() => {
+    if (!canDemo || !isScreenshotBuild()) return
+    const timer = setTimeout(() => {
+      startDemo({ unavailable: t('demo.unavailable'), reply: t('demo.reply') })
+      router.replace('/')
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [canDemo, t])
 
   /** Pairs with a parsed code, or explains why it cannot be used. */
   const start = useCallback(
