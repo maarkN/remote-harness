@@ -92,13 +92,13 @@ export async function installAll(
   })
   // A secret from a version that put it on curl's command line is replaced here, before the hooks
   // and the status line are written with it.
-  const { secret, curlConfig, rotated } = await ensureHookSecretFiles()
+  const { curlConfig, rotated } = await ensureHookSecretFiles()
   if (rotated) lines.push({ status: 'done', text: m.hookSecretRotated(curlConfig) })
   const statusLineScript = await installStatusLineScript(paths.bin(), { port: config.hookPort, curlConfig })
   for (const profile of profiles) {
+    // Every hook reads the secret from the curl config: the value itself goes in no hooks file.
     const changed = await installHooks(profile, {
       port: config.hookPort,
-      secret,
       curlConfig,
       permissionTimeoutSec: hookTimeoutSec(config),
     })

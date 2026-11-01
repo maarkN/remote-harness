@@ -13,7 +13,7 @@ import { hasOurHooks, installHooks, settingsPath, uninstallHooks } from '../src/
 import { renderLauncher } from '../src/features/hooks/launcher.ts'
 import { HookReceiver } from '../src/features/hooks/receiver.ts'
 import {
-  buildCodexHookEntry,
+  buildHookEntry,
   CODEX_HOOK_EVENTS,
   isOurHook,
   mergeOurHooks,
@@ -33,7 +33,6 @@ import { fakeExecutor, hookEvent, useTempHome } from './helpers.ts'
 const home = useTempHome()
 const options = {
   port: 7338,
-  secret: 's3cr3t',
   curlConfig: '/u/.remote-harness/hook-secret.curlrc',
   permissionTimeoutSec: 300,
 }
@@ -54,12 +53,12 @@ describe('codex hooks.json', () => {
   })
 
   test('the permission hook prints the answer; SessionEnd stays within 3 s', () => {
-    const permission = buildCodexHookEntry('PermissionRequest', options)
+    const permission = buildHookEntry('PermissionRequest', options)
     expect(permission.command).not.toContain('-o /dev/null')
     expect(permission.command).not.toContain(' >/dev/null')
     expect(permission.command).toContain('-m 300')
     expect(permission.timeout).toBe(310)
-    const end = buildCodexHookEntry('SessionEnd', options)
+    const end = buildHookEntry('SessionEnd', options)
     expect(end.timeout).toBe(3)
     expect(end.command).toContain('-m 2 ')
   })
@@ -102,12 +101,7 @@ describe('codex hooks.json', () => {
       const port = typeof address === 'object' && address ? address.port : 0
       const curlConfig = join(home.dir(), 'hook-secret.curlrc')
       await writeFile(curlConfig, renderCurlConfig('sec'), { mode: 0o600 })
-      const entry = buildCodexHookEntry('PermissionRequest', {
-        port,
-        secret: 'sec',
-        curlConfig,
-        permissionTimeoutSec: 30,
-      })
+      const entry = buildHookEntry('PermissionRequest', { port, curlConfig, permissionTimeoutSec: 30 })
       const stdout = await new Promise<string>((resolve, reject) => {
         const child = execFile(
           'sh',
@@ -132,9 +126,8 @@ describe('codex hooks.json', () => {
   })
 
   test('the permission command prints nothing when the daemon is down', async () => {
-    const entry = buildCodexHookEntry('PermissionRequest', {
+    const entry = buildHookEntry('PermissionRequest', {
       port: 9,
-      secret: 'x',
       curlConfig: join(home.dir(), 'missing.curlrc'),
       permissionTimeoutSec: 2,
     })
