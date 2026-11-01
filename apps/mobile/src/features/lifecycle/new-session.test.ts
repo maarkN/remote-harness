@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
 import {
+  canStartWithPrompt,
+  cleanFirstPrompt,
   cleanSessionName,
   nameSuggestions,
   profileAgent,
@@ -30,6 +32,19 @@ describe('session name', () => {
     expect(cleanSessionName('  Rate   limit\non login ')).toBe('Rate limit on login')
     expect(cleanSessionName('   ')).toBeUndefined()
     expect(cleanSessionName('x'.repeat(90))).toHaveLength(80)
+  })
+
+  test('the first prompt is trimmed and omitted when blank, line breaks kept', () => {
+    expect(cleanFirstPrompt('  Review the PR.\nList the risks.  ')).toBe('Review the PR.\nList the risks.')
+    expect(cleanFirstPrompt(' \n ')).toBeUndefined()
+  })
+
+  test('a first prompt is offered for every agent but Kimi CLI', () => {
+    expect(canStartWithPrompt('claude')).toBe(true)
+    expect(canStartWithPrompt('codex')).toBe(true)
+    expect(canStartWithPrompt('gemini')).toBe(true)
+    expect(canStartWithPrompt('qwen')).toBe(true)
+    expect(canStartWithPrompt('kimi')).toBe(false)
   })
 
   test('suggestions: the branch, then recent session names in that folder', () => {

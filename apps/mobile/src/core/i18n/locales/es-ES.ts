@@ -854,6 +854,9 @@ const esES = {
     placeholder: '~/workspaces/proyecto',
     name: 'Nombre (opcional)',
     namePlaceholder: 'p. ej.: Límite de intentos en el login',
+    firstPrompt: 'Primer prompt (opcional)',
+    firstPromptPlaceholder: 'p. ej.: Revisa el PR abierto y enumera los riesgos',
+    firstPromptHint: 'Se envía en cuanto el agente esté listo.',
     start: 'Crear sesión',
     starting: 'Iniciando {{agent}} en {{path}}…',
     recent: 'Recientes',
@@ -898,6 +901,8 @@ const esES = {
       invalidCwd: 'Directorio no encontrado o fuera de tu carpeta personal.',
       profileNotFound: 'Este perfil ya no existe en el ordenador. Elige otro.',
       launchFailed: 'No se pudo abrir {{agent}} en tmux: {{reason}}',
+      promptTooLarge:
+        'El primer prompt es demasiado largo (8 KB como máximo). Crea la sesión y envíalo desde la conversación.',
     },
   },
   resume: {

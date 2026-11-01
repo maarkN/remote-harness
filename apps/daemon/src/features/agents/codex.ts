@@ -97,6 +97,8 @@ export const codex: AgentAdapter = {
   nameArgs: () => null,
   // Stored as the thread name in session_index.jsonl, which `readSummary` reads back.
   renameCommand: (name) => `/rename ${name}`,
+  // `codex [OPTIONS] [PROMPT]` starts the session with that prompt as its first turn.
+  promptArgs: ['--'],
   transcript: codexTranscript,
   findTranscripts: findCodexTranscripts,
   readSummary: readCodexSummary,

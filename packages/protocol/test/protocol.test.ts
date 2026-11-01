@@ -170,6 +170,7 @@ const clientSamples: ClientMessage[] = [
   { type: 'session.start', id: '1', profileId: 'claudin', cwd: '/tmp', worktree: true },
   { type: 'session.start', id: '1', profileId: 'work', cwd: '/tmp', model: 'anthropic/claude-opus-5.5' },
   { type: 'session.start', id: '1', profileId: 'claudin', cwd: '/tmp', name: 'Rate limit on login' },
+  { type: 'session.start', id: '1', profileId: 'claudin', cwd: '/tmp', prompt: 'Review the open PR' },
   { type: 'checkout.inspect', id: '1', profileId: 'claudin', cwd: '/tmp' },
   { type: 'session.resume', id: '1', profileId: 'claudin', sessionId: 's' },
   { type: 'pane.subscribe', id: '1', sessionId: 's' },
@@ -637,6 +638,13 @@ describe('client messages', () => {
     expect(start('   ').ok).toBe(false)
     expect(start('x'.repeat(80)).ok).toBe(true)
     expect(start('x'.repeat(81)).ok).toBe(false)
+  })
+
+  test('a first prompt is never empty', () => {
+    const start = (prompt: string) =>
+      parseClientMessage({ type: 'session.start', id: '1', profileId: 'p', cwd: '/tmp', prompt })
+    expect(start('Review the open PR')).toMatchObject({ ok: true, value: { prompt: 'Review the open PR' } })
+    expect(start('')).toMatchObject({ ok: false, error: { code: 'bad_request' } })
   })
 
   test('shell commands: trimmed, bounded, never empty', () => {

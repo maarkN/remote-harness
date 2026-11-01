@@ -87,6 +87,11 @@ export type AgentAdapter = {
    * null when the CLI names sessions with `nameArgs` or not at all.
    */
   renameCommand(name: string): string | null
+  /**
+   * Arguments placed before a first prompt so the CLI runs it and stays interactive (`--` before a
+   * positional prompt, `--prompt-interactive`); null when the CLI cannot take one.
+   */
+  promptArgs: readonly string[] | null
   /** How the CLI writes its transcripts (one module per format). */
   transcript: TranscriptFormat
   /** Main-session transcripts of a config dir modified since `cutoffMs`. */

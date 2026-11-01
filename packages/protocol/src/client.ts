@@ -181,6 +181,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     model: z.string().min(1).optional(),
     /** Display name: the session's title at once, and `--name` for agents that take one. */
     name: SessionNameSchema.optional(),
+    /** First prompt, run by the agent CLI as soon as it starts (`claude -- <prompt>`); at most 8 KB. */
+    prompt: z.string().min(1).optional(),
   }),
   z.object({ type: z.literal('checkout.inspect'), id, profileId: z.string().min(1), cwd: z.string().min(1) }),
   z.object({ type: z.literal('session.resume'), id, profileId: z.string().min(1), sessionId }),
