@@ -115,28 +115,24 @@ describe('settings hooks merge', () => {
     expect(JSON.stringify(migrated)).not.toContain('old-secret')
   })
 
-  test(
-    'every hook stays silent when the daemon is not running',
-    async () => {
-      // Nothing listens on the port: curl is refused at once, and the command still exits 0 with no output.
-      const down = { ...options, port: 9, permissionTimeoutSec: 2 }
-      const run = (event: (typeof HOOK_EVENTS)[number]) =>
-        new Promise<{ event: string; code: number; stdout: string }>((resolve) => {
-          const child = execFile(
-            'sh',
-            ['-c', String(buildHookEntry(event, down).command)],
-            { env: { PATH: process.env.PATH } },
-            (error, stdout) =>
-              resolve({ event, code: error ? ((error as { code?: number }).code ?? 1) : 0, stdout }),
-          )
-          child.stdin?.end(JSON.stringify({ session_id: 'abc', hook_event_name: event }))
-        })
-      const results = await Promise.all(HOOK_EVENTS.map(run))
-      expect(results).toEqual(HOOK_EVENTS.map((event) => ({ event, code: 0, stdout: '' })))
-    },
-    // Seven shells and curls: slow when the test suites run in parallel on a loaded machine.
-    20_000,
-  )
+  // Seven shells and curls: given 20 s, since the suites run in parallel on a loaded machine.
+  test('every hook stays silent when the daemon is not running', async () => {
+    // Nothing listens on the port: curl is refused at once, and the command still exits 0 with no output.
+    const down = { ...options, port: 9, permissionTimeoutSec: 2 }
+    const run = (event: (typeof HOOK_EVENTS)[number]) =>
+      new Promise<{ event: string; code: number; stdout: string }>((resolve) => {
+        const child = execFile(
+          'sh',
+          ['-c', String(buildHookEntry(event, down).command)],
+          { env: { PATH: process.env.PATH } },
+          (error, stdout) =>
+            resolve({ event, code: error ? ((error as { code?: number }).code ?? 1) : 0, stdout }),
+        )
+        child.stdin?.end(JSON.stringify({ session_id: 'abc', hook_event_name: event }))
+      })
+    const results = await Promise.all(HOOK_EVENTS.map(run))
+    expect(results).toEqual(HOOK_EVENTS.map((event) => ({ event, code: 0, stdout: '' })))
+  }, 20_000)
 })
 
 describe('installer files', () => {
