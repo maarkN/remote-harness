@@ -25,6 +25,7 @@ import {
   uninstallStatusLine,
 } from '../hooks/installer.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
+import { ensureTmuxConf, legacySessionsExist, tmuxServerOf } from '../tmux-server/conf.ts'
 
 /** One line of installer output: `done` = changed now, `skip` = already in place. */
 export type InstallLine = { status: 'done' | 'skip'; text: string }
@@ -67,10 +68,15 @@ export async function installAll(
   const lines: InstallLine[] = []
   const which = await o.exec('which', ['tmux'])
   const tmuxBin = which.exitCode === 0 ? which.stdout.trim() : 'tmux'
+  // The Remote Harness tmux server's config, from config.json (nothing to write for the default server).
+  const tmuxServer = tmuxServerOf(config)
+  const tmuxConf = await ensureTmuxConf(config)
+  if (tmuxConf) lines.push({ status: tmuxConf.changed ? 'done' : 'skip', text: m.tmuxConf(tmuxConf.path) })
   const launchers = await installLaunchers(profiles, {
     binDir: paths.bin(),
     tmuxSession: config.tmuxSession,
     tmuxBin,
+    tmuxServer,
     missingKey: m.missingProviderKey,
   })
   for (const path of launchers) lines.push({ status: 'done', text: `launcher ${path}` })
@@ -105,6 +111,10 @@ export async function installAll(
     lines.push({ status: 'skip', text: m.codexTrust })
   if (profiles.some((p) => agentFor(p).hooks.style === 'gemini-hooks'))
     lines.push({ status: 'skip', text: m.geminiTrust })
+  // Sessions started before the dedicated server stay on the default one, where the daemon no longer
+  // looks: say how to reach them.
+  if (tmuxServer && (await legacySessionsExist(o.exec, tmuxBin, config.tmuxSession)))
+    lines.push({ status: 'skip', text: m.legacyTmuxSessions(config.tmuxSession) })
   return lines
 }
 

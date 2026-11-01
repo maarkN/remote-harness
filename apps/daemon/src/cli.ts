@@ -86,6 +86,7 @@ import {
   classifyFullDiskAccess,
   classifyKeychain,
 } from './features/system-permissions/classify.ts'
+import { ensureTmuxConf, tmuxServerOf } from './features/tmux-server/conf.ts'
 import { installerSourceDir, SourceUpdater, updateSource } from './features/update/update.ts'
 import { isDowngrade, isUpdateChannel, UPDATE_CHANNELS, updateLabel } from './features/updates/channel.ts'
 import { readUpdateState, UpdateChecker, type UpdateState } from './features/updates/checker.ts'
@@ -102,6 +103,7 @@ import {
   UnsupportedPlatformError,
 } from './infra/platform.ts'
 import { ProcessSleepInhibitor, sleepHelperCommand } from './infra/power.ts'
+import { tmuxServerArgs } from './infra/tmux.ts'
 import { startDaemon } from './main.ts'
 import { SECRET_HEADER } from './transport/hooks-server.ts'
 
@@ -296,6 +298,23 @@ program
       logger.fatal((error as Error).message)
       process.exit(1)
     }
+  })
+
+program
+  .command('tmux')
+  .description(m.cli.tmux.description)
+  .argument('[args...]', m.cli.tmux.args)
+  .allowUnknownOption()
+  .allowExcessArguments()
+  .action(async (args: string[]) => {
+    // tmux against the Remote Harness server (its `-L` and `-f`), so nobody has to remember them.
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    await ensureTmuxConf(config)
+    const tmuxArgs = args.length > 0 ? args : ['attach-session', '-t', `=${config.tmuxSession}`]
+    const code = await runInteractive('tmux', [...tmuxServerArgs(tmuxServerOf(config)), ...tmuxArgs], {
+      env: process.env,
+    })
+    process.exit(code)
   })
 
 program

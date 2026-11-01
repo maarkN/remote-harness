@@ -46,6 +46,8 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
   "inputStrategy": "paste",
   "recentDays": 7,
   "tmuxSession": "claude-remote",
+  "tmuxSocket": "remote-harness",
+  "tmuxConfig": "minimal",
   "push": "auto",
   "update": { "channel": "main", "auto": false },
   "tray": true,
@@ -63,6 +65,8 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
 - `inputStrategy`: `paste` (padrão) ou `type` para os prompts enviados pelo celular.
 - `recentDays`: até quando sessões encerradas são listadas.
 - `tmuxSession`: a sessão do tmux que os atalhos usam.
+- `tmuxSocket`: o servidor tmux (`tmux -L <nome>`) que os atalhos e o daemon usam, `remote-harness` por padrão, separado do seu tmux e do seu `tmux.conf`; `null` usa o seu servidor padrão e a sua configuração.
+- `tmuxConfig`: `minimal` (padrão) inicia esse servidor só com os poucos ajustes do Remote Harness (Esc entregue na hora, eventos de foco, histórico maior); `user` carrega também o seu `~/.tmux.conf` (ou `~/.config/tmux/tmux.conf`) por cima, para os seus atalhos valerem dentro das janelas do agente.
 - `language`: `pt-BR`, `en-US` ou `es-ES` para a CLI, a instalação e os textos de push; o idioma do sistema quando ausente.
 - `push`: `auto` (a sua conta de serviço do Firebase quando existe, senão o relay) ou `off`.
 - `update`: o canal que `update` e a verificação seguem, e se as atualizações se aplicam sozinhas.
@@ -142,7 +146,7 @@ O que funciona como no Claude Code: a lista de sessões (transcripts recentes em
 
 ## Atalhos e aliases
 
-Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` do tmux com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. O comando `claude` puro nunca é alterado.
+Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` no servidor tmux próprio do Remote Harness (`tmux -L remote-harness`, iniciado com `~/.remote-harness/tmux.conf` em vez do seu `tmux.conf`, então as suas configurações, plugins e o seu `tmux ls` ficam em paz) com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. Rode o alias dentro do seu próprio tmux e a sessão aparece aninhada naquele pane, sem tomar o seu cliente (aperte o prefixo duas vezes para falar com o tmux de dentro). `remote-harness tmux` anexa a esse servidor de qualquer terminal e `remote-harness tmux ls` lista as sessões dele; sessões iniciadas antes desse servidor existir continuam no seu tmux padrão até terminarem. O comando `claude` puro nunca é alterado.
 
 ## Serviço em segundo plano
 

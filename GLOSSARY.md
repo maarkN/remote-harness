@@ -50,6 +50,12 @@ _Avoid_: offline mode, local database, outbox
 The project-hosted service that delivers push notifications on behalf of daemons that have no push credentials of their own. It carries notifications only, never a session's traffic.
 _Avoid_: relay (alone, when the connection relay could be meant)
 
+### Sessions
+
+**Remote Harness tmux server**:
+The tmux server of its own (`tmux -L remote-harness`, started with a generated config) where the launchers open agent sessions and the daemon drives them, apart from the user's default tmux server and their `tmux.conf`. `remote-harness tmux` reaches it.
+_Avoid_: shared tmux session, default server (for ours), the user's tmux (for ours)
+
 ### Permissions
 
 **Always-allow rule**:

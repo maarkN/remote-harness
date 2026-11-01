@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path'
 import { PROVIDER_NAMES, type Profile, type Provider } from '@remote-harness/protocol'
 import { paths } from '../../core/paths.ts'
 import { providerKeyAccount, SECRET_SERVICE } from '../../core/secrets.ts'
+import type { TmuxServer } from '../../infra/tmux.ts'
 import { agentFor } from '../agents/index.ts'
 import { providerEnv } from '../providers/openrouter.ts'
 
@@ -25,6 +26,8 @@ export function isDefaultConfigDir(configDir: string, home = homedir(), defaultD
 export type LauncherOptions = {
   tmuxSession: string
   tmuxBin: string
+  /** The Remote Harness tmux server; absent or null = the user's default server (and their tmux.conf). */
+  tmuxServer?: TmuxServer | null
   home?: string
   /** Printed when a profile with a provider has no stored key; the installer passes the translated text. */
   missingKey?: (profileId: string, provider: string) => string
@@ -80,10 +83,13 @@ fi
 
 /**
  * Generates the zsh launcher for a profile. It opens `claude` (with all args) in a new window of
- * the shared tmux session and attaches through a grouped session, so several terminals can each
- * look at a different window. zsh is found through PATH (/bin/zsh on macOS, /usr/bin/zsh on Linux).
- * With a provider, the window runs this launcher again (`CLAUDE_REMOTE_EXEC=1`) so the key is read
- * from the OS secret store inside the window and never crosses a command line.
+ * the shared tmux session, on the Remote Harness tmux server (its own socket and config, so the
+ * user's tmux.conf never applies), and attaches through a grouped session, so several terminals can
+ * each look at a different window. Inside tmux already, a client of our server switches to the
+ * window; a client of another server (the user's own tmux) gets the session nested in its pane and
+ * is never switched. zsh is found through PATH (/bin/zsh on macOS, /usr/bin/zsh on Linux). With a
+ * provider, the window runs this launcher again (`CLAUDE_REMOTE_EXEC=1`) so the key is read from
+ * the OS secret store inside the window and never crosses a command line.
  */
 export function renderLauncher(profile: Profile, options: LauncherOptions): string {
   // Claude Code (CLAUDE_CONFIG_DIR, `claude`), Codex (CODEX_HOME, `codex`) or Gemini CLI
@@ -101,12 +107,19 @@ export function renderLauncher(profile: Profile, options: LauncherOptions): stri
   const providerBlock = provider ? providerSection(profile.id, provider, unsetInPane, options) : ''
   const command = provider ? `"\${0:A}" "$@"` : `${unsetInPane}"$${binEnv}" "$@"`
   const execEnv = provider ? '-e "CLAUDE_REMOTE_EXEC=1" ' : ''
+  const server = options.tmuxServer
+  const tmuxCmd = server
+    ? `("$TMUX_BIN" -L ${zshQuote(server.socket)} -f ${zshQuote(server.conf)})`
+    : '("$TMUX_BIN")'
   return `#!/usr/bin/env zsh
 # Remote Harness launcher for profile "${profile.id}" (${profile.name}). Generated; do not edit.
 ${configDir}
 export CLAUDE_REMOTE_PROFILE=${zshQuote(profile.id)}
 TMUX_BIN=\${CLAUDE_REMOTE_TMUX:-${zshQuote(options.tmuxBin)}}
 SESSION=${zshQuote(options.tmuxSession)}
+# The tmux server the sessions live on: Remote Harness's own (its socket and config, apart from your
+# tmux.conf), or your default server when tmuxSocket is null in config.json.
+TMUX_CMD=${tmuxCmd}
 ${binEnv}=\${CLAUDE_REMOTE_${binEnv}:-${agent.command}}
 ${providerBlock}
 name="${profile.id}:\${PWD:t}"
@@ -114,10 +127,10 @@ cmd=(${command})
 command_line="\${(j: :)\${(q)cmd[@]}}"
 envs=(${configEnv}${execEnv}-e "CLAUDE_REMOTE_PROFILE=$CLAUDE_REMOTE_PROFILE")
 
-if "$TMUX_BIN" has-session -t "=$SESSION" 2>/dev/null; then
-  ids=$("$TMUX_BIN" new-window -d -P -F '#{pane_id} #{window_id}' -t "=$SESSION:" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
+if "\${TMUX_CMD[@]}" has-session -t "=$SESSION" 2>/dev/null; then
+  ids=$("\${TMUX_CMD[@]}" new-window -d -P -F '#{pane_id} #{window_id}' -t "=$SESSION:" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
 else
-  ids=$("$TMUX_BIN" new-session -d -P -F '#{pane_id} #{window_id}' -s "$SESSION" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
+  ids=$("\${TMUX_CMD[@]}" new-session -d -P -F '#{pane_id} #{window_id}' -s "$SESSION" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
 fi
 pane=\${ids%% *}
 window=\${ids##* }
@@ -127,18 +140,26 @@ if [[ -n "$CLAUDE_REMOTE_NO_ATTACH" ]]; then
   exit 0
 fi
 
-# A grouped session shares the windows but keeps its own current window.
+# A grouped session shares the windows but keeps its own current window. The client that creates the
+# view attaches to it (or switches to it) in the same command: with destroy-unattached on, tmux
+# destroys an unattached view the moment the client that created it disconnects.
 view="$SESSION-view-$$"
-"$TMUX_BIN" new-session -d -t "=$SESSION" -s "$view" \\; set-option -t "$view" destroy-unattached on \\; select-window -t "=$view:$window"
+view_cmd=(-t "=$SESSION" -s "$view" \\; set-option -t "$view" destroy-unattached on \\; select-window -t "=$view:$window")
 if [[ -n "$TMUX" ]]; then
-  exec "$TMUX_BIN" switch-client -t "=$view"
+  # Already inside tmux. A client of this same server switches to the view. A client of another
+  # server (your own tmux) is never switched: the view shows nested in the current pane, with its
+  # status line off, and your sessions, windows and client stay as they are.
+  if [[ "\${TMUX%%,*}" == "$("\${TMUX_CMD[@]}" display-message -p -t "=$SESSION" '#{socket_path}')" ]]; then
+    exec "\${TMUX_CMD[@]}" new-session -d "\${view_cmd[@]}" \\; switch-client -t "=$view"
+  fi
+  exec env -u TMUX "\${TMUX_CMD[@]}" new-session "\${view_cmd[@]}" \\; set-option -t "$view" status off
 fi
 # tmux refuses to attach to a terminal this computer has no terminfo entry for ("missing or
 # unsuitable terminal"), e.g. Ghostty or kitty over SSH: fall back to an entry every system has.
 if (( $+commands[infocmp] )) && ! infocmp -- "$TERM" >/dev/null 2>&1; then
   export TERM=xterm-256color
 fi
-exec "$TMUX_BIN" attach-session -t "=$view"
+exec "\${TMUX_CMD[@]}" new-session "\${view_cmd[@]}"
 `
 }
 

@@ -51,6 +51,8 @@ export function dataHome(
 
 export const paths = {
   config: () => join(dataHome(), 'config.json'),
+  /** Generated config the Remote Harness tmux server starts with (`tmux -f`), in place of the user's tmux.conf. */
+  tmuxConf: () => join(dataHome(), 'tmux.conf'),
   state: () => join(dataHome(), 'state.json'),
   hookSecret: () => join(dataHome(), 'hook-secret'),
   /** The same secret as a curl config (`-K`), so the generated hooks never put it on a command line. */
