@@ -599,9 +599,12 @@ const enUS = {
     },
     question: {
       title: '{{agent}} has a question',
+      progress: 'Question {{n}} of {{total}}',
       multi: 'Pick one or more',
       other: 'Other…',
       answer: 'Your answer…',
+      back: 'Back',
+      next: 'Next',
       send: 'Send',
       decline: 'Decline',
     },

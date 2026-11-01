@@ -6,14 +6,7 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { agentLabel } from '@/features/sessions/agent'
 import { Button, Text } from '@/ui'
-import {
-  buildAnswers,
-  EMPTY_SELECTION,
-  isAnswerComplete,
-  type Selection,
-  setOther,
-  toggleOption,
-} from '../interaction'
+import { buildAnswers, EMPTY_SELECTION, type Selection, setOther, stepAt, toggleOption } from '../interaction'
 
 type Props = {
   questions: Question[]
@@ -23,14 +16,22 @@ type Props = {
   onDecline: () => void
 }
 
-/** `AskUserQuestion` as a native card: options, free-text "Other", Send and Decline. */
+/**
+ * `AskUserQuestion` as a native card, one question at a time like the agent's own prompt: options,
+ * free-text "Other", Back / Next between the questions of one call, Send on the last and Decline.
+ */
 export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Props) {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
   const [selections, setSelections] = useState<Record<string, Selection>>({})
+  const [stepIndex, setStepIndex] = useState(0)
   const update = (question: string, change: (s: Selection) => Selection) =>
     setSelections((all) => ({ ...all, [question]: change(all[question] ?? EMPTY_SELECTION) }))
+  const step = stepAt(questions, selections, stepIndex)
+  if (!step) return null
+  const { question: q, index, total, answered, last, complete } = step
+  const selection = selections[q.question] ?? EMPTY_SELECTION
 
   return (
     <View style={styles.card}>
@@ -41,65 +42,63 @@ export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Pr
         </Text>
       </View>
       <ScrollView style={styles.body} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-        {questions.map((q) => {
-          const selection = selections[q.question] ?? EMPTY_SELECTION
-          return (
-            <View key={q.question} style={styles.question}>
-              {q.header ? (
-                <Text size="xs" color="textMuted">
-                  {q.header}
-                </Text>
-              ) : null}
-              <Text size="sm" weight="medium" selectable>
-                {q.question}
-              </Text>
-              {q.multiSelect ? (
-                <Text size="xs" color="textMuted">
-                  {t('permissions.question.multi')}
-                </Text>
-              ) : null}
-              {q.options.map((option) => {
-                const picked = selection.picked.includes(option.label)
-                return (
-                  <Pressable
-                    key={option.label}
-                    accessibilityRole={q.multiSelect ? 'checkbox' : 'radio'}
-                    accessibilityState={{ checked: picked }}
-                    disabled={busy}
-                    onPress={() => update(q.question, (s) => toggleOption(s, option.label, q.multiSelect))}
-                    style={[styles.option, picked && styles.optionPicked]}
-                  >
-                    <View
-                      style={[styles.mark, !q.multiSelect && styles.markRound, picked && styles.markPicked]}
-                    >
-                      {picked ? <Check size={12} color={colors.accentInk} /> : null}
-                    </View>
-                    <View style={styles.flex}>
-                      <Text size="sm">{option.label}</Text>
-                      {option.description ? (
-                        <Text size="xs" color="textMuted">
-                          {option.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                )
-              })}
-              <TextInput
-                value={selection.other}
-                onChangeText={(text) => update(q.question, (s) => setOther(s, text, q.multiSelect))}
-                placeholder={t(
-                  q.kind === 'choice' ? 'permissions.question.other' : 'permissions.question.answer',
-                )}
-                placeholderTextColor={colors.textMuted}
-                keyboardType={q.kind === 'number' ? 'numeric' : 'default'}
-                editable={!busy}
-                multiline={q.kind === 'text'}
-                style={styles.input}
-              />
-            </View>
-          )
-        })}
+        <View key={q.question} style={styles.question}>
+          {total > 1 ? (
+            <Text size="xs" color="accentText" weight="medium">
+              {t('permissions.question.progress', { n: index + 1, total })}
+            </Text>
+          ) : null}
+          {q.header ? (
+            <Text size="xs" color="textMuted">
+              {q.header}
+            </Text>
+          ) : null}
+          <Text size="sm" weight="medium" selectable>
+            {q.question}
+          </Text>
+          {q.multiSelect ? (
+            <Text size="xs" color="textMuted">
+              {t('permissions.question.multi')}
+            </Text>
+          ) : null}
+          {q.options.map((option) => {
+            const picked = selection.picked.includes(option.label)
+            return (
+              <Pressable
+                key={option.label}
+                accessibilityRole={q.multiSelect ? 'checkbox' : 'radio'}
+                accessibilityState={{ checked: picked }}
+                disabled={busy}
+                onPress={() => update(q.question, (s) => toggleOption(s, option.label, q.multiSelect))}
+                style={[styles.option, picked && styles.optionPicked]}
+              >
+                <View style={[styles.mark, !q.multiSelect && styles.markRound, picked && styles.markPicked]}>
+                  {picked ? <Check size={12} color={colors.accentInk} /> : null}
+                </View>
+                <View style={styles.flex}>
+                  <Text size="sm">{option.label}</Text>
+                  {option.description ? (
+                    <Text size="xs" color="textMuted">
+                      {option.description}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            )
+          })}
+          <TextInput
+            value={selection.other}
+            onChangeText={(text) => update(q.question, (s) => setOther(s, text, q.multiSelect))}
+            placeholder={t(
+              q.kind === 'choice' ? 'permissions.question.other' : 'permissions.question.answer',
+            )}
+            placeholderTextColor={colors.textMuted}
+            keyboardType={q.kind === 'number' ? 'numeric' : 'default'}
+            editable={!busy}
+            multiline={q.kind === 'text'}
+            style={styles.input}
+          />
+        </View>
       </ScrollView>
       <View style={styles.actions}>
         <Button
@@ -110,15 +109,35 @@ export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Pr
           disabled={busy}
           onPress={onDecline}
         />
-        <Button
-          label={t('permissions.question.send')}
-          variant="primary"
-          compact
-          flex
-          loading={busy}
-          disabled={!isAnswerComplete(questions, selections)}
-          onPress={() => onAnswer({ kind: 'question', answers: buildAnswers(questions, selections) })}
-        />
+        {index > 0 ? (
+          <Button
+            label={t('permissions.question.back')}
+            variant="secondary"
+            compact
+            disabled={busy}
+            onPress={() => setStepIndex(index - 1)}
+          />
+        ) : null}
+        {last ? (
+          <Button
+            label={t('permissions.question.send')}
+            variant="primary"
+            compact
+            flex
+            loading={busy}
+            disabled={!complete}
+            onPress={() => onAnswer({ kind: 'question', answers: buildAnswers(questions, selections) })}
+          />
+        ) : (
+          <Button
+            label={t('permissions.question.next')}
+            variant="primary"
+            compact
+            flex
+            disabled={busy || !answered}
+            onPress={() => setStepIndex(index + 1)}
+          />
+        )}
       </View>
     </View>
   )
