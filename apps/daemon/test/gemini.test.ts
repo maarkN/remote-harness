@@ -30,7 +30,6 @@ import { fakeExecutor, hookEvent, useTempHome } from './helpers.ts'
 const home = useTempHome()
 const options = {
   port: 7338,
-  secret: 's3cr3t',
   curlConfig: '/u/.remote-harness/hook-secret.curlrc',
   permissionTimeoutSec: 300,
 }

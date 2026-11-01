@@ -23,7 +23,7 @@ import {
   renderLauncher,
   upsertPathBlock,
 } from '../src/features/hooks/launcher.ts'
-import type { HookEvent } from '../src/features/hooks/payloads.ts'
+import { HOOK_EVENTS, type HookEvent } from '../src/features/hooks/payloads.ts'
 import { HookReceiver, resolveProfileId } from '../src/features/hooks/receiver.ts'
 import {
   buildHookEntry,
@@ -37,7 +37,6 @@ import { useTempHome } from './helpers.ts'
 const home = useTempHome()
 const options = {
   port: 7338,
-  secret: 's3cr3t',
   curlConfig: '/u/.remote-harness/hook-secret.curlrc',
   permissionTimeoutSec: 300,
 }
@@ -52,20 +51,39 @@ describe('settings hooks merge', () => {
     expect(once.model).toBe('opus')
     expect(once.hooks.Stop).toHaveLength(2)
     expect(once.hooks.Stop?.[0]).toEqual(userStop)
+    // Every hook is a command (#453): the permission one prints the daemon's answer, the others
+    // discard it, and all of them exit 0, so a stopped daemon shows no error in the session.
     const permission = once.hooks.PermissionRequest?.[0]?.hooks[0]
-    expect(permission).toMatchObject({
-      type: 'http',
-      url: 'http://127.0.0.1:7338/hooks/PermissionRequest',
-      timeout: 300,
-      allowedEnvVars: ['TMUX_PANE', 'CLAUDE_REMOTE_PROFILE'],
-    })
+    expect(permission).toMatchObject({ type: 'command', timeout: 310 })
+    expect(permission?.command).toContain('curl -s -m 300 -X POST')
+    expect(permission?.command).toContain(
+      "'http://127.0.0.1:7338/hooks/PermissionRequest' 2>/dev/null || true",
+    )
+    expect(permission?.command).not.toContain('-o /dev/null')
+    for (const event of [
+      'SessionStart',
+      'SessionEnd',
+      'UserPromptSubmit',
+      'Stop',
+      'SubagentStop',
+      'Notification',
+    ]) {
+      const entry = once.hooks[event]?.at(-1)?.hooks[0]
+      expect(entry?.type, event).toBe('command')
+      expect(entry?.command, event).toContain(`-o /dev/null -X POST`)
+      expect(entry?.command, event).toMatch(
+        /'http:\/\/127\.0\.0\.1:7338\/hooks\/\w+' >\/dev\/null 2>&1 \|\| true$/,
+      )
+      expect(entry?.timeout, event).toBe(event === 'SessionEnd' ? 3 : 10)
+    }
+    expect(JSON.stringify(once)).not.toContain('"http"')
   })
 
   test('replaces hooks pointing at an old port', () => {
     const once = mergeOurHooks({}, options)
     const moved = mergeOurHooks(once, { ...options, port: 9000 })
     expect(moved.hooks.Stop).toHaveLength(1)
-    expect(moved.hooks.Stop?.[0]?.hooks[0]?.url).toBe('http://127.0.0.1:9000/hooks/Stop')
+    expect(moved.hooks.Stop?.[0]?.hooks[0]?.command).toContain("'http://127.0.0.1:9000/hooks/Stop'")
   })
 
   test('removal restores the user hooks only', () => {
@@ -73,6 +91,52 @@ describe('settings hooks merge', () => {
     expect(removeOurHooks(mergeOurHooks(settings, options))).toEqual(settings)
     expect(removeOurHooks(mergeOurHooks({ a: 1 }, options))).toEqual({ a: 1 })
   })
+
+  test('the http hooks of an older install are replaced by the command hooks', () => {
+    const legacy = {
+      hooks: {
+        Stop: [userStop, { hooks: [{ type: 'http', url: 'http://127.0.0.1:7338/hooks/Stop', timeout: 5 }] }],
+        PermissionRequest: [
+          {
+            hooks: [
+              {
+                type: 'http',
+                url: 'http://127.0.0.1:7338/hooks/PermissionRequest',
+                timeout: 300,
+                headers: { 'x-claude-remote-secret': 'old-secret' },
+              },
+            ],
+          },
+        ],
+      },
+    }
+    const migrated = mergeOurHooks(legacy, options)
+    expect(migrated).toEqual(mergeOurHooks({ hooks: { Stop: [userStop] } }, options))
+    expect(JSON.stringify(migrated)).not.toContain('old-secret')
+  })
+
+  test(
+    'every hook stays silent when the daemon is not running',
+    async () => {
+      // Nothing listens on the port: curl is refused at once, and the command still exits 0 with no output.
+      const down = { ...options, port: 9, permissionTimeoutSec: 2 }
+      const run = (event: (typeof HOOK_EVENTS)[number]) =>
+        new Promise<{ event: string; code: number; stdout: string }>((resolve) => {
+          const child = execFile(
+            'sh',
+            ['-c', String(buildHookEntry(event, down).command)],
+            { env: { PATH: process.env.PATH } },
+            (error, stdout) =>
+              resolve({ event, code: error ? ((error as { code?: number }).code ?? 1) : 0, stdout }),
+          )
+          child.stdin?.end(JSON.stringify({ session_id: 'abc', hook_event_name: event }))
+        })
+      const results = await Promise.all(HOOK_EVENTS.map(run))
+      expect(results).toEqual(HOOK_EVENTS.map((event) => ({ event, code: 0, stdout: '' })))
+    },
+    // Seven shells and curls: slow when the test suites run in parallel on a loaded machine.
+    20_000,
+  )
 })
 
 describe('installer files', () => {
@@ -381,12 +445,7 @@ describe('hook receiver', () => {
       // curl reads the secret header from the 0600 config, so the command carries only its path.
       const curlConfig = join(home.dir(), 'hook-secret.curlrc')
       await writeFile(curlConfig, renderCurlConfig('sec'), { mode: 0o600 })
-      const entry = buildHookEntry('SessionStart', {
-        port,
-        secret: 'sec',
-        curlConfig,
-        permissionTimeoutSec: 300,
-      })
+      const entry = buildHookEntry('SessionStart', { port, curlConfig, permissionTimeoutSec: 300 })
       expect(entry.type).toBe('command')
       expect(isOurHook(entry)).toBe(true)
       const stdout = await new Promise<string>((resolve, reject) => {

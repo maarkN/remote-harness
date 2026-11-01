@@ -1,4 +1,3 @@
-import { SECRET_HEADER } from '../../transport/hooks-server.ts'
 import { HOOK_EVENTS, type HookEventName } from './payloads.ts'
 import { PANE_HEADER, PROFILE_HEADER } from './receiver.ts'
 
@@ -6,11 +5,9 @@ type HookEntry = { type: string; url?: string; command?: string; [key: string]: 
 type HookGroup = { matcher?: string; hooks: HookEntry[]; [key: string]: unknown }
 type Settings = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
 
+/** The `http` hooks written before #453; still recognized so a reinstall replaces them. */
 const OUR_URL = /^http:\/\/127\.0\.0\.1:\d+\/hooks\//
 const OUR_COMMAND = /^curl .* 'http:\/\/127\.0\.0\.1:\d+\/hooks\/\w+'/
-
-/** Events where Claude Code runs only command hooks, so we post to the daemon with curl. */
-const COMMAND_ONLY_EVENTS: ReadonlySet<HookEventName> = new Set(['SessionStart'])
 
 export function isOurHook(entry: HookEntry): boolean {
   if (entry.type === 'http') return typeof entry.url === 'string' && OUR_URL.test(entry.url)
@@ -23,9 +20,7 @@ function shellQuote(value: string): string {
 
 export type HookInstallOptions = {
   port: number
-  /** Sent as a header value only by the `http` hooks Claude Code reads from its own 0600 `settings.json`. */
-  secret: string
-  /** The 0600 curl config holding the secret header: the command hooks pass it with `-K`, never the value. */
+  /** The 0600 curl config holding the secret header: every hook passes it with `-K`, never the value. */
   curlConfig: string
   permissionTimeoutSec: number
 }
@@ -96,26 +91,30 @@ function curlOptions(options: HookInstallOptions): string {
 }
 
 /**
- * Codex runs command hooks only (`$SHELL -lc`, the event JSON on stdin, Codex's environment, so
- * `$TMUX_PANE` and the launcher's profile are set). The permission hook prints the daemon's answer;
- * an empty answer (daemon down, timeout) lets Codex show its own prompt. `SessionEnd` hooks get at
- * most 3 seconds.
+ * Every hook is a `command` hook running curl, for Claude Code as for Codex and Qwen Code (#453): an
+ * `http` hook that cannot reach the daemon is reported as an error in the session on every event,
+ * while a command that discards its output and exits 0 is silent, so a stopped daemon costs nothing.
+ * The event JSON comes on stdin and the agent's environment carries `$TMUX_PANE` and the launcher's
+ * profile. The permission hook prints the daemon's answer (the JSON the agent reads as the decision);
+ * an empty answer (daemon down, timeout) lets the agent show its own prompt. Every other hook
+ * discards the answer, since a `SessionStart` or `UserPromptSubmit` stdout would go into the agent's
+ * context. `SessionEnd` hooks get at most 3 seconds.
  */
-export function buildCodexHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
-  const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
-  const post = `-X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${url}`
+export function buildHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
   if (event === 'PermissionRequest') {
+    const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
+    const post = `-X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${url}`
     return {
       type: 'command',
+      // curl gives up first: an abandoned request ends as an empty answer, not as a killed hook.
       command: `curl -s -m ${options.permissionTimeoutSec} ${post} 2>/dev/null || true`,
       timeout: options.permissionTimeoutSec + 10,
     }
   }
-  const ending = event === 'SessionEnd'
   return {
     type: 'command',
-    command: `curl -s -m ${ending ? 2 : 5} -o /dev/null ${post} >/dev/null 2>&1 || true`,
-    timeout: ending ? 3 : 10,
+    command: postCommand(event, options),
+    timeout: event === 'SessionEnd' ? 3 : 10,
   }
 }
 
@@ -133,37 +132,14 @@ export function buildGeminiHookEntry(event: HookEventName, options: HookInstallO
 }
 
 /**
- * A shell command posting the hook's stdin to the daemon and discarding the answer (agents whose
- * hooks cannot answer an approval: Gemini CLI, Kimi CLI). `SessionEnd` gives up after 2 seconds.
+ * A shell command posting the hook's stdin to the daemon and discarding the answer, exiting 0 even
+ * when nothing answers (Kimi CLI writes it on its own; the other builders share it). `SessionEnd`
+ * gives up after 2 seconds.
  */
 export function postCommand(event: HookEventName, options: HookInstallOptions): string {
   const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
   const seconds = event === 'SessionEnd' ? 2 : 5
   return `curl -s -m ${seconds} -o /dev/null -X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${url} >/dev/null 2>&1 || true`
-}
-
-export function buildHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
-  const url = `http://127.0.0.1:${options.port}/hooks/${event}`
-  if (COMMAND_ONLY_EVENTS.has(event)) {
-    // Same request as the http hook: stdin JSON as body. Output is discarded because a
-    // SessionStart hook's stdout is added to Claude's context; failures never block the session.
-    return {
-      type: 'command',
-      command: `curl -s -m 5 -o /dev/null -X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${shellQuote(url)} >/dev/null 2>&1 || true`,
-      timeout: 10,
-    }
-  }
-  return {
-    type: 'http',
-    url,
-    timeout: event === 'PermissionRequest' ? options.permissionTimeoutSec : 5,
-    headers: {
-      [SECRET_HEADER]: options.secret,
-      [PANE_HEADER]: '$TMUX_PANE',
-      [PROFILE_HEADER]: '$CLAUDE_REMOTE_PROFILE',
-    },
-    allowedEnvVars: ['TMUX_PANE', 'CLAUDE_REMOTE_PROFILE'],
-  }
 }
 
 /** Removes our hooks, dropping groups and events that become empty. Never touches user hooks. */
@@ -195,13 +171,7 @@ export function mergeOurHooks<T extends Settings>(
 ): T & { hooks: Record<string, HookGroup[]> } {
   const clean = removeOurHooks(settings)
   const hooks: Record<string, HookGroup[]> = { ...(clean.hooks ?? {}) }
-  // Qwen Code runs command hooks like Codex's: the permission hook prints the daemon's answer.
-  const build =
-    style === 'codex-hooks' || style === 'qwen-settings'
-      ? buildCodexHookEntry
-      : style === 'gemini-hooks'
-        ? buildGeminiHookEntry
-        : buildHookEntry
+  const build = style === 'gemini-hooks' ? buildGeminiHookEntry : buildHookEntry
   for (const [key, event] of hookEventsFor(style)) {
     hooks[key] = [...(hooks[key] ?? []), { hooks: [build(event, options)] }]
   }
