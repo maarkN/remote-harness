@@ -17,11 +17,13 @@ import { NewSessionCard } from './NewSessionCard'
 import { NotificationsCard } from './NotificationsCard'
 import { PermissionsCard } from './PermissionsCard'
 import { ProfilesCard } from './ProfilesCard'
+import { TemplatesCard } from './TemplatesCard'
 
 /**
- * Machine → Computers → Devices → Appearance → Language → App icon → Profiles → New session →
- * Notifications → Permissions → Computer → the route's cards (Voice, App). In the offline demo the Demo
- * card takes the place of Computers, and Notifications is left out (the demo never pushes).
+ * Machine → Computers → Devices → Appearance → Language → App icon → Profiles → New session → Prompt
+ * templates → Keyboard → Notifications → Permissions → Computer → the route's cards (Voice, App). In the
+ * offline demo the Demo card takes the place of Computers, and Notifications is left out (the demo never
+ * pushes).
  */
 export function SettingsScreen({ children }: { children?: ReactNode }) {
   const demo = useConnectionStore((s) => s.demo)
@@ -37,6 +39,7 @@ export function SettingsScreen({ children }: { children?: ReactNode }) {
         <AppIconCard />
         <ProfilesCard />
         <NewSessionCard />
+        <TemplatesCard />
         <KeyboardCard />
         {demo ? null : <NotificationsCard />}
         <PermissionsCard />

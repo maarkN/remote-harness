@@ -38,6 +38,7 @@ import { restoreSessionSort } from '@/features/sessions/sort-store'
 import { restoreAppIconPreference, useApplyAppIcon } from '@/features/settings/app-icon-store'
 import { restoreMachineAlias, useMachineNameSync } from '@/features/settings/machine-store'
 import { useRevokedNotice } from '@/features/settings/use-revoked-notice'
+import { restoreTemplates } from '@/features/templates/store'
 import { restoreVoiceInteraction } from '@/features/voice/voice-interaction-store'
 import { restoreVoiceLanguage } from '@/features/voice/voice-language-store'
 import { restoreVoicePolish } from '@/features/voice/voice-polish-store'
@@ -98,6 +99,7 @@ export default function RootLayout() {
     void restoreVoiceLanguage()
     void restoreVoicePolish()
     void restoreVoiceInteraction()
+    void restoreTemplates()
   }, [])
 
   // Restores the unsent prompts saved on this device and keeps saving them.

@@ -1,7 +1,14 @@
 import { SESSION_NAME_MAX } from '@remote-harness/protocol'
 import { useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
-import { ChevronRight, Folder, FolderGit2, FolderSearch, GitBranch } from 'lucide-react-native'
+import {
+  ChevronRight,
+  Folder,
+  FolderGit2,
+  FolderSearch,
+  GitBranch,
+  LayoutTemplate,
+} from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -23,11 +30,13 @@ import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/the
 import { AGENT_NAMES } from '@/core/theme/agents'
 import { relativeTime, shortPath } from '@/core/utils/time'
 import { useDebounced } from '@/core/utils/use-debounced'
+import { appendToDraft } from '@/features/commands/logic'
 import { keyboardOffset } from '@/features/conversation/autocorrect'
 import { providerName } from '@/features/providers/logic'
 import { ModelPickerSheet } from '@/features/providers/ModelPickerSheet'
 import { ProfileProviderChip } from '@/features/providers/ProfileProviderChip'
 import { useSessionsStore } from '@/features/sessions/store'
+import { TemplatesSheet } from '@/features/templates/TemplatesSheet'
 import { AgentBadge, Button, Card, Chip, Screen, Text } from '@/ui'
 import { DirectoryPickerSheet } from './DirectoryPickerSheet'
 import {
@@ -73,6 +82,7 @@ export function NewSessionScreen() {
   const [name, setName] = useState('')
   // First prompt (#430): the agent runs it as soon as it starts; only for CLIs that take one.
   const [firstPrompt, setFirstPrompt] = useState('')
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [worktree, setWorktree] = useState(false)
   const [busy, setBusy] = useState(false)
   // Set synchronously so a second tap during the inspection or the launch is ignored.
@@ -426,6 +436,18 @@ export function NewSessionScreen() {
                 <Text size="xs" color="textDim">
                   {t('newSession.firstPromptHint')}
                 </Text>
+                <View style={styles.templateRow}>
+                  <Button
+                    label={t('newSession.useTemplate')}
+                    compact
+                    variant="secondary"
+                    icon={<LayoutTemplate size={16} color={colors.text} />}
+                    onPress={() => {
+                      Keyboard.dismiss()
+                      setTemplatesOpen(true)
+                    }}
+                  />
+                </View>
               </>
             ) : null}
 
@@ -570,6 +592,12 @@ export function NewSessionScreen() {
           onClose={() => setPicking(false)}
         />
       ) : null}
+      <TemplatesSheet
+        visible={templatesOpen}
+        context={{ branch, cwd: trimmedCwd }}
+        onPick={(text) => setFirstPrompt((current) => appendToDraft(current, text))}
+        onClose={() => setTemplatesOpen(false)}
+      />
       {provider && profileId ? (
         <ModelPickerSheet
           visible={modelPicking}
@@ -629,6 +657,7 @@ const useStyles = makeStyles((theme) => ({
   section: { marginTop: space.md },
   // Three lines of room; grows with the text.
   multiline: { minHeight: 88, textAlignVertical: 'top' },
+  templateRow: { flexDirection: 'row' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   shrink: { flexShrink: 1 },
   modelRow: {

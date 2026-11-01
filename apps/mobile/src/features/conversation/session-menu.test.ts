@@ -54,6 +54,7 @@ describe('sessionMenu', () => {
     expect(hidden.items.map((i) => [i.key, i.disabled])).toEqual([
       ['terminal', false],
       ['toggleKeyBar', false],
+      ['templates', false],
       ['history', false],
       ['changes', false],
       ['toggleFollow', false],
@@ -115,9 +116,23 @@ describe('sessionMenu', () => {
     expect(menu.items.filter((i) => i.disabled).map((i) => i.key)).toEqual([
       'terminal',
       'toggleKeyBar',
+      'templates',
       'close',
     ])
     expect(menu.disabledReason).toMatch(/read-only/i)
+  })
+
+  test('"Prompt templates…" sits right before the history and is disabled when read-only', () => {
+    const items = (controllable: boolean) =>
+      sessionMenu({ controllable, keyBarVisible: false, following: false }, en).items
+    const keys = items(true).map((i) => i.key)
+    expect(keys.indexOf('templates')).toBe(keys.indexOf('history') - 1)
+    expect(items(true).find((i) => i.key === 'templates')).toEqual({
+      key: 'templates',
+      label: 'Prompt templates…',
+      disabled: false,
+    })
+    expect(items(false).find((i) => i.key === 'templates')?.disabled).toBe(true)
   })
 
   test('subagents appear after the terminal only when the session has some, with their counts', () => {
