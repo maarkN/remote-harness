@@ -103,6 +103,7 @@ export const esES = {
       qwenAccountWithoutProfile: (dir: string) =>
         `Cuenta de Qwen Code encontrada en ${dir} sin un perfil. Ejecuta \`remote-harness setup\` para añadirla.`,
       runInstall: 'ejecuta `remote-harness install`',
+      hookCurlConfig: (path: string) => `secreto de los hooks para curl en ${path} (0600)`,
       service: (name: string, detail: string) => `servicio en segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',
       launcherNative: 'las solicitudes de acceso a carpetas muestran "Remote Harness"',
@@ -281,6 +282,8 @@ export const esES = {
     hooksRemovedFrom: (path: string) => `hooks eliminados de ${path}`,
     statusLineIn: (path: string) => `status line en ${path}`,
     statusLineRestored: (path: string) => `status line restaurada en ${path}`,
+    hookSecretRotated: (path: string) =>
+      `secreto de los hooks renovado (las versiones antiguas lo ponían en la línea de comandos de curl); curl ahora lo lee de ${path} — un daemon en ejecución y las sesiones abiertas lo usan cuando se reinicien`,
   },
   setup: {
     languageQuestion: 'Idioma',

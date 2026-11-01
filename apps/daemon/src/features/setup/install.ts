@@ -7,11 +7,11 @@ import type { Profile } from '@remote-harness/protocol'
 import { type Config, hookTimeoutSec } from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
 import { expandHome, paths } from '../../core/paths.ts'
-import { ensureHookSecret } from '../../core/secrets.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { isDirectory } from '../../infra/fs.ts'
 import type { Platform } from '../../infra/platform.ts'
 import { agentFor, hasAgentAdapter, profileAgentId } from '../agents/index.ts'
+import { ensureHookSecretFiles } from '../hooks/hook-secret.ts'
 import {
   installHooks,
   installLaunchers,
@@ -84,12 +84,16 @@ export async function installAll(
     status: changed.length > 0 ? 'done' : 'skip',
     text: m.shellPath(displayPaths(changed.length > 0 ? changed : o.rcFiles)),
   })
-  const secret = await ensureHookSecret()
-  const statusLineScript = await installStatusLineScript(paths.bin(), { port: config.hookPort, secret })
+  // A secret from a version that put it on curl's command line is replaced here, before the hooks
+  // and the status line are written with it.
+  const { secret, curlConfig, rotated } = await ensureHookSecretFiles()
+  if (rotated) lines.push({ status: 'done', text: m.hookSecretRotated(curlConfig) })
+  const statusLineScript = await installStatusLineScript(paths.bin(), { port: config.hookPort, curlConfig })
   for (const profile of profiles) {
     const changed = await installHooks(profile, {
       port: config.hookPort,
       secret,
+      curlConfig,
       permissionTimeoutSec: hookTimeoutSec(config),
     })
     lines.push({ status: changed ? 'done' : 'skip', text: m.hooksIn(settingsPath(profile)) })

@@ -40,6 +40,7 @@ import {
 import { DAEMON_VERSION } from './core/version.ts'
 import { agentFor } from './features/agents/index.ts'
 import { measureRelays } from './features/connectivity/measure.ts'
+import { hookCurlConfigMatches } from './features/hooks/hook-secret.ts'
 import {
   existingRcFiles,
   hasOurHooks,
@@ -486,6 +487,8 @@ program
         const name = PROVIDER_NAMES[profile.provider.kind]
         check(stored !== null, d.providerKey(profile.id, name), d.runProviderKey(profile.id))
       }
+      // The curl-based hooks and the status line read the secret from this file; stale or missing, they fail silently.
+      check(await hookCurlConfigMatches(), d.hookCurlConfig(tildify(paths.hookCurlConfig())), d.runInstall)
       try {
         const response = await fetch(`http://127.0.0.1:${config.hookPort}/health`, {
           headers: { [SECRET_HEADER]: await ensureHookSecret() },

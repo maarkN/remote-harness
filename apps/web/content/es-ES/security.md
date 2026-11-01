@@ -11,7 +11,7 @@ El daemon puede escribir en tus sesiones de Claude Code y aprobar llamadas a her
 ## Red
 
 - La app llega al daemon directo (un WebSocket en todas las interfaces del ordenador, o solo en `127.0.0.1` con `--dev`) o a través de un relay de conexión. En los dos caminos cada byte va cifrado de extremo a extremo, y una conexión que no completa el handshake con una clave emparejada no recibe nada; el relay solo reenvía texto cifrado y no puede leer tus sesiones.
-- Los hooks de Claude Code llegan al daemon solo por `127.0.0.1`, con un secreto local compartido.
+- Los hooks de Claude Code llegan al daemon solo por `127.0.0.1`, con un secreto local compartido guardado en un archivo `0600`; los comandos `curl` que escribe el instalador lo leen de una configuración `0600` de curl, nunca de una línea de comandos que otros procesos podrían listar.
 - `relay: off` o `direct: off` en la configuración apagan un camino; `remote-harness devices revoke <id>` desempareja un móvil al momento.
 
 ## Claves y emparejamiento
