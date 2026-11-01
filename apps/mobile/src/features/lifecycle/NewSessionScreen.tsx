@@ -38,6 +38,8 @@ import {
 } from './directory-input'
 import {
   canStartInWorktree,
+  canStartWithPrompt,
+  cleanFirstPrompt,
   cleanSessionName,
   nameSuggestions,
   profileAgent,
@@ -69,6 +71,8 @@ export function NewSessionScreen() {
   const [profileId, setProfileId] = useState<string | null>(null)
   const [cwd, setCwd] = useState('')
   const [name, setName] = useState('')
+  // First prompt (#430): the agent runs it as soon as it starts; only for CLIs that take one.
+  const [firstPrompt, setFirstPrompt] = useState('')
   const [worktree, setWorktree] = useState(false)
   const [busy, setBusy] = useState(false)
   // Set synchronously so a second tap during the inspection or the launch is ignored.
@@ -127,6 +131,7 @@ export function NewSessionScreen() {
   const current = inspectedCwd === cwd.trim() ? inspection.data : undefined
   const checkout = current?.checkout ?? null
   const worktreeAllowed = selectedProfile ? canStartInWorktree(profileAgent(selectedProfile)) : false
+  const promptAllowed = selectedProfile ? canStartWithPrompt(profileAgent(selectedProfile)) : false
   const peers = current?.peers ?? []
   const carryOver = worktreeCarryOver(current?.worktreeCopy, t)
   const branch = checkout?.branch ?? null
@@ -188,6 +193,7 @@ export function NewSessionScreen() {
     setBusy(true)
     setError(null)
     const sessionName = cleanSessionName(name)
+    const prompt = promptAllowed ? cleanFirstPrompt(firstPrompt) : undefined
     try {
       const reply = await client.request({
         type: 'session.start',
@@ -196,6 +202,7 @@ export function NewSessionScreen() {
         ...(inWorktree ? { worktree: true } : {}),
         ...(model ? { model } : {}),
         ...(sessionName ? { name: sessionName } : {}),
+        ...(prompt ? { prompt } : {}),
       })
       const started = reply.type === 'session.started' ? reply : null
       if (openAfterCreate && started && !started.sessionId) {
@@ -402,6 +409,26 @@ export function NewSessionScreen() {
               </View>
             ) : null}
 
+            {promptAllowed ? (
+              <>
+                <Text size="xs" color="textMuted" style={styles.section}>
+                  {t('newSession.firstPrompt')}
+                </Text>
+                <TextInput
+                  value={firstPrompt}
+                  onChangeText={setFirstPrompt}
+                  placeholder={t('newSession.firstPromptPlaceholder')}
+                  placeholderTextColor={colors.textDim}
+                  multiline
+                  accessibilityLabel={t('newSession.firstPrompt')}
+                  style={[styles.input, styles.multiline]}
+                />
+                <Text size="xs" color="textDim">
+                  {t('newSession.firstPromptHint')}
+                </Text>
+              </>
+            ) : null}
+
             <Text size="xs" color="textMuted" style={styles.section}>
               {t('newSession.recent')}
             </Text>
@@ -600,6 +627,8 @@ const useStyles = makeStyles((theme) => ({
     fontSize: fontSize.md,
   },
   section: { marginTop: space.md },
+  // Three lines of room; grows with the text.
+  multiline: { minHeight: 88, textAlignVertical: 'top' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   shrink: { flexShrink: 1 },
   modelRow: {

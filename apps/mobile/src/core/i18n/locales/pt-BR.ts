@@ -853,6 +853,9 @@ const ptBR = {
     placeholder: '~/workspaces/projeto',
     name: 'Nome (opcional)',
     namePlaceholder: 'ex.: Limite de tentativas no login',
+    firstPrompt: 'Primeiro prompt (opcional)',
+    firstPromptPlaceholder: 'ex.: Revise o PR aberto e liste os riscos',
+    firstPromptHint: 'Enviado assim que o agente estiver pronto.',
     start: 'Iniciar sessão',
     starting: 'Iniciando {{agent}} em {{path}}…',
     recent: 'Recentes',
@@ -897,6 +900,8 @@ const ptBR = {
       invalidCwd: 'Diretório não encontrado ou fora da sua pasta pessoal.',
       profileNotFound: 'Este perfil não existe mais no computador. Escolha outro.',
       launchFailed: 'Não foi possível abrir {{agent}} no tmux: {{reason}}',
+      promptTooLarge:
+        'O primeiro prompt é longo demais (no máximo 8 KB). Inicie a sessão e envie pela conversa.',
     },
   },
   resume: {

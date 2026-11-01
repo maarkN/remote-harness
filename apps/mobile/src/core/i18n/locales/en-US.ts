@@ -855,6 +855,9 @@ const enUS = {
     placeholder: '~/workspaces/project',
     name: 'Name (optional)',
     namePlaceholder: 'e.g. Rate limit on login',
+    firstPrompt: 'First prompt (optional)',
+    firstPromptPlaceholder: 'e.g. Review the open PR and list the risks',
+    firstPromptHint: 'Sent as soon as the agent is ready.',
     start: 'Start session',
     starting: 'Starting {{agent}} in {{path}}…',
     recent: 'Recent',
@@ -899,6 +902,8 @@ const enUS = {
       invalidCwd: 'Directory not found or outside your home folder.',
       profileNotFound: 'This profile no longer exists on the computer. Pick another one.',
       launchFailed: 'Could not open {{agent}} in tmux: {{reason}}',
+      promptTooLarge:
+        'The first prompt is too long (8 KB at most). Start the session and send it from the conversation.',
     },
   },
   resume: {

@@ -31,6 +31,7 @@ describe('agent adapters', () => {
     expect(claude.worktreeArgs('remote-1')).toEqual(['--worktree', 'remote-1'])
     expect(claude.nameArgs('Login bug')).toEqual(['--name', 'Login bug'])
     expect(claude.renameCommand('Login bug')).toBeNull()
+    expect(claude.promptArgs).toEqual(['--'])
     expect(claude.presets).toBeNull()
     expect(claude.polish?.parse(JSON.stringify({ result: 'ok' }))).toBe('ok')
     expect(claude.hooks.file('/Users/me/.claude')).toBe('/Users/me/.claude/settings.json')
@@ -75,6 +76,13 @@ describe('agent adapters', () => {
     ])
     // A prompt starting with a dash is still the prompt.
     expect(polishArgs.slice(-2)).toEqual(['--', 'Rewrite it.\n\n-- so, um, continue'])
+  })
+
+  test('a first prompt: after `--` (Claude Code, Codex), with --prompt-interactive (Gemini CLI, Qwen Code), never for Kimi CLI', () => {
+    expect(agentFor({ agent: 'codex' }).promptArgs).toEqual(['--'])
+    expect(agentFor({ agent: 'gemini' }).promptArgs).toEqual(['--prompt-interactive'])
+    expect(agentFor({ agent: 'qwen' }).promptArgs).toEqual(['--prompt-interactive'])
+    expect(agentFor({ agent: 'kimi' }).promptArgs).toBeNull()
   })
 
   test('codex exec answers: the last non-empty agent message', () => {

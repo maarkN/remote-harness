@@ -288,6 +288,32 @@ exit 0
     expect(log).not.toContain('switch-client')
   })
 
+  test('a first prompt reaches the window through its environment, never the command line', async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    const { TMUX: _, ...env } = process.env
+    const run = (extra: Record<string, string>) =>
+      execFileSync('zsh', ['-c', script], {
+        env: { ...env, CLAUDE_REMOTE_NO_ATTACH: '1', ...extra },
+        cwd: home.dir(),
+      })
+    run({})
+    const before = await fake.log()
+    expect(before).not.toContain('CLAUDE_REMOTE_PROMPT')
+    const prompt = 'Review the open PR.\nList the "risks" for $USER.'
+    run({ CLAUDE_REMOTE_PROMPT: prompt })
+    const after = (await fake.log()).slice(before.length)
+    // The window gets the text, line break and quotes intact, and its shell expands it: the command
+    // line (the last argument, before ` | TMUX=`) ends with the variable, not the text.
+    expect(after).toContain(`-e CLAUDE_REMOTE_PROMPT=${prompt} `)
+    expect(after).toContain('env -u CLAUDE_CONFIG_DIR claude -- "$CLAUDE_REMOTE_PROMPT" | TMUX=')
+    expect(after).not.toContain(`${prompt} | TMUX=`)
+    // A Kimi CLI launcher has no such block at all.
+    const kimi = renderLauncher({ ...profile, configDir: '/Users/u/.kimi', agent: 'kimi' }, options)
+    execFileSync('zsh', ['-n', '-c', kimi])
+    expect(kimi).not.toContain('CLAUDE_REMOTE_PROMPT')
+  })
+
   test('inside a client of the Remote Harness server: switches that client', async () => {
     const fake = await fakeTmux()
     const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })

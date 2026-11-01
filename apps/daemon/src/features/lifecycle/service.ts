@@ -4,7 +4,7 @@ import type { Checkout, Profile, ProjectItem } from '@remote-harness/protocol'
 import { DaemonError } from '../../core/errors.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { isDirectory } from '../../infra/fs.ts'
-import { adapterOf, agentFor } from '../agents/index.ts'
+import { type AgentAdapter, adapterOf, agentFor } from '../agents/index.ts'
 import { worktreeCandidates, worktreeName, worktreeSlug } from '../checkout/resolver.ts'
 import type { SessionStore } from '../sessions/store.ts'
 
@@ -13,6 +13,18 @@ export const MAX_PROJECTS = 30
 export const START_SETTLE_MS = 1_500
 /** How long `start` waits, after the settle check, for the new pane's `SessionStart` hook to register. */
 export const WAIT_FOR_SESSION_MS = 4_000
+/**
+ * A first prompt rides in the launcher's environment and then in tmux's `new-window -e`, whose whole
+ * command (folder, name, the other variables) must stay under tmux's 16 KB message limit.
+ */
+export const MAX_FIRST_PROMPT_BYTES = 8 * 1024
+
+/** Checked before anything is launched: the CLI must take a first prompt and tmux must carry it. */
+function assertFirstPrompt(agent: AgentAdapter, prompt: string): void {
+  if (!agent.promptArgs) throw new DaemonError('bad_request', `${agent.name} cannot start with a prompt`)
+  if (Buffer.byteLength(prompt, 'utf8') > MAX_FIRST_PROMPT_BYTES)
+    throw new DaemonError('too_large', 'the first prompt exceeds 8 KB')
+}
 
 /** Accepts only existing directories inside the user's home. */
 export async function validateCwd(raw: string, home = homedir()): Promise<string> {
@@ -58,11 +70,16 @@ export class LifecycleService {
     return profile
   }
 
-  private async launch(profile: Profile, cwd: string, args: string[]): Promise<string> {
+  private async launch(
+    profile: Profile,
+    cwd: string,
+    args: string[],
+    env: Record<string, string> = {},
+  ): Promise<string> {
     const launcher = join(this.binDir, profile.id)
     const result = await this.exec(launcher, args, {
       cwd,
-      env: { CLAUDE_REMOTE_NO_ATTACH: '1' },
+      env: { CLAUDE_REMOTE_NO_ATTACH: '1', ...env },
       timeoutMs: 10_000,
     })
     if (result.exitCode !== 0) {
@@ -83,15 +100,18 @@ export class LifecycleService {
   /**
    * `worktree` runs Claude Code with `--worktree <name>` (its own git worktree and branch); `model`
    * adds `--model <id>` (a provider model picked in the app); `name` adds the agent's display-name
-   * flag and becomes the session's title as soon as it registers.
+   * flag and becomes the session's title as soon as it registers; `prompt` is the first prompt, which
+   * the launcher hands to the CLI through the window's environment (`CLAUDE_REMOTE_PROMPT`) so the
+   * agent runs it itself as soon as it is ready.
    */
   async start(
     profileId: string,
     rawCwd: string,
-    options: { worktree?: boolean; model?: string; name?: string } = {},
+    options: { worktree?: boolean; model?: string; name?: string; prompt?: string } = {},
   ): Promise<{ paneId: string; sessionId: string | null }> {
     const profile = this.profile(profileId)
     const agent = agentFor(profile)
+    if (options.prompt !== undefined) assertFirstPrompt(agent, options.prompt)
     const cwd = await validateCwd(rawCwd, this.home)
     const args: string[] = []
     if (options.worktree) {
@@ -103,7 +123,12 @@ export class LifecycleService {
     }
     if (options.model) args.push('--model', options.model)
     if (options.name) args.push(...(agent.nameArgs(options.name) ?? []))
-    const paneId = await this.launch(profile, cwd, args)
+    const paneId = await this.launch(
+      profile,
+      cwd,
+      args,
+      options.prompt ? { CLAUDE_REMOTE_PROMPT: options.prompt } : {},
+    )
     // The launcher only reports the window it created; a window whose command exits closes at once.
     if (this.settleMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, this.settleMs))

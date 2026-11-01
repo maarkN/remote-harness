@@ -127,6 +127,8 @@ export const kimi: AgentAdapter = {
   worktreeArgs: () => null,
   nameArgs: () => null,
   renameCommand: () => null,
+  // `--prompt` runs non-interactively; there is no flag that runs a prompt and keeps the TUI.
+  promptArgs: null,
   transcript: kimiTranscript,
   findTranscripts: findKimiTranscripts,
   readSummary: readKimiSummary,

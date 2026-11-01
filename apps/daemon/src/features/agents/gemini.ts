@@ -116,6 +116,8 @@ export const gemini: AgentAdapter = {
   worktreeArgs: () => null,
   nameArgs: () => null,
   renameCommand: () => null,
+  // `-i`: runs the prompt, then stays interactive (`-p` would exit after the answer).
+  promptArgs: ['--prompt-interactive'],
   transcript: geminiTranscript,
   findTranscripts: findGeminiTranscripts,
   readSummary: readGeminiSummary,

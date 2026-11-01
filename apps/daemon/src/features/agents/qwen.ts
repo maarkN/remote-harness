@@ -60,6 +60,8 @@ export const qwen: AgentAdapter = {
   worktreeArgs: () => null,
   nameArgs: () => null,
   renameCommand: () => null,
+  // Gemini CLI's flag, kept by the fork.
+  promptArgs: ['--prompt-interactive'],
   transcript: qwenTranscript,
   findTranscripts: findQwenTranscripts,
   readSummary: readQwenSummary,

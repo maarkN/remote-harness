@@ -111,6 +111,19 @@ export function renderLauncher(profile: Profile, options: LauncherOptions): stri
   const tmuxCmd = server
     ? `("$TMUX_BIN" -L ${zshQuote(server.socket)} -f ${zshQuote(server.conf)})`
     : '("$TMUX_BIN")'
+  // A first prompt (CLAUDE_REMOTE_PROMPT, set by the daemon) reaches the CLI through the window's
+  // environment, expanded by the window's shell: the tmux command line is shell-quoted (a line break
+  // becomes zsh-only `$'\n'`) and capped at 16 KB, and a tmux server this launcher starts must not
+  // inherit the variable.
+  const promptBlock = agent.promptArgs
+    ? `prompt="$CLAUDE_REMOTE_PROMPT"
+unset CLAUDE_REMOTE_PROMPT
+if [[ -n "$prompt" ]]; then
+  envs+=(-e "CLAUDE_REMOTE_PROMPT=$prompt")
+  command_line+=${zshQuote(` ${agent.promptArgs.join(' ')} "$CLAUDE_REMOTE_PROMPT"`)}
+fi
+`
+    : ''
   return `#!/usr/bin/env zsh
 # Remote Harness launcher for profile "${profile.id}" (${profile.name}). Generated; do not edit.
 ${configDir}
@@ -126,7 +139,7 @@ name="${profile.id}:\${PWD:t}"
 cmd=(${command})
 command_line="\${(j: :)\${(q)cmd[@]}}"
 envs=(${configEnv}${execEnv}-e "CLAUDE_REMOTE_PROFILE=$CLAUDE_REMOTE_PROFILE")
-
+${promptBlock}
 if "\${TMUX_CMD[@]}" has-session -t "=$SESSION" 2>/dev/null; then
   ids=$("\${TMUX_CMD[@]}" new-window -d -P -F '#{pane_id} #{window_id}' -t "=$SESSION:" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
 else

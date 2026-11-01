@@ -50,6 +50,8 @@ export const claudeCode: AgentAdapter = {
   worktreeArgs: (name) => ['--worktree', name],
   nameArgs: (name) => ['--name', name],
   renameCommand: () => null,
+  // `claude [options] [prompt]`: `--` keeps a prompt starting with `-` (or named like a subcommand) a prompt.
+  promptArgs: ['--'],
   transcript: claudeTranscript,
   findTranscripts: findClaudeTranscripts,
   readSummary: async (path) => ({ ...(await readTranscriptMeta(path)), approvalPolicy: null }),
