@@ -17,6 +17,7 @@ export function KeyboardToolbar({
   keysDisabled,
   canDismiss,
   onTrigger,
+  onTemplates,
   commandEnabled = true,
 }: {
   onKey: (key: Key) => void
@@ -25,6 +26,8 @@ export function KeyboardToolbar({
   canDismiss: boolean
   /** Inserts `@` or `/` in the prompt; the buttons show while the keys are collapsed. */
   onTrigger?: (trigger: '@' | '/') => void
+  /** Opens the prompt templates picker; its `{}` button sits next to `@` and `/`. */
+  onTemplates?: () => void
   /** `/` only starts a blank prompt. */
   commandEnabled?: boolean
 }) {
@@ -59,6 +62,11 @@ export function KeyboardToolbar({
             >
               /
             </TriggerButton>
+            {onTemplates ? (
+              <TriggerButton label={t('conversation.insertTrigger.template')} onPress={onTemplates}>
+                {'{}'}
+              </TriggerButton>
+            ) : null}
           </View>
         ) : null}
       </View>

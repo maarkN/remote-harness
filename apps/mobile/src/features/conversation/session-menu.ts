@@ -8,6 +8,7 @@ export type SessionMenuAction =
   | 'subagents'
   | 'toggleKeyBar'
   | 'toggleHandsFree'
+  | 'templates'
   | 'history'
   | 'toggleFollow'
   | 'toggleLiveFollow'
@@ -26,6 +27,7 @@ export type SubagentCounts = { count: number; running: number }
  * (`liveFollow` is the current state), labeled by the action it takes. "Run command…" appears when
  * the daemon accepts shell commands (`commands`); it runs in the session's folder, pane or not.
  * "Hands-free" appears when the binary can speak (`handsFree` is its state), labeled by the action.
+ * "Prompt templates…" opens the templates picker, which types into the composer, so it needs a pane too.
  */
 export function sessionMenu(
   {
@@ -91,6 +93,7 @@ export function sessionMenu(
               disabled: !controllable,
             },
           ]),
+      { key: 'templates', label: t('sessionMenu.templates'), disabled: !controllable },
       { key: 'history', label: t('sessionMenu.history'), disabled: false },
       { key: 'changes', label: t('sessionMenu.changes'), disabled: false },
       {

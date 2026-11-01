@@ -39,6 +39,7 @@ import { useStableSession } from '@/features/sessions/use-stable-session'
 import { useShortcutRequest } from '@/features/shortcuts/use-shortcut-request'
 import { SubagentsSheet } from '@/features/subagents/SubagentsSheet'
 import { subagentCounts } from '@/features/subagents/sort'
+import { TemplatesSheet } from '@/features/templates/TemplatesSheet'
 import { ActionMenu, AgentBadge, headerActions, IconButton, ProfileTag, Text } from '@/ui'
 
 export default function SessionRoute() {
@@ -76,6 +77,7 @@ export default function SessionRoute() {
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   // Hands-free (#416): the composer becomes the voice bar; only for sessions that take input.
   const [handsFreeOn, setHandsFreeOn] = useState(false)
   const handsFree = handsFreeOn && controllable
@@ -118,6 +120,10 @@ export default function SessionRoute() {
     runCommand: () => {
       Keyboard.dismiss()
       setCommandOpen(true)
+    },
+    templates: () => {
+      Keyboard.dismiss()
+      setTemplatesOpen(true)
     },
     model: () => {
       Keyboard.dismiss()
@@ -226,6 +232,15 @@ export default function SessionRoute() {
           onAddToPrompt={(block) => prompt.setText((current) => appendToDraft(current, block))}
         />
       ) : null}
+      {session ? (
+        <TemplatesSheet
+          visible={templatesOpen}
+          context={{ branch: session.checkout?.branch ?? null, cwd: session.cwd }}
+          currentText={prompt.text}
+          onPick={(text) => prompt.setText((current) => appendToDraft(current, text))}
+          onClose={() => setTemplatesOpen(false)}
+        />
+      ) : null}
       {session && provider ? (
         <ModelPickerSheet
           visible={modelOpen}
@@ -306,6 +321,7 @@ export default function SessionRoute() {
               prompt={prompt}
               disabled={!controllable}
               autoFocus={autofocus === '1'}
+              onTemplates={actions.templates}
             />
           )
         }
