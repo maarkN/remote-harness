@@ -221,39 +221,49 @@ final class Tray: NSObject {
     dispatch(id)
   }
 
-  /// The Remote Harness mark in its bold weight (three reins meeting in one ring), drawn from the
-  /// same geometry as the app icon (256-unit box). Color encodes only the state: `idle` is a template
-  /// image (macOS tints it for light and dark menu bars), `working` fills the ring, `waiting` adds
-  /// the amber dot (the one color allowed in the menu bar) over label-colored strokes.
+  /// The Remote Harness mark in its bold weight ("Cursor Signal": a terminal cursor block with the `>`
+  /// prompt cut out of it and three signal arcs leaving it to the right), drawn from the same geometry
+  /// as the app icon (256-unit box). The state shows as shape and opacity, never as color but the amber
+  /// dot: `idle` is a template image (macOS tints it for light and dark menu bars), `working` fills the
+  /// block solid (the prompt disappears, like a busy cursor), `waiting` adds the amber dot (the one
+  /// color allowed in the menu bar) over label-colored strokes, `offline` draws the template at 40 %.
   private static func glyph(_ state: String) -> NSImage {
     let colored = state == "waiting"
     let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
       let s = rect.width / 256
       let p = { (x: CGFloat, y: CGFloat) in NSPoint(x: x * s, y: y * s) }
-      (colored ? NSColor.labelColor : NSColor.black).set()
-      let strokes = NSBezierPath()
-      strokes.lineWidth = 34 * s
-      strokes.lineCapStyle = .round
-      strokes.lineJoinStyle = .round
-      strokes.appendOval(in: NSRect(x: 92 * s, y: 150 * s, width: 72 * s, height: 72 * s))
-      strokes.move(to: p(128, 150))
-      strokes.line(to: p(128, 70))
-      strokes.move(to: p(108, 156))
-      strokes.curve(to: p(56, 84), controlPoint1: p(100, 122), controlPoint2: p(86, 104))
-      strokes.move(to: p(148, 156))
-      strokes.curve(to: p(200, 84), controlPoint1: p(156, 122), controlPoint2: p(170, 104))
-      strokes.stroke()
-      if state == "working" {
-        NSBezierPath(ovalIn: NSRect(x: 104 * s, y: 162 * s, width: 48 * s, height: 48 * s)).fill()
+      let ink = (colored ? NSColor.labelColor : NSColor.black)
+        .withAlphaComponent(state == "offline" ? 0.4 : 1)
+      ink.set()
+      let block = NSRect(x: 34 * s, y: 76 * s, width: 62 * s, height: 104 * s)
+      NSBezierPath(roundedRect: block, xRadius: 13 * s, yRadius: 13 * s).fill()
+      if state != "working" {
+        // The prompt is punched out of the block: an opaque stroke erased from what is drawn so far.
+        let prompt = NSBezierPath()
+        prompt.lineWidth = 24 * s
+        prompt.lineCapStyle = .round
+        prompt.lineJoinStyle = .round
+        prompt.move(to: p(51, 104))
+        prompt.line(to: p(79, 128))
+        prompt.line(to: p(51, 152))
+        NSColor.black.set()
+        NSGraphicsContext.current?.compositingOperation = .destinationOut
+        prompt.stroke()
+        NSGraphicsContext.current?.compositingOperation = .sourceOver
+        ink.set()
       }
-      for (x, y) in [(104, 24), (28, 46), (180, 46)] as [(CGFloat, CGFloat)] {
-        let node = NSRect(x: x * s, y: y * s, width: 48 * s, height: 48 * s)
-        NSBezierPath(roundedRect: node, xRadius: 12 * s, yRadius: 12 * s).fill()
+      for radius in [36, 76, 116] as [CGFloat] {
+        // Each arc is its own path: appending to one would join them with lines.
+        let arc = NSBezierPath()
+        arc.lineWidth = 28 * s
+        arc.lineCapStyle = .round
+        arc.appendArc(withCenter: p(96, 128), radius: radius * s, startAngle: -40, endAngle: 40)
+        arc.stroke()
       }
       if colored {
-        // Amber accent (#E8A33D), the only color the glyph ever carries.
+        // Amber accent (#E8A33D), the only color the glyph ever carries, over the outer arc's upper end.
         NSColor(calibratedRed: 0.91, green: 0.64, blue: 0.24, alpha: 1).set()
-        NSBezierPath(ovalIn: NSRect(x: 176 * s, y: 164 * s, width: 64 * s, height: 64 * s)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 184 * s, y: 12 * s, width: 64 * s, height: 64 * s)).fill()
       }
       return true
     }

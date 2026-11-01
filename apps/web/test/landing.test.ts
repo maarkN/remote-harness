@@ -248,6 +248,13 @@ describe('site files', () => {
     expect(robotsTxt()).toContain('Sitemap: https://remoteharness.app/sitemap.xml')
     expect(robotsTxt()).toContain('Disallow: /ios/')
     expect(faviconSvg().startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
+    // The Cursor Signal on the flat warm dark: the prompt cut out of the block, the arcs, the corners.
+    expect(faviconSvg()).toContain('<rect width="256" height="256" rx="56" fill="#1c1a17"/>')
+    expect(faviconSvg()).toContain(
+      '<path d="M51 104L79 128L51 152" fill="none" stroke="#000" stroke-width="24"',
+    )
+    expect(faviconSvg()).toContain('A116 116 0 0 1 184.9 202.6')
+    expect(faviconSvg()).not.toContain('<circle')
   })
 })
 
