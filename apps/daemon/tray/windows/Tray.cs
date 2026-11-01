@@ -252,29 +252,38 @@ namespace RemoteHarness
                     float s = size / 256f;
                     int alpha = state == "offline" ? 102 : 255;
                     Color ink = light ? Color.FromArgb(alpha, 0, 0, 0) : Color.FromArgb(alpha, 255, 255, 255);
-                    using (Pen pen = new Pen(ink, 34 * s))
+                    // The mark ("Cursor Signal"), bold weight, same 256-box geometry as the app icon: the
+                    // cursor block, the `>` prompt punched out of it (unless a session is working: a busy
+                    // cursor is solid), then the three signal arcs.
                     using (SolidBrush brush = new SolidBrush(ink))
+                    using (GraphicsPath block = RoundedRect(34 * s, 76 * s, 62 * s, 104 * s, 13 * s))
+                        g.FillPath(brush, block);
+                    if (state != "working")
+                    {
+                        g.CompositingMode = CompositingMode.SourceCopy;
+                        using (Pen cut = new Pen(Color.Transparent, 24 * s))
+                        {
+                            cut.StartCap = LineCap.Round;
+                            cut.EndCap = LineCap.Round;
+                            cut.LineJoin = LineJoin.Round;
+                            PointF[] prompt = { new PointF(51 * s, 104 * s), new PointF(79 * s, 128 * s), new PointF(51 * s, 152 * s) };
+                            g.DrawLines(cut, prompt);
+                        }
+                        g.CompositingMode = CompositingMode.SourceOver;
+                    }
+                    using (Pen pen = new Pen(ink, 28 * s))
                     {
                         pen.StartCap = LineCap.Round;
                         pen.EndCap = LineCap.Round;
-                        pen.LineJoin = LineJoin.Round;
-                        g.DrawEllipse(pen, 92 * s, 150 * s, 72 * s, 72 * s);
-                        g.DrawLine(pen, 128 * s, 150 * s, 128 * s, 70 * s);
-                        g.DrawBezier(pen, 108 * s, 156 * s, 100 * s, 122 * s, 86 * s, 104 * s, 56 * s, 84 * s);
-                        g.DrawBezier(pen, 148 * s, 156 * s, 156 * s, 122 * s, 170 * s, 104 * s, 200 * s, 84 * s);
-                        if (state == "working") g.FillEllipse(brush, 104 * s, 162 * s, 48 * s, 48 * s);
-                        float[,] nodes = { { 104, 24 }, { 28, 46 }, { 180, 46 } };
-                        for (int i = 0; i < 3; i++)
-                        {
-                            using (GraphicsPath node = RoundedSquare(nodes[i, 0] * s, nodes[i, 1] * s, 48 * s, 12 * s))
-                                g.FillPath(brush, node);
-                        }
+                        float[] radii = { 36, 76, 116 };
+                        foreach (float r in radii)
+                            g.DrawArc(pen, (96 - r) * s, (128 - r) * s, 2 * r * s, 2 * r * s, -40, 80);
                     }
                     if (state == "waiting")
                     {
-                        // Amber accent (#E8A33D).
+                        // Amber accent (#E8A33D), over the outer arc's upper end.
                         using (SolidBrush amber = new SolidBrush(Color.FromArgb(232, 163, 61)))
-                            g.FillEllipse(amber, 176 * s, 164 * s, 64 * s, 64 * s);
+                            g.FillEllipse(amber, 184 * s, 12 * s, 64 * s, 64 * s);
                     }
                 }
                 IntPtr handle = bitmap.GetHicon();
@@ -289,14 +298,14 @@ namespace RemoteHarness
             }
         }
 
-        private static GraphicsPath RoundedSquare(float x, float y, float side, float radius)
+        private static GraphicsPath RoundedRect(float x, float y, float width, float height, float radius)
         {
             GraphicsPath path = new GraphicsPath();
             float d = radius * 2;
             path.AddArc(x, y, d, d, 180, 90);
-            path.AddArc(x + side - d, y, d, d, 270, 90);
-            path.AddArc(x + side - d, y + side - d, d, d, 0, 90);
-            path.AddArc(x, y + side - d, d, d, 90, 90);
+            path.AddArc(x + width - d, y, d, d, 270, 90);
+            path.AddArc(x + width - d, y + height - d, d, d, 0, 90);
+            path.AddArc(x, y + height - d, d, d, 90, 90);
             path.CloseFigure();
             return path;
         }
