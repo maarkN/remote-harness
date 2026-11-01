@@ -299,7 +299,7 @@ The session screen SHALL show a second context line under the first with, when k
 - **THEN** a sheet shows `124k / 200k` tokens and when each limit resets
 
 ### Requirement: Context line
-Under the header, the session screen SHALL show a first context line with the agent badge, the profile tag (name in the profile color), the folder (truncating; opens the session details), the state pill and the permission mode chip. The header itself SHALL show, after the title, the notifications bell, a terminal button (disabled in read-only sessions) and the More options button.
+Under the header, the session screen SHALL show a first context line with the agent badge, the profile tag (name in the profile color), the folder (truncating; opens the session details), the state pill and the permission mode chip. The header itself SHALL show, after the title, the notifications bell, a terminal button (disabled in read-only sessions) and the More options button, on iOS and on Android alike (the tablet layout adds its inspector button); on iOS they are native bar items with the shared background turned off, elsewhere they fill the header's classic right slot.
 
 #### Scenario: Live session
 - **WHEN** a controllable Claude Code session in `~/projects/acme-api` is open
@@ -308,6 +308,10 @@ Under the header, the session screen SHALL show a first context line with the ag
 #### Scenario: Read-only session
 - **WHEN** the session has no tmux pane
 - **THEN** the terminal button is disabled and the mode chip is dimmed
+
+#### Scenario: Android header
+- **WHEN** a session is open on an Android phone
+- **THEN** the header shows the bell, the terminal button and the More options button on the right, as on iOS
 
 ### Requirement: Keyboard hints
 A hardware keyboard is in use while the composer is focused and the keyboard on screen is shorter than a software one, on any iOS device and on Android tablets. While it is, Return in the composer SHALL send the prompt (queued while the session is busy) instead of inserting a newline, Shift+Return SHALL insert a newline at the cursor (iOS and iPadOS), and ⌘⏎ keeps sending now. The composer SHALL show a hints row under the field: on tablets `⏎ queue`, `⌘⏎ send now`, `⇧⏎ new line` (iOS and iPadOS), `⌘1–9 session`, `⌘K search`, `⌘T terminal`, `⌘. esc`, `⌘⇧M mode`, `⌘/ shortcuts` and, while a tool permission waits in the session, `⌘A / ⌘D answer`; on phones the short row `⏎ queue`, `⇧⏎ new line` (iOS), `⌘⏎ send now`, `⌘/ shortcuts`.
