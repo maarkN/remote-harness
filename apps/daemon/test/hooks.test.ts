@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest'
 import { EventBus } from '../src/core/event-bus.ts'
 import type { DaemonEvents } from '../src/core/events.ts'
 import { silentLogger } from '../src/core/logger.ts'
+import { renderCurlConfig } from '../src/features/hooks/hook-secret.ts'
 import {
   BACKUP_SUFFIX,
   existingRcFiles,
@@ -34,7 +35,12 @@ import { createHooksServer } from '../src/transport/hooks-server.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
-const options = { port: 7338, secret: 's3cr3t', permissionTimeoutSec: 300 }
+const options = {
+  port: 7338,
+  secret: 's3cr3t',
+  curlConfig: '/u/.remote-harness/hook-secret.curlrc',
+  permissionTimeoutSec: 300,
+}
 const userStop = { hooks: [{ type: 'command', command: 'say done' }] }
 
 describe('settings hooks merge', () => {
@@ -274,7 +280,15 @@ describe('hook receiver', () => {
     try {
       const address = app.server.address()
       const port = typeof address === 'object' && address ? address.port : 0
-      const entry = buildHookEntry('SessionStart', { port, secret: 'sec', permissionTimeoutSec: 300 })
+      // curl reads the secret header from the 0600 config, so the command carries only its path.
+      const curlConfig = join(home.dir(), 'hook-secret.curlrc')
+      await writeFile(curlConfig, renderCurlConfig('sec'), { mode: 0o600 })
+      const entry = buildHookEntry('SessionStart', {
+        port,
+        secret: 'sec',
+        curlConfig,
+        permissionTimeoutSec: 300,
+      })
       expect(entry.type).toBe('command')
       expect(isOurHook(entry)).toBe(true)
       const stdout = await new Promise<string>((resolve, reject) => {

@@ -131,6 +131,11 @@ export async function ensureHookSecret(path = paths.hookSecret()): Promise<strin
   } catch {
     // created below
   }
+  return rotateHookSecret(path)
+}
+
+/** Writes a fresh hooks secret over the current one (a value that may have leaked is never kept) and returns it. */
+export async function rotateHookSecret(path = paths.hookSecret()): Promise<string> {
   const secret = randomBytes(24).toString('base64url')
   await writeFileAtomic(path, secret, 0o600)
   return secret

@@ -21,7 +21,14 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-export type HookInstallOptions = { port: number; secret: string; permissionTimeoutSec: number }
+export type HookInstallOptions = {
+  port: number
+  /** Sent as a header value only by the `http` hooks Claude Code reads from its own 0600 `settings.json`. */
+  secret: string
+  /** The 0600 curl config holding the secret header: the command hooks pass it with `-K`, never the value. */
+  curlConfig: string
+  permissionTimeoutSec: number
+}
 
 /**
  * Where the hooks are written: Claude Code's `settings.json`, Codex's `hooks.json` or Gemini CLI's
@@ -76,14 +83,16 @@ export function hookEventsFor(style: HookStyle): readonly (readonly [string, Hoo
   return (style === 'codex-hooks' ? CODEX_HOOK_EVENTS : HOOK_EVENTS).map((event) => [event, event] as const)
 }
 
-function curlHeaders(secret: string): string {
+/**
+ * What every command hook gives curl: the secret header from its 0600 config file (a command line is
+ * readable by any local process, so the value itself never goes there), the pane and the profile.
+ */
+function curlOptions(options: HookInstallOptions): string {
   return [
-    `${SECRET_HEADER}: ${secret}`,
-    `${PANE_HEADER}: $TMUX_PANE`,
-    `${PROFILE_HEADER}: $CLAUDE_REMOTE_PROFILE`,
-  ]
-    .map((h) => `-H "${h}"`)
-    .join(' ')
+    `-K ${shellQuote(options.curlConfig)}`,
+    `-H "${PANE_HEADER}: $TMUX_PANE"`,
+    `-H "${PROFILE_HEADER}: $CLAUDE_REMOTE_PROFILE"`,
+  ].join(' ')
 }
 
 /**
@@ -94,7 +103,7 @@ function curlHeaders(secret: string): string {
  */
 export function buildCodexHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
   const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
-  const post = `-X POST -H 'content-type: application/json' ${curlHeaders(options.secret)} --data-binary @- ${url}`
+  const post = `-X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${url}`
   if (event === 'PermissionRequest') {
     return {
       type: 'command',
@@ -130,7 +139,7 @@ export function buildGeminiHookEntry(event: HookEventName, options: HookInstallO
 export function postCommand(event: HookEventName, options: HookInstallOptions): string {
   const url = shellQuote(`http://127.0.0.1:${options.port}/hooks/${event}`)
   const seconds = event === 'SessionEnd' ? 2 : 5
-  return `curl -s -m ${seconds} -o /dev/null -X POST -H 'content-type: application/json' ${curlHeaders(options.secret)} --data-binary @- ${url} >/dev/null 2>&1 || true`
+  return `curl -s -m ${seconds} -o /dev/null -X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${url} >/dev/null 2>&1 || true`
 }
 
 export function buildHookEntry(event: HookEventName, options: HookInstallOptions): HookEntry {
@@ -138,10 +147,9 @@ export function buildHookEntry(event: HookEventName, options: HookInstallOptions
   if (COMMAND_ONLY_EVENTS.has(event)) {
     // Same request as the http hook: stdin JSON as body. Output is discarded because a
     // SessionStart hook's stdout is added to Claude's context; failures never block the session.
-    const headers = curlHeaders(options.secret)
     return {
       type: 'command',
-      command: `curl -s -m 5 -o /dev/null -X POST -H 'content-type: application/json' ${headers} --data-binary @- ${shellQuote(url)} >/dev/null 2>&1 || true`,
+      command: `curl -s -m 5 -o /dev/null -X POST -H 'content-type: application/json' ${curlOptions(options)} --data-binary @- ${shellQuote(url)} >/dev/null 2>&1 || true`,
       timeout: 10,
     }
   }

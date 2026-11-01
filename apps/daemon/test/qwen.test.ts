@@ -24,7 +24,12 @@ import {
 import { hookEvent, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
-const options = { port: 7338, secret: 's3cr3t', permissionTimeoutSec: 300 }
+const options = {
+  port: 7338,
+  secret: 's3cr3t',
+  curlConfig: '/u/.remote-harness/hook-secret.curlrc',
+  permissionTimeoutSec: 300,
+}
 const fixture = join(import.meta.dirname, 'fixtures', 'qwen-session.jsonl')
 const id = '8b0e1c2d-3f4a-4b5c-8d6e-7f8091a2b3c4'
 

@@ -28,7 +28,12 @@ import { TmuxClient } from '../src/infra/tmux.ts'
 import { fakeExecutor, hookEvent, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
-const options = { port: 7338, secret: 's3cr3t', permissionTimeoutSec: 300 }
+const options = {
+  port: 7338,
+  secret: 's3cr3t',
+  curlConfig: '/u/.remote-harness/hook-secret.curlrc',
+  permissionTimeoutSec: 300,
+}
 const userHook = { hooks: [{ type: 'command', command: 'say done' }] }
 const fixture = join(import.meta.dirname, 'fixtures', 'gemini-session.jsonl')
 

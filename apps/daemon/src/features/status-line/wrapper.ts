@@ -1,4 +1,3 @@
-import { SECRET_HEADER } from '../../transport/hooks-server.ts'
 import { PANE_HEADER, PROFILE_HEADER } from '../hooks/receiver.ts'
 
 /** File name of the wrapper script in the launcher folder. */
@@ -65,13 +64,14 @@ export function unwrapStatusLine<T extends Settings>(settings: T): T {
 
 /**
  * The wrapper: forwards the status JSON to the daemon in the background (a stopped daemon never
- * slows the status line), then runs the original command with the same input.
+ * slows the status line), then runs the original command with the same input. The secret header
+ * comes from the 0600 curl config (`-K`): it is in neither this script nor curl's arguments.
  */
-export function renderStatusLineScript(options: { port: number; secret: string }): string {
+export function renderStatusLineScript(options: { port: number; curlConfig: string }): string {
   const url = `http://127.0.0.1:${options.port}${STATUS_LINE_ROUTE}`
   const headers = [
+    `-K ${shellQuote(options.curlConfig)}`,
     `-H 'content-type: application/json'`,
-    `-H ${shellQuote(`${SECRET_HEADER}: ${options.secret}`)}`,
     `-H "${PANE_HEADER}: $TMUX_PANE"`,
     `-H "${PROFILE_HEADER}: $CLAUDE_REMOTE_PROFILE"`,
   ].join(' ')

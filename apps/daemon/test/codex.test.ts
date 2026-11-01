@@ -8,6 +8,7 @@ import type { DaemonEvents } from '../src/core/events.ts'
 import { messagesFor } from '../src/core/i18n/index.ts'
 import { KeyedMutex } from '../src/core/keyed-mutex.ts'
 import { silentLogger } from '../src/core/logger.ts'
+import { renderCurlConfig } from '../src/features/hooks/hook-secret.ts'
 import { hasOurHooks, installHooks, settingsPath, uninstallHooks } from '../src/features/hooks/installer.ts'
 import { renderLauncher } from '../src/features/hooks/launcher.ts'
 import { HookReceiver } from '../src/features/hooks/receiver.ts'
@@ -30,7 +31,12 @@ import { createHooksServer } from '../src/transport/hooks-server.ts'
 import { fakeExecutor, hookEvent, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
-const options = { port: 7338, secret: 's3cr3t', permissionTimeoutSec: 300 }
+const options = {
+  port: 7338,
+  secret: 's3cr3t',
+  curlConfig: '/u/.remote-harness/hook-secret.curlrc',
+  permissionTimeoutSec: 300,
+}
 const userStop = { hooks: [{ type: 'command', command: 'say done' }] }
 
 describe('codex hooks.json', () => {
@@ -94,9 +100,12 @@ describe('codex hooks.json', () => {
     try {
       const address = app.server.address()
       const port = typeof address === 'object' && address ? address.port : 0
+      const curlConfig = join(home.dir(), 'hook-secret.curlrc')
+      await writeFile(curlConfig, renderCurlConfig('sec'), { mode: 0o600 })
       const entry = buildCodexHookEntry('PermissionRequest', {
         port,
         secret: 'sec',
+        curlConfig,
         permissionTimeoutSec: 30,
       })
       const stdout = await new Promise<string>((resolve, reject) => {
@@ -123,7 +132,12 @@ describe('codex hooks.json', () => {
   })
 
   test('the permission command prints nothing when the daemon is down', async () => {
-    const entry = buildCodexHookEntry('PermissionRequest', { port: 9, secret: 'x', permissionTimeoutSec: 2 })
+    const entry = buildCodexHookEntry('PermissionRequest', {
+      port: 9,
+      secret: 'x',
+      curlConfig: join(home.dir(), 'missing.curlrc'),
+      permissionTimeoutSec: 2,
+    })
     const stdout = await new Promise<string>((resolve, reject) => {
       const child = execFile(
         'sh',

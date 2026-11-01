@@ -87,10 +87,10 @@ export async function uninstallHooks(profile: Profile): Promise<boolean> {
   return updateSettings(settingsPath(profile), (s) => removeOurHooks(s))
 }
 
-/** Writes the status line wrapper (it holds the hooks port and secret, so only the user can read it). */
+/** Writes the status line wrapper; it holds the hooks port and the path of the curl config, never the secret. */
 export async function installStatusLineScript(
   binDir: string,
-  options: { port: number; secret: string },
+  options: { port: number; curlConfig: string },
 ): Promise<string> {
   const path = join(binDir, STATUS_LINE_SCRIPT)
   await writeFileAtomic(path, renderStatusLineScript(options), 0o700)

@@ -19,7 +19,7 @@ Only the latest release on `main` receives security fixes.
 ## Security model (summary)
 
 - Direct WebSocket on the computer's interfaces (or `127.0.0.1` only with `--dev`) and the connection relay; every connection on both is a Noise session (XXpsk3 to pair, IK to reconnect; X25519, ChaCha20-Poly1305) with per-device keys. The daemon's keys are in the macOS Keychain / Linux Secret Service, each device's in its secure storage. Pairing codes are single use and expire after 5 minutes; unknown device keys are dropped before any message.
-- Hooks endpoint bound only to `127.0.0.1`, protected by a local shared secret.
+- Hooks endpoint bound only to `127.0.0.1`, protected by a local shared secret kept in a `0600` file. The `curl` commands the installer generates (hooks, status line) read it from a `0600` curl config (`-K`), so it never appears in a process's arguments.
 - Push notifications never include session content.
 - `bypassPermissions` is never offered by the app.
 
