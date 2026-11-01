@@ -1,7 +1,16 @@
 import type { ServerMessage, TranscriptEntry } from '@remote-harness/protocol'
 import { beforeEach, describe, expect, test } from 'vitest'
 import type { DaemonClient } from '@/core/connection/daemon-client'
-import { loadOlder, selectStream, subscribeTranscript, useTranscriptStore } from './store'
+import { HistoryDb } from '@/core/storage/history/history-db'
+import { nodeDatabase } from '@/core/storage/history/node-sqlite.testing'
+import { migrate } from '@/core/storage/history/schema'
+import {
+  loadOlder,
+  selectStream,
+  setTranscriptHistory,
+  subscribeTranscript,
+  useTranscriptStore,
+} from './store'
 
 function entry(cursor: number): TranscriptEntry {
   return {
@@ -66,7 +75,10 @@ const page = (entries: TranscriptEntry[], hasMore: boolean): ServerMessage => ({
   lineCount: 100,
 })
 
-beforeEach(() => useTranscriptStore.setState({ streams: {}, recent: [], open: {} }))
+beforeEach(() => {
+  useTranscriptStore.setState({ streams: {}, recent: [], open: {} })
+  setTranscriptHistory(async () => null)
+})
 
 describe('transcript store', () => {
   test('subscribes, streams live entries and resumes from the last cursor', async () => {
@@ -164,5 +176,69 @@ describe('transcript store', () => {
     expect(state.entries.map((e) => e.cursor)).toEqual([5000, 5001])
     expect(state.hasMore).toBe(true)
     off()
+  })
+})
+
+describe('history cache', () => {
+  async function cached() {
+    const sql = nodeDatabase()
+    await migrate(sql)
+    const db = new HistoryDb(sql)
+    setTranscriptHistory(async () => ({ db, computer: 'daemon-a' }))
+    return db
+  }
+  const cursors = () => useTranscriptStore.getState().streams.s?.entries.map((e) => e.cursor)
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await tick()
+  }
+
+  test('writes what arrives, then renders it before the daemon answers and resumes from its cursor', async () => {
+    const db = await cached()
+    const first = fakeClient()
+    first.reply(page([entry(10), entry(11)], true))
+    const off = subscribeTranscript(first.client, 's')
+    await settle()
+    first.emit({ type: 'transcript.entries', sessionId: 's', entries: [entry(12)] })
+    await frame()
+    await settle()
+    off()
+    expect((await db.latest('daemon-a', 's'))?.lastCursor).toBe(12)
+
+    // Memory gone (another computer, or evicted): the cached copy comes back first.
+    useTranscriptStore.setState({ streams: {}, recent: [], open: {} })
+    const second = fakeClient()
+    let answer: (m: ServerMessage) => void = () => undefined
+    second.client.request = (async (m: Record<string, unknown>) => {
+      second.requests.push(m)
+      return new Promise<ServerMessage>((resolve) => {
+        answer = resolve
+      })
+    }) as unknown as DaemonClient['request']
+    subscribeTranscript(second.client, 's')
+    await settle()
+    expect(cursors()).toEqual([10, 11, 12])
+    expect(second.requests[0]).toMatchObject({ type: 'session.subscribe', sinceCursor: 12 })
+    answer(page([entry(13)], false))
+    await settle()
+    expect(cursors()).toEqual([10, 11, 12, 13])
+    expect((await db.latest('daemon-a', 's'))?.entries.map((e) => e.cursor)).toEqual([10, 11, 12, 13])
+  })
+
+  test('older entries come from the cache before the daemon', async () => {
+    const db = await cached()
+    await db.apply('daemon-a', 's', {
+      kind: 'initial',
+      entries: Array.from({ length: 300 }, (_, i) => entry(i)),
+      hasMore: false,
+    })
+    const f = fakeClient()
+    f.reply(page([], false))
+    subscribeTranscript(f.client, 's')
+    await settle()
+    expect(cursors()?.[0]).toBe(100)
+    await loadOlder(f.client, 's')
+    expect(cursors()?.[0]).toBe(50)
+    // Only the subscription went to the daemon.
+    expect(f.requests.filter((r) => r.type === 'session.history')).toEqual([])
   })
 })

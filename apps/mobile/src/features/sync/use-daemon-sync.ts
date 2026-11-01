@@ -1,14 +1,19 @@
 import * as Haptics from 'expo-haptics'
 import { useEffect, useRef } from 'react'
 import { useConnectionStore, useDaemonClient } from '@/core/connection'
-import { useTranscriptStore } from '@/features/conversation/store'
+import { setTranscriptHistory, useTranscriptStore } from '@/features/conversation/store'
 import { bindDaemonUpdate } from '@/features/daemon-update/store'
 import { bindErrorReports } from '@/features/error-reports/capture'
+import { activeHistory } from '@/features/history/active'
+import { bindSessionSnapshot } from '@/features/history/session-snapshot'
 import { bindMute } from '@/features/mute/store'
 import { bindPermissions, usePermissionsStore } from '@/features/permissions/store'
 import { bindQueue } from '@/features/queue/store'
 import { bindLimits } from '@/features/session-status/limits-store'
 import { bindSessions, useSessionsStore } from '@/features/sessions/store'
+
+// Conversations read and write the active computer's history cache (ADR 0004).
+setTranscriptHistory(activeHistory)
 
 /** What one computer showed: cleared when another computer becomes active. */
 function clearComputerState(): void {
@@ -27,6 +32,11 @@ export function useDaemonSync() {
     if (shown.current !== activeId) clearComputerState()
     shown.current = activeId
   }, [activeId])
+  // The last session list of the active computer, cached for an unreachable start (never the demo's).
+  useEffect(() => {
+    if (!activeId || demo) return
+    return bindSessionSnapshot(activeId)
+  }, [activeId, demo])
   useEffect(() => {
     if (!client) return
     const unbinders = [

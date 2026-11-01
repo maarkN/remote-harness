@@ -60,6 +60,8 @@ type Props = {
   onFocusChange?: (focused: boolean) => void
   /** Inserts `@` or `/` from the keyboard toolbar; without it the toolbar shows no trigger buttons. */
   onTrigger?: (trigger: '@' | '/') => void
+  /** Opens the prompt templates picker from the keyboard toolbar (`{}` button). */
+  onTemplates?: () => void
 }
 
 // Subtle swap between attach/mic and Send; instant when the system asks for reduced motion.
@@ -209,6 +211,7 @@ export const PromptComposer = forwardRef<TextInput, Props>(function PromptCompos
           keysDisabled={props.keysDisabled}
           canDismiss={toolbar.canDismiss}
           onTrigger={props.onTrigger}
+          onTemplates={props.onTemplates}
           commandEnabled={!hasText}
         />
       ) : null}

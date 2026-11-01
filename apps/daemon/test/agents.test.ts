@@ -1,6 +1,6 @@
 import { copyFile, mkdir, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Profile } from '@remote-harness/protocol'
+import { AgentIdSchema, type Profile } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { resolveProfiles } from '../src/core/config.ts'
 import { silentLogger } from '../src/core/logger.ts'
@@ -31,6 +31,7 @@ describe('agent adapters', () => {
     expect(claude.worktreeArgs('remote-1')).toEqual(['--worktree', 'remote-1'])
     expect(claude.nameArgs('Login bug')).toEqual(['--name', 'Login bug'])
     expect(claude.renameCommand('Login bug')).toBeNull()
+    expect(claude.promptArgs).toEqual(['--'])
     expect(claude.presets).toBeNull()
     expect(claude.polish?.parse(JSON.stringify({ result: 'ok' }))).toBe('ok')
     expect(claude.hooks.file('/Users/me/.claude')).toBe('/Users/me/.claude/settings.json')
@@ -77,6 +78,13 @@ describe('agent adapters', () => {
     expect(polishArgs.slice(-2)).toEqual(['--', 'Rewrite it.\n\n-- so, um, continue'])
   })
 
+  test('a first prompt: after `--` (Claude Code, Codex), with --prompt-interactive (Gemini CLI, Qwen Code), never for Kimi CLI', () => {
+    expect(agentFor({ agent: 'codex' }).promptArgs).toEqual(['--'])
+    expect(agentFor({ agent: 'gemini' }).promptArgs).toEqual(['--prompt-interactive'])
+    expect(agentFor({ agent: 'qwen' }).promptArgs).toEqual(['--prompt-interactive'])
+    expect(agentFor({ agent: 'kimi' }).promptArgs).toBeNull()
+  })
+
   test('codex exec answers: the last non-empty agent message', () => {
     const codex = agentFor({ agent: 'codex' })
     const out = [
@@ -90,28 +98,27 @@ describe('agent adapters', () => {
     expect(codex.polish?.parse('')).toBeNull()
   })
 
-  test('agents without an adapter are known to the protocol but cannot run', () => {
-    expect(hasAgentAdapter('claude')).toBe(true)
-    expect(hasAgentAdapter('codex')).toBe(true)
-    expect(hasAgentAdapter('kimi')).toBe(false)
-    expect(() => agentFor({ agent: 'kimi' })).toThrow(/no adapter for agent kimi/)
+  test('every agent the protocol knows has an adapter; records without one are Claude Code', () => {
+    for (const id of AgentIdSchema.options) {
+      expect(hasAgentAdapter(id)).toBe(true)
+      expect(agentFor({ agent: id }).id).toBe(id)
+    }
     expect(adapterOf(undefined).id).toBe('claude')
-    expect(adapterOf('kimi').id).toBe('claude')
     expect(adapterOf('codex').id).toBe('codex')
   })
 
-  test('resolveProfiles keeps Claude Code and Codex profiles and drops those without an adapter', async () => {
+  test('resolveProfiles keeps the profiles of every agent', async () => {
     const dir = join(home.dir(), '.claude')
     await mkdir(dir, { recursive: true })
     const config = {
       profiles: [
         { id: 'claudin', name: 'Personal', configDir: dir, color: '#000000' },
         { id: 'cdx', name: 'Codex', configDir: dir, color: '#000000', agent: 'codex' as const },
-        { id: 'kimi', name: 'Kimi', configDir: dir, color: '#000000', agent: 'kimi' as const },
+        { id: 'qwen', name: 'Qwen', configDir: dir, color: '#000000', agent: 'qwen' as const },
       ],
     }
     const resolved = await resolveProfiles(config as Parameters<typeof resolveProfiles>[0], silentLogger)
-    expect(resolved.map((p) => p.id)).toEqual(['claudin', 'cdx'])
+    expect(resolved.map((p) => p.id)).toEqual(['claudin', 'cdx', 'qwen'])
   })
 })
 

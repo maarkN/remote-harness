@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { ClaudeIcon } from './ClaudeIcon'
 import { CodexIcon } from './CodexIcon'
+import { GeminiIcon } from './GeminiIcon'
 import { hasRegisteredIcon } from './ids'
 import { KimiIcon } from './KimiIcon'
 import { OpenRouterIcon } from './OpenRouterIcon'
@@ -9,11 +10,12 @@ import type { AgentIconId, AgentIconProps } from './types'
 
 export { hasRegisteredIcon, REGISTERED_ICON_IDS } from './ids'
 export type { AgentIconId, AgentIconProps } from './types'
-export { ClaudeIcon, CodexIcon, KimiIcon, OpenRouterIcon, QwenIcon }
+export { ClaudeIcon, CodexIcon, GeminiIcon, KimiIcon, OpenRouterIcon, QwenIcon }
 
 const ICONS: Record<AgentIconId, ComponentType<AgentIconProps>> = {
   claude: ClaudeIcon,
   codex: CodexIcon,
+  gemini: GeminiIcon,
   kimi: KimiIcon,
   qwen: QwenIcon,
   openrouter: OpenRouterIcon,

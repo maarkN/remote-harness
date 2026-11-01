@@ -21,7 +21,6 @@ import {
   PermissionModeSchema,
   PermissionOutcomeSchema,
   PermissionRequestInfoSchema,
-  ProfileSchema,
   ProjectItemSchema,
   ProviderCreditsSchema,
   PushModeSchema,
@@ -34,6 +33,7 @@ import {
   SessionStateSchema,
   SubagentInfoSchema,
   TranscriptEntrySchema,
+  WireProfileSchema,
   WorktreeCopySchema,
   WorktreeInfoSchema,
 } from './domain.ts'
@@ -48,7 +48,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     daemonVersion: z.string(),
     /** Name of the daemon's computer (absent in older daemons). */
     host: z.string().optional(),
-    profiles: z.array(ProfileSchema),
+    profiles: z.array(WireProfileSchema),
     defaultRuleScope: RuleScopeSchema,
     muted: MuteStateSchema,
     /** Absent in older daemons. */

@@ -40,6 +40,7 @@ import {
 import { DAEMON_VERSION } from './core/version.ts'
 import { agentFor } from './features/agents/index.ts'
 import { measureRelays } from './features/connectivity/measure.ts'
+import { hookCurlConfigMatches } from './features/hooks/hook-secret.ts'
 import {
   existingRcFiles,
   hasOurHooks,
@@ -67,7 +68,15 @@ import {
   installServiceFromCli,
   userRcFiles,
 } from './features/setup/install.ts'
-import { detectConfigDirs, isCodexDir, sameDir, tildify } from './features/setup/profiles.ts'
+import {
+  detectConfigDirs,
+  isCodexDir,
+  isGeminiDir,
+  isKimiDir,
+  isQwenDir,
+  sameDir,
+  tildify,
+} from './features/setup/profiles.ts'
 import { runSetupWizard, SetupAborted } from './features/setup/wizard.ts'
 import { COMMANDS_RELOAD_ROUTE } from './features/shell/index.ts'
 import { STATUS_LINE_SCRIPT } from './features/status-line/wrapper.ts'
@@ -77,6 +86,7 @@ import {
   classifyFullDiskAccess,
   classifyKeychain,
 } from './features/system-permissions/classify.ts'
+import { ensureTmuxConf, tmuxServerOf } from './features/tmux-server/conf.ts'
 import { installerSourceDir, SourceUpdater, updateSource } from './features/update/update.ts'
 import { isDowngrade, isUpdateChannel, UPDATE_CHANNELS, updateLabel } from './features/updates/channel.ts'
 import { readUpdateState, UpdateChecker, type UpdateState } from './features/updates/checker.ts'
@@ -93,6 +103,7 @@ import {
   UnsupportedPlatformError,
 } from './infra/platform.ts'
 import { ProcessSleepInhibitor, sleepHelperCommand } from './infra/power.ts'
+import { tmuxServerArgs } from './infra/tmux.ts'
 import { startDaemon } from './main.ts'
 import { SECRET_HEADER } from './transport/hooks-server.ts'
 
@@ -290,6 +301,23 @@ program
   })
 
 program
+  .command('tmux')
+  .description(m.cli.tmux.description)
+  .argument('[args...]', m.cli.tmux.args)
+  .allowUnknownOption()
+  .allowExcessArguments()
+  .action(async (args: string[]) => {
+    // tmux against the Remote Harness server (its `-L` and `-f`), so nobody has to remember them.
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    await ensureTmuxConf(config)
+    const tmuxArgs = args.length > 0 ? args : ['attach-session', '-t', `=${config.tmuxSession}`]
+    const code = await runInteractive('tmux', [...tmuxServerArgs(tmuxServerOf(config)), ...tmuxArgs], {
+      env: process.env,
+    })
+    process.exit(code)
+  })
+
+program
   .command('pair')
   .description(m.cli.pair.description)
   .action(async () => {
@@ -406,7 +434,8 @@ program
         check(result.exitCode === 0, d.profile(profile.id, profile.configDir), d.dirMissing)
       }
       // Codex profiles: the CLI on the PATH and the daemon's hooks in their hooks.json.
-      const codexProfiles = (await resolveProfiles(config, logger)).filter((p) => agentFor(p).id === 'codex')
+      const resolved = await resolveProfiles(config, logger)
+      const codexProfiles = resolved.filter((p) => agentFor(p).id === 'codex')
       const codexDirs = (await detectConfigDirs()).filter(isCodexDir)
       // Checked even without a configured profile when a Codex account was found (issue #244).
       if (codexProfiles.length > 0 || codexDirs.length > 0) {
@@ -422,6 +451,52 @@ program
           console.log(`· ${d.codexAccountWithoutProfile(dir)}`)
         }
       }
+      // Gemini CLI profiles: the same checks, and folder trust instead of hook trust.
+      const geminiProfiles = resolved.filter((p) => agentFor(p).id === 'gemini')
+      const geminiDirs = (await detectConfigDirs()).filter(isGeminiDir)
+      if (geminiProfiles.length > 0 || geminiDirs.length > 0) {
+        const which = await execaExecutor('which', ['gemini'])
+        check(which.exitCode === 0, 'gemini', d.notOnPath)
+      }
+      for (const profile of geminiProfiles) {
+        check(await hasOurHooks(profile), d.geminiHooks(profile.id, settingsPath(profile)), d.runInstall)
+      }
+      if (geminiProfiles.length > 0) console.log(`· ${m.install.geminiTrust}`)
+      for (const dir of geminiDirs) {
+        if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
+          console.log(`· ${d.geminiAccountWithoutProfile(dir)}`)
+        }
+      }
+      // Kimi CLI profiles: the CLI on the PATH and the daemon's tables in config.toml.
+      const kimiProfiles = resolved.filter((p) => agentFor(p).id === 'kimi')
+      const kimiDirs = (await detectConfigDirs()).filter(isKimiDir)
+      if (kimiProfiles.length > 0 || kimiDirs.length > 0) {
+        const which = await execaExecutor('which', ['kimi'])
+        check(which.exitCode === 0, 'kimi', d.notOnPath)
+      }
+      for (const profile of kimiProfiles) {
+        check(await hasOurHooks(profile), d.kimiHooks(profile.id, settingsPath(profile)), d.runInstall)
+      }
+      for (const dir of kimiDirs) {
+        if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
+          console.log(`· ${d.kimiAccountWithoutProfile(dir)}`)
+        }
+      }
+      // Qwen Code profiles: the CLI on the PATH and the daemon's hooks in their settings.json.
+      const qwenProfiles = resolved.filter((p) => agentFor(p).id === 'qwen')
+      const qwenDirs = (await detectConfigDirs()).filter(isQwenDir)
+      if (qwenProfiles.length > 0 || qwenDirs.length > 0) {
+        const which = await execaExecutor('which', ['qwen'])
+        check(which.exitCode === 0, 'qwen', d.notOnPath)
+      }
+      for (const profile of qwenProfiles) {
+        check(await hasOurHooks(profile), d.qwenHooks(profile.id, settingsPath(profile)), d.runInstall)
+      }
+      for (const dir of qwenDirs) {
+        if (!config.profiles.some((p) => sameDir(p.configDir, dir))) {
+          console.log(`· ${d.qwenAccountWithoutProfile(dir)}`)
+        }
+      }
       const { kind: storeKind } = await selectStore()
       for (const profile of config.profiles) {
         if (!profile.provider) continue
@@ -431,6 +506,8 @@ program
         const name = PROVIDER_NAMES[profile.provider.kind]
         check(stored !== null, d.providerKey(profile.id, name), d.runProviderKey(profile.id))
       }
+      // The curl-based hooks and the status line read the secret from this file; stale or missing, they fail silently.
+      check(await hookCurlConfigMatches(), d.hookCurlConfig(tildify(paths.hookCurlConfig())), d.runInstall)
       try {
         const response = await fetch(`http://127.0.0.1:${config.hookPort}/health`, {
           headers: { [SECRET_HEADER]: await ensureHookSecret() },

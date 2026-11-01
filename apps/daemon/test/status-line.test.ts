@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { Profile, ServerMessage } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
+import { renderCurlConfig } from '../src/features/hooks/hook-secret.ts'
 import {
   installStatusLine,
   installStatusLineScript,
@@ -159,8 +160,11 @@ describe('status line script', () => {
     try {
       const address = app.server.address()
       const port = typeof address === 'object' && address ? address.port : 0
-      const path = await installStatusLineScript(join(home.dir(), 'bin'), { port, secret: 'top secret' })
+      const curlConfig = join(home.dir(), 'hook-secret.curlrc')
+      await writeFile(curlConfig, renderCurlConfig('top secret'), { mode: 0o600 })
+      const path = await installStatusLineScript(join(home.dir(), 'bin'), { port, curlConfig })
       expect((await stat(path)).mode & 0o777).toBe(0o700)
+      expect(await readFile(path, 'utf8')).not.toContain('top secret')
       const input = JSON.stringify(full)
       const command = statusLineCommand(path, `jq -r '"[" + .model.display_name + "]"'`)
       const output = await run('/bin/sh', ['-c', command], input)
@@ -174,8 +178,9 @@ describe('status line script', () => {
     }
   })
 
-  test('keeps working when the daemon is down', async () => {
-    const path = await installStatusLineScript(join(home.dir(), 'bin'), { port: 9, secret: 'x' })
+  test('keeps working when the daemon is down or the curl config is missing', async () => {
+    const curlConfig = join(home.dir(), 'missing.curlrc')
+    const path = await installStatusLineScript(join(home.dir(), 'bin'), { port: 9, curlConfig })
     expect(await run('/bin/sh', ['-c', statusLineCommand(path, 'cat')], '{"a":1}')).toBe('{"a":1}')
   })
 
@@ -209,6 +214,7 @@ function record(id: string, profileId = 'claudin'): SessionRecord {
     updatedAt: '2026-10-18T10:00:00.000Z',
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: null,
     status: null,
     transcriptPath: null,

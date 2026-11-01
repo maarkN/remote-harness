@@ -10,7 +10,7 @@ export const STYLES = `
   --fg: #e8e6e3; --muted: #8a8784; --dim: #5e5a56;
   --accent: #e8a33d; --accent-fg: #e8a33d; --accent-ink: #1a1206; --accent-soft: rgba(232, 163, 61, 0.14);
   --success: #7fb069; --warning: #f3dc7a; --danger: #e06c75;
-  --claude: #d97757; --codex: #2fbf8f; --kimi: #5b9bf5; --qwen: #8c6cf5;
+  --claude: #d97757; --codex: #2fbf8f; --gemini: #e3729e; --kimi: #5b9bf5; --qwen: #8c6cf5;
   --glow: radial-gradient(60% 50% at 70% 30%, rgba(232, 163, 61, 0.14), transparent 70%);
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -207,7 +207,7 @@ footer a:hover { color: var(--fg); }
 .pill.idle { color: var(--a-success); background: color-mix(in srgb, var(--a-success) 16%, transparent); }
 .pill.waiting { color: var(--a-warning); background: color-mix(in srgb, var(--a-warning) 18%, transparent); }
 .mk { flex: none; display: block; }
-.mk.claude { color: var(--claude); } .mk.codex { color: var(--codex); } .mk.kimi { color: var(--kimi); } .mk.qwen { color: var(--qwen); } .mk.openrouter { color: var(--fg); }
+.mk.claude { color: var(--claude); } .mk.codex { color: var(--codex); } .mk.gemini { color: var(--gemini); } .mk.kimi { color: var(--kimi); } .mk.qwen { color: var(--qwen); } .mk.openrouter { color: var(--fg); }
 .ptag { font-size: 11px; font-weight: 700; }
 .ptag.personal { color: #56b6c2; }
 .ptag.work { color: #61afef; }

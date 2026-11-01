@@ -1,9 +1,11 @@
 import { open } from 'node:fs/promises'
 import { type PermissionMode, PermissionModeSchema } from '@remote-harness/protocol'
-import { isCommandPrompt, oneLine, promptTitle } from './prompt-title.ts'
+import { isCommandPrompt, oneLine, promptTitle, type TitleSource } from './prompt-title.ts'
 
 export type TranscriptMeta = {
   title: string | null
+  /** What gave the title, so a live session only replaces it with a better one (#474). */
+  titleSource: TitleSource | null
   cwd: string | null
   permissionMode: PermissionMode | null
 }
@@ -133,13 +135,22 @@ export function extractMeta(
     if (title && isCommandPrompt(text)) firstCommand ??= title
     else if (title) firstPrompt = title
   }
-  const title =
-    customTitle ??
-    earlierTitle ??
-    firstPrompt ??
-    firstCommand ??
-    (lastPrompt ? promptTitle(lastPrompt) : null)
-  return { title: title ? oneLine(title) : null, cwd, permissionMode }
+  const picked = pickTitle(customTitle ?? earlierTitle, firstPrompt, firstCommand, lastPrompt)
+  return { ...picked, cwd, permissionMode }
+}
+
+/** The title and its source, in order of precedence: a name, the first prompt, a command, the last prompt. */
+function pickTitle(
+  name: string | null,
+  firstPrompt: string | null,
+  firstCommand: string | null,
+  lastPrompt: string | null,
+): Pick<TranscriptMeta, 'title' | 'titleSource'> {
+  if (name) return { title: oneLine(name), titleSource: 'custom' }
+  if (firstPrompt) return { title: oneLine(firstPrompt), titleSource: 'prompt' }
+  if (firstCommand) return { title: oneLine(firstCommand), titleSource: 'command' }
+  const last = lastPrompt ? promptTitle(lastPrompt) : null
+  return last ? { title: oneLine(last), titleSource: 'prompt' } : { title: null, titleSource: null }
 }
 
 /** Reads a transcript's metadata; the whole file is searched only for a name missing from the tail. */

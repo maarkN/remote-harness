@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remote Harness · Settings: sections list and the Notifications section</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  body { padding: 20px 24px 32px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+  .proto-h { font-size: 12px; color: var(--muted); }
+  .proto-h b { color: var(--fg); }
+  .proto-h a { color: var(--accent); }
+  .row2 { display: flex; gap: 24px; align-items: flex-start; }
+  .srow2 { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--a-border); font-size: 13.5px; min-width: 0; }
+  .srow2:first-child { border-top: 0; }
+  .srow2 .ic { width: 30px; height: 30px; border-radius: 9px; background: var(--a-raised); color: var(--a-accent-fg); display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none; }
+  .srow2 .l { flex: 1; min-width: 0; font-weight: 500; }
+  .srow2 .l small { display: block; color: var(--a-muted); font-size: 11.5px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow2 .v { color: var(--a-muted); }
+  .version { text-align: center; color: var(--a-muted); font-size: 11px; padding: 10px 0 4px; }
+</style>
+</head>
+<body>
+<div class="proto-h"><b>Remote Harness</b> · prototype · Settings: sections list and the Notifications section · <a href="../index.html">identity hub</a></div>
+<div class="row2">
+  <div class="frame z85">
+    <div class="phone t-dark">
+      <div class="sb"><span>9:41</span><span class="ic">▮▮▮ ⌔ ▭</span></div>
+      <div class="app">
+        <div class="ah"><div class="ib back">‹</div><div class="title">Settings</div><div class="ib"></div></div>
+        <div class="scroll" style="gap:10px">
+          <div class="box">
+            <div class="srow2"><span class="ic">▭</span><span class="l">Computer<small>MacBook Pro · connected</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">▯</span><span class="l">Devices<small>Phones and tablets paired with this computer</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">◐</span><span class="l">Appearance<small>Dark · Match theme</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">⚇</span><span class="l">Profiles<small>3 profiles · Claude Code, Codex</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">›_</span><span class="l">Sessions<small>Opens after creating · 2 templates</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">◔</span><span class="l">Notifications<small>Push on · Live status on · 3 muted</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">⛨</span><span class="l">Permissions<small>What this phone and the computer are allowed to access</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">♪</span><span class="l">Voice<small>Same as the app</small></span><span class="v">›</span></div>
+            <div class="srow2"><span class="ic">i</span><span class="l">App<small>1.1.0 · production · English</small></span><span class="v">›</span></div>
+          </div>
+          <div class="version">Remote Harness 1.1.0</div>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+    <p class="cap"><b>Ajustes em seções.</b> Nove linhas em uma tela: cada uma resume o estado atual (tema e ícone, push e silenciados, versão e canal) e abre a própria tela. Permissions continua abrindo a tela de permissões direto (<a class="issue" href="https://github.com/maarkN/remote-harness/issues/493">#493</a>).</p>
+  </div>
+  <div class="frame z85">
+    <div class="phone t-dark">
+      <div class="sb"><span>9:41</span><span class="ic">▮▮▮ ⌔ ▭</span></div>
+      <div class="app">
+        <div class="ah"><div class="ib back">‹</div><div class="title">Notifications</div><div class="ib"></div></div>
+        <div class="scroll" style="gap:4px">
+          <div class="sect"><div class="sh">Notifications</div><div class="box">
+            <div class="frow"><span class="l">Push notifications<small>Only this phone · never the conversation</small></span><span class="tg on"></span></div>
+            <div class="frow"><span class="l">Live status<small>Lock screen and Dynamic Island</small></span><span class="tg on"></span></div>
+            <div class="frow"><span class="l">Show the current task on the lock screen<small>Up to 48 characters of the todo item in progress</small></span><span class="tg"></span></div>
+            <div class="frow"><span class="l">Muted<small>1 profile · 2 sessions</small></span><span class="v">›</span></div>
+          </div></div>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+    <p class="cap"><b>Uma seção.</b> A tela de uma seção é o card que já existia, com o título da seção no cabeçalho e o botão de voltar para a lista.</p>
+  </div>
+</div>
+<script src="../shared.js"></script>
+</body>
+</html>

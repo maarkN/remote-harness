@@ -41,6 +41,11 @@ export function latestStatus(
  * knows that agent's lines; the transcript service only sees normalized entries. Never throws.
  */
 export type TranscriptFormat = {
+  /**
+   * The agent appends a message again, whole, when it changes (Gemini CLI): an entry key may show up
+   * on several lines and only its first line counts (see `TranscriptFile.entries`).
+   */
+  upserts?: boolean
   parseLine(raw: string, cursor: number): TranscriptEntry[]
   parseMeta(raw: string): TranscriptMetaUpdate | null
   /** The `index`-th image of a line, matching the ids `parseLine` gave its image refs. */

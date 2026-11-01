@@ -97,6 +97,8 @@ export const codex: AgentAdapter = {
   nameArgs: () => null,
   // Stored as the thread name in session_index.jsonl, which `readSummary` reads back.
   renameCommand: (name) => `/rename ${name}`,
+  // `codex [OPTIONS] [PROMPT]` starts the session with that prompt as its first turn.
+  promptArgs: ['--'],
   transcript: codexTranscript,
   findTranscripts: findCodexTranscripts,
   readSummary: readCodexSummary,
@@ -110,6 +112,7 @@ export const codex: AgentAdapter = {
   modes: false,
   presets: { command: (preset) => `/permissions ${PRESET_PROFILES[preset]}` },
   permissionRules: false,
+  approvalDialog: null,
   // No session file (`--ephemeral`), no MCP servers or user model settings (`--ignore-user-config`),
   // no writes (`--sandbox read-only`); exec has no system-prompt flag, so the instructions lead the prompt.
   polish: {

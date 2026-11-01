@@ -40,6 +40,7 @@ function session(id: string, state: Session['state'], updatedAt: string): Sessio
     updatedAt,
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: null,
     status: null,
   }

@@ -6,11 +6,11 @@ Provides the foundation of the mobile app: terminal visual identity, navigation 
 ## Requirements
 
 ### Requirement: App icon
-The app SHALL have an icon with the Remote Harness mark (the Tether: three reins from three terminals meeting in one ring) in the amber accent over a dark gradient with a soft amber glow, generated from code by `apps/mobile/scripts/icons.mts` together with the splash image, the Android adaptive, themed and notification icons, the favicon and the Live Activity icon. Sizes under 24 px (notification, favicon, Live Activity, menu bar) SHALL use the bold weight of the mark. No asset MAY show the Claude spark or any other agent's symbol. The same script SHALL also generate one flat (no glow) alternate app icon per theme — background and mark in that theme's colors — for "App icon follows the theme" below.
+The app SHALL have an icon with the Remote Harness mark (Cursor Signal: a terminal cursor block with the `>` prompt cut out of it and three signal arcs leaving it to the right) in the amber accent, in a 78 % box centered on the flat warm dark `#1C1A17`, with no gradient and no glow, generated from code by `apps/mobile/scripts/icons.mts` together with the splash image, the Android adaptive, themed and notification icons, the favicon and the Live Activity icon. Sizes under 24 px (notification, favicon, Live Activity, menu bar) SHALL use the bold weight of the mark. No asset MAY show the Claude spark or any other agent's symbol. The same script SHALL also generate one flat alternate app icon per theme — background and mark in that theme's colors — for "App icon follows the theme" below.
 
 #### Scenario: iPhone home screen
 - **WHEN** the app is installed
-- **THEN** the icon shown is the amber Tether mark on the dark gradient
+- **THEN** the icon shown is the amber Cursor Signal on the flat warm dark
 
 #### Scenario: Android themed icon
 - **WHEN** the launcher applies a themed (monochrome) icon
@@ -21,11 +21,15 @@ The app SHALL have an icon with the Remote Harness mark (the Tether: three reins
 - **THEN** every asset in `apps/mobile/assets` (including the per-theme alternate icons) and the brand banner in `docs/brand` are rewritten from the same mark source
 
 ### Requirement: Authenticated connection
-When starting with paired credentials, the app SHALL connect to the daemon and send `auth` as the first message; without credentials, it MUST open the pairing screen.
+When starting with paired credentials, the app SHALL connect to the daemon and send `auth` as the first message; without credentials, it MUST open the pairing screen, preceded on the very first launch (no language ever saved) by the language step of `i18n` "App language".
 
 #### Scenario: Not paired
 - **WHEN** the app opens for the first time
-- **THEN** the pairing screen is shown
+- **THEN** the language step is shown, and Continue opens the pairing screen
+
+#### Scenario: Not paired, language already chosen
+- **WHEN** the app opens with no computer paired and a language saved on the device
+- **THEN** the pairing screen is shown at once
 
 ### Requirement: Automatic reconnection
 When the connection is lost, the app SHALL try to reconnect with exponential backoff (1 s up to 30 s), reconnect immediately when returning to the foreground, and resubscribe to open sessions with the last cursor received. A connection attempt that has not opened after 10 s SHALL be abandoned and counted as unreachable; while reconnecting after an unreachable attempt, the indicator MUST say the computer may be asleep or offline.
@@ -92,7 +96,7 @@ The app SHALL keep a theme preference on the device (`system` or one of `dark`, 
 - **THEN** the Appearance card's Theme row reads "Theme · Catppuccin Mocha"
 
 ### Requirement: Agent colors
-The app SHALL define fixed colors for the agents, independent of the theme: Claude Code `#D97757`, Codex `#2FBF8F`, Kimi `#5B9BF5`, Qwen `#8C6CF5`. Model providers (OpenRouter) SHALL be shown with a neutral outline and MUST NOT get a color of their own. Agents and providers with an icon registered (`src/ui/agent-icons/`) SHALL show that icon in the agent badge (drawn in the agent's color) or the provider chip (drawn in the chip's neutral color) instead of the agent badge's two-letter code; an agent or provider without a registered icon MUST keep the two-letter code / text-only chip, so a future agent id never goes unrepresented. Claude Code's icon SHALL be the spark glyph Claude Code shows in the terminal, drawn from the same path as the landing's Claude mark (`apps/web/src/agent-marks.ts`).
+The app SHALL define fixed colors for the agents, independent of the theme: Claude Code `#D97757`, Codex `#2FBF8F`, Gemini `#E3729E`, Kimi `#5B9BF5`, Qwen `#8C6CF5`. Model providers (OpenRouter) SHALL be shown with a neutral outline and MUST NOT get a color of their own. Agents and providers with an icon registered (`src/ui/agent-icons/`) SHALL show that icon in the agent badge (drawn in the agent's color) or the provider chip (drawn in the chip's neutral color) instead of the agent badge's two-letter code; an agent or provider without a registered icon MUST keep the two-letter code / text-only chip, so a future agent id never goes unrepresented. Claude Code's icon SHALL be the spark glyph Claude Code shows in the terminal, drawn from the same path as the landing's Claude mark (`apps/web/src/agent-marks.ts`). Gemini's icon SHALL be a neutral placeholder (a square), like the Codex, Kimi and Qwen ones, not Google's mark.
 
 #### Scenario: Agent color across themes
 - **WHEN** the theme changes
@@ -105,6 +109,10 @@ The app SHALL define fixed colors for the agents, independent of the theme: Clau
 #### Scenario: Claude mark matches the landing
 - **WHEN** the app's `ClaudeIcon` path and the landing's `claude` mark are compared
 - **THEN** both draw the same 24×24 path
+
+#### Scenario: Gemini badge
+- **WHEN** a session's profile uses Gemini CLI
+- **THEN** its agent badge shows the square placeholder on the `#E3729E` badge
 
 #### Scenario: Provider chip shows its icon
 - **WHEN** a profile routes through OpenRouter
@@ -126,15 +134,31 @@ The app SHALL ship five palettes, each defining every semantic token and the 16 
 - **THEN** it uses `#D14F00`, not the `#FE640B` fill, and reads at 3:1 or better
 
 ### Requirement: Settings screen
-The settings screen SHALL be organized as: **Machine** (the connection pill; the machine name, the alias when set else the daemon's hostname, with an Edit action that saves or clears the alias; one line `host:port · remote-harness <daemon version> · protocol <n>` leaving unknown parts out; `Forget this machine`), **Appearance** (a Theme row naming the resolved theme that opens the theme picker modal), **App icon** (an App icon row naming the current choice that opens the icon picker modal — Match theme, Original, and one per theme; see "App icon follows the theme"), **Profiles** (one row per profile with the agent badge, the name in the profile color, the dashed `via <provider>` chip when the profile has a provider, and `<agent> · <config dir> · alias <id>`; tapping opens a details sheet with the agent, the alias, the config dir, the profile's notifications toggle and, for a profile with a provider, the provider, its default model and the credits left, or the hint to run `remote-harness provider key <id>` when no key is stored), **New session** (`Open the session after creating it` toggle, on by default, per device), **Keyboard** (`Return key sends` toggle, off by default, per device, with the hint that the on-screen keyboard then has no new line), **Notifications** (`Push notifications` toggle for this phone with the hint "Only this phone · never the conversation", showing the push status and test while on; `Live status` toggle; a `Muted` row with `N profiles · M sessions` that opens a sheet with the per-profile switches and the muted sessions, each unmutable), **Permissions** (opens the Permissions screen, which lists every system permission the app and the computer rely on, its status, why it's needed, and how to fix it), **Daemon** (the daemon version and update channel with a `main` / `development` selector, `Check for updates`, the available version, `Update the computer` after a confirmation that warns about a downgrade and about busy sessions, the run progress and its outcome; for a daemon without remote updates, the `remote-harness update` command), **Voice** (transcription language) and **App** (version, update and channel, `Check for updates`, `Documentation`, `Report a problem`). All texts MUST be translated.
+The Settings route SHALL be a list of sections that fits on one screen of a regular phone without scrolling, in this order: **Computer**, **Devices**, **Appearance**, **Profiles**, **Sessions**, **Notifications**, **Permissions**, **Voice** and **App**. Each row SHALL show an icon, the section's title, one line with its current state and a chevron, and the app version SHALL stay under the list. Tapping a row SHALL open the section's own screen, titled after the section and with the usual back navigation, holding the cards that belong to it; the Permissions row SHALL open the Permissions screen directly (which lists every system permission the app and the computer rely on, its status, why it's needed, and how to fix it).
+
+The sections SHALL hold: **Computer** — Machine (the connection pill; the machine name, the alias when set else the daemon's hostname, with an Edit action that saves or clears the alias; one line `host:port · remote-harness <daemon version> · protocol <n>` leaving unknown parts out; `Forget this machine`), Computers (every paired computer: switch, rename, forget, add another) and Computer update (the daemon version and update channel with a `main` / `development` selector, `Check for updates`, the available version, `Update the computer` after a confirmation that warns about a downgrade and about busy sessions, the run progress and its outcome; for a daemon without remote updates, the `remote-harness update` command); **Devices** — the phones and tablets paired with the computer, Add device and revoke; **Appearance** — a Theme row naming the resolved theme that opens the theme picker modal, the session list density, and an App icon row naming the current choice that opens the icon picker modal (Match theme, Original, and one per theme; see "App icon follows the theme"); **Profiles** — one row per profile with the agent badge, the name in the profile color, the dashed `via <provider>` chip when the profile has a provider, and `<agent> · <config dir> · alias <id>`; tapping opens a details sheet with the agent, the alias, the config dir, the profile's notifications toggle and, for a profile with a provider, the provider, its default model and the credits left, or the hint to run `remote-harness provider key <id>` when no key is stored; **Sessions** — New session (`Open the session after creating it` toggle, on by default, per device), Prompt templates and Keyboard (`Return key sends` toggle, off by default, per device, with the hint that the on-screen keyboard then has no new line; autocorrect in the message input); **Notifications** — `Push notifications` toggle for this phone with the hint "Only this phone · never the conversation", showing the push status and test while on; `Live status` toggle; a `Muted` row with `N profiles · M sessions` that opens a sheet with the per-profile switches and the muted sessions, each unmutable; **Voice** — transcription language, dictation polish and press-and-hold; **App** — version, update and channel, `Check for updates`, `Documentation`, `Report a problem`, the app language, error reports and the performance numbers of this run.
+
+The row summaries SHALL read: Computer `<machine name> · <connection status>`; Devices a fixed hint; Appearance `<resolved theme> · <app icon choice>`; Profiles `<N profiles> · <the agents used>`; Sessions the options that are on and the number of templates (a fixed hint when none); Notifications `Push on|off · Live status on|off`, then `N muted` when anything is muted; Permissions its hint; Voice the transcription language; App `<version> · <update channel> · <app language>`. In the offline demo the list SHALL have no Notifications row, Computer SHALL show the Demo card instead of Computers, and App SHALL leave out error reports and performance numbers. The header button of the session list, ⌘, and the `remoteharness://settings` link SHALL open the sections list. All texts MUST be translated.
+
+#### Scenario: Sections list
+- **WHEN** the user opens Settings on a phone with the dark theme, the icon matching the theme, two profiles (Claude Code and Codex), push on and nothing muted
+- **THEN** the nine rows are visible without scrolling, Appearance reads "Dark · Match theme", Profiles "2 profiles · Claude Code, Codex" and Notifications "Push on · Live status on"
+
+#### Scenario: Open a section
+- **WHEN** the user taps Notifications
+- **THEN** a screen titled Notifications opens with the push, live status and Muted rows, and Back returns to the list
+
+#### Scenario: Demo mode
+- **WHEN** the offline demo is on
+- **THEN** the list has no Notifications row, Computer shows the Demo card and no Computers card, and App has no error reports or performance cards
 
 #### Scenario: Rename the machine
-- **WHEN** the user taps Edit on the Machine card, types "MacBook Pro" and saves
-- **THEN** the card and every `{{machine}}` text show "MacBook Pro" until the alias is cleared
+- **WHEN** the user taps Edit on the Machine card of the Computer section, types "MacBook Pro" and saves
+- **THEN** the card, the Computer row and every `{{machine}}` text show "MacBook Pro" until the alias is cleared
 
 #### Scenario: Profile row
 - **WHEN** the profile "Personal" uses `~/.claude` and alias `personal`
-- **THEN** its row shows the Claude Code badge, "Personal" and `Claude Code · ~/.claude · alias personal`, and tapping it opens the details with the notifications toggle
+- **THEN** its row in the Profiles section shows the Claude Code badge, "Personal" and `Claude Code · ~/.claude · alias personal`, and tapping it opens the details with the notifications toggle
 
 #### Scenario: OpenRouter profile details
 - **WHEN** the profile "Work" has provider OpenRouter with a stored key and $42.10 of credits left
@@ -142,23 +166,27 @@ The settings screen SHALL be organized as: **Machine** (the connection pill; the
 
 #### Scenario: Muted summary
 - **WHEN** one profile and two sessions are muted
-- **THEN** the Muted row reads "1 profile · 2 sessions" and its sheet lists them
+- **THEN** the Muted row of the Notifications section reads "1 profile · 2 sessions", its sheet lists them, and the Notifications row of the list ends with "3 muted"
 
 #### Scenario: Update the computer
-- **WHEN** the daemon reports 0.13.0 available on `main` and the user confirms "Update the computer"
+- **WHEN** the daemon reports 0.13.0 available on `main` and the user confirms "Update the computer" in the Computer section
 - **THEN** the card shows fetching, building and restarting, reconnects and shows 0.13.0
 
 #### Scenario: Turn off auto-open
-- **WHEN** the user turns off "Open the session after creating it"
+- **WHEN** the user turns off "Open the session after creating it" in the Sessions section
 - **THEN** the choice is kept on this device across restarts, and the next successful `Start session` returns to the session list instead of opening the new session
 
 #### Scenario: Open Permissions
-- **WHEN** the user taps the Permissions entry
+- **WHEN** the user taps the Permissions row
 - **THEN** the Permissions screen opens, showing the "On this phone" and "On this computer" sections
 
 #### Scenario: Return key sends
-- **WHEN** the user turns on "Return key sends"
+- **WHEN** the user turns on "Return key sends" in the Sessions section
 - **THEN** the choice is kept on this device across restarts, and the composer's on-screen return key sends
+
+#### Scenario: Pick a language in Settings
+- **WHEN** the user taps `Español` in the Language card of the App section
+- **THEN** the section, the Settings list, their headers and every other open screen switch to Spanish at once, and the choice is kept across restarts
 
 ### Requirement: Tablet layout
 The app SHALL lay itself out by window width (points on iOS, dp on Android): below 700 the phone layout (one pane; Split View one third and Slide Over included); from 700 to 1099 two columns, the session list (340 wide) beside the conversation, with the inspector opening as a side sheet from a header button; from 1100 three columns, the list, the conversation (content at most 760 wide, the permission card and the queue sharing that width) and the inspector (320 wide by default). In the two-column class in portrait, the list SHALL instead slide over the dimmed conversation from a ☰ header button, opening on its own while no session is open and closing when one is picked. The inspector SHALL have the tabs **Terminal** (the live mirror of the pane), **Subagents** (with the count in the tab, the same rows as the subagents sheet) and **Details** (the same rows as the session details sheet), SHALL be resizable between 280 and 420 by dragging its edge, and SHALL remember its tab and width while the app runs. All texts MUST be translated.

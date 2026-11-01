@@ -4,8 +4,10 @@ import type { DaemonContext } from '../../main.ts'
 import { adapterOf } from '../agents/index.ts'
 import type { SessionStore } from '../sessions/store.ts'
 import { oneLine } from '../sessions/transcript-meta.ts'
+import type { SessionRecord } from '../sessions/types.ts'
 import { mergeStatus } from './format.ts'
 import { type EntryListener, type StreamTarget, TranscriptService } from './service.ts'
+import { readTailEntries } from './transcript-file.ts'
 
 /** Resolves the transcript file for a session or one of its subagents. */
 export type TranscriptPathResolver = (sessionId: string, agentId?: string) => string | null
@@ -15,6 +17,9 @@ export function registerTranscriptFeature(
   store: SessionStore,
   /** Called when new transcript lines were read for a session (last activity). */
   onActivity: (sessionId: string, at: number) => void = () => {},
+  /** A name the agent wrote to the transcript (`/rename`, `--name`); the store is patched when absent. */
+  onCustomTitle: (sessionId: string, title: string) => void = (sessionId, title) =>
+    store.upsert(sessionId, { title: oneLine(title) }),
 ) {
   const service = new TranscriptService(
     ctx.logger,
@@ -22,10 +27,10 @@ export function registerTranscriptFeature(
       const mode = PermissionModeSchema.safeParse(update.permissionMode)
       store.upsert(sessionId, {
         ...(mode.success ? { permissionMode: mode.data } : {}),
-        ...(update.customTitle ? { title: oneLine(update.customTitle) } : {}),
         ...(update.approvalPolicy ? { approvalPolicy: update.approvalPolicy } : {}),
         ...(update.permissionProfile ? { permissionProfile: update.permissionProfile } : {}),
       })
+      if (update.customTitle) onCustomTitle(sessionId, update.customTitle)
       const session = store.get(sessionId)
       if (!session) return
       if (update.status) {
@@ -83,6 +88,11 @@ export function registerTranscriptFeature(
     service,
     /** Follows a session's own transcript (not its subagents') for daemon-side listeners. */
     follow: (sessionId: string, listener: EntryListener) => service.follow(target(sessionId), listener),
+    /** The last `bytes` of a session's own transcript, in its agent's format, without indexing it. */
+    readTail: (session: SessionRecord, bytes: number) =>
+      session.transcriptPath
+        ? readTailEntries(session.transcriptPath, adapterOf(session.agent).transcript, bytes)
+        : Promise.resolve({ entries: [], complete: true }),
     /** Lets other features (subagents) teach the stream how to find more transcripts. */
     addResolver(resolver: TranscriptPathResolver) {
       resolvers.push(resolver)

@@ -16,6 +16,7 @@ const base: Session = {
   updatedAt: '2026-10-25T12:00:00.000Z',
   subagents: [],
   backgroundTasks: 0,
+  lastActivity: null,
   checkout: null,
   status: { model: 'Opus 5.5', effort: 'high', context: { usedTokens: 1000, size: 200_000, percent: 0.5 } },
 }

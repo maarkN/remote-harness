@@ -19,8 +19,11 @@ export const CodexPresetSchema = z.enum(['read-only', 'workspace'])
 export type CodexPreset = z.infer<typeof CodexPresetSchema>
 
 /** Coding agents the app knows (badge, color); only those with a daemon adapter can run. */
-export const AgentIdSchema = z.enum(['claude', 'codex', 'kimi', 'qwen'])
+export const AgentIdSchema = z.enum(['claude', 'codex', 'gemini', 'kimi', 'qwen'])
 export type AgentId = z.infer<typeof AgentIdSchema>
+
+/** An agent id in a message: one this parser does not know yet reads as absent (Claude Code). */
+const wireAgentId = AgentIdSchema.optional().catch(undefined)
 
 /** Model gateways a profile can route Claude Code through; a profile without one uses the Anthropic account. */
 export const ProviderKindSchema = z.enum(['openrouter'])
@@ -50,6 +53,9 @@ export const ProfileSchema = z.object({
   provider: ProviderSchema.optional(),
 })
 export type Profile = z.infer<typeof ProfileSchema>
+
+/** A profile as the daemon sends it (`auth.ok`); the config file keeps the strict `ProfileSchema`. */
+export const WireProfileSchema = ProfileSchema.extend({ agent: wireAgentId })
 
 /** A model a provider lists; prices in USD per million tokens, `null` when the provider does not say. */
 export const ModelInfoSchema = z.object({
@@ -86,6 +92,10 @@ export const SubagentInfoSchema = z.object({
   startedAt: z.string().nullable().default(null),
   /** Tool uses in its transcript so far. */
   toolCount: z.number().int().nonnegative().default(0),
+  /** The workflow run (`wf_…`) that spawned it, when it is one of a run's agents; absent otherwise. */
+  workflowRunId: z.string().optional(),
+  /** The run's phase it works in, as the workflow script named it; absent outside a run or until known. */
+  workflowPhase: z.string().optional(),
 })
 export type SubagentInfo = z.infer<typeof SubagentInfoSchema>
 
@@ -125,11 +135,22 @@ export const AccountLimitsSchema = z.object({
 })
 export type AccountLimits = z.infer<typeof AccountLimitsSchema>
 
+/**
+ * What a session last did, for the list's preview: its last prompt, reply or tool call as one line of
+ * plain text (at most `LAST_ACTIVITY_MAX_CHARS`), with the entry's time. Never sent in push payloads.
+ */
+export const LastActivitySchema = z.object({
+  kind: z.enum(['user', 'assistant', 'tool']),
+  text: z.string(),
+  at: z.string(),
+})
+export type LastActivity = z.infer<typeof LastActivitySchema>
+
 export const SessionSchema = z.object({
   id: z.string(),
   profileId: z.string(),
-  /** The profile's agent; absent means Claude Code (older daemons). */
-  agent: AgentIdSchema.optional(),
+  /** The profile's agent; absent means Claude Code (older daemons, or an agent this parser does not know). */
+  agent: wireAgentId,
   cwd: z.string(),
   title: z.string(),
   state: SessionStateSchema,
@@ -147,6 +168,8 @@ export const SessionSchema = z.object({
   checkout: CheckoutSchema.nullable().default(null),
   /** `null` until the session's status line reports (and from older daemons). */
   status: SessionStatusSchema.nullable().default(null),
+  /** `null` until the daemon reads the transcript (and from older daemons). */
+  lastActivity: LastActivitySchema.nullable().default(null),
 })
 export type Session = z.infer<typeof SessionSchema>
 
@@ -243,6 +266,33 @@ export const MAX_TRANSCRIPT_IMAGE_BYTES = 5 * 1024 * 1024
 /** Absent in older daemons. */
 const images = z.array(ImageRefSchema).default([])
 
+/** A phase of a workflow run, as the script's `meta` declares it. */
+export const WorkflowPhaseSchema = z.object({ title: z.string(), detail: z.string().nullable() })
+export type WorkflowPhase = z.infer<typeof WorkflowPhaseSchema>
+
+/**
+ * What a `Workflow` tool call (Claude Code's multi-agent orchestration) declares about its run, read
+ * from the script's `meta`; only on `tool_use` entries of that tool, absent from older daemons.
+ */
+export const WorkflowCallSchema = z.object({
+  /** `meta.name`, or the saved workflow's name; `null` when the call only points at a script file. */
+  name: z.string().nullable(),
+  description: z.string().nullable(),
+  phases: z.array(WorkflowPhaseSchema),
+})
+export type WorkflowCall = z.infer<typeof WorkflowCallSchema>
+
+/** How a `Workflow` call's result names the run it launched; only on that result, absent from older daemons. */
+export const WorkflowLaunchSchema = z.object({
+  /** Claude Code's background task id, the one its task notification carries. */
+  taskId: z.string().nullable(),
+  /** The run id (`wf_…`); the run's agents carry it as `workflowRunId`. */
+  runId: z.string().nullable(),
+  /** The description echoed at launch (the only one known when the script is a file). */
+  summary: z.string().nullable(),
+})
+export type WorkflowLaunch = z.infer<typeof WorkflowLaunchSchema>
+
 const entryBase = {
   /** Stable unique key: `<uuid>:<index>`. */
   key: z.string(),
@@ -266,6 +316,8 @@ export const TranscriptEntrySchema = z.discriminatedUnion('kind', [
     toolUseId: z.string(),
     name: z.string(),
     input: z.record(z.string(), z.unknown()),
+    /** `Workflow` calls only: what the run declares (see `WorkflowCallSchema`). */
+    workflow: WorkflowCallSchema.optional(),
   }),
   z.object({
     ...entryBase,
@@ -275,6 +327,8 @@ export const TranscriptEntrySchema = z.discriminatedUnion('kind', [
     isError: z.boolean(),
     truncated: z.boolean(),
     images,
+    /** The result of a `Workflow` call only: the run it launched (see `WorkflowLaunchSchema`). */
+    workflow: WorkflowLaunchSchema.optional(),
   }),
   z.object({
     ...entryBase,
@@ -287,6 +341,10 @@ export const TranscriptEntrySchema = z.discriminatedUnion('kind', [
     status: z.string().optional(),
     /** `task_notification` only: extra explanation, when Claude Code gives one. */
     note: z.string().optional(),
+    /** `task_notification` only: the tool call that started the task, when the notification names it. */
+    toolUseId: z.string().optional(),
+    /** `task_notification` only: the task's result text, cut at 4,000 characters, when there is one. */
+    result: z.string().optional(),
     /** `tagged` only: the first tag name of an entry made of tags the daemon does not know. */
     tag: z.string().optional(),
     /** `compact_boundary` only: the compaction trigger (`manual`, `auto`), when Claude Code reports one. */

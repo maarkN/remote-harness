@@ -16,7 +16,7 @@ import {
 } from '../src/features/updates/channel.ts'
 import { CHECK_INTERVAL_MS, readUpdateState, UpdateChecker } from '../src/features/updates/checker.ts'
 import { buildTrayMenu, type TrayItem, type TrayMenuState } from '../src/features/updates/menu.ts'
-import { TrayHost } from '../src/features/updates/tray-host.ts'
+import { type HelperSupport, TrayHost } from '../src/features/updates/tray-host.ts'
 import { runDetachedUpdate } from '../src/infra/desktop.ts'
 import { spawnJsonLines, type TrayProcess, trayAssetsDir, trayCommand } from '../src/infra/tray-helper.ts'
 import { fakeExecutor, useTempHome } from './helpers.ts'
@@ -258,7 +258,7 @@ function fakeProcess() {
   return {
     process,
     click: (id: string, value?: string) => message({ type: 'click', id, ...(value ? { value } : {}) }),
-    ready: (windows: boolean) => message({ type: 'ready', windows }),
+    ready: (windows: boolean, popover?: boolean) => message({ type: 'ready', windows, popover }),
     exit: (early: boolean) => exit(1, early),
   }
 }
@@ -283,10 +283,10 @@ describe('TrayHost', () => {
     expect(fake.process.stop).toHaveBeenCalled()
   })
 
-  test('reports a click value and whether the helper supports windows', async () => {
+  test('reports a click value and whether the helper supports windows and the popover', async () => {
     const fake = fakeProcess()
     const clicks: [string, string | undefined][] = []
-    const ready: boolean[] = []
+    const ready: HelperSupport[] = []
     const host = new TrayHost(
       async () => fake.process,
       (id, value) => clicks.push([id, value]),
@@ -296,12 +296,31 @@ describe('TrayHost', () => {
     )
     await host.launch()
     fake.ready(true)
-    expect(ready).toEqual([true])
+    fake.ready(true, true)
+    expect(ready).toEqual([
+      { windows: true, popover: false },
+      { windows: true, popover: true },
+    ])
     fake.click('rename:a', 'New name')
     fake.click('check')
     expect(clicks).toEqual([
       ['rename:a', 'New name'],
       ['check', undefined],
+    ])
+  })
+
+  test('passes notifications to a running helper and drops them otherwise', async () => {
+    const fake = fakeProcess()
+    const host = new TrayHost(
+      async () => fake.process,
+      () => {},
+      silentLogger,
+    )
+    host.notify('dropped', '')
+    await host.launch()
+    host.notify('Remote Harness 0.12.0 available', 'Update from the tray')
+    expect(fake.process.sent).toEqual([
+      { type: 'notify', title: 'Remote Harness 0.12.0 available', body: 'Update from the tray' },
     ])
   })
 
@@ -366,9 +385,28 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       buildDir: join(home.dir(), 'tray'),
     }
     expect(await trayCommand({ ...linux, env: {} })).toEqual({ unavailable: 'no graphical session' })
+    // WSL: the Windows helper through PowerShell, the C# source converted to a Windows path.
     expect(await trayCommand({ ...linux, wsl: true, env: { DISPLAY: ':0' } })).toEqual({
-      unavailable: 'no tray in WSL',
+      unavailable: 'no Windows interop',
     })
+    const interop = fakeExecutor((call) =>
+      call.file === 'wslpath' ? { stdout: "\\\\wsl.localhost\\Ubuntu\\rh\\it's\\Tray.cs\n" } : undefined,
+    )
+    const windows = await trayCommand({ ...linux, wsl: true, exec: interop, env: {} })
+    expect(interop.calls[0]?.args).toEqual(['-w', join(assetsDir!, 'windows', 'Tray.cs')])
+    expect(windows).toMatchObject({ command: 'powershell.exe' })
+    const args = 'args' in windows ? windows.args : []
+    expect(args.slice(0, -1)).toEqual([
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-WindowStyle',
+      'Hidden',
+      '-Command',
+    ])
+    expect(args.at(-1)).toContain("Add-Type -Path '\\\\wsl.localhost\\Ubuntu\\rh\\it''s\\Tray.cs'")
+    expect(args.at(-1)).toContain('[RemoteHarness.TrayApp]::Run()')
     expect(await trayCommand({ ...linux, env: { WAYLAND_DISPLAY: 'wayland-0' } })).toEqual({
       command: 'python3',
       args: [join(assetsDir!, 'linux', 'tray.py')],

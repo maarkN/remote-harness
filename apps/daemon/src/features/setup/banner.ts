@@ -29,20 +29,21 @@ export function colorEnabled(stream: { isTTY?: boolean } = process.stdout): bool
   return Boolean(stream.isTTY) && !process.env.NO_COLOR
 }
 
-// The mark ("the Tether"): three terminal nodes (muted) whose reins meet in one ring (accent).
-// Segments are [color, text]; one row per line of the words next to it.
+// The mark ("Cursor Signal") in block characters: the cursor block with the `>` prompt cut out of it
+// (the gaps), then the three signal arcs, all in the accent. 14 columns; the rows line up with the
+// words next to it. Segments are [color, text].
 type Segment = [keyof typeof palette, string]
 const ICON: Segment[][] = [
-  [['muted', '  ▄▄   ▄▄   ▄▄']],
-  [['muted', '  ██   ██   ██']],
-  [['accent', '   ▀▄  ██  ▄▀']],
-  [['accent', '    ▀▄ ██ ▄▀']],
-  [['accent', '     ▀▄██▄▀']],
-  [['accent', '       ██']],
-  [['accent', '      ▄██▄']],
-  [['accent', '     █▀  ▀█']],
-  [['accent', '     █    █']],
-  [['accent', '     ▀▄▄▄▄▀']],
+  [['accent', '  ▄▄▄▄▄']],
+  [['accent', '  █████     ▄▄']],
+  [['accent', '  ██▀██   ▄ ██']],
+  [['accent', '  ███▀█ ▄ █ ██']],
+  [['accent', '  ███▄█ █ █ ██']],
+  [['accent', '  ██▄██ ▀ █ ██']],
+  [['accent', '  █████   ▀ ██']],
+  [['accent', '  █████     ▀▀']],
+  [['accent', '  ▀▀▀▀▀']],
+  [['accent', '']],
   [['accent', '']],
   [['accent', '']],
 ]

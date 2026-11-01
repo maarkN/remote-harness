@@ -6,6 +6,7 @@ import {
   LiveDataMessageSchema,
   LiveStatusPropsSchema,
   liveNotificationText,
+  ProfileSchema,
   parseClientMessage,
   parseServerMessage,
   type ServerMessage,
@@ -169,6 +170,7 @@ const clientSamples: ClientMessage[] = [
   { type: 'session.start', id: '1', profileId: 'claudin', cwd: '/tmp', worktree: true },
   { type: 'session.start', id: '1', profileId: 'work', cwd: '/tmp', model: 'anthropic/claude-opus-5.5' },
   { type: 'session.start', id: '1', profileId: 'claudin', cwd: '/tmp', name: 'Rate limit on login' },
+  { type: 'session.start', id: '1', profileId: 'claudin', cwd: '/tmp', prompt: 'Review the open PR' },
   { type: 'checkout.inspect', id: '1', profileId: 'claudin', cwd: '/tmp' },
   { type: 'session.resume', id: '1', profileId: 'claudin', sessionId: 's' },
   { type: 'pane.subscribe', id: '1', sessionId: 's' },
@@ -190,6 +192,7 @@ const session: Session = {
   updatedAt: '2026-10-14T00:00:00Z',
   subagents: [],
   backgroundTasks: 0,
+  lastActivity: null,
   checkout: { root: '/tmp', branch: 'main' },
   status: { model: 'Opus 5.5', effort: 'high', context: { usedTokens: 124_000, size: 200_000, percent: 62 } },
 }
@@ -637,6 +640,13 @@ describe('client messages', () => {
     expect(start('x'.repeat(81)).ok).toBe(false)
   })
 
+  test('a first prompt is never empty', () => {
+    const start = (prompt: string) =>
+      parseClientMessage({ type: 'session.start', id: '1', profileId: 'p', cwd: '/tmp', prompt })
+    expect(start('Review the open PR')).toMatchObject({ ok: true, value: { prompt: 'Review the open PR' } })
+    expect(start('')).toMatchObject({ ok: false, error: { code: 'bad_request' } })
+  })
+
   test('shell commands: trimmed, bounded, never empty', () => {
     const run = (command: string) =>
       parseClientMessage({ type: 'command.run', id: '1', sessionId: 's', command })
@@ -1047,5 +1057,47 @@ describe('session checkout', () => {
 
   test('no peers outside git', () => {
     expect(checkoutPeers(at('a', null), [at('a', null), at('b', null)])).toEqual([])
+  })
+})
+
+describe('agent ids', () => {
+  const snapshot = (agent: string) =>
+    parseServerMessage({ type: 'sessions.snapshot', replyTo: '1', sessions: [{ ...session, agent }] })
+
+  test('a Gemini session keeps its agent', () => {
+    expect(snapshot('gemini')).toMatchObject({ ok: true, value: { sessions: [{ agent: 'gemini' }] } })
+  })
+
+  test('an unknown agent reads as absent instead of rejecting the message', () => {
+    const result = snapshot('future-cli')
+    expect(result.ok).toBe(true)
+    if (result.ok && result.value.type === 'sessions.snapshot')
+      expect(result.value.sessions[0]?.agent).toBeUndefined()
+  })
+
+  test('an unknown agent on an auth.ok profile reads as absent', () => {
+    const result = parseServerMessage({
+      type: 'auth.ok',
+      protocolVersion: 2,
+      daemonVersion: '1.0.0',
+      host: 'mac',
+      profiles: [{ id: 'x', name: 'X', configDir: '/x', color: '#fff', agent: 'future-cli' }],
+      defaultRuleScope: 'project',
+      muted: { profiles: [], sessions: [] },
+      push: { mode: 'relay' },
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok && result.value.type === 'auth.ok') expect(result.value.profiles[0]?.agent).toBeUndefined()
+  })
+
+  test('the config file keeps rejecting an unknown agent', () => {
+    const parsed = ProfileSchema.safeParse({
+      id: 'x',
+      name: 'X',
+      configDir: '/x',
+      color: '#fff',
+      agent: 'gemni',
+    })
+    expect(parsed.success).toBe(false)
   })
 })

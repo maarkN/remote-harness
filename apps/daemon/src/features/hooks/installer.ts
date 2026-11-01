@@ -9,11 +9,11 @@ import {
   unwrapStatusLine,
   wrapStatusLine,
 } from '../status-line/wrapper.ts'
+import { installedKimiEvents, KIMI_HOOK_EVENTS, mergeKimiHooks, removeKimiHooks } from './kimi-hooks.ts'
 import { removePathBlock, renderLauncher, upsertPathBlock } from './launcher.ts'
-import { HOOK_EVENTS } from './payloads.ts'
 import {
-  CODEX_HOOK_EVENTS,
   type HookInstallOptions,
+  hookEventsFor,
   isOurHook,
   mergeOurHooks,
   removeOurHooks,
@@ -52,18 +52,24 @@ export function settingsPath(profile: Profile): string {
 
 export async function installHooks(profile: Profile, options: HookInstallOptions): Promise<boolean> {
   const style = agentFor(profile).hooks.style
+  // Kimi CLI keeps its hooks as tables in config.toml; a file with an inline `hooks` key is left alone.
+  if (style === 'kimi-toml')
+    return updateTextFile(settingsPath(profile), (text) => mergeKimiHooks(text, options) ?? text)
   return updateSettings(settingsPath(profile), (s) => mergeOurHooks(s, options, style))
 }
 
 /** Every hook the daemon needs is in the profile's hooks file (doctor). */
 export async function hasOurHooks(profile: Profile): Promise<boolean> {
+  const style = agentFor(profile).hooks.style
+  if (style === 'kimi-toml') {
+    const installed = installedKimiEvents(await readText(settingsPath(profile)).catch(() => ''))
+    return Object.keys(KIMI_HOOK_EVENTS).every((event) => installed.has(event))
+  }
   const settings = (await readJsonFile(settingsPath(profile)).catch(() => undefined)) as
     | { hooks?: Record<string, unknown> }
     | undefined
-  const style = agentFor(profile).hooks.style
-  const events = style === 'codex-hooks' ? CODEX_HOOK_EVENTS : HOOK_EVENTS
-  return events.every((event) => {
-    const groups = settings?.hooks?.[event]
+  return hookEventsFor(style).every(([key]) => {
+    const groups = settings?.hooks?.[key]
     return (
       Array.isArray(groups) &&
       groups.some(
@@ -76,13 +82,15 @@ export async function hasOurHooks(profile: Profile): Promise<boolean> {
 }
 
 export async function uninstallHooks(profile: Profile): Promise<boolean> {
+  if (agentFor(profile).hooks.style === 'kimi-toml')
+    return updateTextFile(settingsPath(profile), removeKimiHooks)
   return updateSettings(settingsPath(profile), (s) => removeOurHooks(s))
 }
 
-/** Writes the status line wrapper (it holds the hooks port and secret, so only the user can read it). */
+/** Writes the status line wrapper; it holds the hooks port and the path of the curl config, never the secret. */
 export async function installStatusLineScript(
   binDir: string,
-  options: { port: number; secret: string },
+  options: { port: number; curlConfig: string },
 ): Promise<string> {
   const path = join(binDir, STATUS_LINE_SCRIPT)
   await writeFileAtomic(path, renderStatusLineScript(options), 0o700)

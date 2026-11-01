@@ -34,6 +34,9 @@ export type ShellCommandsConfig = z.infer<typeof ShellCommandsConfigSchema>
 /** The project's connection relays (ADR-0003); `relays` in the config replaces them for self-hosting. */
 export const DEFAULT_RELAYS = ['wss://us.relay.remoteharness.app', 'wss://br.relay.remoteharness.app']
 
+/** Name of the Remote Harness tmux server (`tmux -L`), the `tmuxSocket` default. */
+export const DEFAULT_TMUX_SOCKET = 'remote-harness'
+
 export const ConfigSchema = z
   .object({
     profiles: z.array(ProfileSchema).min(1),
@@ -50,6 +53,13 @@ export const ConfigSchema = z
     pasteEnterDelayMs: z.number().int().nonnegative().default(80),
     recentDays: z.number().int().positive().default(7),
     tmuxSession: z.string().min(1).default('claude-remote'),
+    /**
+     * The tmux server (`tmux -L <name>`) the launchers and the daemon use, apart from the user's own
+     * tmux and its config; `null` = the user's default server, as before the dedicated one existed.
+     */
+    tmuxSocket: z.string().min(1).nullable().default(DEFAULT_TMUX_SOCKET),
+    /** Config of that server: Remote Harness's few settings, or those plus the user's own tmux.conf on top. */
+    tmuxConfig: z.enum(['minimal', 'user']).default('minimal'),
     /** Language of the CLI, setup and push texts; absent = the system language. */
     language: LocaleSchema.optional(),
     /** `off` sends no push nor live status; `auto` = Firebase service account if present, else the relay. */
@@ -183,6 +193,36 @@ export async function updateConfigFile(
   return true
 }
 
+/**
+ * `profiles` as written in the config file with the profile `id` renamed (every other field, such as
+ * an unexpanded `~` in `configDir`, kept as is). Null when the name is blank or there is no such profile.
+ */
+export function withProfileName(profiles: unknown, id: string, name: string): unknown[] | null {
+  const trimmed = name.trim()
+  if (!trimmed || !Array.isArray(profiles)) return null
+  let found = false
+  const next = profiles.map((profile: unknown) => {
+    if (!profile || typeof profile !== 'object' || (profile as { id?: unknown }).id !== id) return profile
+    found = true
+    return { ...profile, name: trimmed }
+  })
+  return found ? next : null
+}
+
+/** Renames one profile in the config file; false when the name is blank or the profile is not there. */
+export async function renameProfileInConfig(
+  id: string,
+  name: string,
+  path = paths.config(),
+): Promise<boolean> {
+  const raw = await readJsonFile(path)
+  const profiles = raw && typeof raw === 'object' ? (raw as { profiles?: unknown }).profiles : undefined
+  const next = withProfileName(profiles, id, name)
+  if (!next) return false
+  await updateConfigFile({ profiles: next }, path)
+  return true
+}
+
 /** Expands `~` and drops profiles whose config dir does not exist or whose agent has no adapter yet. */
 export async function resolveProfiles(config: Config, logger: Logger): Promise<Profile[]> {
   const result: Profile[] = []
@@ -193,6 +233,13 @@ export async function resolveProfiles(config: Config, logger: Logger): Promise<P
       continue
     }
     const configDir = expandHome(profile.configDir)
+    if (agentFor(profile).acceptsConfigDir?.(configDir) === false) {
+      logger.warn(
+        { profile: profile.id, agent, configDir },
+        'not a config dir of this agent, ignoring profile',
+      )
+      continue
+    }
     if (await isDirectory(configDir)) {
       result.push({ ...profile, configDir })
     } else {

@@ -46,10 +46,12 @@ type Props = {
   disabled: boolean
   /** Focuses the input once on mount, e.g. right after creating this session. */
   autoFocus?: boolean
+  /** Opens the prompt templates picker (the `{}` button of the keyboard toolbar). */
+  onTemplates?: () => void
 }
 
 /** Prompt composer with `@` file and `/` command suggestions. */
-export function SmartComposer({ sessionId, prompt, disabled, autoFocus }: Props) {
+export function SmartComposer({ sessionId, prompt, disabled, autoFocus, onTemplates }: Props) {
   const { t } = useTranslation()
   const input = useRef<TextInput>(null)
   // Only on mount: a session opened once with `autoFocus` shouldn't re-focus on later re-renders.
@@ -258,6 +260,7 @@ export function SmartComposer({ sessionId, prompt, disabled, autoFocus }: Props)
         const next = insertTrigger(prompt.text, cursor, trigger)
         if (next) insert(next)
       }}
+      onTemplates={onTemplates}
       accessory={
         trigger ? (
           <SuggestionList

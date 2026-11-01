@@ -21,6 +21,7 @@ const session = (over: Partial<Session> = {}): Session => ({
   updatedAt: '2026-10-18T11:55:00Z',
   subagents: [],
   backgroundTasks: 0,
+  lastActivity: null,
   checkout: null,
   status: null,
   ...over,

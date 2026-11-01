@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest'
 import { EventBus } from '../src/core/event-bus.ts'
 import type { DaemonEvents } from '../src/core/events.ts'
 import { silentLogger } from '../src/core/logger.ts'
+import { renderCurlConfig } from '../src/features/hooks/hook-secret.ts'
 import {
   BACKUP_SUFFIX,
   existingRcFiles,
@@ -22,7 +23,7 @@ import {
   renderLauncher,
   upsertPathBlock,
 } from '../src/features/hooks/launcher.ts'
-import type { HookEvent } from '../src/features/hooks/payloads.ts'
+import { HOOK_EVENTS, type HookEvent } from '../src/features/hooks/payloads.ts'
 import { HookReceiver, resolveProfileId } from '../src/features/hooks/receiver.ts'
 import {
   buildHookEntry,
@@ -34,7 +35,11 @@ import { createHooksServer } from '../src/transport/hooks-server.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
-const options = { port: 7338, secret: 's3cr3t', permissionTimeoutSec: 300 }
+const options = {
+  port: 7338,
+  curlConfig: '/u/.remote-harness/hook-secret.curlrc',
+  permissionTimeoutSec: 300,
+}
 const userStop = { hooks: [{ type: 'command', command: 'say done' }] }
 
 describe('settings hooks merge', () => {
@@ -46,20 +51,39 @@ describe('settings hooks merge', () => {
     expect(once.model).toBe('opus')
     expect(once.hooks.Stop).toHaveLength(2)
     expect(once.hooks.Stop?.[0]).toEqual(userStop)
+    // Every hook is a command (#453): the permission one prints the daemon's answer, the others
+    // discard it, and all of them exit 0, so a stopped daemon shows no error in the session.
     const permission = once.hooks.PermissionRequest?.[0]?.hooks[0]
-    expect(permission).toMatchObject({
-      type: 'http',
-      url: 'http://127.0.0.1:7338/hooks/PermissionRequest',
-      timeout: 300,
-      allowedEnvVars: ['TMUX_PANE', 'CLAUDE_REMOTE_PROFILE'],
-    })
+    expect(permission).toMatchObject({ type: 'command', timeout: 310 })
+    expect(permission?.command).toContain('curl -s -m 300 -X POST')
+    expect(permission?.command).toContain(
+      "'http://127.0.0.1:7338/hooks/PermissionRequest' 2>/dev/null || true",
+    )
+    expect(permission?.command).not.toContain('-o /dev/null')
+    for (const event of [
+      'SessionStart',
+      'SessionEnd',
+      'UserPromptSubmit',
+      'Stop',
+      'SubagentStop',
+      'Notification',
+    ]) {
+      const entry = once.hooks[event]?.at(-1)?.hooks[0]
+      expect(entry?.type, event).toBe('command')
+      expect(entry?.command, event).toContain(`-o /dev/null -X POST`)
+      expect(entry?.command, event).toMatch(
+        /'http:\/\/127\.0\.0\.1:7338\/hooks\/\w+' >\/dev\/null 2>&1 \|\| true$/,
+      )
+      expect(entry?.timeout, event).toBe(event === 'SessionEnd' ? 3 : 10)
+    }
+    expect(JSON.stringify(once)).not.toContain('"http"')
   })
 
   test('replaces hooks pointing at an old port', () => {
     const once = mergeOurHooks({}, options)
     const moved = mergeOurHooks(once, { ...options, port: 9000 })
     expect(moved.hooks.Stop).toHaveLength(1)
-    expect(moved.hooks.Stop?.[0]?.hooks[0]?.url).toBe('http://127.0.0.1:9000/hooks/Stop')
+    expect(moved.hooks.Stop?.[0]?.hooks[0]?.command).toContain("'http://127.0.0.1:9000/hooks/Stop'")
   })
 
   test('removal restores the user hooks only', () => {
@@ -67,6 +91,48 @@ describe('settings hooks merge', () => {
     expect(removeOurHooks(mergeOurHooks(settings, options))).toEqual(settings)
     expect(removeOurHooks(mergeOurHooks({ a: 1 }, options))).toEqual({ a: 1 })
   })
+
+  test('the http hooks of an older install are replaced by the command hooks', () => {
+    const legacy = {
+      hooks: {
+        Stop: [userStop, { hooks: [{ type: 'http', url: 'http://127.0.0.1:7338/hooks/Stop', timeout: 5 }] }],
+        PermissionRequest: [
+          {
+            hooks: [
+              {
+                type: 'http',
+                url: 'http://127.0.0.1:7338/hooks/PermissionRequest',
+                timeout: 300,
+                headers: { 'x-claude-remote-secret': 'old-secret' },
+              },
+            ],
+          },
+        ],
+      },
+    }
+    const migrated = mergeOurHooks(legacy, options)
+    expect(migrated).toEqual(mergeOurHooks({ hooks: { Stop: [userStop] } }, options))
+    expect(JSON.stringify(migrated)).not.toContain('old-secret')
+  })
+
+  // Seven shells and curls: given 20 s, since the suites run in parallel on a loaded machine.
+  test('every hook stays silent when the daemon is not running', async () => {
+    // Nothing listens on the port: curl is refused at once, and the command still exits 0 with no output.
+    const down = { ...options, port: 9, permissionTimeoutSec: 2 }
+    const run = (event: (typeof HOOK_EVENTS)[number]) =>
+      new Promise<{ event: string; code: number; stdout: string }>((resolve) => {
+        const child = execFile(
+          'sh',
+          ['-c', String(buildHookEntry(event, down).command)],
+          { env: { PATH: process.env.PATH } },
+          (error, stdout) =>
+            resolve({ event, code: error ? ((error as { code?: number }).code ?? 1) : 0, stdout }),
+        )
+        child.stdin?.end(JSON.stringify({ session_id: 'abc', hook_event_name: event }))
+      })
+    const results = await Promise.all(HOOK_EVENTS.map(run))
+    expect(results).toEqual(HOOK_EVENTS.map((event) => ({ event, code: 0, stdout: '' })))
+  }, 20_000)
 })
 
 describe('installer files', () => {
@@ -210,7 +276,8 @@ describe('launcher script quoting', () => {
     const seen = join(home.dir(), 'term')
     await writeFile(
       fake,
-      `#!/bin/sh\ncase "$1" in\nhas-session) exit 1 ;;\nnew-session) [ "$3" = -P ] && echo '%1 @1'; exit 0 ;;\nattach-session) printf '%s' "$TERM" > '${seen}' ;;\nesac\n`,
+      // The detached new-session creates the window; the attached one (the view) records TERM.
+      `#!/bin/sh\ncase "$1" in\nhas-session) exit 1 ;;\nnew-session) if [ "$2" = -d ]; then [ "$3" = -P ] && echo '%1 @1'; else printf '%s' "$TERM" > '${seen}'; fi; exit 0 ;;\nesac\n`,
       { mode: 0o755 },
     )
     const script = renderLauncher(
@@ -224,6 +291,103 @@ describe('launcher script quoting', () => {
     }
     expect(await attach('xterm-not-installed-anywhere')).toBe('xterm-256color')
     expect(await attach('vt100')).toBe('vt100')
+  })
+})
+
+describe('launcher on the Remote Harness tmux server', () => {
+  const server = { socket: 'remote-harness', conf: '/Users/u/.remote-harness/tmux.conf' }
+  const options = { tmuxSession: 's', tmuxBin: 'tmux', tmuxServer: server, home: '/Users/u' }
+  const profile: Profile = { id: 'p', name: 'P', configDir: '/Users/u/.claude', color: '' }
+
+  test('every tmux call selects the server and its config; null keeps the default server', () => {
+    const script = renderLauncher(profile, options)
+    execFileSync('zsh', ['-n', '-c', script])
+    expect(script).toContain(
+      `TMUX_CMD=("$TMUX_BIN" -L 'remote-harness' -f '/Users/u/.remote-harness/tmux.conf')`,
+    )
+    expect(script).not.toMatch(
+      /"\$TMUX_BIN" (has-session|new-window|new-session|attach-session|switch-client)/,
+    )
+    expect(renderLauncher(profile, { ...options, tmuxServer: null })).toContain('TMUX_CMD=("$TMUX_BIN")')
+  })
+
+  /** A fake tmux that logs every call with the caller's TMUX and answers like a server with one window. */
+  async function fakeTmux(): Promise<{ bin: string; log: () => Promise<string> }> {
+    const bin = join(home.dir(), 'tmux')
+    const log = join(home.dir(), 'tmux.log')
+    await writeFile(
+      bin,
+      `#!/bin/sh
+printf '%s | TMUX=%s\\n' "$*" "\${TMUX-unset}" >> '${log}'
+while [ "$1" = -L ] || [ "$1" = -f ]; do shift 2; done
+case "$1" in
+  has-session) exit 1 ;;
+  new-session) [ "$3" = -P ] && echo '%1 @1'; exit 0 ;;
+  display-message) echo /tmp/tmux-501/remote-harness ;;
+esac
+exit 0
+`,
+      { mode: 0o755 },
+    )
+    return { bin, log: () => readFile(log, 'utf8') }
+  }
+
+  test("inside another server's tmux: nests in the pane with the status off, never switch-client", async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    execFileSync('zsh', ['-c', script], {
+      env: { ...process.env, TMUX: '/tmp/tmux-501/default,123,0' },
+      cwd: home.dir(),
+    })
+    const log = await fake.log()
+    expect(log).toContain('-L remote-harness -f /Users/u/.remote-harness/tmux.conf has-session -t =s')
+    // One client creates the view, attaches to it and turns its status line off, with TMUX unset.
+    expect(log).toMatch(
+      /new-session -t =s -s s-view-\d+ ; set-option -t s-view-\d+ destroy-unattached on ; select-window -t =s-view-\d+:@1 ; set-option -t s-view-\d+ status off \| TMUX=unset/,
+    )
+    expect(log).not.toContain('switch-client')
+  })
+
+  test('a first prompt reaches the window through its environment, never the command line', async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    const { TMUX: _, ...env } = process.env
+    const run = (extra: Record<string, string>) =>
+      execFileSync('zsh', ['-c', script], {
+        env: { ...env, CLAUDE_REMOTE_NO_ATTACH: '1', ...extra },
+        cwd: home.dir(),
+      })
+    run({})
+    const before = await fake.log()
+    expect(before).not.toContain('CLAUDE_REMOTE_PROMPT')
+    const prompt = 'Review the open PR.\nList the "risks" for $USER.'
+    run({ CLAUDE_REMOTE_PROMPT: prompt })
+    const after = (await fake.log()).slice(before.length)
+    // The window gets the text, line break and quotes intact, and its shell expands it: the command
+    // line (the last argument, before ` | TMUX=`) ends with the variable, not the text.
+    expect(after).toContain(`-e CLAUDE_REMOTE_PROMPT=${prompt} `)
+    expect(after).toContain('env -u CLAUDE_CONFIG_DIR claude -- "$CLAUDE_REMOTE_PROMPT" | TMUX=')
+    expect(after).not.toContain(`${prompt} | TMUX=`)
+    // A Kimi CLI launcher has no such block at all.
+    const kimi = renderLauncher({ ...profile, configDir: '/Users/u/.kimi', agent: 'kimi' }, options)
+    execFileSync('zsh', ['-n', '-c', kimi])
+    expect(kimi).not.toContain('CLAUDE_REMOTE_PROMPT')
+  })
+
+  test('inside a client of the Remote Harness server: switches that client', async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    execFileSync('zsh', ['-c', script], {
+      env: { ...process.env, TMUX: '/tmp/tmux-501/remote-harness,123,0' },
+      cwd: home.dir(),
+    })
+    const log = await fake.log()
+    // The view is created detached and the current client switched to it in the same command.
+    expect(log).toMatch(
+      /new-session -d -t =s -s s-view-\d+ ; .* ; switch-client -t =s-view-\d+ \| TMUX=\/tmp\/tmux-501\/remote-harness,123,0/,
+    )
+    expect(log).not.toContain('status off')
+    expect(log).not.toContain('TMUX=unset')
   })
 })
 
@@ -274,7 +438,10 @@ describe('hook receiver', () => {
     try {
       const address = app.server.address()
       const port = typeof address === 'object' && address ? address.port : 0
-      const entry = buildHookEntry('SessionStart', { port, secret: 'sec', permissionTimeoutSec: 300 })
+      // curl reads the secret header from the 0600 config, so the command carries only its path.
+      const curlConfig = join(home.dir(), 'hook-secret.curlrc')
+      await writeFile(curlConfig, renderCurlConfig('sec'), { mode: 0o600 })
+      const entry = buildHookEntry('SessionStart', { port, curlConfig, permissionTimeoutSec: 300 })
       expect(entry.type).toBe('command')
       expect(isOurHook(entry)).toBe(true)
       const stdout = await new Promise<string>((resolve, reject) => {

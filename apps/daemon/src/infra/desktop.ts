@@ -23,11 +23,26 @@ export interface Desktop {
   runSteps(steps: readonly ExecStep[]): Promise<void>
 }
 
+/** A Linux path as Windows sees it (`\\wsl.localhost\…`), or null without interop. */
+async function windowsPath(exec: Executor, path: string): Promise<string | null> {
+  const converted = await exec('wslpath', ['-w', path]).catch(() => null)
+  const windows = converted?.stdout.trim()
+  return converted?.exitCode === 0 && windows ? windows : null
+}
+
 function appleScriptString(value: string): string {
   return `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`
 }
 
-export function createDesktop(exec: Executor, platform: Platform, o: { wsl: boolean }): Desktop {
+export type DesktopHostOptions = {
+  wsl: boolean
+  /** WSL: the distribution, for terminals opened from Windows (`wsl.exe -d`). */
+  distro?: string | null
+  /** WSL: where notifications go (the Windows tray helper); dropped without one. */
+  notify?: (title: string, body: string) => void
+}
+
+export function createDesktop(exec: Executor, platform: Platform, o: DesktopHostOptions): Desktop {
   const ignore = async (file: string, args: string[]) => {
     await exec(file, args).catch(() => undefined)
   }
@@ -70,11 +85,16 @@ export function createDesktop(exec: Executor, platform: Platform, o: { wsl: bool
     }
   }
   if (o.wsl) {
-    // No Linux desktop inside WSL: the daemon stays headless and only logs.
+    // No Linux desktop inside WSL: the Windows host's, through interop (and the tray helper's notifications).
+    const distro = o.distro && /^[\w.-]+$/.test(o.distro) ? ['-d', o.distro] : []
     return {
-      notify: async () => {},
-      open: async () => {},
-      runInTerminal: async () => {},
+      notify: async (title, body) => o.notify?.(title, body),
+      open: async (target) => {
+        const windows = target.startsWith('/') ? await windowsPath(exec, target) : target
+        if (windows) await ignore('explorer.exe', [windows])
+      },
+      runInTerminal: (command) =>
+        ignore('wt.exe', ['wsl.exe', ...distro, 'sh', '-c', `${command}; exec "$SHELL"`]),
       listRunningApps: noRunningApps,
       runSteps,
     }

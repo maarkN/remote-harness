@@ -1,7 +1,8 @@
 /**
  * Writes the store listing texts (store/metadata.ts) in fastlane's layout, so `fastlane deliver`
  * (App Store) and `fastlane supply` (Google Play) upload them as they are, or they can be pasted
- * into the consoles. Output: store/fastlane/metadata/{ios,android}/<locale>/*.txt (ignored by git).
+ * into the consoles. The description and the release notes have a variant per store; each tree
+ * gets its own. Output: store/fastlane/metadata/{ios,android}/<locale>/*.txt (ignored by git).
  * Run: pnpm --filter @remote-harness/mobile store:metadata
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -21,10 +22,10 @@ for (const [locale, listing] of Object.entries(STORE_METADATA)) {
   const ios = join(root, 'ios', locale)
   write(ios, 'name.txt', listing.name)
   write(ios, 'subtitle.txt', listing.subtitle)
-  write(ios, 'description.txt', listing.description)
+  write(ios, 'description.txt', listing.description.ios)
   write(ios, 'keywords.txt', listing.keywords.join(','))
   write(ios, 'promotional_text.txt', listing.promotionalText)
-  write(ios, 'release_notes.txt', listing.releaseNotes)
+  write(ios, 'release_notes.txt', listing.releaseNotes.ios)
   write(ios, 'support_url.txt', listing.supportUrl)
   write(ios, 'marketing_url.txt', listing.marketingUrl)
   write(ios, 'privacy_url.txt', listing.privacyUrl)
@@ -32,8 +33,8 @@ for (const [locale, listing] of Object.entries(STORE_METADATA)) {
   const android = join(root, 'android', locale)
   write(android, 'title.txt', listing.name)
   write(android, 'short_description.txt', listing.shortDescription)
-  write(android, 'full_description.txt', listing.description)
-  write(join(android, 'changelogs'), 'default.txt', listing.releaseNotes)
+  write(android, 'full_description.txt', listing.description.android)
+  write(join(android, 'changelogs'), 'default.txt', listing.releaseNotes.android)
   console.log(`✓ ${locale}`)
 }
 console.log(`→ ${root}`)

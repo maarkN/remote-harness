@@ -1,0 +1,80 @@
+name: OTA (production)
+
+# Every merge into main that touches the app publishes its JavaScript to the `production` update
+# channel; phones get it on the next start. main only moves on a release merge (see CONTRIBUTING.md),
+# so this fires once per release, not on every commit. Only `push` triggers it, so pull requests
+# never see the secrets.
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/**
+      - packages/protocol/**
+      - pnpm-lock.yaml
+      - .github/workflows/ota-production.yml
+  workflow_dispatch:
+
+# One publish at a time, in order (the newest update is the last one stored).
+concurrency:
+  group: ota-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to the production channel
+    # The update runtime (fingerprint) computed on Linux matches the macOS builds.
+    runs-on: ubuntu-latest
+    env:
+      # Must be the URL the installed builds were made with: it is part of their runtime version.
+      REMOTE_HARNESS_UPDATES_URL: https://remoteharness.app/api/updates/manifest
+      # Part of the runtime version too (ios.appleTeamId): the team the local builds are signed with.
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+    steps:
+      - name: Check the secrets
+        id: secrets
+        env:
+          KEY: ${{ secrets.OTA_SIGNING_KEY }}
+          TOKEN: ${{ secrets.OTA_PROD_TOKEN }}
+        run: |
+          if [ -n "$KEY" ] && [ -n "$TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::OTA_SIGNING_KEY or OTA_PROD_TOKEN is not set; nothing to publish."
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        if: steps.secrets.outputs.ready == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: Write the signing key
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.OTA_SIGNING_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/ota-signing-key.pem"
+
+      - name: Publish
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          REMOTE_HARNESS_UPDATES_KEY: ${{ runner.temp }}/ota-signing-key.pem
+          # The full publish token: unlike OTA_DEV_TOKEN, the server accepts it for any channel.
+          REMOTE_HARNESS_UPDATES_TOKEN: ${{ secrets.OTA_PROD_TOKEN }}
+        run: pnpm --filter @remote-harness/mobile ota:publish --channel production
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/ota-signing-key.pem"

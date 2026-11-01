@@ -6,7 +6,7 @@ Allows configuring the Claude Code profiles (configuration directories) and the 
 ## Requirements
 
 ### Requirement: Configurable profiles
-The daemon SHALL load profiles with `id`, `name`, `configDir`, `color`, an optional `agent` (`claude` when absent; `codex`, `kimi` and `qwen` are accepted ids) and an optional `provider` from `~/.remote-harness/config.json`. A `provider` has `kind` (`openrouter`), an optional `baseUrl` (the gateway's Anthropic-compatible endpoint; `https://openrouter.ai/api` when absent), an optional default `model` and an optional `smallFastModel`; a profile without `provider` uses the Anthropic account logged into Claude Code. If the file is missing, the daemon MUST create one with the default profiles `claudin` (`~/.claude`) and `drclaude` (`~/.claude-doctorx`). A profile whose agent has no adapter in this daemon MUST be ignored at start with a warning naming the profile and the agent, like a profile whose config dir is missing.
+The daemon SHALL load profiles with `id`, `name`, `configDir`, `color`, an optional `agent` (`claude` when absent; `codex`, `gemini`, `kimi` and `qwen` are accepted ids) and an optional `provider` from `~/.remote-harness/config.json`. A `provider` has `kind` (`openrouter`), an optional `baseUrl` (the gateway's Anthropic-compatible endpoint; `https://openrouter.ai/api` when absent), an optional default `model` and an optional `smallFastModel`; a profile without `provider` uses the Anthropic account logged into Claude Code. If the file is missing, the daemon MUST create one with the default profiles `claudin` (`~/.claude`) and `drclaude` (`~/.claude-doctorx`). A profile whose agent has no adapter in this daemon MUST be ignored at start with a warning naming the profile and the agent, like a profile whose config dir is missing or of a kind its agent does not accept.
 
 #### Scenario: First run
 - **WHEN** the daemon starts without a configuration file
@@ -23,6 +23,10 @@ The daemon SHALL load profiles with `id`, `name`, `configDir`, `color`, an optio
 #### Scenario: OpenRouter profile
 - **WHEN** a profile declares `"provider": { "kind": "openrouter", "model": "anthropic/claude-sonnet-5.5" }`
 - **THEN** the profile loads with that provider and the app receives it in `auth.ok`
+
+#### Scenario: Gemini profile
+- **WHEN** a profile declares `agent: "gemini"` with `configDir` `~/.gemini`
+- **THEN** the profile loads with the Gemini adapter
 
 ### Requirement: Nonexistent profile directory
 The daemon SHALL ignore profiles whose `configDir` does not exist, logging a warning.
@@ -56,3 +60,18 @@ The config SHALL accept `relays` (a non-empty list of `wss://` or `ws://` URLs, 
 #### Scenario: Both paths off
 - **WHEN** the config has `"relay": "off"` and `"direct": "off"`
 - **THEN** the daemon refuses to start and says that at least one path must stay on
+
+### Requirement: tmux server config
+The config SHALL accept `tmuxSocket` (a non-empty tmux server name for `tmux -L`, default `remote-harness`, or `null` for the user's default server) and `tmuxConfig` (`minimal` or `user`, default `minimal`), next to `tmuxSession`; both keys are optional in the file. An empty name or another mode MUST be refused with an error naming the key.
+
+#### Scenario: Defaults
+- **WHEN** `config.json` has neither key
+- **THEN** the daemon uses the server `remote-harness` with the minimal config
+
+#### Scenario: User's own tmux config
+- **WHEN** `config.json` has `"tmuxConfig": "user"`
+- **THEN** the generated tmux config sources the user's own `tmux.conf` after Remote Harness's settings
+
+#### Scenario: Invalid value
+- **WHEN** `config.json` has `"tmuxSocket": ""`
+- **THEN** the daemon refuses to start with a message naming `tmuxSocket`

@@ -34,6 +34,20 @@ export function cleanSessionName(input: string): string | undefined {
   return name || undefined
 }
 
+/** Agents whose CLI runs a first prompt and stays interactive (Kimi CLI has no such flag). */
+const PROMPT_AT_START: ReadonlySet<AgentId> = new Set(['claude', 'codex', 'gemini', 'qwen'])
+
+/** Whether the New session screen offers a first prompt for sessions of this agent. */
+export function canStartWithPrompt(agent: AgentId): boolean {
+  return PROMPT_AT_START.has(agent)
+}
+
+/** The first prompt to send with `session.start`: trimmed; undefined when blank. */
+export function cleanFirstPrompt(input: string): string | undefined {
+  const prompt = input.trim()
+  return prompt || undefined
+}
+
 /** Branches too generic to name a session after. */
 const DEFAULT_BRANCHES = new Set(['main', 'master', 'develop', 'development', 'trunk'])
 const MAX_NAME_SUGGESTIONS = 4

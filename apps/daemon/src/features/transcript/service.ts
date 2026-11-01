@@ -127,9 +127,15 @@ export class TranscriptService {
       const file = this.fileFor(target.path, target.format)
       const backlog = await file.sync()
       if (!target.agentId) {
-        // The backlog is indexed, not streamed: only the latest status it carries is applied.
-        const status = latestStatus(backlog.map((line) => file.format.parseMeta(line.text)))
+        // The backlog is indexed, not streamed: only the latest status and name it carries are applied.
+        const metas = backlog.map((line) => file.format.parseMeta(line.text))
+        const status = latestStatus(metas)
         if (status) this.onMeta(target.sessionId, status)
+        const customTitle = metas.reduce<string | undefined>(
+          (latest, meta) => meta?.customTitle ?? latest,
+          undefined,
+        )
+        if (customTitle) this.onMeta(target.sessionId, { customTitle })
       }
       const watcher = watch(target.path, { ignoreInitial: true })
       const created: Stream = {
@@ -221,7 +227,7 @@ export class TranscriptService {
           const meta = stream.file.format.parseMeta(line.text)
           if (meta) this.onMeta(stream.sessionId, meta)
         }
-        entries.push(...stream.file.format.parseLine(line.text, line.cursor))
+        entries.push(...stream.file.entries(line))
       }
       this.emit(stream, entries)
       this.onActivity(stream.sessionId, Date.now())

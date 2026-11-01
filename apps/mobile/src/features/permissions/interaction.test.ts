@@ -6,6 +6,7 @@ import {
   EMPTY_SELECTION,
   isAnswerComplete,
   setOther,
+  stepAt,
   toggleOption,
 } from './interaction'
 
@@ -53,5 +54,43 @@ describe('answers', () => {
 
   test('blank text is no answer', () => {
     expect(answerFor(text, setOther(EMPTY_SELECTION, '   ', false))).toBeNull()
+  })
+})
+
+describe('steps (#473)', () => {
+  const questions = [choice(false), text]
+
+  test('one question at a time: Next needs its answer, Send needs every answer', () => {
+    expect(stepAt(questions, {}, 0)).toMatchObject({
+      index: 0,
+      total: 2,
+      question: questions[0],
+      answered: false,
+      last: false,
+      complete: false,
+    })
+    const first = { 'Tests?': toggleOption(EMPTY_SELECTION, 'Unit', false) }
+    expect(stepAt(questions, first, 0)).toMatchObject({ answered: true, complete: false })
+    expect(stepAt(questions, first, 1)).toMatchObject({
+      index: 1,
+      question: text,
+      answered: false,
+      last: true,
+      complete: false,
+    })
+    const all = { ...first, 'Name?': setOther(EMPTY_SELECTION, 'api', false) }
+    expect(stepAt(questions, all, 1)).toMatchObject({ answered: true, last: true, complete: true })
+  })
+
+  test('answers are kept when going back, and the step is clamped to the questions', () => {
+    const all = {
+      'Tests?': toggleOption(EMPTY_SELECTION, 'E2E', false),
+      'Name?': setOther(EMPTY_SELECTION, 'api', false),
+    }
+    expect(stepAt(questions, all, 0)).toMatchObject({ index: 0, answered: true, complete: true })
+    expect(stepAt(questions, all, 5)).toMatchObject({ index: 1, last: true })
+    expect(stepAt(questions, all, -1)).toMatchObject({ index: 0 })
+    expect(stepAt([choice(true)], {}, 0)).toMatchObject({ index: 0, total: 1, last: true, answered: false })
+    expect(stepAt([], {}, 0)).toBeNull()
   })
 })

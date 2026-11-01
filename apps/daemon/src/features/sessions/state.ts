@@ -48,6 +48,8 @@ export function hookState(
     case 'UserPromptSubmit':
       return 'running'
     case 'PermissionRequest':
+    // Gemini CLI: its approval dialog is about to show (answered through the pane).
+    case 'PermissionDialog':
       return 'waiting'
     case 'Notification':
       return typeof notificationType === 'string' && NOTIFICATIONS_NOT_WAITING.has(notificationType)

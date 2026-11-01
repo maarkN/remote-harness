@@ -8,6 +8,7 @@ import type {
   SubagentInfo,
   TranscriptEntry,
 } from '@remote-harness/protocol'
+import { lastActivityOf } from '@remote-harness/protocol'
 import {
   DEMO_HOST_NAME,
   DEMO_PROFILES,
@@ -156,6 +157,7 @@ export function demoSession(session: DemoSession, index: number, now: number): S
   const live = session.state !== 'ended'
   const cwd = demoCwd(session)
   const status = session.status
+  const updatedAt = iso(now - session.minutesAgo * 60_000)
   return {
     id: session.id,
     profileId: session.profileId,
@@ -168,9 +170,10 @@ export function demoSession(session: DemoSession, index: number, now: number): S
     permissionProfile: null,
     controllable: live,
     paneId: live ? `%${index + 1}` : null,
-    updatedAt: iso(now - session.minutesAgo * 60_000),
+    updatedAt,
     subagents: (session.subagents ?? []).map((s) => demoSubagentInfo(s, now)),
     backgroundTasks: 0,
+    lastActivity: lastActivityOf(demoTranscript(session, now), updatedAt),
     checkout: { root: cwd, branch: session.branch },
     status: status
       ? {

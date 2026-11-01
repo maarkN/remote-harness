@@ -91,7 +91,17 @@ export const ptBR = {
       codexHooks: (id: string, path: string) => `hooks do Codex do perfil ${id} (${path})`,
       codexAccountWithoutProfile: (dir: string) =>
         `Conta do Codex encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
+      geminiHooks: (id: string, path: string) => `hooks do Gemini CLI do perfil ${id} (${path})`,
+      geminiAccountWithoutProfile: (dir: string) =>
+        `Conta do Gemini CLI encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
+      kimiHooks: (id: string, path: string) => `hooks do Kimi CLI do perfil ${id} (${path})`,
+      kimiAccountWithoutProfile: (dir: string) =>
+        `Conta do Kimi CLI encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
+      qwenHooks: (id: string, path: string) => `hooks do Qwen Code do perfil ${id} (${path})`,
+      qwenAccountWithoutProfile: (dir: string) =>
+        `Conta do Qwen Code encontrada em ${dir} sem um perfil. Rode \`remote-harness setup\` para adicioná-la.`,
       runInstall: 'rode `remote-harness install`',
+      hookCurlConfig: (path: string) => `segredo dos hooks para o curl em ${path} (0600)`,
       service: (name: string, detail: string) => `serviço em segundo plano ${name} (${detail})`,
       serviceHint: 'opcional: `remote-harness service install`',
       launcherNative: 'pedidos de acesso a pastas mostram "Remote Harness"',
@@ -119,6 +129,11 @@ export const ptBR = {
       pushMode: (mode: string) => `push: ${mode}`,
       noRelayGrant:
         'nenhum celular tem grant do relay: use um build do app com o push relay ou salve uma conta de serviço do Firebase',
+    },
+    tmux: {
+      description:
+        'roda o tmux no servidor tmux do Remote Harness (sem argumentos: anexa à sessão dos launchers)',
+      args: 'argumentos do tmux, ex.: `ls` ou `attach -t claude-remote`',
     },
     install: {
       description:
@@ -263,10 +278,17 @@ export const ptBR = {
     hooksIn: (path: string) => `hooks em ${path}`,
     codexTrust:
       'O Codex pede uma vez para confiar em hooks novos: abra o `codex` e escolha "Trust all and continue" (ou revise em /hooks). Até lá, as sessões dele ficam somente leitura.',
+    geminiTrust:
+      'O Gemini CLI não roda hooks numa pasta em que ele não confia: quando o `gemini` perguntar, confie na pasta (ou use /permissions). Até lá, as sessões dele nessa pasta ficam somente leitura e as aprovações ficam no terminal.',
     launcherRemoved: (id: string) => `launcher ${id} removido`,
     hooksRemovedFrom: (path: string) => `hooks removidos de ${path}`,
     statusLineIn: (path: string) => `status line em ${path}`,
     statusLineRestored: (path: string) => `status line restaurada em ${path}`,
+    hookSecretRotated: (path: string) =>
+      `segredo dos hooks trocado (versões antigas o punham na linha de comando do curl); o curl agora o lê de ${path} — um daemon rodando e as sessões abertas passam a usá-lo quando reiniciarem`,
+    tmuxConf: (path: string) => `configuração do servidor tmux em ${path}`,
+    legacyTmuxSessions: (session: string) =>
+      `sessões iniciadas antes desta versão continuam no seu servidor tmux padrão e não são mais gerenciadas: termine-as com \`tmux attach -t ${session}\`; as novas abrem no servidor do Remote Harness (\`remote-harness tmux\`)`,
   },
   setup: {
     languageQuestion: 'Idioma',
@@ -545,7 +567,8 @@ export const ptBR = {
       restart: 'Reiniciar daemon',
       doctor: 'Rodar doctor',
       quit: 'Fechar ícone',
-      status: (machine: string, version: string, since: string) => `${machine} · ${version} · desde ${since}`,
+      status: (machine: string, version: string, since: string, paths?: string) =>
+        [machine, paths, version, `desde ${since}`].filter(Boolean).join(' · '),
       waiting: 'Esperando você',
       allow: 'Permitir',
       always: 'Sempre permitir',
@@ -596,6 +619,55 @@ export const ptBR = {
       quitMenu: 'Sair',
       hideIcon: 'Esconder o ícone (o serviço continua rodando)',
       stopService: 'Parar o serviço até o próximo login',
+      /** Caminhos, devices, o popover e as novas abas das Preferências (change 170). */
+      paths: {
+        both: 'caminhos direto + relay',
+        direct: 'caminho direto',
+        relay: 'caminho pelo relay',
+        none: 'ainda sem caminho',
+      },
+      devicePath: { both: 'direto + relay', direct: 'direto', relay: 'relay' },
+      devices: (count: number, push: boolean) => `Dispositivos · ${count}${push ? ' · push ✓' : ''}`,
+      devicesTitle: 'Dispositivos',
+      pushOn: 'push ✓',
+      pushOff: 'push desligado',
+      noDevices: 'Nenhum dispositivo pareado',
+      noDevicesHint: 'Pareie um celular para acompanhar suas sessões por ele',
+      online: (path: string) => `online · ${path}`,
+      offline: 'offline',
+      pairedAgo: (ago: string) => `pareado ${ago}`,
+      lastSeen: (ago: string) => `visto ${ago}`,
+      neverSeen: 'ainda não conectou',
+      justNow: 'agora',
+      revoke: 'Revogar…',
+      revokeConfirm: 'Revogar e desconectar',
+      revokeConfirmText: (name: string) =>
+        `Revogar ${name}? Ele terá que parear de novo para acessar este computador.`,
+      sessionsTitle: 'Sessões',
+      sessionsDetail: (total: number, running: number) =>
+        running > 0 ? `${total} · ${running} rodando` : `${total}`,
+      runningPill: 'rodando',
+      updateAvailableShort: 'atualização',
+      appName: 'Remote Harness',
+      tabNetwork: 'Rede',
+      tabDevices: 'Dispositivos',
+      profileName: 'Nome',
+      profileAgent: 'Agente',
+      profileFolder: 'Pasta de configuração',
+      directPath: 'Caminho direto',
+      pathState: 'Situação',
+      directAddresses: 'Endereços',
+      directHint: 'Dispositivos na mesma rede ou VPN se conectam direto a este computador',
+      connectionRelay: 'Relay de conexão',
+      homeRelay: 'Relay principal',
+      noHomeRelay: 'Nenhum relay de conexão respondeu ainda',
+      relayHint: 'O relay de conexão repassa o tráfego cifrado de ponta a ponta e não consegue lê-lo',
+      connectedNow: 'Conectados agora',
+      connectedCounts: (direct: number, relay: number) =>
+        direct + relay === 0 ? 'nenhum dispositivo' : `${direct} direto · ${relay} relay`,
+      networkHint: 'Essas opções ficam no arquivo de configuração e valem depois de reiniciar',
+      on: 'Ligado',
+      off: 'Desligado',
     },
   },
   push: {

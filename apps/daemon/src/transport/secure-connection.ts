@@ -14,7 +14,7 @@ import {
 } from '@remote-harness/protocol'
 import { deviceIdOf, noiseCrypto } from '../core/identity.ts'
 import type { Logger } from '../core/logger.ts'
-import type { ClientHub, Connection } from './connection.ts'
+import type { ClientHub, Connection, ConnectionPath } from './connection.ts'
 import type { MessageRouter } from './router.ts'
 
 export const AUTH_TIMEOUT_MS = 5_000
@@ -57,7 +57,10 @@ class SecureConnection implements Connection {
   private readonly closeHandlers: Array<() => void> = []
   private closed = false
 
-  constructor(private readonly link: Link) {
+  constructor(
+    private readonly link: Link,
+    readonly path?: ConnectionPath,
+  ) {
     link.onClose(() => {
       this.closed = true
       for (const fn of this.closeHandlers.splice(0)) fn()
@@ -85,9 +88,9 @@ class SecureConnection implements Connection {
 export function acceptSecureConnection(
   link: Link,
   deps: SecureConnectionDeps,
-  meta: { remote?: string; path?: 'direct' | 'relay' } = {},
+  meta: { remote?: string; path?: ConnectionPath } = {},
 ): Connection {
-  const connection = new SecureConnection(link)
+  const connection = new SecureConnection(link, meta.path)
   const log = deps.logger.child({ conn: connection.id.slice(0, 8), ...meta })
   const handshake = new DaemonHandshake(noiseCrypto, deps.staticKey, deps.hooks)
   let stage: 'first' | 'finish' | 'auth' | 'open' | 'closed' = 'first'

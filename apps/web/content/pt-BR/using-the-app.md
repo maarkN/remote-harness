@@ -90,12 +90,19 @@ Um perfil é uma conta do Claude Code, ou seja um `CLAUDE_CONFIG_DIR`, com nome,
 
 Um perfil também pode rodar o **Codex** (selo `cx`, verde): as sessões dele mostram o perfil de permissões (somente leitura, workspace, acesso total) no lugar do chip de modo, onde você alterna entre somente leitura e workspace, chamadas `exec(…)` e `apply_patch(…)` com saída e diff, e aprovações com Permitir / Negar. Veja [Perfis do Codex](/pt-br/docs/daemon/#perfis-do-codex).
 
+Um perfil também pode rodar o **Gemini CLI** (selo `gm`, rosa): as sessões dele mostram comandos de shell, edições e buscas em arquivos como as do Claude Code, e aprovações com Permitir / Negar, respondidas no próprio diálogo do Gemini no terminal. Veja [Perfis do Gemini CLI](/pt-br/docs/daemon/#perfis-do-gemini-cli).
+
+Um perfil também pode rodar o **Kimi CLI** (selo `ki`, azul): as sessões dele mostram comandos de shell, edições e buscas em arquivos como as do Claude Code, e aprovações com Permitir / Negar, respondidas no próprio painel de aprovação do Kimi no terminal. Veja [Perfis do Kimi CLI](/pt-br/docs/daemon/#perfis-do-kimi-cli).
+
+Um perfil também pode rodar o **Qwen Code** (selo `qw`, violeta): as sessões dele mostram comandos de shell, edições e buscas em arquivos como as do Claude Code, e aprovações com Permitir / Negar. Veja [Perfis do Qwen Code](/pt-br/docs/daemon/#perfis-do-qwen-code).
+
 ## Ajustes
 
 - **Máquina**: a conexão e o caminho (direto ou via relay), o nome da máquina (um apelido à sua escolha, senão o hostname), a versão do daemon e **Esquecer esta máquina**.
 - **Computadores**: todos os computadores pareados; trocar, renomear neste aparelho, esquecer ou adicionar outro.
 - **Aparelhos**: os celulares e tablets pareados com este computador e quando cada um foi visto por último. **Adicionar aparelho** mostra um código de pareamento de uso único (QR e link, válido por 5 minutos) para escanear com o outro aparelho; **Revogar** desconecta um na hora, e ele precisa parear de novo.
 - **Aparência**: Sistema, Escuro, Claro, Dracula, Catppuccin Mocha e Catppuccin Latte.
+- **Idioma**: Mesmo do celular, Português (Brasil), English (US) ou Español, aplicado na hora (a primeira abertura pergunta antes do pareamento). Os textos que vêm do computador, como notificações e a instalação, ficam no idioma escolhido na configuração dele.
 - **Perfis**: cada perfil com agente, alias, pasta de config, interruptor de notificações e, com provedor, o provedor, o modelo padrão e os créditos.
 - **Notificações**: push para este celular, teste, status ao vivo, os perfis e sessões silenciados.
 - **Voz**: o idioma da transcrição.

@@ -1,9 +1,17 @@
 import { type ReactNode, useEffect } from 'react'
 import { AppState } from 'react-native'
 import { credentialsStorage } from '../storage/credentials'
+import { wipeHistory } from '../storage/history'
 import { setComputerStorage, useConnectionStore } from './connection-store'
 
-setComputerStorage(credentialsStorage)
+// Forgetting a computer (also when it revoked this device) deletes its history cache with its keys.
+setComputerStorage({
+  ...credentialsStorage,
+  remove: async (daemonId) => {
+    await wipeHistory(daemonId).catch(() => undefined)
+    return credentialsStorage.remove(daemonId)
+  },
+})
 
 /** Loads the paired computers once and keeps the active one's socket alive across foreground/background. */
 export function ConnectionProvider({ children }: { children: ReactNode }) {

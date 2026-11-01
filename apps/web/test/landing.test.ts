@@ -134,7 +134,7 @@ describe('renderLanding', () => {
     expect(html).toContain('scroll-snap-type: x mandatory')
   })
 
-  test.each(WEB_LOCALES)('%s: agent chips in product order, Codex supported', (locale) => {
+  test.each(WEB_LOCALES)('%s: agent chips in product order, every agent supported', (locale) => {
     const html = renderLanding(locale)
     const a = CATALOGS[locale].agents
     const strip = html.slice(
@@ -148,14 +148,22 @@ describe('renderLanding', () => {
     expect(chips).toEqual([
       ['claude', false],
       ['codex', false],
-      ['kimi', true],
-      ['qwen', true],
+      ['gemini', false],
+      ['kimi', false],
+      ['qwen', false],
       ['openrouter', false],
     ])
     expect(strip).toContain(`${esc(a.codex)}</span>`)
     // The agents node of "How it works" shows a Codex alias with its mark.
     expect(html).toContain(`<span>${agentMark('codex', 14)}codex → ~/.codex</span>`)
     expect(CATALOGS[locale].faq.items[1]?.a).toContain('Codex CLI')
+    expect(strip).toContain(`${esc(a.gemini)}</span>`)
+    expect(html).toContain(`<span>${agentMark('gemini', 14)}gem → ~/.gemini</span>`)
+    expect(CATALOGS[locale].faq.items[1]?.a).toContain('Gemini CLI')
+    expect(CATALOGS[locale].faq.items[1]?.a).toContain('Kimi CLI')
+    expect(CATALOGS[locale].faq.items[1]?.a).toContain('Qwen Code')
+    expect(html).toContain(`<span>${agentMark('qwen', 14)}qw → ~/.qwen</span>`)
+    expect(html).toContain(`<span>${agentMark('kimi', 14)}km → ~/.kimi</span>`)
   })
 
   test.each(WEB_LOCALES)('%s: the iPhone & iPad card opens the install link when configured', (locale) => {
@@ -240,6 +248,13 @@ describe('site files', () => {
     expect(robotsTxt()).toContain('Sitemap: https://remoteharness.app/sitemap.xml')
     expect(robotsTxt()).toContain('Disallow: /ios/')
     expect(faviconSvg().startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
+    // The Cursor Signal on the flat warm dark: the prompt cut out of the block, the arcs, the corners.
+    expect(faviconSvg()).toContain('<rect width="256" height="256" rx="56" fill="#1c1a17"/>')
+    expect(faviconSvg()).toContain(
+      '<path d="M51 104L79 128L51 152" fill="none" stroke="#000" stroke-width="24"',
+    )
+    expect(faviconSvg()).toContain('A116 116 0 0 1 184.9 202.6')
+    expect(faviconSvg()).not.toContain('<circle')
   })
 })
 

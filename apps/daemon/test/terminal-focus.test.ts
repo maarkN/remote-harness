@@ -38,6 +38,13 @@ describe('attachCommand', () => {
   test('attaches and selects the pane for every clause', () => {
     expect(attachCommand('%1')).toBe("tmux attach -t '%1' \\; select-window -t '%1' \\; select-pane -t '%1'")
   })
+
+  test('selects the Remote Harness server and its config when given one', () => {
+    const server = { socket: 'remote-harness', conf: "/Users/it's/.remote-harness/tmux.conf" }
+    expect(attachCommand('%1', server)).toBe(
+      `tmux -L 'remote-harness' -f '/Users/it'\\''s/.remote-harness/tmux.conf' attach -t '%1' \\; select-window -t '%1' \\; select-pane -t '%1'`,
+    )
+  })
 })
 
 describe('pickTerminalApp', () => {
@@ -88,6 +95,15 @@ describe('planShowInTerminal', () => {
   test('linux, no $TERMINAL: falls back to x-terminal-emulator', () => {
     const steps = planShowInTerminal({ ...base, platform: 'linux' })
     expect(steps[0]?.file).toBe('x-terminal-emulator')
+  })
+
+  test('the new terminal attaches to the Remote Harness server when the client uses one', () => {
+    const tmuxServer = { socket: 'remote-harness', conf: '/h/.remote-harness/tmux.conf' }
+    const steps = planShowInTerminal({ ...base, platform: 'linux', tmuxServer })
+    expect(steps[0]?.args.at(-1)).toBe(`${attachCommand('%1', tmuxServer)}; exec "$SHELL"`)
+    expect(steps[0]?.args.at(-1)).toContain(
+      "tmux -L 'remote-harness' -f '/h/.remote-harness/tmux.conf' attach",
+    )
   })
 
   test('linux, attached client: nothing to run (no portable window-raise)', () => {

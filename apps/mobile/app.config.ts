@@ -30,6 +30,8 @@ import ptBR from './src/core/i18n/locales/pt-BR.ts'
 
 /** Dark theme background (splash and adaptive icon backdrop; the artwork changes in #84). */
 const BACKGROUND = '#0D0D0D'
+/** The flat warm dark behind the mark on the app icon: what `scripts/icons.mts` paints under it. */
+const ICON_BACKGROUND = '#1C1A17'
 /** Product accent (amber), same as `accent` in `src/core/theme/palettes.ts`. */
 const ACCENT = '#E8A33D'
 /**
@@ -45,7 +47,7 @@ const APP_ICON_THEMES: Record<string, string> = {
   Latte: '#E6E9EF',
 }
 /** Same id on both stores; builds up to 0.19 used `tech.doctorx.clauderemote` (a separate app). */
-const APP_ID = 'com.alvyntech.remoteharness'
+export const APP_ID = 'com.alvyntech.remoteharness'
 /** Android notification channel; the daemon sends `android.notification.channelId` with this id. */
 const NOTIFICATION_CHANNEL = 'claude-remote'
 /**
@@ -115,6 +117,12 @@ const UPDATES_CERTIFICATE = './certs/certificate.pem'
 /** Push relay (Cloud Function) for daemons without a Firebase service account; absent = no relay. */
 const PUSH_RELAY_URL =
   process.env.REMOTE_HARNESS_PUSH_RELAY_URL || process.env.CLAUDE_REMOTE_PUSH_RELAY_URL || undefined
+/**
+ * Builds made for the store screenshots (`REMOTE_HARNESS_SCREENSHOTS=1`): the offline demo opens by
+ * itself and hides its banner and card, so the fictional computer looks like a paired one
+ * (`scripts/store-screenshots.mts` drives the simulator). Never set for a build that ships.
+ */
+const SCREENSHOTS = process.env.REMOTE_HARNESS_SCREENSHOTS === '1'
 const signedUpdates = existsSync(UPDATES_CERTIFICATE)
 if (CUSTOM_UPDATES_URL && !signedUpdates) {
   throw new Error(`REMOTE_HARNESS_UPDATES_URL needs a code-signing certificate at ${UPDATES_CERTIFICATE}`)
@@ -767,12 +775,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.0.2'
+const APP_VERSION = '1.1.0'
 /**
- * Android `versionCode` from the version (0.20.0 → 20000): Google Play only takes a bundle whose code
- * is higher than every one uploaded before, so it follows the version instead of staying at 1.
+ * Android `versionCode`: one integer, bumped by one on every release (1 = v1.1.0). Google Play only
+ * takes a bundle whose code is higher than every one uploaded before, so it never goes down.
  */
-const ANDROID_VERSION_CODE = APP_VERSION.split('.').reduce((code, part) => code * 1000 + Number(part), 0)
+const ANDROID_VERSION_CODE = 1
 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,
@@ -814,7 +822,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       monochromeImage: './assets/adaptive-icon-monochrome.png',
-      backgroundColor: BACKGROUND,
+      backgroundColor: ICON_BACKGROUND,
     },
     // The composer stays above the keyboard by resizing the window (KeyboardAvoidingView is iOS only).
     softwareKeyboardLayoutMode: 'resize',
@@ -848,6 +856,8 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     'expo-secure-store',
     // Native crypto for the Noise channel (X25519, ChaCha20-Poly1305); OpenSSL only, no libsodium.
     'react-native-quick-crypto',
+    // History cache (ADR 0004): SQLCipher-encrypted SQLite, with FTS5 for search.
+    ['expo-sqlite', { useSQLCipher: true, enableFTS: true }],
     'expo-font',
     ['expo-localization', { supportedLocales: { ios: APP_LOCALIZATIONS, android: APP_LOCALIZATIONS } }],
     [
@@ -981,6 +991,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     firebase,
     ...(PUSH_RELAY_URL ? { pushRelay: PUSH_RELAY_URL } : {}),
     ...(EAS_PROJECT_ID ? { eas: { projectId: EAS_PROJECT_ID } } : {}),
+    ...(SCREENSHOTS ? { screenshots: true } : {}),
   },
   // React Compiler (babel-preset-expo wires it): automatic memoization; `pnpm compiler:report` lists what it skips.
   experiments: { typedRoutes: true, reactCompiler: true },

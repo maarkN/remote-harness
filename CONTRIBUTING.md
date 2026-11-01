@@ -154,6 +154,20 @@ Install a Release build on the simulator (`cd apps/mobile && npx expo run:ios --
 pnpm --filter @remote-harness/mobile screenshots <folder>   # half size, palette PNGs, into docs/screenshots
 ```
 
+The **store screenshots** come from a screenshot build instead: `REMOTE_HARNESS_SCREENSHOTS=1` at build time makes the app open the offline demo by itself, without the demo banner and card, so the fictional computer passes for a paired one and no daemon is needed. Never ship a build made with it.
+
+```bash
+cd apps/mobile
+REMOTE_HARNESS_SCREENSHOTS=1 npx expo run:ios --configuration Release --device <udid> --no-bundler
+pnpm store:screenshots -- --udid <udid> --prepare   # one link, to accept "Open in Remote Harness?" once
+pnpm store:screenshots -- --udid <udid>             # every language and scene, into store/screenshots/ios/<locale>/
+
+(cd android && REMOTE_HARNESS_SCREENSHOTS=1 ./gradlew :app:assembleRelease)   # emulator: any AVD, -gpu swiftshader_indirect works
+pnpm store:screenshots -- --android --apk android/app/build/outputs/apk/release/app-release.apk   # into store/screenshots/android/<locale>/
+```
+
+The script walks the storyboard scenes through deep links (list, permission, conversation, terminal, new session, settings), sets a clean status bar and the app's language per run (per-app locales on Android, `AppleLanguages` on iOS), and saves the raw captures under `store/screenshots/`, ignored by git. `--serial`/`--udid` pick the device, `--name` the file prefix (default: the model), `--scenes` and `--locales` a subset. For a tablet in landscape on the emulator, rotate it first: `adb shell settings put system accelerometer_rotation 0` then `adb shell settings put system user_rotation 1`. The scenes that need typing or the lock screen (the prompt with hands-free, the live status) are taken by hand on the same build.
+
 ### Performance numbers
 
 Performance PRs show before/after numbers from the same load on the same devices: the **iPad 9th gen** (iOS floor), the **Redmi 8** (Android floor) and an iPhone 11. The load is the demo's performance scenario:

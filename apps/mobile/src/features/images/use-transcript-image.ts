@@ -2,6 +2,8 @@ import { type ImageRef, MAX_TRANSCRIPT_IMAGE_BYTES } from '@remote-harness/proto
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useDaemonClient, useIsConnected } from '@/core/connection'
 import { DaemonRequestError } from '@/core/connection/daemon-client'
+import { streamKey } from '@/features/conversation/store'
+import { activeHistory } from '@/features/history/active'
 import { CancelledError, dataUri, FetchQueue, ImageCache, imageTimeoutMs } from './image-cache'
 
 /** The conversation whose transcript the image refs belong to (set by the conversation screen). */
@@ -25,11 +27,11 @@ function initial(key: string | null, tooLarge: boolean): ImageState {
 }
 
 /**
- * Data of a transcript image, fetched with `transcript.image` when the component mounts (so only
- * for thumbnails near the viewport), at most two at a time, newest first, and cached in memory. A
- * fetch nobody waits for any more (the thumbnail scrolled away) is dropped before it starts. While
- * the daemon is unreachable it stays `loading` and fetches once the connection is back; `retry`
- * tries a failed image again.
+ * Data of a transcript image: from the history cache when it is there (also offline), else fetched
+ * with `transcript.image` when the component mounts (so only for thumbnails near the viewport), at
+ * most two at a time, newest first, then cached on disk and in memory. A fetch nobody waits for any
+ * more (the thumbnail scrolled away) is dropped before it starts. While the daemon is unreachable it
+ * stays `loading` and fetches once the connection is back; `retry` tries a failed image again.
  */
 export function useTranscriptImage(image: ImageRef): { state: ImageState; retry: () => void } {
   const source = useContext(TranscriptImagesContext)
@@ -44,36 +46,56 @@ export function useTranscriptImage(image: ImageRef): { state: ImageState; retry:
   useEffect(() => {
     const now = initial(key, tooLarge)
     setState(now)
-    if (now.status !== 'loading' || !key || !source || !client || !connected) return
+    if (now.status !== 'loading' || !key || !source) return
+    const stream = streamKey(source.sessionId, source.agentId)
     let alive = true
-    const job = queue.run(key, async () => {
-      const reply = await client.request(
-        {
-          type: 'transcript.image',
-          sessionId: source.sessionId,
-          ...(source.agentId ? { agentId: source.agentId } : {}),
-          imageId: image.id,
+    let release = () => {}
+    const fetchImage = async () => {
+      const target = await activeHistory()
+      const saved = target ? await target.db.image(target.computer, stream, image.id).catch(() => null) : null
+      if (!alive) return
+      if (saved) {
+        const uri = dataUri(saved.mediaType, saved.data)
+        cache.set(key, uri)
+        setState({ status: 'ready', uri })
+        return
+      }
+      if (!client || !connected) return
+      const job = queue.run(key, async () => {
+        const reply = await client.request(
+          {
+            type: 'transcript.image',
+            sessionId: source.sessionId,
+            ...(source.agentId ? { agentId: source.agentId } : {}),
+            imageId: image.id,
+          },
+          { timeoutMs: imageTimeoutMs(image.bytes) },
+        )
+        if (reply.type !== 'transcript.image') throw new Error(`unexpected reply ${reply.type}`)
+        if (target)
+          void target.db
+            .saveImage(target.computer, stream, image.id, reply.mediaType, reply.data)
+            .catch(() => undefined)
+        const uri = dataUri(reply.mediaType, reply.data)
+        cache.set(key, uri)
+        return uri
+      })
+      release = job.release
+      job.promise.then(
+        (uri) => alive && setState({ status: 'ready', uri }),
+        (error: unknown) => {
+          // Dropped or disconnected: stays loading; the effect runs again when it matters.
+          if (!alive || error instanceof CancelledError) return
+          if (error instanceof DaemonRequestError && error.code === 'disconnected') return
+          const large = error instanceof DaemonRequestError && error.code === 'too_large'
+          setState({ status: large ? 'tooLarge' : 'failed' })
         },
-        { timeoutMs: imageTimeoutMs(image.bytes) },
       )
-      if (reply.type !== 'transcript.image') throw new Error(`unexpected reply ${reply.type}`)
-      const uri = dataUri(reply.mediaType, reply.data)
-      cache.set(key, uri)
-      return uri
-    })
-    job.promise.then(
-      (uri) => alive && setState({ status: 'ready', uri }),
-      (error: unknown) => {
-        // Dropped or disconnected: stays loading; the effect runs again when it matters.
-        if (!alive || error instanceof CancelledError) return
-        if (error instanceof DaemonRequestError && error.code === 'disconnected') return
-        const large = error instanceof DaemonRequestError && error.code === 'too_large'
-        setState({ status: large ? 'tooLarge' : 'failed' })
-      },
-    )
+    }
+    void fetchImage()
     return () => {
       alive = false
-      job.release()
+      release()
     }
   }, [key, tooLarge, source, client, connected, image.id, image.bytes, attempt])
 

@@ -48,6 +48,7 @@ export function startErrorMessage(error: unknown, t: TFunction): string {
   return errorMessage(error, t, {
     invalid_cwd: t('newSession.errors.invalidCwd'),
     not_found: t('newSession.errors.profileNotFound'),
+    too_large: t('newSession.errors.promptTooLarge'),
     ...(error instanceof DaemonRequestError
       ? {
           internal: t('newSession.errors.launchFailed', {

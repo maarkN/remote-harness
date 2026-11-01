@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 import { makeStyles, space } from '@/core/theme'
 import { Chip } from '@/ui'
+import { setSessionDensity, useSessionDensityStore } from '../density-store'
 import type { SessionFilter, SessionSort, StateFilter } from '../filter'
 
 /**
- * Profile, active/ended and sort chips — shared by the header's horizontal row and the compact
+ * Profile, active/ended, sort and density chips — shared by the header's horizontal row and the compact
  * bar's filters sheet, so the two layouts can't drift apart.
  */
 export function SessionFilterChips({
@@ -26,6 +27,7 @@ export function SessionFilterChips({
 }) {
   const { t } = useTranslation()
   const styles = useStyles()
+  const density = useSessionDensityStore((s) => s.density)
   return (
     <>
       {profiles.length > 1 ? (
@@ -58,6 +60,12 @@ export function SessionFilterChips({
       />
       <View style={styles.divider} />
       <Chip ghost label={`${t(`sessions.sort.${sort}`)} ▾`} onPress={onChangeSort} />
+      <Chip
+        ghost
+        label={`${t(`sessions.density.${density}`)} ▾`}
+        accessibilityLabel={`${t('sessions.density.label')}: ${t(`sessions.density.${density}`)}`}
+        onPress={() => void setSessionDensity(density === 'compact' ? 'expanded' : 'compact')}
+      />
     </>
   )
 }

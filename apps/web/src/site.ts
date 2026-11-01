@@ -29,30 +29,34 @@ export function siteConfig(env: Record<string, string | undefined>): SiteConfig 
 export const OG_IMAGE_PATH = '/og.png'
 export const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`
 
-/** The mark ("the Tether"), regular weight: the same paths as `docs/design/identity/shared.js`. */
-export const MARK_REGULAR =
-  '<g fill="none" stroke="currentColor" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">' +
-  '<circle cx="128" cy="184" r="34"/><path d="M128 150V66"/><path d="M111 154C104 120 88 100 60 80"/>' +
-  '<path d="M145 154C152 120 168 100 196 80"/></g>' +
-  '<rect x="110" y="34" width="36" height="36" rx="9" fill="currentColor"/>' +
-  '<rect x="36" y="52" width="36" height="36" rx="9" fill="currentColor"/>' +
-  '<rect x="184" y="52" width="36" height="36" rx="9" fill="currentColor"/>'
+/**
+ * The mark ("Cursor Signal": a terminal cursor block with the `>` prompt cut out of it and three
+ * signal arcs leaving it to the right) in a 256 box, the same geometry as `apps/mobile/scripts/icons.mts`
+ * and `docs/design/identity/shared.js`. The prompt is a black stroke in a luminance mask over the block.
+ */
+function markMarkup(cutout: number, arcs: number, maskId: string): string {
+  return (
+    `<mask id="${maskId}"><rect width="256" height="256" fill="#fff"/>` +
+    `<path d="M51 104L79 128L51 152" fill="none" stroke="#000" stroke-width="${cutout}" stroke-linecap="round" stroke-linejoin="round"/></mask>` +
+    `<rect x="34" y="76" width="62" height="104" rx="13" fill="currentColor" mask="url(#${maskId})"/>` +
+    `<g fill="none" stroke="currentColor" stroke-width="${arcs}" stroke-linecap="round">` +
+    '<path d="M123.6 104.9A36 36 0 0 1 123.6 151.1"/><path d="M154.2 79.1A76 76 0 0 1 154.2 176.9"/>' +
+    '<path d="M184.9 53.4A116 116 0 0 1 184.9 202.6"/></g>'
+  )
+}
 
-/** Bold weight, for anything under 24 px (the favicon). */
-export const MARK_BOLD =
-  '<g fill="none" stroke="currentColor" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">' +
-  '<circle cx="128" cy="186" r="36"/><path d="M128 150V70"/><path d="M108 156C100 122 86 104 56 84"/>' +
-  '<path d="M148 156C156 122 170 104 200 84"/></g>' +
-  '<rect x="104" y="24" width="48" height="48" rx="12" fill="currentColor"/>' +
-  '<rect x="28" y="46" width="48" height="48" rx="12" fill="currentColor"/>' +
-  '<rect x="180" y="46" width="48" height="48" rx="12" fill="currentColor"/>'
+/** Regular weight: the landing and the install link page. */
+export const MARK_REGULAR = markMarkup(16, 22, 'rh-cursor')
 
-/** Amber mark on the dark canvas, rounded like an app icon. */
+/** Bold weight (wider cutout and arcs), for anything under 24 px (the favicon). */
+export const MARK_BOLD = markMarkup(24, 28, 'rh-cursor-bold')
+
+/** Amber mark in a 78 % box on the flat warm dark, with the icon's 22 % corners. */
 export function faviconSvg(): string {
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" color="#e8a33d">' +
-    '<rect width="256" height="256" rx="56" fill="#0d0d0d"/>' +
-    `<g transform="translate(32 32) scale(0.75)">${MARK_BOLD}</g></svg>`
+    '<rect width="256" height="256" rx="56" fill="#1c1a17"/>' +
+    `<g transform="translate(28 28) scale(0.78125)">${MARK_BOLD}</g></svg>`
   )
 }
 

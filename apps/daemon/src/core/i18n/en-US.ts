@@ -92,7 +92,17 @@ export const enUS = {
       codexHooks: (id: string, path: string) => `Codex hooks for profile ${id} (${path})`,
       codexAccountWithoutProfile: (dir: string) =>
         `Codex account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
+      geminiHooks: (id: string, path: string) => `Gemini CLI hooks for profile ${id} (${path})`,
+      geminiAccountWithoutProfile: (dir: string) =>
+        `Gemini CLI account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
+      kimiHooks: (id: string, path: string) => `Kimi CLI hooks for profile ${id} (${path})`,
+      kimiAccountWithoutProfile: (dir: string) =>
+        `Kimi CLI account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
+      qwenHooks: (id: string, path: string) => `Qwen Code hooks for profile ${id} (${path})`,
+      qwenAccountWithoutProfile: (dir: string) =>
+        `Qwen Code account found at ${dir} without a profile. Run \`remote-harness setup\` to add it.`,
       runInstall: 'run `remote-harness install`',
+      hookCurlConfig: (path: string) => `hooks secret for curl in ${path} (0600)`,
       service: (name: string, detail: string) => `background service ${name} (${detail})`,
       serviceHint: 'optional: `remote-harness service install`',
       launcherNative: 'folder access prompts name "Remote Harness"',
@@ -119,6 +129,11 @@ export const enUS = {
       pushMode: (mode: string) => `push: ${mode}`,
       noRelayGrant:
         'no phone has a relay grant: use an app build with the push relay, or save a Firebase service account',
+    },
+    tmux: {
+      description:
+        'run tmux on the Remote Harness tmux server (no arguments: attach to the launchers session)',
+      args: 'tmux arguments, e.g. `ls` or `attach -t claude-remote`',
     },
     install: {
       description:
@@ -259,10 +274,17 @@ export const enUS = {
     hooksIn: (path: string) => `hooks in ${path}`,
     codexTrust:
       'Codex asks once to trust new hooks: open `codex` and choose "Trust all and continue" (or review them in /hooks). Until then its sessions stay read-only.',
+    geminiTrust:
+      'Gemini CLI runs no hooks in a folder it does not trust: when `gemini` asks, trust the folder (or use /permissions). Until then its sessions there stay read-only and approvals stay in the terminal.',
     launcherRemoved: (id: string) => `launcher ${id} removed`,
     hooksRemovedFrom: (path: string) => `hooks removed from ${path}`,
     statusLineIn: (path: string) => `status line in ${path}`,
     statusLineRestored: (path: string) => `status line restored in ${path}`,
+    hookSecretRotated: (path: string) =>
+      `hooks secret replaced (older versions put it on curl's command line); curl now reads it from ${path} — a running daemon and the open sessions use it once restarted`,
+    tmuxConf: (path: string) => `tmux server config ${path}`,
+    legacyTmuxSessions: (session: string) =>
+      `sessions started before this version are still on your default tmux server and are no longer managed: finish them with \`tmux attach -t ${session}\`; new sessions open on the Remote Harness server (\`remote-harness tmux\`)`,
   },
   setup: {
     languageQuestion: 'Language',
@@ -540,7 +562,8 @@ export const enUS = {
       doctor: 'Run doctor',
       quit: 'Quit tray',
       /** Shell sections of the menu (change 65). */
-      status: (machine: string, version: string, since: string) => `${machine} · ${version} · since ${since}`,
+      status: (machine: string, version: string, since: string, paths?: string) =>
+        [machine, paths, version, `since ${since}`].filter(Boolean).join(' · '),
       waiting: 'Waiting for you',
       allow: 'Allow',
       always: 'Always allow',
@@ -591,6 +614,54 @@ export const enUS = {
       quitMenu: 'Quit',
       hideIcon: 'Hide the icon (the service keeps running)',
       stopService: 'Stop the service until the next login',
+      /** Paths, devices, the popover and the new Preferences tabs (change 170). */
+      paths: {
+        both: 'direct + relay paths',
+        direct: 'direct path',
+        relay: 'relay path',
+        none: 'not reachable yet',
+      },
+      devicePath: { both: 'direct + relay', direct: 'direct', relay: 'relay' },
+      devices: (count: number, push: boolean) => `Devices · ${count}${push ? ' · push ✓' : ''}`,
+      devicesTitle: 'Devices',
+      pushOn: 'push ✓',
+      pushOff: 'push off',
+      noDevices: 'No paired devices',
+      noDevicesHint: 'Pair a phone to follow your sessions from it',
+      online: (path: string) => `online · ${path}`,
+      offline: 'offline',
+      pairedAgo: (ago: string) => `paired ${ago}`,
+      lastSeen: (ago: string) => `last seen ${ago}`,
+      neverSeen: 'not seen yet',
+      justNow: 'just now',
+      revoke: 'Revoke…',
+      revokeConfirm: 'Revoke and sign it out',
+      revokeConfirmText: (name: string) => `Revoke ${name}? It has to pair again to reach this computer.`,
+      sessionsTitle: 'Sessions',
+      sessionsDetail: (total: number, running: number) =>
+        running > 0 ? `${total} · ${running} running` : `${total}`,
+      runningPill: 'running',
+      updateAvailableShort: 'update',
+      appName: 'Remote Harness',
+      tabNetwork: 'Network',
+      tabDevices: 'Devices',
+      profileName: 'Name',
+      profileAgent: 'Agent',
+      profileFolder: 'Config folder',
+      directPath: 'Direct path',
+      pathState: 'Status',
+      directAddresses: 'Addresses',
+      directHint: 'Devices on the same network or VPN connect straight to this computer',
+      connectionRelay: 'Connection relay',
+      homeRelay: 'Home relay',
+      noHomeRelay: 'No connection relay answers yet',
+      relayHint: 'The connection relay forwards end-to-end encrypted traffic and cannot read it',
+      connectedNow: 'Connected now',
+      connectedCounts: (direct: number, relay: number) =>
+        direct + relay === 0 ? 'no devices' : `${direct} direct · ${relay} relay`,
+      networkHint: 'These settings live in the config file and apply after a restart',
+      on: 'On',
+      off: 'Off',
     },
   },
   push: {

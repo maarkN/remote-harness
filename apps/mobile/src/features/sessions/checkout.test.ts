@@ -17,6 +17,7 @@ function s(id: string, root: string | null, patch: Partial<Session> = {}): Sessi
     paneId: '%1',
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: root ? { root, branch: 'main' } : null,
     status: null,
     ...patch,

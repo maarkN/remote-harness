@@ -29,6 +29,7 @@ import { type ConnectivityOptions, registerConnectivityFeature } from './feature
 import { registerDiagnosticsFeature } from './features/diagnostics/index.ts'
 import { HookReceiver } from './features/hooks/receiver.ts'
 import { registerInputFeature } from './features/input/index.ts'
+import { registerLastActivityFeature } from './features/last-activity/index.ts'
 import { registerLifecycleFeature } from './features/lifecycle/index.ts'
 import { registerLiveStatusFeature } from './features/live-status/index.ts'
 import { registerModeFeature } from './features/mode/index.ts'
@@ -48,6 +49,7 @@ import { registerShellFeature } from './features/shell/index.ts'
 import { registerStatusLineFeature } from './features/status-line/index.ts'
 import { registerSubagentsFeature } from './features/subagents/index.ts'
 import { registerSystemPermissionsFeature } from './features/system-permissions/index.ts'
+import { ensureTmuxConf, tmuxServerOf } from './features/tmux-server/conf.ts'
 import { registerTranscriptFeature } from './features/transcript/index.ts'
 import {
   type DesktopOptions,
@@ -55,6 +57,7 @@ import {
   registerUpdatesFeature,
   type TrayShellDeps,
 } from './features/updates/index.ts'
+import type { TrayDevice } from './features/updates/menu.ts'
 import { registerVoicePolishFeature } from './features/voice-polish/index.ts'
 import { registerWidgetsFeature } from './features/widgets/index.ts'
 import type { Executor } from './infra/exec.ts'
@@ -141,6 +144,10 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const appProfiles = await profilesWithResolvableAgent(profiles, options.exec, logger)
   const identity = await ensureIdentity(options.secretStore)
   const hookSecret = await ensureHookSecret()
+  // The Remote Harness tmux server's config (`tmux -f`): written here too, so a daemon started by
+  // hand before `install` addresses the same server as the launchers.
+  await ensureTmuxConf(config)
+  const tmuxServer = tmuxServerOf(config)
 
   const bus = new EventBus<DaemonEvents>()
   const hub = new ClientHub()
@@ -187,7 +194,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     router,
     hooks,
     hookReceiver,
-    tmux: new TmuxClient(options.exec),
+    tmux: new TmuxClient(options.exec, 'tmux', tmuxServer),
     onStop: (fn) => stopHandlers.push(fn),
     onClientConnected: (fn) => connectHandlers.push(fn),
     pushSender: options.pushSender,
@@ -205,6 +212,24 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       const address = connectivity.addresses()[0] ?? connectivity.relay()
       return link && address ? { url: link.url, address } : null
     },
+    pairedDevices: () => {
+      const connected = hub.devicePaths()
+      return pairing.devices.devices().map((device) => ({
+        id: device.id,
+        name: device.name,
+        platform: device.platform,
+        pairedAt: device.pairedAt,
+        lastSeen: device.lastSeen ?? null,
+        paths: [...(connected.get(device.id) ?? [])],
+      }))
+    },
+    revokeDevice: (deviceId) => pairing.revoke(deviceId),
+    network: () => ({
+      direct: config.direct === 'on',
+      addresses: connectivity.addresses(),
+      relay: relayEnabled,
+      homeRelay: connectivity.relay(),
+    }),
   })
 
   await hooks.listen({ host: '127.0.0.1', port: options.hookPort ?? config.hookPort })
@@ -287,12 +312,17 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   }
 }
 
+/** The tray's view of pairing and connectivity, which exist before the features. */
+type TrayFromStart = Pick<TrayShellDeps, 'pairing' | 'revokeDevice' | 'network'> & {
+  pairedDevices: () => TrayDevice[]
+}
+
 /** Wires every feature module. Each feature registers its own handlers, hooks and listeners. */
 async function registerFeatures(
   ctx: DaemonContext,
   desktop: DesktopOptions | undefined,
   sleepInhibitor: SleepInhibitor | null,
-  pairing: Pick<TrayShellDeps, 'pairing'>,
+  tray: TrayFromStart,
 ): Promise<{
   mute: MuteStore
   pushMode: () => PushMode
@@ -300,15 +330,22 @@ async function registerFeatures(
   commandsEnabled: () => boolean
 }> {
   const sessions = registerSessionsFeature(ctx, ctx.tmux)
-  const transcript = registerTranscriptFeature(ctx, sessions.store, (id, at) =>
-    sessions.service.noteActivity(id, at),
+  const transcript = registerTranscriptFeature(
+    ctx,
+    sessions.store,
+    (id, at) => sessions.service.noteActivity(id, at),
+    (id, title) => sessions.service.setCustomTitle(id, title),
   )
   registerSubagentsFeature(ctx, sessions.store, transcript.addResolver)
+  registerLastActivityFeature(ctx, sessions.store, transcript.readTail)
   registerStatusLineFeature(ctx, sessions.store)
   const sessionLock = new KeyedMutex()
   const attachments = registerAttachmentsFeature(ctx, sessions.store)
-  const permissions = registerPermissionsFeature(ctx, transcript.follow, () =>
-    sessions.store.all().map((s) => s.cwd),
+  const permissions = registerPermissionsFeature(
+    ctx,
+    transcript.follow,
+    () => sessions.store.all().map((s) => s.cwd),
+    () => sessions.store.all(),
   )
   const hasPendingPermission = (id: string) => permissions.broker.hasPending(id)
   const input = registerInputFeature(ctx, sessions.store, sessionLock, attachments.store)
@@ -374,17 +411,22 @@ async function registerFeatures(
         pendingPermissions: () => permissions.broker.list(),
         respond: (requestId, decision, always) => {
           const info = permissions.broker.list().find((p) => p.requestId === requestId)
-          permissions.broker.respond(requestId, {
-            behavior: decision,
-            ...(always && decision === 'allow' && info?.suggestedRule
-              ? { always: { rule: info.suggestedRule, scope: info.defaultScope } }
-              : {}),
-          })
+          // A dialog that is gone resolves the request: nothing else to tell the tray.
+          void permissions.broker
+            .respond(requestId, {
+              behavior: decision,
+              ...(always && decision === 'allow' && info?.suggestedRule
+                ? { always: { rule: info.suggestedRule, scope: info.defaultScope } }
+                : {}),
+            })
+            ?.catch(() => undefined)
         },
-        phones: () => ({ count: push.devices.list().length, push: push.mode() !== 'off' }),
+        devices: () => ({ push: push.mode() !== 'off', items: tray.pairedDevices() }),
         closeSession: (id) => lifecycle.closer.close(id),
         renameSession: (id, name) => input.service.sendText(id, `/rename ${name}`),
-        ...pairing,
+        pairing: tray.pairing,
+        revokeDevice: tray.revokeDevice,
+        network: tray.network,
         keepAwake: {
           mode: () => power?.state().mode ?? ctx.config.keepAwake,
           set: async (mode) => {

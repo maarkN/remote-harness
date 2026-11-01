@@ -90,12 +90,19 @@ A profile is a Claude Code account, that is a `CLAUDE_CONFIG_DIR`, with a name, 
 
 A profile can also run **Codex** (`cx` badge, green): its sessions show the permission profile (read only, workspace, full access) in place of the mode chip, where you can switch between read only and workspace, `exec(…)` and `apply_patch(…)` calls with their output and diff, and approvals with Allow / Deny. See [Codex profiles](/en/docs/daemon/#codex-profiles).
 
+A profile can also run **Gemini CLI** (`gm` badge, pink): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny, answered in Gemini's own dialog in the terminal. See [Gemini CLI profiles](/en/docs/daemon/#gemini-cli-profiles).
+
+A profile can also run **Kimi CLI** (`ki` badge, blue): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny, answered in Kimi's own approval panel in the terminal. See [Kimi CLI profiles](/en/docs/daemon/#kimi-cli-profiles).
+
+A profile can also run **Qwen Code** (`qw` badge, violet): its sessions show shell commands, file edits and searches like Claude Code's, and approvals with Allow / Deny. See [Qwen Code profiles](/en/docs/daemon/#qwen-code-profiles).
+
 ## Settings
 
 - **Machine**: the connection and its path (direct or via relay), the machine's name (an alias of your choice, else its hostname), the daemon version, and **Forget this machine**.
 - **Computers**: every paired computer; switch, rename on this device, forget, or add another one.
 - **Devices**: the phones and tablets paired with this computer and when each was last seen. **Add device** shows a single-use pairing code (QR and link, valid for 5 minutes) to scan with the other device; **Revoke** disconnects one at once, and it must pair again.
 - **Appearance**: System, Dark, Light, Dracula, Catppuccin Mocha and Catppuccin Latte.
+- **Language**: Same as the phone, Português (Brasil), English (US) or Español, applied at once (the first launch asks before pairing). Texts that come from the computer, such as notifications and the setup, keep the language chosen in its setup.
 - **Profiles**: each profile with its agent, alias, config dir, notifications switch and, with a provider, the provider, the default model and the credits.
 - **Notifications**: push for this phone, test, live status, the muted profiles and sessions.
 - **Voice**: the transcription language.

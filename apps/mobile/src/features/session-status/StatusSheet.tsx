@@ -1,26 +1,35 @@
 import type { AccountLimits, SessionStatus } from '@remote-harness/protocol'
+import { ChevronRight } from 'lucide-react-native'
 import { useTranslation } from 'react-i18next'
 import { Modal, Pressable, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { makeStyles, radius, space } from '@/core/theme'
+import { makeStyles, radius, space, useTheme } from '@/core/theme'
 import { Button, Text } from '@/ui'
 import { activeWindow, formatPercent, formatReset, formatTokens, LEVEL_COLORS, statusLevel } from './logic'
 
 type Row = { key: string; label: string; value: string; percent: number | null }
 
-/** Details of the status bar: tokens in use and when each limit resets. */
+/**
+ * Details of the status bar: tokens in use and when each limit resets. With `onDetails`, a last row
+ * leads to the Session details sheet; `onDismiss` (iOS) tells when this sheet is fully gone.
+ */
 export function StatusSheet({
   visible,
   status,
   limits,
   onClose,
+  onDetails,
+  onDismiss,
 }: {
   visible: boolean
   status: SessionStatus | null
   limits: AccountLimits | undefined
   onClose: () => void
+  onDetails?: () => void
+  onDismiss?: () => void
 }) {
   const { t, i18n } = useTranslation()
+  const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const styles = useStyles()
   const now = Date.now()
@@ -57,7 +66,7 @@ export function StatusSheet({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onDismiss={onDismiss}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + space.md }]}>
           <Text weight="bold" accessibilityRole="header">
@@ -79,6 +88,23 @@ export function StatusSheet({
               </View>
             ))}
           </View>
+          {onDetails ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('sessionStatus.details')}
+              accessibilityHint={t('sessionStatus.detailsHint')}
+              onPress={onDetails}
+              style={({ pressed }) => [styles.detailsRow, pressed && styles.pressed]}
+            >
+              <View style={styles.detailsText}>
+                <Text size="sm">{t('sessionStatus.details')}</Text>
+                <Text size="xs" color="textMuted">
+                  {t('sessionStatus.detailsHint')}
+                </Text>
+              </View>
+              <ChevronRight size={16} color={colors.textDim} />
+            </Pressable>
+          ) : null}
           <Button label={t('common.close')} variant="ghost" onPress={onClose} />
         </Pressable>
       </Pressable>
@@ -105,4 +131,14 @@ const useStyles = makeStyles((theme) => ({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: 44,
+    paddingVertical: space.xs,
+    borderRadius: radius.md,
+  },
+  detailsText: { flex: 1, gap: space.xxs },
+  pressed: { opacity: 0.7 },
 }))

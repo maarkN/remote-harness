@@ -76,7 +76,31 @@ describe('transcript meta', () => {
       ],
       [],
     )
-    expect(meta).toEqual({ title: 'Minha tarefa', cwd: '/w/app', permissionMode: 'plan' })
+    expect(meta).toEqual({
+      title: 'Minha tarefa',
+      titleSource: 'custom',
+      cwd: '/w/app',
+      permissionMode: 'plan',
+    })
+  })
+
+  test('says what gave the title (#474)', () => {
+    const command = { type: 'user', message: { content: '<command-name>/clear</command-name>' } }
+    const prompt = { type: 'user', message: { content: 'fix the tests' } }
+    expect(extractMeta([], [command])).toMatchObject({ title: '/clear', titleSource: 'command' })
+    expect(extractMeta([], [command, prompt])).toMatchObject({
+      title: 'fix the tests',
+      titleSource: 'prompt',
+    })
+    expect(extractMeta([{ type: 'last-prompt', lastPrompt: 'again' }], [])).toMatchObject({
+      title: 'again',
+      titleSource: 'prompt',
+    })
+    expect(extractMeta([], [], 'Earlier name')).toMatchObject({
+      title: 'Earlier name',
+      titleSource: 'custom',
+    })
+    expect(extractMeta([], [])).toMatchObject({ title: null, titleSource: null })
   })
 
   test('falls back to the first real user prompt', () => {
@@ -259,6 +283,37 @@ describe('session state from hooks', () => {
     store.upsert('s1', { title: '<pasted_content id="p1">Error…' })
     await service.handleHook(hookEvent('UserPromptSubmit', { session_id: 's1', prompt: pasted }))
     expect(store.get('s1')?.title).toBe('Error: boom')
+  })
+
+  test('a session started on the computer is named like a resumed one would be (#474)', async () => {
+    const { service, store } = setup()
+    const prompt = (text: string) =>
+      service.handleHook(hookEvent('UserPromptSubmit', { session_id: 's1', prompt: text }))
+    await service.handleHook(hookEvent('SessionStart', { session_id: 's1', cwd: '/w/api' }, { paneId: '%1' }))
+    expect(store.get('s1')?.title).toBe('api')
+    // A slash command names the folder-named session, but only until a plain prompt arrives.
+    await prompt('/clear')
+    expect(store.get('s1')?.title).toBe('/clear')
+    await prompt('<command-name>/model</command-name><command-args>opus</command-args>')
+    expect(store.get('s1')?.title).toBe('/clear')
+    await prompt('fix the tests')
+    expect(store.get('s1')?.title).toBe('fix the tests')
+    await prompt('!ls')
+    await prompt('now the docs')
+    expect(store.get('s1')?.title).toBe('fix the tests')
+    // A rename wins at once, in the terminal or from the transcript, and no prompt replaces it.
+    await prompt('/rename Login bug')
+    expect(store.get('s1')?.title).toBe('Login bug')
+    await prompt('and the login page')
+    expect(store.get('s1')?.title).toBe('Login bug')
+    service.setCustomTitle('s1', ' Login  bug, part 2 ')
+    expect(store.get('s1')?.title).toBe('Login bug, part 2')
+    await prompt('/rename')
+    expect(store.get('s1')?.title).toBe('Login bug, part 2')
+    // A plain prompt still replaces the folder name right away.
+    await service.handleHook(hookEvent('SessionStart', { session_id: 's2', cwd: '/w/web' }, { paneId: '%2' }))
+    await service.handleHook(hookEvent('UserPromptSubmit', { session_id: 's2', prompt: 'add dark mode' }))
+    expect(store.get('s2')?.title).toBe('add dark mode')
   })
 
   test('a new session in the same pane ends the previous one', async () => {

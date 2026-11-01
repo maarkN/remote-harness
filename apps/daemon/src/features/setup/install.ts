@@ -7,11 +7,11 @@ import type { Profile } from '@remote-harness/protocol'
 import { type Config, hookTimeoutSec } from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
 import { expandHome, paths } from '../../core/paths.ts'
-import { ensureHookSecret } from '../../core/secrets.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { isDirectory } from '../../infra/fs.ts'
 import type { Platform } from '../../infra/platform.ts'
 import { agentFor, hasAgentAdapter, profileAgentId } from '../agents/index.ts'
+import { ensureHookSecretFiles } from '../hooks/hook-secret.ts'
 import {
   installHooks,
   installLaunchers,
@@ -25,6 +25,7 @@ import {
   uninstallStatusLine,
 } from '../hooks/installer.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
+import { ensureTmuxConf, legacySessionsExist, tmuxServerOf } from '../tmux-server/conf.ts'
 
 /** One line of installer output: `done` = changed now, `skip` = already in place. */
 export type InstallLine = { status: 'done' | 'skip'; text: string }
@@ -67,10 +68,15 @@ export async function installAll(
   const lines: InstallLine[] = []
   const which = await o.exec('which', ['tmux'])
   const tmuxBin = which.exitCode === 0 ? which.stdout.trim() : 'tmux'
+  // The Remote Harness tmux server's config, from config.json (nothing to write for the default server).
+  const tmuxServer = tmuxServerOf(config)
+  const tmuxConf = await ensureTmuxConf(config)
+  if (tmuxConf) lines.push({ status: tmuxConf.changed ? 'done' : 'skip', text: m.tmuxConf(tmuxConf.path) })
   const launchers = await installLaunchers(profiles, {
     binDir: paths.bin(),
     tmuxSession: config.tmuxSession,
     tmuxBin,
+    tmuxServer,
     missingKey: m.missingProviderKey,
   })
   for (const path of launchers) lines.push({ status: 'done', text: `launcher ${path}` })
@@ -84,12 +90,16 @@ export async function installAll(
     status: changed.length > 0 ? 'done' : 'skip',
     text: m.shellPath(displayPaths(changed.length > 0 ? changed : o.rcFiles)),
   })
-  const secret = await ensureHookSecret()
-  const statusLineScript = await installStatusLineScript(paths.bin(), { port: config.hookPort, secret })
+  // A secret from a version that put it on curl's command line is replaced here, before the hooks
+  // and the status line are written with it.
+  const { curlConfig, rotated } = await ensureHookSecretFiles()
+  if (rotated) lines.push({ status: 'done', text: m.hookSecretRotated(curlConfig) })
+  const statusLineScript = await installStatusLineScript(paths.bin(), { port: config.hookPort, curlConfig })
   for (const profile of profiles) {
+    // Every hook reads the secret from the curl config: the value itself goes in no hooks file.
     const changed = await installHooks(profile, {
       port: config.hookPort,
-      secret,
+      curlConfig,
       permissionTimeoutSec: hookTimeoutSec(config),
     })
     lines.push({ status: changed ? 'done' : 'skip', text: m.hooksIn(settingsPath(profile)) })
@@ -99,6 +109,12 @@ export async function installAll(
   }
   if (profiles.some((p) => agentFor(p).hooks.style === 'codex-hooks'))
     lines.push({ status: 'skip', text: m.codexTrust })
+  if (profiles.some((p) => agentFor(p).hooks.style === 'gemini-hooks'))
+    lines.push({ status: 'skip', text: m.geminiTrust })
+  // Sessions started before the dedicated server stay on the default one, where the daemon no longer
+  // looks: say how to reach them.
+  if (tmuxServer && (await legacySessionsExist(o.exec, tmuxBin, config.tmuxSession)))
+    lines.push({ status: 'skip', text: m.legacyTmuxSessions(config.tmuxSession) })
   return lines
 }
 

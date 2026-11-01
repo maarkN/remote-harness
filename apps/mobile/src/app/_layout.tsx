@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ConnectionProvider, useConnectionStore } from '@/core/connection'
-import '@/core/i18n'
+import { restoreLanguagePreference, useLanguageStore } from '@/core/i18n'
 import { restoreThemePreference, ThemeProvider, useTheme } from '@/core/theme'
 import { useBackgroundUpdates } from '@/core/updates'
 import { restoreCommandRecents } from '@/features/autocomplete/recents-store'
@@ -32,11 +32,13 @@ import { restoreLiveStatusSetting } from '@/features/live-status/settings-store'
 import { restorePerformanceSetting } from '@/features/performance/store'
 import { usePerformanceMonitoring } from '@/features/performance/use-performance'
 import { restorePushSettings } from '@/features/push/push-settings-store'
+import { restoreSessionDensity } from '@/features/sessions/density-store'
 import { restoreSessionPrefs } from '@/features/sessions/prefs-store'
 import { restoreSessionSort } from '@/features/sessions/sort-store'
 import { restoreAppIconPreference, useApplyAppIcon } from '@/features/settings/app-icon-store'
 import { restoreMachineAlias, useMachineNameSync } from '@/features/settings/machine-store'
 import { useRevokedNotice } from '@/features/settings/use-revoked-notice'
+import { restoreTemplates } from '@/features/templates/store'
 import { restoreVoiceInteraction } from '@/features/voice/voice-interaction-store'
 import { restoreVoiceLanguage } from '@/features/voice/voice-language-store'
 import { restoreVoicePolish } from '@/features/voice/voice-polish-store'
@@ -63,7 +65,10 @@ export default function RootLayout() {
     JetBrainsMono_700Bold,
   })
   const credentialsLoaded = useConnectionStore((s) => s.credentialsLoaded)
-  const ready = fontsLoaded && credentialsLoaded
+  // The saved language is read before the first frame, so an explicit choice never flashes as the
+  // phone's language.
+  const languageRestored = useLanguageStore((s) => s.restored)
+  const ready = fontsLoaded && credentialsLoaded && languageRestored
   useBackgroundUpdates()
   usePerformanceMonitoring()
 
@@ -74,10 +79,12 @@ export default function RootLayout() {
   }, [credentialsLoaded])
 
   useEffect(() => {
+    void restoreLanguagePreference()
     void restorePerformanceSetting()
     void restoreThemePreference()
     void restoreAppIconPreference()
     void restoreSessionSort()
+    void restoreSessionDensity()
     void restoreSessionPrefs()
     void restorePushSettings()
     void restoreOpenAfterCreateSettings()
@@ -92,6 +99,7 @@ export default function RootLayout() {
     void restoreVoiceLanguage()
     void restoreVoicePolish()
     void restoreVoiceInteraction()
+    void restoreTemplates()
   }, [])
 
   // Restores the unsent prompts saved on this device and keeps saving them.
@@ -124,6 +132,8 @@ function Shell({ ready }: { ready: boolean }) {
             {ready ? (
               <Stack screenOptions={stackScreenOptions(theme)}>
                 <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                {/* The first-launch language step draws its own title and cannot be dismissed. */}
+                <Stack.Screen name="language" options={{ headerShown: false, gestureEnabled: false }} />
                 <Stack.Screen name="pair" options={{ title: t('nav.pair'), presentation: 'modal' }} />
                 <Stack.Screen
                   name="setup-guide"

@@ -14,7 +14,7 @@ import {
   parseTranscriptLine,
 } from '../src/features/transcript/parser.ts'
 import { TranscriptService } from '../src/features/transcript/service.ts'
-import { TranscriptFile } from '../src/features/transcript/transcript-file.ts'
+import { readTailEntries, TranscriptFile } from '../src/features/transcript/transcript-file.ts'
 import { fakeConnection, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -137,7 +137,7 @@ describe('tagged user entries', () => {
     '</task-notification>',
   ].join('\n')
 
-  test('a task notification is a system entry with status, summary and note only', () => {
+  test('a task notification is a system entry with status, summary, note, tool use id and result', () => {
     const [entry, ...rest] = parseTranscriptLine(user(notification), 0)
     expect(rest).toEqual([])
     expect(entry).toMatchObject({
@@ -146,10 +146,21 @@ describe('tagged user entries', () => {
       status: 'stopped',
       text: 'Background agent "Review" didn\'t finish before the previous session ended',
       note: 'No completion record was found for it.',
+      toolUseId: 'toolu_1',
+      result: 'long result',
     })
+    // The task id, the output file and the usage stay out.
     const json = JSON.stringify(entry)
-    for (const hidden of ['/tmp/example', 'toolu_1', 'long result', 'total_tokens'])
-      expect(json).not.toContain(hidden)
+    for (const hidden of ['/tmp/example', '"t1"', 'total_tokens']) expect(json).not.toContain(hidden)
+  })
+
+  test('a notification without a tool use id or a result has neither field', () => {
+    const [entry] = parseTranscriptLine(
+      user('<task-notification><status>completed</status><summary>Done</summary></task-notification>'),
+      0,
+    )
+    expect(entry).not.toHaveProperty('toolUseId')
+    expect(entry).not.toHaveProperty('result')
   })
 
   test('several notifications in one entry, in a text part, without a note', () => {
@@ -368,6 +379,32 @@ describe('TranscriptFile', () => {
   })
 })
 
+describe('readTailEntries', () => {
+  const line = (text: string) =>
+    JSON.stringify({ type: 'assistant', uuid: text, message: { content: [{ type: 'text', text }] } })
+
+  test('reads the whole file when it fits', async () => {
+    const path = join(home.dir(), 't.jsonl')
+    await writeFile(path, `${line('one')}\n${line('two')}\n`)
+    const tail = await readTailEntries(path)
+    expect(tail.complete).toBe(true)
+    expect(tail.entries.map((e) => (e.kind === 'assistant_text' ? e.text : e.kind))).toEqual(['one', 'two'])
+  })
+
+  test('drops the cut first line of a window', async () => {
+    const path = join(home.dir(), 't.jsonl')
+    const last = line('last')
+    await writeFile(path, `${line('x'.repeat(500))}\n${last}\n`)
+    const tail = await readTailEntries(path, undefined, last.length + 20)
+    expect(tail.complete).toBe(false)
+    expect(tail.entries.map((e) => (e.kind === 'assistant_text' ? e.text : e.kind))).toEqual(['last'])
+  })
+
+  test('a missing file is empty', async () => {
+    expect(await readTailEntries(join(home.dir(), 'none.jsonl'))).toEqual({ entries: [], complete: true })
+  })
+})
+
 describe('TranscriptService', () => {
   let service: TranscriptService | undefined
   afterEach(async () => {
@@ -469,6 +506,20 @@ describe('TranscriptService', () => {
         },
       },
     ])
+  })
+
+  test('a name in the backlog is applied when the transcript is opened (#474)', async () => {
+    const path = join(home.dir(), 'named.jsonl')
+    const lines = [
+      { type: 'user', uuid: 'u1', message: { role: 'user', content: 'hi' } },
+      { type: 'custom-title', customTitle: 'First name' },
+      { type: 'custom-title', customTitle: 'Login bug' },
+    ]
+    await writeFile(path, `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`)
+    const metas: unknown[] = []
+    service = new TranscriptService(silentLogger, (_id, meta) => metas.push(meta))
+    await service.subscribe({ sessionId: 's', path }, fakeConnection())
+    expect(metas).toEqual([{ customTitle: 'Login bug' }])
   })
 
   test('follow feeds new entries only and keeps the stream while subscribers remain', async () => {

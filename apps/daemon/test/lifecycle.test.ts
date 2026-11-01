@@ -3,7 +3,12 @@ import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
 import { waitForPaneSession } from '../src/features/lifecycle/index.ts'
-import { LifecycleService, validateCwd, WAIT_FOR_SESSION_MS } from '../src/features/lifecycle/service.ts'
+import {
+  LifecycleService,
+  MAX_FIRST_PROMPT_BYTES,
+  validateCwd,
+  WAIT_FOR_SESSION_MS,
+} from '../src/features/lifecycle/service.ts'
 import { SessionStore } from '../src/features/sessions/store.ts'
 import type { SessionRecord } from '../src/features/sessions/types.ts'
 import { fakeExecutor, useTempHome } from './helpers.ts'
@@ -25,6 +30,7 @@ function record(id: string, patch: Partial<SessionRecord>): SessionRecord {
     updatedAt: '2026-10-14T10:00:00Z',
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: null,
     status: null,
     transcriptPath: null,
@@ -73,6 +79,31 @@ describe('LifecycleService', () => {
     await service.start('claudin', project, { model: 'anthropic/claude-opus-5.5' })
     expect(exec.calls[1]?.args).toEqual(['--model', 'anthropic/claude-opus-5.5'])
     await expect(service.start('nope', project)).rejects.toMatchObject({ code: 'not_found' })
+  })
+
+  test('a first prompt reaches the launcher in its environment, within 8 KB, for agents that take one', async () => {
+    const { exec, store, service, project } = await setup()
+    const prompt = 'Review the open PR.\nList the "risks" for $USER.'
+    await service.start('claudin', project, { name: 'Review', prompt })
+    expect(exec.calls[0]).toMatchObject({
+      args: ['--name', 'Review'],
+      options: { env: { CLAUDE_REMOTE_NO_ATTACH: '1', CLAUDE_REMOTE_PROMPT: prompt } },
+    })
+    await service.start('claudin', project)
+    expect(exec.calls[1]?.options?.env).toEqual({ CLAUDE_REMOTE_NO_ATTACH: '1' })
+    // Rejected before anything is launched.
+    await expect(
+      service.start('claudin', project, { prompt: 'x'.repeat(MAX_FIRST_PROMPT_BYTES + 1) }),
+    ).rejects.toMatchObject({ code: 'too_large' })
+    const kimi = new LifecycleService(
+      exec,
+      store,
+      [{ id: 'k', name: 'K', configDir: '/k', color: '', agent: 'kimi' }],
+      '/bin-dir',
+      home.dir(),
+    )
+    await expect(kimi.start('k', project, { prompt: 'hi' })).rejects.toMatchObject({ code: 'bad_request' })
+    expect(exec.calls).toHaveLength(2)
   })
 
   test('fails when Claude Code exits before the settle check', async () => {

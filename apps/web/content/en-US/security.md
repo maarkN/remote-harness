@@ -11,7 +11,7 @@ The daemon can type into your Claude Code sessions and approve tool calls, so it
 ## Network
 
 - The app reaches the daemon directly (a WebSocket on every interface of the computer, or only `127.0.0.1` with `--dev`) or through a connection relay. On both paths every byte is end-to-end encrypted, and a connection that does not complete the handshake with a paired key gets nothing at all; the relay only forwards ciphertext and cannot read your sessions.
-- Claude Code's hooks reach the daemon on `127.0.0.1` only, with a local shared secret.
+- Claude Code's hooks reach the daemon on `127.0.0.1` only, with a local shared secret kept in a `0600` file; the `curl` commands the installer writes read it from a `0600` curl config, never from a command line that other processes could list.
 - `relay: off` or `direct: off` in the config turns a path off; `remote-harness devices revoke <id>` unpairs a phone at once.
 
 ## Keys and pairing

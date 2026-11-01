@@ -5,7 +5,7 @@ import { LOCALES } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { configuredLocaleSync, defaultProfiles, effectiveLocale } from '../src/core/config.ts'
 import { CATALOGS, createI18n, messagesFor, systemLocale } from '../src/core/i18n/index.ts'
-import { BANNER_WIDTH, createPaint, renderWelcome } from '../src/features/setup/banner.ts'
+import { BANNER_WIDTH, createPaint, renderLogo, renderWelcome } from '../src/features/setup/banner.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -37,6 +37,18 @@ describe('catalogs', () => {
 
   test.each(LOCALES)('%s has no empty texts', (locale) => {
     for (const text of strings(CATALOGS[locale])) expect(text.trim()).not.toBe('')
+  })
+
+  test('the logo fits an 80-column terminal and hides on narrower ones', () => {
+    const lines = renderLogo(createPaint(false))
+      .split('\n')
+      .filter((line) => line !== '')
+    expect(lines.length).toBeGreaterThan(0)
+    for (const line of lines) expect([...line].length).toBeLessThanOrEqual(80)
+    // The block-character mark: the cursor block with the prompt cut out, then the arcs.
+    expect(lines[1]).toMatch(/^ {2}█████ {5}▄▄ {2}/)
+    expect(lines[3]).toMatch(/^ {2}███▀█ ▄ █ ██ {2}/)
+    expect(renderLogo(createPaint(false), BANNER_WIDTH - 1)).toBe('')
   })
 
   test.each(LOCALES)('%s welcome box fits the banner', (locale) => {

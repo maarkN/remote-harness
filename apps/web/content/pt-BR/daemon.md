@@ -46,6 +46,8 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
   "inputStrategy": "paste",
   "recentDays": 7,
   "tmuxSession": "claude-remote",
+  "tmuxSocket": "remote-harness",
+  "tmuxConfig": "minimal",
   "push": "auto",
   "update": { "channel": "main", "auto": false },
   "tray": true,
@@ -63,6 +65,8 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
 - `inputStrategy`: `paste` (padrão) ou `type` para os prompts enviados pelo celular.
 - `recentDays`: até quando sessões encerradas são listadas.
 - `tmuxSession`: a sessão do tmux que os atalhos usam.
+- `tmuxSocket`: o servidor tmux (`tmux -L <nome>`) que os atalhos e o daemon usam, `remote-harness` por padrão, separado do seu tmux e do seu `tmux.conf`; `null` usa o seu servidor padrão e a sua configuração.
+- `tmuxConfig`: `minimal` (padrão) inicia esse servidor só com os poucos ajustes do Remote Harness (Esc entregue na hora, eventos de foco, histórico maior); `user` carrega também o seu `~/.tmux.conf` (ou `~/.config/tmux/tmux.conf`) por cima, para os seus atalhos valerem dentro das janelas do agente.
 - `language`: `pt-BR`, `en-US` ou `es-ES` para a CLI, a instalação e os textos de push; o idioma do sistema quando ausente.
 - `push`: `auto` (a sua conta de serviço do Firebase quando existe, senão o relay) ou `off`.
 - `update`: o canal que `update` e a verificação seguem, e se as atualizações se aplicam sozinhas.
@@ -104,9 +108,45 @@ O `remote-harness install` grava o atalho do perfil (ele abre o `codex` com o `C
 
 O que funciona como no Claude Code: a lista de sessões (rollouts recentes em `sessions/`), a conversa, prompts, fotos e teclas, iniciar e retomar pelo celular (num worktree com `codex --worktree`, e com nome, enviado como `/rename`), push, status ao vivo, aprovações com Permitir / Negar, Aprimorar ditado e mensagens de commit geradas (via `codex exec`). Diferenças: o chip de modo mostra o perfil de permissões e alterna entre somente leitura e workspace (`/permissions`, Codex 0.164 ou mais novo); acesso total só no terminal. Não há "Sempre" (hooks do Codex não criam regras) nem provedor.
 
+## Perfis do Gemini CLI
+
+Um perfil pode rodar o Gemini CLI do Google: defina `"agent": "gemini"` e aponte o `configDir` para uma pasta de configuração do Gemini, que sempre se chama `.gemini` (`~/.gemini` por padrão; para outra, `~/work/.gemini`, o atalho define `GEMINI_CLI_HOME=~/work`). O `remote-harness setup` oferece a `~/.gemini` quando o Gemini CLI já a usou.
+
+```json
+{ "id": "gem", "name": "Gemini", "configDir": "~/.gemini", "color": "#E3729E", "agent": "gemini" }
+```
+
+O `remote-harness install` grava o atalho do perfil (ele abre o `gemini`) e mescla os hooks do daemon no `<configDir>/settings.json`, ao lado dos seus hooks e configurações e com backup. **O Gemini CLI não roda hooks numa pasta em que ele não confia**: quando o `gemini` perguntar, confie na pasta (ou use `/permissions`). Até lá, as sessões dele nessa pasta aparecem somente leitura e as aprovações ficam no terminal. O `doctor` confere se o `gemini` está no `PATH` e se os hooks estão instalados.
+
+O que funciona como no Claude Code: a lista de sessões (arquivos de sessão recentes em `tmp/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push e status ao vivo. Aprovações: os hooks do Gemini CLI não conseguem aprovar uma ferramenta, então quando o diálogo de aprovação dele abre o celular recebe Permitir / Negar e o daemon aperta as teclas do próprio diálogo no terminal ("Allow once" ou Esc); se o diálogo já foi respondido lá, o app avisa. Diferenças: sem "Sempre", sem troca de modo (e nunca YOLO), sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor.
+
+## Perfis do Kimi CLI
+
+Um perfil pode rodar o Kimi CLI da Moonshot: defina `"agent": "kimi"` e aponte o `configDir` para a pasta de dados do Kimi (`KIMI_SHARE_DIR`, `~/.kimi` por padrão). O `remote-harness setup` oferece a `~/.kimi` quando o Kimi CLI já a usou.
+
+```json
+{ "id": "km", "name": "Kimi", "configDir": "~/.kimi", "color": "#5B9BF5", "agent": "kimi" }
+```
+
+O `remote-harness install` grava o atalho do perfil (ele abre o `kimi` com o `KIMI_SHARE_DIR` certo) e adiciona os hooks do daemon ao `<configDir>/config.toml` como tabelas `[[hooks]]`, no fim e com backup; todas as outras linhas do arquivo ficam como estão. Se o seu `config.toml` define `hooks = [...]` como uma chave só, o install não mexe nele e o `doctor` mostra os hooks como ausentes: troque por tabelas `[[hooks]]` antes. O `doctor` confere se o `kimi` está no `PATH` e se os hooks estão instalados.
+
+O que funciona como no Claude Code: a lista de sessões (sessões recentes em `sessions/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push e status ao vivo. Aprovações: o Kimi CLI não tem hook para elas, então enquanto uma sessão do Kimi roda o daemon olha o painel do tmux dela a cada segundo; quando o painel de aprovação aparece, o celular recebe Permitir / Negar e o daemon aperta as teclas do próprio painel ("Approve once" ou "Reject"). Se você responder no terminal, o pedido some sozinho. Diferenças: sem "Sempre" (nem "aprovar nesta sessão"), sem modo plano, yolo ou afk pelo app, sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor. Um turno cancelado com Esc continua "rodando" no app até o próximo prompt.
+
+## Perfis do Qwen Code
+
+Um perfil pode rodar o Qwen Code: defina `"agent": "qwen"` e aponte o `configDir` para a pasta de configuração do Qwen (`QWEN_HOME`, `~/.qwen` por padrão). O `remote-harness setup` oferece a `~/.qwen` quando o Qwen Code já a usou.
+
+```json
+{ "id": "qw", "name": "Qwen Code", "configDir": "~/.qwen", "color": "#8C6CF5", "agent": "qwen" }
+```
+
+O `remote-harness install` grava o atalho do perfil (ele abre o `qwen` com o `QWEN_HOME` certo) e mescla os hooks do daemon no `<configDir>/settings.json`, ao lado dos seus hooks e configurações e com backup. O `doctor` confere se o `qwen` está no `PATH` e se os hooks estão instalados.
+
+O que funciona como no Claude Code: a lista de sessões (transcripts recentes em `projects/`), a conversa (comandos de shell, edições e buscas em arquivos aparecem como os do Claude Code), prompts, fotos e teclas, iniciar e retomar pelo celular, push, status ao vivo e aprovações com Permitir / Negar pelo próprio hook de permissão do Qwen. Diferenças: sem "Sempre", sem troca de modo de aprovação (e nunca `auto` nem YOLO), sem worktree nem nome ao iniciar, sem ditado com Polish nem mensagens geradas, e sem provedor. Um `QWEN_RUNTIME_DIR` personalizado ainda não é suportado.
+
 ## Atalhos e aliases
 
-Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` do tmux com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. O comando `claude` puro nunca é alterado.
+Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (adicionado ao `PATH` em `~/.zshrc` e `~/.bashrc`). Rode o alias em vez de `claude`, com os mesmos argumentos: ele abre o Claude Code numa janela da sessão `claude-remote` no servidor tmux próprio do Remote Harness (`tmux -L remote-harness`, iniciado com `~/.remote-harness/tmux.conf` em vez do seu `tmux.conf`, então as suas configurações, plugins e o seu `tmux ls` ficam em paz) com o `CLAUDE_CONFIG_DIR` certo e prende o seu terminal nela. Rode o alias dentro do seu próprio tmux e a sessão aparece aninhada naquele pane, sem tomar o seu cliente (aperte o prefixo duas vezes para falar com o tmux de dentro). `remote-harness tmux` anexa a esse servidor de qualquer terminal e `remote-harness tmux ls` lista as sessões dele; sessões iniciadas antes desse servidor existir continuam no seu tmux padrão até terminarem. O comando `claude` puro nunca é alterado.
 
 ## Serviço em segundo plano
 
@@ -120,7 +160,9 @@ O serviço confere o canal dele no remoto git a cada 6 horas e mostra uma notifi
 
 ## Ícone na bandeja
 
-O daemon do serviço mostra um ícone na barra de menus do macOS (um pequeno auxiliar em Swift compilado no primeiro início com as Command Line Tools) e um ícone na bandeja do Linux (`python3` com GTK 3 e AyatanaAppIndicator3 ou AppIndicator3). O menu mostra as sessões em andamento e as permissões pendentes (responda por ali), abre uma sessão nova, mostra o código de pareamento, confere ou aplica atualizações, escolhe o canal, abre os logs, a configuração e a documentação, e reinicia o daemon. **Parear um celular** mostra o QR de pareamento no próprio menu no macOS, o endereço e o pareamento no terminal; cada código é de uso único e expira em 5 minutos. **Preferências** liga e desliga as respostas de permissão no menu, o modo de manter acordado e as notificações push, aplicados na hora, e abre o arquivo de configuração para o resto. Com o serviço, **Sair** esconde o ícone ou para o serviço até o próximo login. `"tray": false` desliga; sem o auxiliar, e no WSL, o daemon roda sem interface.
+O daemon do serviço mostra um ícone na barra de menus do macOS (um pequeno auxiliar em Swift compilado no primeiro início com as Command Line Tools) e um ícone na bandeja do Linux (`python3` com GTK 3 e AyatanaAppIndicator3 ou AppIndicator3). O menu mostra as sessões em andamento e as permissões pendentes (responda por ali), abre uma sessão nova, mostra o código de pareamento, confere ou aplica atualizações, escolhe o canal, abre os logs, a configuração e a documentação, e reinicia o daemon. **Parear um celular** mostra o QR de pareamento no próprio menu no macOS, o endereço e o pareamento no terminal; cada código é de uso único e expira em 5 minutos. **Preferências** liga e desliga as respostas de permissão no menu, o modo de manter acordado e as notificações push, aplicados na hora, e abre o arquivo de configuração para o resto. Com o serviço, **Sair** esconde o ícone ou para o serviço até o próximo login. `"tray": false` desliga; sem o auxiliar, o daemon roda sem interface. No WSL o ícone aparece na área de notificação do Windows: o daemon inicia um pequeno auxiliar no lado do Windows via interop (o Windows PowerShell o compila na hora; nada é instalado no Windows), então ele aparece no login com a tarefa de logon e some quando o daemon para. Tem o mesmo menu da bandeja do Linux, as notificações de atualização viram notificações do Windows e as ações que abrem um terminal usam o Windows Terminal.
+
+No macOS o ícone abre um popover em vez de um menu: o computador com seus caminhos (direto e/ou pelo relay, nunca um endereço), a permissão pendente como um cartão com Negar / Sempre / Permitir, até cinco sessões (clique para abrir uma no terminal, clique direito para renomear ou fechar), os dispositivos pareados e se estão online, e as ações rápidas. A janela de **Preferências** tem as abas Geral, Perfis (renomeie um perfil), Notificações, Rede (os endereços do caminho direto, o relay de conexão e o relay principal, os dispositivos conectados agora), Dispositivos (cada dispositivo pareado, com **Revogar…**), Pareamento, Atualizações e Avançado. No Linux o menu segue a mesma ordem, e cada dispositivo tem um submenu **Revogar…**.
 
 ## Hospedar o próprio relay de conexão
 

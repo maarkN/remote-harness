@@ -13,7 +13,7 @@ describe('Claude mark', () => {
 describe('hasRegisteredIcon', () => {
   test('true for every known agent and provider id', () => {
     for (const id of REGISTERED_ICON_IDS) expect(hasRegisteredIcon(id)).toBe(true)
-    expect(REGISTERED_ICON_IDS).toEqual(['claude', 'codex', 'kimi', 'qwen', 'openrouter'])
+    expect(REGISTERED_ICON_IDS).toEqual(['claude', 'codex', 'gemini', 'kimi', 'qwen', 'openrouter'])
   })
 
   test('false for an id without a registered icon', () => {

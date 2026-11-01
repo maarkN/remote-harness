@@ -1,6 +1,8 @@
 import type { ServerMessageOf, TranscriptEntry } from '@remote-harness/protocol'
 import { create } from 'zustand'
 import type { DaemonClient } from '@/core/connection/daemon-client'
+import type { HistoryEvent } from '@/core/storage/history/history-db'
+import type { HistoryTarget } from '@/features/history/active'
 import { createBatcher } from './batch'
 import { streamsToEvict, touchRecent, trimEntries } from './retention'
 import { EMPTY_TIMELINE, extendTimeline, mergeEntries, type Timeline } from './timeline'
@@ -82,6 +84,51 @@ function closed(key: string): void {
   })
 }
 
+/** Where conversations are cached on the device (ADR 0004); none until the app sets it, and in tests. */
+let historyTarget: () => Promise<HistoryTarget | null> = async () => null
+
+export function setTranscriptHistory(provider: () => Promise<HistoryTarget | null>): void {
+  historyTarget = provider
+}
+
+/** Least time between a cache write and the eviction pass it schedules. */
+const EVICTION_DELAY_MS = 5_000
+let evictionTimer: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Writes what arrived for a stream to the history cache (best effort: the daemon keeps the
+ * transcript), then schedules an eviction pass that spares the streams on screen.
+ */
+function persist(target: HistoryTarget | null, key: string, event: HistoryEvent): void {
+  if (!target) return
+  void target.db.apply(target.computer, key, event).catch(() => undefined)
+  if (evictionTimer) return
+  evictionTimer = setTimeout(() => {
+    evictionTimer = undefined
+    const { open } = useTranscriptStore.getState()
+    void target.db
+      .evict((computer, stream) => computer === target.computer && (open[stream] ?? 0) > 0)
+      .catch(() => undefined)
+  }, EVICTION_DELAY_MS)
+}
+
+/**
+ * A stream not in memory starts from its cached copy (the latest page), so it renders before the
+ * daemon answers and the subscription resumes from the cached cursor.
+ */
+async function hydrate(key: string, target: HistoryTarget | null): Promise<void> {
+  const known = (s: StreamState | undefined) => !!s && (s.entries.length > 0 || s.lastCursor !== null)
+  if (!target || known(useTranscriptStore.getState().streams[key])) return
+  const page = await target.db.latest(target.computer, key).catch(() => null)
+  if (!page || known(useTranscriptStore.getState().streams[key])) return
+  useTranscriptStore.getState().update(key, () => ({
+    entries: page.entries,
+    timeline: extendTimeline(EMPTY_TIMELINE, page.entries),
+    lastCursor: page.lastCursor,
+    hasMore: page.hasMore,
+  }))
+}
+
 export function streamKey(sessionId: string, agentId?: string): string {
   return agentId ? `${sessionId}#${agentId}` : sessionId
 }
@@ -116,11 +163,23 @@ function applyEntries(key: string, entries: TranscriptEntry[], patch: Partial<St
  */
 export function subscribeTranscript(client: DaemonClient, sessionId: string, agentId?: string): () => void {
   const key = streamKey(sessionId, agentId)
+  // The computer is the one active now: a switch tears this subscription down.
+  const target = historyTarget().catch(() => null)
+  const hydrated = target.then((t) => hydrate(key, t))
+  let cache: HistoryTarget | null = null
+  void target.then((t) => {
+    cache = t
+  })
 
   // A burst of entries (a tool-heavy turn) becomes one store update per frame.
-  const batch = createBatcher<TranscriptEntry>((entries) => applyEntries(key, entries))
+  const batch = createBatcher<TranscriptEntry>((entries) => {
+    const previous = (useTranscriptStore.getState().streams[key] ?? EMPTY).lastCursor
+    applyEntries(key, entries)
+    persist(cache, key, { kind: 'live', previous, entries })
+  })
 
   const subscribe = async () => {
+    await hydrated
     // Entries still waiting for their frame count for the cursor to resume from.
     batch.flushNow()
     const { lastCursor } = useTranscriptStore.getState().streams[key] ?? EMPTY
@@ -143,9 +202,22 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
           hasMore: true,
           error: null,
         }))
+        persist(await target, key, {
+          kind: 'resume',
+          since: lastCursor,
+          entries: reply.entries,
+          hasMore: true,
+        })
         return
       }
       applyEntries(key, reply.entries, lastCursor === null ? { hasMore: reply.hasMore } : {})
+      persist(
+        await target,
+        key,
+        lastCursor === null
+          ? { kind: 'initial', entries: reply.entries, hasMore: reply.hasMore }
+          : { kind: 'resume', since: lastCursor, entries: reply.entries, hasMore: false },
+      )
     } catch (error) {
       useTranscriptStore.getState().update(key, () => ({ error: error ?? null }))
     }
@@ -170,7 +242,7 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
   }
 }
 
-/** Loads the page before the oldest loaded entry. */
+/** Loads the page before the oldest loaded entry: from the history cache when it has it, else the daemon. */
 export async function loadOlder(client: DaemonClient, sessionId: string, agentId?: string): Promise<void> {
   const key = streamKey(sessionId, agentId)
   const state = useTranscriptStore.getState().streams[key] ?? EMPTY
@@ -179,6 +251,12 @@ export async function loadOlder(client: DaemonClient, sessionId: string, agentId
   if (oldest === undefined) return
   useTranscriptStore.getState().update(key, () => ({ loadingOlder: true }))
   try {
+    const target = await historyTarget().catch(() => null)
+    const cached = target ? await target.db.older(target.computer, key, oldest, 50).catch(() => null) : null
+    if (cached) {
+      applyEntries(key, cached.entries, { hasMore: cached.hasMore })
+      return
+    }
     const reply = await client.request({
       type: 'session.history',
       sessionId,
@@ -186,7 +264,9 @@ export async function loadOlder(client: DaemonClient, sessionId: string, agentId
       before: oldest,
       limit: 50,
     })
-    if (reply.type === 'transcript.page') applyEntries(key, reply.entries, { hasMore: reply.hasMore })
+    if (reply.type !== 'transcript.page') return
+    applyEntries(key, reply.entries, { hasMore: reply.hasMore })
+    persist(target, key, { kind: 'older', before: oldest, entries: reply.entries, hasMore: reply.hasMore })
   } finally {
     useTranscriptStore.getState().update(key, () => ({ loadingOlder: false }))
   }

@@ -115,7 +115,7 @@ Every session SHALL carry the `agent` of its profile (`claude` for profiles with
 - **THEN** it shows the Claude Code badge and names Claude Code in the copy
 
 ### Requirement: Prompt-derived title
-A Claude Code session's title SHALL be, in order: the latest name given with `/rename` (or from the app), else its first prompt, else its last prompt, else the folder name. While the title is still the folder name, or is raw markup left by older daemons, each prompt SHALL set it. A title taken from a prompt MUST NOT show markup: harness context (system reminders, command output) is ignored; text pasted into the prompt is replaced by the user's own words around it, or by the first line of the pasted text when there are none; a slash command gives the command and its arguments. A plain prompt SHALL win over a slash command as the first prompt. A prompt with nothing left SHALL leave the title as it was.
+A Claude Code session's title SHALL be, in order: the latest name given with `/rename` (or from the app), else its first prompt, else its last prompt, else the folder name. The same order SHALL hold while the session runs, from the hooks, as when its transcript is read: a title only gives way to one from a stronger source, so a plain prompt replaces a title taken from a slash command or shell line (`/clear`, `!ls`, with or without the transcript's markup), a name replaces any prompt title, and the first prompt or command of its kind stays. While the title is still the folder name, or is raw markup left by older daemons, each prompt SHALL set it. A title taken from a prompt MUST NOT show markup: harness context (system reminders, command output) is ignored; text pasted into the prompt is replaced by the user's own words around it, or by the first line of the pasted text when there are none; a slash command gives the command and its arguments. A prompt with nothing left SHALL leave the title as it was. A name written to the transcript (`/rename`, `--name`) SHALL reach the app without resuming: from the `/rename` prompt itself, from the transcript while it is followed, or from its backlog when a conversation is opened.
 
 #### Scenario: Pasted prompt with the user's words
 - **WHEN** the first prompt is "Summarize this" followed by a pasted block
@@ -129,6 +129,14 @@ A Claude Code session's title SHALL be, in order: the latest name given with `/r
 - **WHEN** the first prompt is the `/review` command with the argument `123`
 - **THEN** the session is titled "/review 123"
 
+#### Scenario: Plain prompt after a command, while the session runs
+- **WHEN** a session started on the computer gets `/clear`, then `/model opus`, then "fix the tests" as prompts
+- **THEN** its title goes from the folder name to "/clear" and then to "fix the tests", where a later prompt leaves it
+
+#### Scenario: Rename while the session runs
+- **WHEN** the user types `/rename Login bug` in the terminal of a session titled "fix the tests"
+- **THEN** the app shows "Login bug" without resuming, and later prompts keep it
+
 #### Scenario: Raw tag from an older daemon
 - **WHEN** a session is titled with a raw `<pasted_content …>` tag and the user sends another prompt
 - **THEN** the title is replaced by the title of that prompt
@@ -136,3 +144,26 @@ A Claude Code session's title SHALL be, in order: the latest name given with `/r
 #### Scenario: Name wins
 - **WHEN** a session was renamed with `/rename` and the user pastes a prompt
 - **THEN** the session keeps its name
+
+### Requirement: Last activity preview
+Each session SHALL carry `lastActivity`: the last prompt (`user`, including a slash command), reply (`assistant`) or tool call (`tool`, the tool name with a short target such as the file name or the command's first line) of its own transcript, ignoring subagents, thinking, tool results and system lines, with its timestamp (`at`), or `null` when none is known. The text SHALL be one line of plain text (markdown markers and line breaks removed) of at most 200 characters, ending in `…` when cut. The daemon SHALL read it from the tail of the transcript through the agent's transcript format, when the session is registered (live or read-only from the recent scan) and whenever it shows activity (a hook event or a new `updatedAt`), at most once every 3 seconds per session, with a trailing refresh so the last change of a burst is not lost. Refreshing it MUST NOT advance `updatedAt`. It SHALL only be sent in session messages over the authenticated connection and MUST NOT appear in push payloads. Older daemons omit it, which the app reads as `null`.
+
+#### Scenario: Reply after a turn
+- **WHEN** a session's turn ends with the reply "I raised the **pool** to 20."
+- **THEN** within 3 seconds its `lastActivity` is `{ kind: "assistant", text: "I raised the pool to 20.", at: <the entry's timestamp> }` and its `updatedAt` is unchanged by the refresh
+
+#### Scenario: Running tool
+- **WHEN** the last entry of a running session is the result of an `Edit` of `src/db/pool.ts`
+- **THEN** its `lastActivity` is a `tool` with the text `Edit(pool.ts)`
+
+#### Scenario: Long prompt
+- **WHEN** the last prompt has 900 characters over several lines
+- **THEN** `lastActivity.text` is a single line of 200 characters ending in `…`
+
+#### Scenario: Streaming burst
+- **WHEN** a session writes transcript lines continuously for 10 seconds
+- **THEN** its `lastActivity` is refreshed at most five times and the last refresh reflects the last entry
+
+#### Scenario: Push stays content-free
+- **WHEN** a session with a `lastActivity` asks for a permission and a push is sent
+- **THEN** the push payload carries none of the `lastActivity` text

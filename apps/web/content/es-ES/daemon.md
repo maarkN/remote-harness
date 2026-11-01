@@ -46,6 +46,8 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
   "inputStrategy": "paste",
   "recentDays": 7,
   "tmuxSession": "claude-remote",
+  "tmuxSocket": "remote-harness",
+  "tmuxConfig": "minimal",
   "push": "auto",
   "update": { "channel": "main", "auto": false },
   "tray": true,
@@ -63,6 +65,8 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
 - `inputStrategy`: `paste` (por defecto) o `type` para los prompts enviados desde el móvil.
 - `recentDays`: hasta cuándo se listan las sesiones terminadas.
 - `tmuxSession`: la sesión de tmux que usan los lanzadores.
+- `tmuxSocket`: el servidor tmux (`tmux -L <nombre>`) que usan los lanzadores y el daemon, `remote-harness` por defecto, separado de tu tmux y de tu `tmux.conf`; `null` usa tu servidor por defecto y tu configuración.
+- `tmuxConfig`: `minimal` (por defecto) inicia ese servidor solo con los pocos ajustes de Remote Harness (Esc entregado al instante, eventos de foco, más historial); `user` carga además tu `~/.tmux.conf` (o `~/.config/tmux/tmux.conf`) encima, para que tus atajos valgan dentro de las ventanas del agente.
 - `language`: `pt-BR`, `en-US` o `es-ES` para la CLI, la instalación y los textos de push; el idioma del sistema cuando falta.
 - `push`: `auto` (tu cuenta de servicio de Firebase cuando existe, si no el relay) u `off`.
 - `update`: el canal que siguen `update` y la comprobación, y si las actualizaciones se aplican solas.
@@ -104,9 +108,45 @@ Un perfil puede ejecutar OpenAI Codex CLI en vez de Claude Code: define `"agent"
 
 Lo que funciona como en Claude Code: la lista de sesiones (rollouts recientes en `sessions/`), la conversación, prompts, fotos y teclas, iniciar y reanudar desde el móvil (en un worktree con `codex --worktree`, y con nombre, enviado como `/rename`), push, estado en vivo, aprobaciones con Permitir / Denegar, Mejorar dictado y mensajes de commit generados (con `codex exec`). Diferencias: el chip de modo muestra el perfil de permisos y alterna entre solo lectura y workspace (`/permissions`, Codex 0.164 o posterior); el acceso total solo en el terminal. No hay "Siempre" (los hooks de Codex no crean reglas) ni proveedor.
 
+## Perfiles de Gemini CLI
+
+Un perfil puede ejecutar Gemini CLI de Google: define `"agent": "gemini"` y apunta `configDir` a una carpeta de configuración de Gemini, que siempre se llama `.gemini` (`~/.gemini` por defecto; para otra, `~/work/.gemini`, el lanzador define `GEMINI_CLI_HOME=~/work`). `remote-harness setup` ofrece `~/.gemini` cuando Gemini CLI ya la usó.
+
+```json
+{ "id": "gem", "name": "Gemini", "configDir": "~/.gemini", "color": "#E3729E", "agent": "gemini" }
+```
+
+`remote-harness install` escribe el lanzador del perfil (abre `gemini`) y combina los hooks del daemon en `<configDir>/settings.json`, junto a tus hooks y ajustes y con copia de seguridad. **Gemini CLI no ejecuta hooks en una carpeta en la que no confía**: cuando `gemini` pregunte, confía en la carpeta (o usa `/permissions`). Hasta entonces sus sesiones en esa carpeta aparecen de solo lectura y las aprobaciones se quedan en el terminal. `doctor` comprueba que `gemini` está en el `PATH` y que los hooks están instalados.
+
+Lo que funciona como en Claude Code: la lista de sesiones (archivos de sesión recientes en `tmp/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push y estado en vivo. Aprobaciones: los hooks de Gemini CLI no pueden aprobar una herramienta, así que cuando se abre su diálogo de aprobación el móvil recibe Permitir / Denegar y el daemon pulsa las teclas del propio diálogo en el terminal ("Allow once" o Esc); si el diálogo ya se respondió allí, la app lo indica. Diferencias: sin "Siempre", sin cambio de modo (y nunca YOLO), sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor.
+
+## Perfiles de Kimi CLI
+
+Un perfil puede ejecutar Kimi CLI de Moonshot: define `"agent": "kimi"` y apunta `configDir` a la carpeta de datos de Kimi (`KIMI_SHARE_DIR`, `~/.kimi` por defecto). `remote-harness setup` ofrece `~/.kimi` cuando Kimi CLI ya la usó.
+
+```json
+{ "id": "km", "name": "Kimi", "configDir": "~/.kimi", "color": "#5B9BF5", "agent": "kimi" }
+```
+
+`remote-harness install` escribe el lanzador del perfil (abre `kimi` con el `KIMI_SHARE_DIR` correcto) y añade los hooks del daemon a `<configDir>/config.toml` como tablas `[[hooks]]`, al final y con copia de seguridad; el resto de líneas del archivo se quedan como están. Si tu `config.toml` define `hooks = [...]` como una sola clave, install no lo toca y `doctor` muestra los hooks como ausentes: cámbialo antes a tablas `[[hooks]]`. `doctor` comprueba que `kimi` está en el `PATH` y que los hooks están instalados.
+
+Lo que funciona como en Claude Code: la lista de sesiones (sesiones recientes en `sessions/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push y estado en vivo. Aprobaciones: Kimi CLI no tiene hook para ellas, así que mientras una sesión de Kimi se ejecuta el daemon mira su panel de tmux cada segundo; cuando aparece el panel de aprobación, el móvil recibe Permitir / Denegar y el daemon pulsa las teclas del propio panel ("Approve once" o "Reject"). Si respondes en el terminal, la petición desaparece sola. Diferencias: sin "Siempre" (ni "aprobar en esta sesión"), sin modo plan, yolo ni afk desde la app, sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor. Un turno cancelado con Esc sigue "en ejecución" en la app hasta el siguiente prompt.
+
+## Perfiles de Qwen Code
+
+Un perfil puede ejecutar Qwen Code: define `"agent": "qwen"` y apunta `configDir` a la carpeta de configuración de Qwen (`QWEN_HOME`, `~/.qwen` por defecto). `remote-harness setup` ofrece `~/.qwen` cuando Qwen Code ya la usó.
+
+```json
+{ "id": "qw", "name": "Qwen Code", "configDir": "~/.qwen", "color": "#8C6CF5", "agent": "qwen" }
+```
+
+`remote-harness install` escribe el lanzador del perfil (abre `qwen` con el `QWEN_HOME` correcto) y combina los hooks del daemon en `<configDir>/settings.json`, junto a tus hooks y ajustes y con copia de seguridad. `doctor` comprueba que `qwen` está en el `PATH` y que los hooks están instalados.
+
+Lo que funciona como en Claude Code: la lista de sesiones (transcripts recientes en `projects/`), la conversación (los comandos de shell, ediciones y búsquedas en archivos se muestran como los de Claude Code), prompts, fotos y teclas, iniciar y reanudar desde el móvil, push, estado en vivo y aprobaciones con Permitir / Denegar mediante el propio hook de permisos de Qwen. Diferencias: sin "Siempre", sin cambio de modo de aprobación (y nunca `auto` ni YOLO), sin worktree ni nombre al iniciar, sin dictado con Polish ni mensajes generados, y sin proveedor. Un `QWEN_RUNTIME_DIR` personalizado aún no está soportado.
+
 ## Lanzadores y alias
 
-Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>` (añadido al `PATH` en `~/.zshrc` y `~/.bashrc`). Ejecuta el alias en vez de `claude`, con los mismos argumentos: abre Claude Code en una ventana de la sesión `claude-remote` de tmux con el `CLAUDE_CONFIG_DIR` correcto y conecta tu terminal a ella. El comando `claude` a secas nunca se modifica.
+Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>` (añadido al `PATH` en `~/.zshrc` y `~/.bashrc`). Ejecuta el alias en vez de `claude`, con los mismos argumentos: abre Claude Code en una ventana de la sesión `claude-remote` en el servidor tmux propio de Remote Harness (`tmux -L remote-harness`, iniciado con `~/.remote-harness/tmux.conf` en lugar de tu `tmux.conf`, así que tu configuración, tus plugins y tu `tmux ls` quedan intactos) con el `CLAUDE_CONFIG_DIR` correcto y conecta tu terminal a ella. Ejecuta el alias dentro de tu propio tmux y la sesión aparece anidada en ese panel, sin apropiarse de tu cliente (pulsa tu prefijo dos veces para hablar con el tmux interior). `remote-harness tmux` se adjunta a ese servidor desde cualquier terminal y `remote-harness tmux ls` lista sus sesiones; las sesiones iniciadas antes de que existiera ese servidor siguen en tu tmux por defecto hasta que terminen. El comando `claude` a secas nunca se modifica.
 
 ## Servicio en segundo plano
 
@@ -120,7 +160,9 @@ El servicio comprueba su canal en el remoto de git cada 6 horas y muestra una no
 
 ## Icono de la bandeja
 
-El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección y el emparejamiento en la terminal; cada código es de un solo uso y caduca en 5 minutos. **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, y en WSL, el daemon funciona sin interfaz.
+El daemon del servicio muestra un icono en la barra de menús de macOS (un pequeño ayudante en Swift compilado en el primer inicio con las Command Line Tools) y un icono en la bandeja de Linux (`python3` con GTK 3 y AyatanaAppIndicator3 o AppIndicator3). El menú muestra las sesiones en marcha y los permisos pendientes (respóndelos desde ahí), abre una sesión nueva, muestra el código de emparejamiento, comprueba o aplica actualizaciones, elige el canal, abre los registros, la configuración y la documentación, y reinicia el daemon. **Emparejar un móvil** muestra el QR de emparejamiento en el propio menú en macOS, la dirección y el emparejamiento en la terminal; cada código es de un solo uso y caduca en 5 minutos. **Preferencias** activa o desactiva las respuestas de permisos en el menú, el modo de mantener despierto y las notificaciones push, aplicados al momento, y abre el archivo de configuración para lo demás. Con el servicio, **Salir** oculta el icono o detiene el servicio hasta el próximo inicio de sesión. `"tray": false` lo desactiva; sin el ayudante, el daemon funciona sin interfaz. En WSL el icono aparece en el área de notificación de Windows: el daemon inicia un pequeño ayudante en el lado de Windows mediante interop (Windows PowerShell lo compila al arrancar; no se instala nada en Windows), así que aparece al iniciar sesión con la tarea de inicio y desaparece cuando el daemon se detiene. Tiene el mismo menú que la bandeja de Linux, las notificaciones de actualización pasan a ser notificaciones de Windows y las acciones que abren una terminal usan Windows Terminal.
+
+En macOS el icono abre un popover en lugar de un menú: el ordenador con sus rutas (directa y/o por relay, nunca una dirección), el permiso pendiente como una tarjeta con Denegar / Siempre / Permitir, hasta cinco sesiones (haz clic para abrir una en la terminal, clic derecho para renombrarla o cerrarla), los dispositivos vinculados y si están en línea, y las acciones rápidas. La ventana de **Preferencias** tiene las pestañas General, Perfiles (renombra un perfil), Notificaciones, Red (las direcciones de la ruta directa, el relay de conexión y el relay principal, los dispositivos conectados ahora), Dispositivos (cada dispositivo vinculado, con **Revocar…**), Emparejamiento, Actualizaciones y Avanzado. En Linux el menú sigue el mismo orden, y cada dispositivo tiene un submenú **Revocar…**.
 
 ## Alojar tu propio relay de conexión
 

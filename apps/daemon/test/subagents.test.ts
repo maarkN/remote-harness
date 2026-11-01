@@ -6,6 +6,7 @@ import { silentLogger } from '../src/core/logger.ts'
 import { SessionStore } from '../src/features/sessions/store.ts'
 import type { SessionRecord } from '../src/features/sessions/types.ts'
 import {
+  agentFile,
   cleanName,
   countToolUses,
   INACTIVITY_MS,
@@ -66,6 +67,7 @@ function setup(now = Date.now) {
       updatedAt: '',
       subagents: [],
       backgroundTasks: 0,
+      lastActivity: null,
       checkout: null,
       status: null,
       transcriptPath,
@@ -137,6 +139,77 @@ describe('SubagentTracker', () => {
     expect(sent.some((m) => m.type === 'subagent.updated')).toBe(true)
     expect(tracker!.transcriptPath('sess', 'a1')).toBe(join(dir, 'agent-a1.jsonl'))
     expect(tracker!.transcriptPath('sess', 'zz')).toBeNull()
+  })
+
+  test('agentFile tells plain subagents from agents of a workflow run', () => {
+    const dir = '/p/proj/abc/subagents'
+    expect(agentFile(dir, `${dir}/agent-a1.jsonl`)).toEqual({ agentId: 'a1', runId: null })
+    expect(agentFile(dir, `${dir}/workflows/wf_12-ab/agent-a2.jsonl`)).toEqual({
+      agentId: 'a2',
+      runId: 'wf_12-ab',
+    })
+    expect(agentFile(dir, `${dir}/agent-a1.meta.json`)).toBeNull()
+    expect(agentFile(dir, `${dir}/workflows/wf_12-ab/journal.jsonl`)).toBeNull()
+    expect(agentFile(dir, `${dir}/other/agent-a3.jsonl`)).toBeNull()
+    expect(agentFile(dir, `${dir}/workflows/wf_12-ab/deeper/agent-a4.jsonl`)).toBeNull()
+  })
+
+  test('discovers the agents of a workflow run with their run id and phase (#440)', async () => {
+    const { store, add, dir, sent } = setup()
+    add()
+    await new Promise((r) => setTimeout(r, 100))
+    const run = join(dir, 'workflows', 'wf_00000001-abc')
+    await mkdir(run, { recursive: true })
+    await writeFile(join(run, 'journal.jsonl'), '{"type":"launched"}\n')
+    await writeFile(
+      join(run, 'agent-w1.meta.json'),
+      JSON.stringify({ agentType: 'workflow-subagent', description: 'review:bugs', workflowPhase: 'Review' }),
+    )
+    await writeFile(join(run, 'agent-w1.jsonl'), '{}\n')
+    await waitFor(() => (store.get('sess')?.subagents.length ?? 0) > 0)
+    expect(store.get('sess')?.subagents[0]).toMatchObject({
+      agentId: 'w1',
+      agentType: 'workflow-subagent',
+      description: 'review:bugs',
+      workflowRunId: 'wf_00000001-abc',
+      workflowPhase: 'Review',
+      state: 'running',
+    })
+    expect(tracker!.transcriptPath('sess', 'w1')).toBe(join(run, 'agent-w1.jsonl'))
+    // The journal is not an agent.
+    expect(store.get('sess')?.subagents).toHaveLength(1)
+    tracker!.handleHook(hookEvent('SubagentStop', { session_id: 'sess', agent_id: 'w1', agent_type: '' }))
+    expect(store.get('sess')?.subagents[0]).toMatchObject({
+      state: 'done',
+      workflowRunId: 'wf_00000001-abc',
+      workflowPhase: 'Review',
+    })
+    const updates = sent.filter((m) => m.type === 'subagent.updated')
+    expect(updates.at(-1)).toMatchObject({ subagent: { agentId: 'w1', workflowRunId: 'wf_00000001-abc' } })
+  })
+
+  test('a run agent whose meta file comes late gets its phase on later activity', async () => {
+    const { store, add, dir } = setup()
+    add()
+    const run = join(dir, 'workflows', 'wf_2')
+    await mkdir(run, { recursive: true })
+    await writeFile(join(run, 'agent-w2.jsonl'), `${user('Verify the finding')}\n`)
+    await new Promise((r) => setTimeout(r, 150))
+    await waitFor(() => (store.get('sess')?.subagents.length ?? 0) > 0)
+    expect(store.get('sess')?.subagents[0]).toMatchObject({
+      workflowRunId: 'wf_2',
+      description: 'Verify the finding',
+    })
+    expect(store.get('sess')?.subagents[0]).not.toHaveProperty('workflowPhase')
+    await writeFile(join(run, 'agent-w2.meta.json'), JSON.stringify({ workflowPhase: 'Verify' }))
+    await tracker!.touch('sess', 'w2')
+    expect(store.get('sess')?.subagents[0]).toMatchObject({ workflowRunId: 'wf_2', workflowPhase: 'Verify' })
+    // Plain subagents never carry run fields.
+    await writeFile(join(dir, 'agent-p1.jsonl'), '{}\n')
+    await tracker!.touch('sess', 'p1')
+    const plain = store.get('sess')?.subagents.find((s) => s.agentId === 'p1')
+    expect(plain).not.toHaveProperty('workflowRunId')
+    expect(plain).not.toHaveProperty('workflowPhase')
   })
 
   test('discovers transcripts created while the folder watcher starts', async () => {

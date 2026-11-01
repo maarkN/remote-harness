@@ -376,6 +376,43 @@ describe('PermissionBroker', () => {
     expect(await pending).toMatchObject({ hookSpecificOutput: { decision: { behavior: 'deny' } } })
   })
 
+  test('two questions in a row are each answered on their own (#473)', async () => {
+    const { broker, hook, sent, move, requestId, watching } = setup(1_000, QUESTION)
+    const first = broker.handle(hook, new AbortController().signal)
+    const firstId = requestId()
+    broker.answer(firstId, { kind: 'question', answers: { 'Which database?': 'Postgres' } })
+    expect(await first).toMatchObject({
+      hookSpecificOutput: {
+        decision: { behavior: 'allow', updatedInput: { answers: { 'Which database?': 'Postgres' } } },
+      },
+    })
+    expect(watching.size).toBe(0)
+    // The answer's tool result reaches the transcript before the agent asks again: nothing to settle.
+    move()
+    const second = broker.handle(hook, new AbortController().signal)
+    const requests = sent.filter((m) => m.type === 'permission.request') as Array<
+      Extract<ServerMessage, { type: 'permission.request' }>
+    >
+    const secondId = requests[1]?.request.requestId
+    expect(secondId).toBeDefined()
+    expect(secondId).not.toBe(firstId)
+    expect(broker.hasPending('s')).toBe(true)
+    expect(() =>
+      broker.answer(firstId, { kind: 'question', answers: { 'Which database?': 'SQLite' } }),
+    ).toThrow(expect.objectContaining({ code: 'already_resolved' }))
+    broker.answer(secondId ?? '', { kind: 'question', answers: { 'Which database?': 'SQLite' } })
+    expect(await second).toMatchObject({
+      hookSpecificOutput: {
+        decision: { behavior: 'allow', updatedInput: { answers: { 'Which database?': 'SQLite' } } },
+      },
+    })
+    expect(sent.filter((m) => m.type === 'permission.resolved').map((m) => m.requestId)).toEqual([
+      firstId,
+      secondId,
+    ])
+    expect(broker.hasPending('s')).toBe(false)
+  })
+
   const PLAN = { name: 'ExitPlanMode', input: { plan: '1. do it', planFilePath: '/p.md' } }
 
   describe('moved on while the hook is open (#437)', () => {

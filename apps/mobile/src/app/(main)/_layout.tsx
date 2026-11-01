@@ -5,10 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { StyleSheet, TextInput, View } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
 import { useConnectionStore } from '@/core/connection'
+import { useLanguageStore } from '@/core/i18n'
 import { keys, onKeyCommand } from '@/core/keyboard/key-commands'
 import { edgeSwipeEnabled, inspectorMode, sidebarMode, useLayout } from '@/core/layout'
 import { space, useTheme } from '@/core/theme'
 import { useAssistantSessions } from '@/features/assistant/use-assistant-sessions'
+import { isScreenshotBuild } from '@/features/demo/demo-mode'
 import { InspectorPane } from '@/features/inspector/InspectorPane'
 import { setInspectorOpen, useInspectorStore } from '@/features/inspector/store'
 import { useLiveFollow } from '@/features/live-status/use-live-follow'
@@ -72,6 +74,9 @@ function useShellKeyCommands(pathname: string) {
 export default function MainLayout() {
   const { t } = useTranslation()
   const credentials = useConnectionStore((s) => s.credentials)
+  // The very first launch picks the language before pairing; screenshot builds go straight to the
+  // pairing screen, which opens the demo by itself.
+  const languageChosen = useLanguageStore((s) => s.chosen)
   useDaemonSync()
   usePush()
   useLiveStatus()
@@ -98,7 +103,7 @@ export default function MainLayout() {
     if (sidebar === 'overlay') setSidebarOpen(pathname === '/')
   }, [sidebar, pathname])
 
-  if (!credentials) return <Redirect href="/pair" />
+  if (!credentials) return <Redirect href={languageChosen || isScreenshotBuild() ? '/pair' : '/language'} />
 
   const sidebarContent = (
     <>
@@ -149,12 +154,24 @@ export default function MainLayout() {
             ...menuButton,
           }}
         />
-        <Stack.Screen name="settings" options={{ title: t('nav.settings') }} />
+        <Stack.Screen name="settings/index" options={{ title: t('nav.settings') }} />
+        <Stack.Screen name="settings/computer" options={{ title: t('settings.sections.computer') }} />
+        <Stack.Screen name="settings/devices" options={{ title: t('settings.sections.devices') }} />
+        <Stack.Screen name="settings/appearance" options={{ title: t('settings.sections.appearance') }} />
+        <Stack.Screen name="settings/profiles" options={{ title: t('settings.sections.profiles') }} />
+        <Stack.Screen name="settings/sessions" options={{ title: t('settings.sections.sessions') }} />
+        <Stack.Screen
+          name="settings/notifications"
+          options={{ title: t('settings.sections.notifications') }}
+        />
+        <Stack.Screen name="settings/voice" options={{ title: t('settings.sections.voice') }} />
+        <Stack.Screen name="settings/app" options={{ title: t('settings.sections.app') }} />
         <Stack.Screen name="new" options={{ title: t('nav.newSession'), presentation: 'modal' }} />
         <Stack.Screen name="report" options={{ title: t('errorReports.problem.title') }} />
         <Stack.Screen name="permissions" options={{ title: t('systemPermissions.title') }} />
         <Stack.Screen name="permission-rules" options={{ title: t('permissionRules.title') }} />
         <Stack.Screen name="permission-activity" options={{ title: t('approvals.title') }} />
+        <Stack.Screen name="templates" options={{ title: t('templates.title') }} />
         <Stack.Screen name="assistant/[action]" options={{ title: t('assistantLink.title') }} />
         <Stack.Screen
           name="session/[id]/index"

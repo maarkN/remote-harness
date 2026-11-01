@@ -177,7 +177,7 @@ The composer SHALL show the attach and mic buttons, and no Send button, while th
 - **THEN** the mic (stop) button stays visible
 
 ### Requirement: Session options menu
-The session header SHALL have a "More options" button that opens a menu with "View terminal", "Change model…" when the session's profile has a provider, "Subagents (N)" / "Subagents (N · M running)" when the session has subagents, "Show keyboard shortcuts" / "Hide keyboard shortcuts", "Conversation history", "Stop following output" / "Follow output" and "Close session". "Change model…" SHALL open the model picker and send `/model <id>` to the session as a prompt delivered now. The menu MUST be native on iOS and look like the platform overflow menu on Android. In a read-only session, "View terminal", "Change model…", the shortcuts toggle and "Close session" MUST be disabled and the menu MUST say why; "Conversation history", the follow toggle and "Subagents" stay enabled. The button SHALL show an accent dot while any subagent runs. All labels MUST be translated.
+The session header SHALL have a "More options" button that opens a menu with "View terminal", "Change model…" when the session's profile has a provider, "Subagents (N)" / "Subagents (N · M running)" when the session has subagents, "Show keyboard shortcuts" / "Hide keyboard shortcuts", "Prompt templates…", "Conversation history", "Stop following output" / "Follow output" and "Close session". "Change model…" SHALL open the model picker and send `/model <id>` to the session as a prompt delivered now. "Prompt templates…" SHALL open the templates picker, whose pick is appended to the prompt draft. The menu MUST be native on iOS and look like the platform overflow menu on Android. In a read-only session, "View terminal", "Change model…", the shortcuts toggle, "Prompt templates…" and "Close session" MUST be disabled and the menu MUST say why; "Conversation history", the follow toggle and "Subagents" stay enabled. The button SHALL show an accent dot while any subagent runs. All labels MUST be translated.
 
 #### Scenario: Open the terminal
 - **WHEN** the user picks "View terminal" in a controllable session
@@ -187,9 +187,13 @@ The session header SHALL have a "More options" button that opens a menu with "Vi
 - **WHEN** the user picks "Change model…" in a controllable OpenRouter session and chooses `anthropic/claude-opus-5.5`
 - **THEN** the session receives `/model anthropic/claude-opus-5.5`
 
+#### Scenario: Insert a template
+- **WHEN** the user picks "Prompt templates…" in a controllable session and chooses a template
+- **THEN** the template's filled text is appended to the composer and nothing is sent
+
 #### Scenario: Read-only session
 - **WHEN** the user opens the menu in a session without a tmux pane
-- **THEN** "View terminal", the shortcuts toggle and "Close session" are disabled, the follow toggle is enabled, and the menu explains that the session is read-only
+- **THEN** "View terminal", the shortcuts toggle, "Prompt templates…" and "Close session" are disabled, the follow toggle is enabled, and the menu explains that the session is read-only
 
 #### Scenario: Toggle following
 - **WHEN** following is on and the user picks "Stop following output"
@@ -257,7 +261,7 @@ Tapping the session title in the header, or the folder in the row below it, SHAL
 - **THEN** the sheet stays open; tapping the dimmed area above it closes it
 
 ### Requirement: Images in the conversation
-The conversation SHALL show the images of user prompts and tool results as thumbnails of fixed size, below the prompt text and in the tool call (collapsed and in the Output tab). Image data MUST be fetched only when a thumbnail is about to be shown, with at most two fetches at a time, the newest first, fetches dropped when their thumbnail goes away before they start, and a size-capped cache, and a placeholder MUST keep the thumbnail's size while loading so the list does not move. Tapping a thumbnail SHALL open a full-screen viewer with pinch zoom, pan and double tap, closed with a close button, a single tap while not zoomed or the Android back button. An image that fails to load SHALL show a localized message and retry when tapped; while the daemon is disconnected it SHALL wait and load once the connection is back. An image over the size limit SHALL show a localized message with its size. All texts and accessibility labels MUST be translated.
+The conversation SHALL show the images of user prompts and tool results as thumbnails of fixed size, below the prompt text and in the tool call (collapsed and in the Output tab). Image data MUST be fetched only when a thumbnail is about to be shown, with at most two fetches at a time, the newest first, fetches dropped when their thumbnail goes away before they start, and a size-capped cache, and a placeholder MUST keep the thumbnail's size while loading so the list does not move. Tapping a thumbnail SHALL open a full-screen viewer with pinch zoom, pan and double tap, closed with a close button, a single tap while not zoomed or the Android back button. The viewer SHALL decode the image at its own resolution, capped at about 16 megapixels, and fit it to the screen, so zoom shows the image's pixels up to its source resolution instead of magnified screen pixels. An image that fails to load SHALL show a localized message and retry when tapped; while the daemon is disconnected it SHALL wait and load once the connection is back. An image over the size limit SHALL show a localized message with its size. All texts and accessibility labels MUST be translated.
 
 #### Scenario: Screenshot in a tool result
 - **WHEN** a tool result with an image is shown in the conversation
@@ -266,6 +270,10 @@ The conversation SHALL show the images of user prompts and tool results as thumb
 #### Scenario: Full screen
 - **WHEN** the user taps a thumbnail
 - **THEN** the image opens full screen and can be zoomed with a pinch
+
+#### Scenario: Sharp zoom
+- **WHEN** the user zooms a 4000 × 3000 screenshot to 3× on a 390-point-wide phone with a 3× screen
+- **THEN** every screen pixel shows a distinct image pixel, and a 40-megapixel image is decoded at the cap instead of in full
 
 #### Scenario: Too large
 - **WHEN** an image ref is larger than the limit
@@ -276,7 +284,7 @@ The conversation SHALL show the images of user prompts and tool results as thumb
 - **THEN** the viewer closes and the conversation stays open
 
 ### Requirement: Status bar
-The session screen SHALL show a second context line under the first with, when known: the model as an outlined chip (with the effort level after a dot, `sonnet-5.5 · high`), the provider as a dashed chip (`via OpenRouter`, from the session's profile), the git branch (`⎇`), and then the context window usage and the profile's 5-hour and weekly usage limits. Items without data MUST be hidden (never shown as `0%`), a limit whose reset time has passed MUST be hidden, and the whole line MUST be hidden when nothing is known. Percentages SHALL use secondary text below 70%, Claude orange from 70% and red from 90%. Tapping the line SHALL open a sheet with the details (tokens used and window size, reset times in the device's locale). All texts MUST be translated.
+The session screen SHALL show a second context line under the first with, when known: the model as an outlined chip (with the effort level after a dot, `sonnet-5.5 · high`), the provider as a dashed chip (`via OpenRouter`, from the session's profile), the git branch (`⎇`), and then the context window usage and the profile's 5-hour and weekly usage limits. Items without data MUST be hidden (never shown as `0%`), a limit whose reset time has passed MUST be hidden, and the whole line MUST be hidden when nothing is known. Percentages SHALL use secondary text below 70%, Claude orange from 70% and red from 90%. Tapping the line SHALL open a sheet with the details (tokens used and window size, reset times in the device's locale). The sheet SHALL end with a **Session details** row, on phones and tablets alike, that closes it and opens the "Session details" sheet of the same session in one tap. All texts MUST be translated.
 
 #### Scenario: Full data
 - **WHEN** the session reports Opus 5.5, effort high, context 62%, the folder is on branch `feat/rate-limit` and the profile reports 41% (5 h) and 73% (week)
@@ -298,8 +306,12 @@ The session screen SHALL show a second context line under the first with, when k
 - **WHEN** the user taps the line
 - **THEN** a sheet shows `124k / 200k` tokens and when each limit resets
 
+#### Scenario: From status to details
+- **WHEN** the status sheet is open and the user taps **Session details**
+- **THEN** the status sheet closes and the Session details sheet opens with the folder, branch, profile, mode and session ID of the same session
+
 ### Requirement: Context line
-Under the header, the session screen SHALL show a first context line with the agent badge, the profile tag (name in the profile color), the folder (truncating; opens the session details), the state pill and the permission mode chip. The header itself SHALL show, after the title, the notifications bell, a terminal button (disabled in read-only sessions) and the More options button.
+Under the header, the session screen SHALL show a first context line with the agent badge, the profile tag (name in the profile color), the folder (truncating; opens the session details), the state pill and the permission mode chip. The header itself SHALL show, after the title, the notifications bell, a terminal button (disabled in read-only sessions) and the More options button, on iOS and on Android alike (the tablet layout adds its inspector button); on iOS they are native bar items with the shared background turned off, elsewhere they fill the header's classic right slot.
 
 #### Scenario: Live session
 - **WHEN** a controllable Claude Code session in `~/projects/acme-api` is open
@@ -308,6 +320,10 @@ Under the header, the session screen SHALL show a first context line with the ag
 #### Scenario: Read-only session
 - **WHEN** the session has no tmux pane
 - **THEN** the terminal button is disabled and the mode chip is dimmed
+
+#### Scenario: Android header
+- **WHEN** a session is open on an Android phone
+- **THEN** the header shows the bell, the terminal button and the More options button on the right, as on iOS
 
 ### Requirement: Keyboard hints
 A hardware keyboard is in use while the composer is focused and the keyboard on screen is shorter than a software one, on any iOS device and on Android tablets. While it is, Return in the composer SHALL send the prompt (queued while the session is busy) instead of inserting a newline, Shift+Return SHALL insert a newline at the cursor (iOS and iPadOS), and ⌘⏎ keeps sending now. The composer SHALL show a hints row under the field: on tablets `⏎ queue`, `⌘⏎ send now`, `⇧⏎ new line` (iOS and iPadOS), `⌘1–9 session`, `⌘K search`, `⌘T terminal`, `⌘. esc`, `⌘⇧M mode`, `⌘/ shortcuts` and, while a tool permission waits in the session, `⌘A / ⌘D answer`; on phones the short row `⏎ queue`, `⇧⏎ new line` (iOS), `⌘⏎ send now`, `⌘/ shortcuts`.
@@ -499,7 +515,7 @@ The message input SHALL autocorrect and spell check by default, without automati
 - **THEN** the message input never corrects
 
 ### Requirement: Conversation memory
-The app SHALL keep in memory, besides the conversations on screen, only the 3 most recently opened conversations (subagents count as conversations). When a conversation is closed it SHALL keep only its last 500 entries, older ones being loaded again from the daemon when the user scrolls up. A conversation on screen MUST NOT be dropped or trimmed. Transcript images SHALL be cached up to about 12 MB.
+The app SHALL keep in memory, besides the conversations on screen, only the 3 most recently opened conversations (subagents count as conversations). When a conversation is closed it SHALL keep only its last 500 entries, older ones being loaded again when the user scrolls up: from the history cache first, else from the daemon. A conversation on screen MUST NOT be dropped or trimmed. Transcript images SHALL be cached in memory up to about 12 MB. While the computer is not connected the conversation SHALL show a translated offline notice saying that what is shown is the copy saved on the device.
 
 #### Scenario: Back to a recent conversation
 - **WHEN** the user closes a conversation with 2,000 loaded entries and opens it again
@@ -507,4 +523,31 @@ The app SHALL keep in memory, besides the conversations on screen, only the 3 mo
 
 #### Scenario: Many conversations
 - **WHEN** the user opens and closes five conversations in turn
-- **THEN** only the last three stay in memory, and the first two are fetched again when reopened
+- **THEN** only the last three stay in memory, and the first two are read again from the history cache when reopened
+
+#### Scenario: Offline notice
+- **WHEN** a conversation is open and the connection to the computer drops
+- **THEN** the conversation shows the offline notice and keeps its entries
+
+### Requirement: Workflow runs
+A `Workflow` tool call SHALL be shown as a **workflow card** instead of the tool card: a header with the run's name (else "Workflow"), a status badge and a chevron; collapsed, one line with the number of phases, the number of agents and how many run; expanded, the description, the phases in the script's order (each with a state glyph and `done/total` agents; agents in a phase the script did not declare get a row of their own), the run's agents as the same rows as the Subagents sheet (label, state badge, elapsed time, tool count; tapping one opens its conversation) and, once the run ended, its summary and result text. The status SHALL be `starting` until the launch result arrives, `running` after it, and from the run's task notification `done` (`completed`), `failed` (`failed`) or `stopped` (anything else), with the badge tones of the subagent states. The run's agents are the session's subagents whose `workflowRunId` is the run id of the launch result, so the card updates live as `subagent.updated` arrives. The task notification whose `toolUseId` matches a workflow card on screen MUST NOT also be shown as a separate line; one whose card is not loaded SHALL keep showing as today. A `Workflow` call from an older daemon (no `workflow` field) SHALL keep the tool card. All texts MUST be translated (pt-BR, en-US, es-ES).
+
+#### Scenario: Run in progress
+- **WHEN** a `Workflow` call named "review-changes" with phases Review and Verify was launched as run `wf_12`, and the session has three subagents with `workflowRunId: "wf_12"`, two in phase Review (one done, one running) and one in Verify (running)
+- **THEN** the card reads "review-changes", badge `running`, "2 phases · 3 agents · 2 running"; expanded, Review shows 1/2 and Verify 0/1, and the three agents are listed with their badges
+
+#### Scenario: Run finished
+- **WHEN** the task notification for that call arrives with status `completed`, the summary and a result
+- **THEN** the card's badge turns `✓ done`, the summary and the result are shown in the card, and no separate task notification line is added
+
+#### Scenario: Open an agent
+- **WHEN** the user taps an agent row in the card
+- **THEN** that agent's read-only conversation opens, as from the Subagents sheet
+
+#### Scenario: Script by file
+- **WHEN** a `Workflow` call only points at a script file and its launch result names the run
+- **THEN** the card is titled "Workflow", shows the launch summary as its description and lists the agents' phases as they appear
+
+#### Scenario: Older daemon
+- **WHEN** the daemon sends a `Workflow` tool call without a `workflow` field
+- **THEN** the conversation shows the ordinary tool card for it

@@ -8,11 +8,12 @@ import type { DaemonEvents } from '../src/core/events.ts'
 import { messagesFor } from '../src/core/i18n/index.ts'
 import { KeyedMutex } from '../src/core/keyed-mutex.ts'
 import { silentLogger } from '../src/core/logger.ts'
+import { renderCurlConfig } from '../src/features/hooks/hook-secret.ts'
 import { hasOurHooks, installHooks, settingsPath, uninstallHooks } from '../src/features/hooks/installer.ts'
 import { renderLauncher } from '../src/features/hooks/launcher.ts'
 import { HookReceiver } from '../src/features/hooks/receiver.ts'
 import {
-  buildCodexHookEntry,
+  buildHookEntry,
   CODEX_HOOK_EVENTS,
   isOurHook,
   mergeOurHooks,
@@ -30,7 +31,11 @@ import { createHooksServer } from '../src/transport/hooks-server.ts'
 import { fakeExecutor, hookEvent, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
-const options = { port: 7338, secret: 's3cr3t', permissionTimeoutSec: 300 }
+const options = {
+  port: 7338,
+  curlConfig: '/u/.remote-harness/hook-secret.curlrc',
+  permissionTimeoutSec: 300,
+}
 const userStop = { hooks: [{ type: 'command', command: 'say done' }] }
 
 describe('codex hooks.json', () => {
@@ -48,12 +53,12 @@ describe('codex hooks.json', () => {
   })
 
   test('the permission hook prints the answer; SessionEnd stays within 3 s', () => {
-    const permission = buildCodexHookEntry('PermissionRequest', options)
+    const permission = buildHookEntry('PermissionRequest', options)
     expect(permission.command).not.toContain('-o /dev/null')
     expect(permission.command).not.toContain(' >/dev/null')
     expect(permission.command).toContain('-m 300')
     expect(permission.timeout).toBe(310)
-    const end = buildCodexHookEntry('SessionEnd', options)
+    const end = buildHookEntry('SessionEnd', options)
     expect(end.timeout).toBe(3)
     expect(end.command).toContain('-m 2 ')
   })
@@ -94,11 +99,9 @@ describe('codex hooks.json', () => {
     try {
       const address = app.server.address()
       const port = typeof address === 'object' && address ? address.port : 0
-      const entry = buildCodexHookEntry('PermissionRequest', {
-        port,
-        secret: 'sec',
-        permissionTimeoutSec: 30,
-      })
+      const curlConfig = join(home.dir(), 'hook-secret.curlrc')
+      await writeFile(curlConfig, renderCurlConfig('sec'), { mode: 0o600 })
+      const entry = buildHookEntry('PermissionRequest', { port, curlConfig, permissionTimeoutSec: 30 })
       const stdout = await new Promise<string>((resolve, reject) => {
         const child = execFile(
           'sh',
@@ -123,7 +126,11 @@ describe('codex hooks.json', () => {
   })
 
   test('the permission command prints nothing when the daemon is down', async () => {
-    const entry = buildCodexHookEntry('PermissionRequest', { port: 9, secret: 'x', permissionTimeoutSec: 2 })
+    const entry = buildHookEntry('PermissionRequest', {
+      port: 9,
+      curlConfig: join(home.dir(), 'missing.curlrc'),
+      permissionTimeoutSec: 2,
+    })
     const stdout = await new Promise<string>((resolve, reject) => {
       const child = execFile(
         'sh',
@@ -210,6 +217,7 @@ function codexSession(): SessionRecord {
     updatedAt: '',
     subagents: [],
     backgroundTasks: 0,
+    lastActivity: null,
     checkout: null,
     status: null,
     transcriptPath: null,

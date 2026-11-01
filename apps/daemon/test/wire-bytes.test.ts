@@ -109,6 +109,7 @@ describe('wire bytes for the #355 scenario', () => {
       updatedAt: at(0),
       subagents: [],
       backgroundTasks: 0,
+      lastActivity: null,
       checkout: { root: '/code/app', branch: 'feat/payments' },
       status: {
         model: 'Opus 5.5',

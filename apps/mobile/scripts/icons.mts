@@ -1,10 +1,10 @@
 /**
  * Generates the brand assets from code so the artwork stays reviewable and reproducible. One mark,
- * "the Tether" (three reins from three terminals meeting in one ring, see docs/design/identity),
- * in two weights: regular for the app icon, splash and banner; bold under 24 px (notification,
- * favicon, Live Activity, tray). Outputs: `assets/*.png` + `assets/icon/*.svg` (app), the Linux tray
- * glyph next to `tray.py`, `docs/brand/og.png` (README header, Open Graph) and the Google Play
- * feature graphic in `store/`.
+ * "Cursor Signal" (a terminal cursor block with the `>` prompt cut out of it and three signal arcs
+ * leaving it to the right, see docs/design/identity/branding), in two weights: regular for the app
+ * icon, splash and banner; bold under 24 px (notification, favicon, Live Activity, tray). Outputs:
+ * `assets/*.png` + `assets/icon/*.svg` (app), the Linux tray glyph next to `tray.py`,
+ * `docs/brand/og.png` (README header, Open Graph) and the Google Play feature graphic in `store/`.
  * Run: pnpm --filter @remote-harness/mobile icons
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -24,7 +24,10 @@ const store = join(here, '..', 'store')
 // Dark theme and brand colors (apps/mobile/src/core/theme/palettes.ts, agents.ts).
 const ACCENT = '#E8A33D'
 const BG = '#0D0D0D'
-const BG_TOP = '#1C1A17'
+/** The warm dark the mark sits on: the icon container (flat) and the top of the banner gradient. */
+const CONTAINER = '#1C1A17'
+/** The light container of the sheet's light variant. */
+const LIGHT_CONTAINER = '#F4F1EC'
 const TEXT = '#E8E6E3'
 const MUTED = '#8A8784'
 const BORDER_STRONG = '#3A3836'
@@ -36,73 +39,49 @@ const AGENTS = { claude: '#D97757', codex: '#2FBF8F' } as const
 
 type Weight = 'regular' | 'bold'
 
-/** Geometry of the mark in a 256 × 256 box (from docs/design/identity/shared.js). */
-const MARK: Record<
-  Weight,
-  {
-    stroke: number
-    ring: [number, number]
-    stem: string
-    reins: [string, string]
-    node: number
-    rx: number
-    nodes: [number, number][]
-  }
-> = {
-  regular: {
-    stroke: 24,
-    ring: [184, 34],
-    stem: 'M128 150V66',
-    reins: ['M111 154C104 120 88 100 60 80', 'M145 154C152 120 168 100 196 80'],
-    node: 36,
-    rx: 9,
-    nodes: [
-      [110, 34],
-      [36, 52],
-      [184, 52],
-    ],
-  },
-  bold: {
-    stroke: 34,
-    ring: [186, 36],
-    stem: 'M128 150V70',
-    reins: ['M108 156C100 122 86 104 56 84', 'M148 156C156 122 170 104 200 84'],
-    node: 48,
-    rx: 12,
-    nodes: [
-      [104, 24],
-      [28, 46],
-      [180, 46],
-    ],
-  },
+/**
+ * Geometry of the mark in a 256 × 256 box (docs/design/identity/branding/icon.svg): the cursor block
+ * is 62 × 104 at (34, 76), rx 13, with the `>` cut out by a round stroke; the three arcs are
+ * concentric on the block's right edge (96, 128), radii 36 / 76 / 116, ±40°. The bold weight widens
+ * the cutout and the arcs so neither closes up under 24 px.
+ */
+const MARK: Record<Weight, { cutout: number; arcs: number }> = {
+  regular: { cutout: 16, arcs: 22 },
+  bold: { cutout: 24, arcs: 28 },
 }
+const CUTOUT = 'M51 104L79 128L51 152'
+const ARCS = [
+  'M123.6 104.9A36 36 0 0 1 123.6 151.1',
+  'M154.2 79.1A76 76 0 0 1 154.2 176.9',
+  'M184.9 53.4A116 116 0 0 1 184.9 202.6',
+]
 
-/** The mark drawn in its 256 box: reins and ring stroked, nodes filled. */
-function mark(weight: Weight, color: string): string {
+/**
+ * The mark drawn in its 256 box: the block with the prompt cut out of it, then the arcs. `id` keeps
+ * the cutout masks apart when one document draws the mark more than once.
+ */
+function mark(weight: Weight, color: string, id: string = weight): string {
   const m = MARK[weight]
-  const [cy, r] = m.ring
-  const nodes = m.nodes
-    .map(
-      ([x, y]) =>
-        `<rect x="${x}" y="${y}" width="${m.node}" height="${m.node}" rx="${m.rx}" fill="${color}"/>`,
-    )
-    .join('')
-  return `<g fill="none" stroke="${color}" stroke-width="${m.stroke}" stroke-linecap="round" stroke-linejoin="round"><circle cx="128" cy="${cy}" r="${r}"/><path d="${m.stem}"/><path d="${m.reins[0]}"/><path d="${m.reins[1]}"/></g>${nodes}`
+  const maskId = `cursor-${id}`
+  const mask = `<mask id="${maskId}"><rect width="256" height="256" fill="#fff"/><path d="${CUTOUT}" fill="none" stroke="#000" stroke-width="${m.cutout}" stroke-linecap="round" stroke-linejoin="round"/></mask>`
+  const block = `<rect x="34" y="76" width="62" height="104" rx="13" fill="${color}" mask="url(#${maskId})"/>`
+  const arcs = `<g fill="none" stroke="${color}" stroke-width="${m.arcs}" stroke-linecap="round">${ARCS.map((d) => `<path d="${d}"/>`).join('')}</g>`
+  return `<defs>${mask}</defs>${block}${arcs}`
 }
 
 /** The mark scaled into a `size` box whose top-left corner is (x, y). */
-function markAt(weight: Weight, color: string, x: number, y: number, size: number): string {
-  return `<g transform="translate(${x} ${y}) scale(${(size / 256).toFixed(4)})">${mark(weight, color)}</g>`
+function markAt(weight: Weight, color: string, x: number, y: number, size: number, id?: string): string {
+  return `<g transform="translate(${x} ${y}) scale(${(size / 256).toFixed(4)})">${mark(weight, color, id)}</g>`
 }
 
 function svg(width: number, height: number, body: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`
 }
 
-/** Dark vertical gradient behind the mark — flat, no glow (keeps the mark crisp at small sizes). */
+/** Dark vertical gradient behind the banner's mark — flat, no glow (keeps the mark crisp). */
 function backdrop(id: string): { defs: string; rects: string } {
   return {
-    defs: `<linearGradient id="${id}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${BG_TOP}"/><stop offset="1" stop-color="${BG}"/></linearGradient>`,
+    defs: `<linearGradient id="${id}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${CONTAINER}"/><stop offset="1" stop-color="${BG}"/></linearGradient>`,
     rects: `<rect width="100%" height="100%" fill="url(#${id}-bg)"/>`,
   }
 }
@@ -110,11 +89,36 @@ function backdrop(id: string): { defs: string; rects: string } {
 /** Standalone mark, for the SVG sources and the docs. */
 const markSvg = (weight: Weight, color = ACCENT) => svg(256, 256, mark(weight, color))
 
-/** App icon (iOS, macOS bundle, favicon, Live Activity): the mark in a 640 box over the backdrop. */
-function iconSvg(weight: Weight = 'regular'): string {
-  const { defs, rects } = backdrop('icon')
-  return svg(1024, 1024, `<defs>${defs}</defs>${rects}${markAt(weight, ACCENT, 192, 182, 640)}`)
+/**
+ * The mark in a 78 % box, centered on a flat container; `radius` rounds the container (22 % for the
+ * favicon and the SVG sources; iOS and Android mask their icons themselves).
+ */
+function containerSvg(
+  size: number,
+  bg: string,
+  color: string,
+  weight: Weight = 'regular',
+  radius = 0,
+): string {
+  const box = (size * 200) / 256
+  const inset = (size - box) / 2
+  return svg(
+    size,
+    size,
+    `<rect width="${size}" height="${size}" rx="${radius}" fill="${bg}"/>${markAt(weight, color, inset, inset, box)}`,
+  )
 }
+
+/** App icon (iOS, macOS bundle, Live Activity): the amber mark on the flat warm dark, no gradient, no glow. */
+const iconSvg = (weight: Weight = 'regular') => containerSvg(1024, CONTAINER, ACCENT, weight)
+
+/** The four variants of the sheet, as 256-box sources with the 22 % corners. */
+const VARIANTS = {
+  icon: { bg: CONTAINER, mark: ACCENT },
+  'icon-inverted': { bg: ACCENT, mark: CONTAINER },
+  'icon-light': { bg: LIGHT_CONTAINER, mark: CONTAINER },
+  'icon-mono': { bg: CONTAINER, mark: TEXT },
+} as const
 
 /** Android adaptive foreground: the mark inside the 66 % safe zone, background from app.config. */
 function adaptiveForegroundSvg(color = ACCENT): string {
@@ -134,15 +138,6 @@ const ICON_THEMES = {
   mocha: { bg: '#1E1E2E', accent: '#FAB387' },
   latte: { bg: '#E6E9EF', accent: '#FE640B' },
 } as const
-
-/** Flat alternate app icon for a theme: solid background, the mark in the theme's accent, no glow. */
-function themedIconSvg(bg: string, accent: string): string {
-  return svg(
-    1024,
-    1024,
-    `<rect width="100%" height="100%" fill="${bg}"/>${markAt('regular', accent, 192, 182, 640)}`,
-  )
-}
 
 /** Bold mark in white on transparent: Android themed (monochrome) icon and the notification icon. */
 function monochromeSvg(inset: number): string {
@@ -202,12 +197,12 @@ const textWidth = (content: string, weight: Weight, size: number) =>
 
 /**
  * Small drawn glyphs for the banner's agent chips, replacing the `cl`/`cx` letter codes with
- * something closer to a mark while #226 (official brand assets) is still open. Same technique as
- * the Tether mark itself (stroked lines, filled nodes) rather than an imported logo.
+ * something closer to a mark while #226 (official brand assets) is still open. Drawn strokes and
+ * dots, like the mark itself, rather than an imported logo.
  */
 const AGENT_GLYPHS: Record<'claude' | 'codex', (color: string, cx: number, cy: number, r: number) => string> =
   {
-    /** Three crossing strokes through the center, echoing the Tether's reins. */
+    /** Three crossing strokes through the center. */
     claude: (color, cx, cy, r) =>
       `<g stroke="${color}" stroke-width="${(r / 3.4).toFixed(2)}" stroke-linecap="round">${[0, 60, 120]
         .map((deg) => {
@@ -217,7 +212,7 @@ const AGENT_GLYPHS: Record<'claude' | 'codex', (color: string, cx: number, cy: n
           return `<line x1="${(cx - dx).toFixed(2)}" y1="${(cy - dy).toFixed(2)}" x2="${(cx + dx).toFixed(2)}" y2="${(cy + dy).toFixed(2)}"/>`
         })
         .join('')}</g>`,
-    /** Six nodes around a ring, echoing the Tether's own node-and-ring language. */
+    /** Six dots around a ring. */
     codex: (color, cx, cy, r) =>
       Array.from({ length: 6 }, (_, i) => {
         const rad = (i * 60 * Math.PI) / 180
@@ -307,14 +302,20 @@ function write(file: string, source: string) {
 
 write(join(assets, 'icon', 'mark.svg'), markSvg('regular'))
 write(join(assets, 'icon', 'mark-bold.svg'), markSvg('bold'))
-write(join(assets, 'icon', 'icon.svg'), iconSvg())
+for (const [name, variant] of Object.entries(VARIANTS)) {
+  write(
+    join(assets, 'icon', `${name}.svg`),
+    containerSvg(256, variant.bg, variant.mark, 'regular', 256 * 0.22),
+  )
+}
 write(join(assets, 'icon', 'splash.svg'), splashSvg())
 write(join(linuxTray, 'remote-harness-symbolic.svg'), symbolicSvg())
-await render(iconSvg(), join(assets, 'icon.png'), 1024, BG)
+await render(iconSvg(), join(assets, 'icon.png'), 1024, CONTAINER)
 await render(splashSvg(), join(assets, 'splash-icon.png'), 1024)
-await render(iconSvg('bold'), join(assets, 'favicon.png'), 48, BG)
+// Favicon: bold, with the 22 % corners (browsers show the PNG as is).
+await render(containerSvg(1024, CONTAINER, ACCENT, 'bold', 1024 * 0.22), join(assets, 'favicon.png'), 48)
 // Live Activity header (48 pt @3x); small, since ActivityKit refuses large images.
-await render(iconSvg('bold'), join(assets, 'live-activity-icon.png'), 144, BG)
+await render(iconSvg('bold'), join(assets, 'live-activity-icon.png'), 144, CONTAINER)
 await render(adaptiveForegroundSvg(), join(assets, 'adaptive-icon.png'), 1024)
 await render(monochromeSvg((1024 * 24) / 108), join(assets, 'adaptive-icon-monochrome.png'), 1024)
 await render(monochromeSvg(82), join(assets, 'notification-icon.png'), 96)
@@ -325,6 +326,6 @@ await render(featureGraphicSvg(), join(store, 'feature-graphic.png'))
 // Alternate app icons, one per theme (#233); app.config.ts's expo-alternate-app-icons plugin wires
 // them up, src/features/settings/app-icon-store.ts picks one by name at runtime.
 for (const [theme, { bg, accent }] of Object.entries(ICON_THEMES)) {
-  await render(themedIconSvg(bg, accent), join(assets, 'app-icon', `${theme}.png`), 1024, bg)
+  await render(containerSvg(1024, bg, accent), join(assets, 'app-icon', `${theme}.png`), 1024, bg)
   await render(adaptiveForegroundSvg(accent), join(assets, 'app-icon', `${theme}-foreground.png`), 1024)
 }

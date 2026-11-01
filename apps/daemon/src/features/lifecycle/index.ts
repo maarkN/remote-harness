@@ -95,6 +95,7 @@ export function registerLifecycleFeature(
         worktree,
         ...(msg.model ? { model: msg.model } : {}),
         ...(msg.name ? { name: msg.name } : {}),
+        ...(msg.prompt ? { prompt: msg.prompt } : {}),
       })
       ctx.logger.info(
         {
@@ -104,6 +105,8 @@ export function registerLifecycleFeature(
           worktree,
           model: msg.model ?? null,
           named: msg.name !== undefined,
+          // The prompt itself never goes to the log.
+          prompted: msg.prompt !== undefined,
         },
         'session started',
       )

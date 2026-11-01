@@ -1,5 +1,15 @@
-import type { Profile, Session } from '@remote-harness/protocol'
-import { BellOff, ChevronRight, Pencil, Pin, Radio } from 'lucide-react-native'
+import type { LastActivity, Profile, Session } from '@remote-harness/protocol'
+import {
+  BellOff,
+  ChevronRight,
+  CornerDownRight,
+  type LucideIcon,
+  MessageSquare,
+  Pencil,
+  Pin,
+  Radio,
+  Wrench,
+} from 'lucide-react-native'
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pressable, View } from 'react-native'
@@ -10,6 +20,7 @@ import { AgentBadge, Badge, ProfileTag, Text } from '@/ui'
 import { draftSummary } from '../../drafts/logic'
 import { useDraftsStore } from '../../drafts/store'
 import { sessionAgent } from '../agent'
+import { useSessionDensityStore } from '../density-store'
 import { openSession } from '../open-session'
 import { isWorktreePath } from '../summary'
 import { StateBadge } from './StateBadge'
@@ -37,7 +48,7 @@ type Props = {
 
 /**
  * One session: agent badge · title · relative time / folder · branch · worktree · shared checkout /
- * draft (when there is one) / state pill · pending · read-only · profile tag · muted · subagents · background · chevron.
+ * last activity (expanded density) / draft (when there is one) / state pill · pending · read-only · profile tag · muted · subagents · background · chevron.
  */
 export const SessionRow = memo(function SessionRow({
   session,
@@ -58,6 +69,7 @@ export const SessionRow = memo(function SessionRow({
   const [hovered, setHovered] = useState(false)
   const agent = sessionAgent(session)
   const subagents = session.subagents.length
+  const expanded = useSessionDensityStore((s) => s.density === 'expanded')
   return (
     <Pressable
       onPress={() => openSession(session.id)}
@@ -109,6 +121,7 @@ export const SessionRow = memo(function SessionRow({
           </Text>
         ) : null}
       </View>
+      {expanded && session.lastActivity ? <ActivityLine activity={session.lastActivity} /> : null}
       <DraftLine sessionId={session.id} />
       <View style={styles.meta}>
         <StateBadge state={session.state} />
@@ -134,6 +147,35 @@ export const SessionRow = memo(function SessionRow({
     </Pressable>
   )
 })
+
+const ACTIVITY_ICON: Record<LastActivity['kind'], LucideIcon> = {
+  user: CornerDownRight,
+  assistant: MessageSquare,
+  tool: Wrench,
+}
+
+/** Expanded density: what the session last did (prompt, reply or tool call), in up to two lines. */
+function ActivityLine({ activity }: { activity: LastActivity }) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
+  const Icon = ACTIVITY_ICON[activity.kind]
+  return (
+    <View
+      style={styles.activity}
+      accessible
+      accessibilityLabel={`${t(`sessions.lastActivity.${activity.kind}`, { text: activity.text })}, ${relativeTime(activity.at, t)}`}
+    >
+      <Icon size={12} color={colors.textDim} style={styles.activityIcon} />
+      <Text size="xs" color="textMuted" numberOfLines={2} style={styles.activityText}>
+        {activity.text}
+      </Text>
+      <Text size="xs" color="textDim" numberOfLines={1}>
+        {relativeTime(activity.at, t)}
+      </Text>
+    </View>
+  )
+}
 
 /** `Draft: <start of the text>` while the session has an unsent prompt on this device. */
 function DraftLine({ sessionId }: { sessionId: string }) {
@@ -176,6 +218,9 @@ const useStyles = makeStyles((theme) => ({
   line: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minWidth: 0 },
   title: { flex: 1 },
   shrink: { flexShrink: 1 },
+  activity: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm, minWidth: 0 },
+  activityIcon: { marginTop: 2 },
+  activityText: { flex: 1 },
   meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
   spacer: { flex: 1 },
 }))

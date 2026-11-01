@@ -1,10 +1,15 @@
 import type { ServerMessage } from '@remote-harness/protocol'
 
+/** The direct path (a WebSocket the daemon listens on) or the relay path (a connection relay channel). */
+export type ConnectionPath = 'direct' | 'relay'
+
 /** Per-connection view handed to message handlers. */
 export interface Connection {
   readonly id: string
   /** The paired device on the other end (its short ID), once the handshake finished. */
   readonly deviceId?: string
+  /** How the device reached the daemon (absent on in-process fakes). */
+  readonly path?: ConnectionPath
   /** Whether the app reported itself as in the foreground (used to suppress push). */
   foreground: boolean
   send(message: ServerMessage): void
@@ -37,6 +42,18 @@ export class ClientHub {
 
   closeAll(code = 4001, reason = 'closed'): void {
     for (const connection of [...this.connections.values()]) connection.close(code, reason)
+  }
+
+  /** The paths each authenticated device is connected by right now. */
+  devicePaths(): Map<string, Set<ConnectionPath>> {
+    const result = new Map<string, Set<ConnectionPath>>()
+    for (const connection of this.connections.values()) {
+      if (!connection.deviceId || !connection.path) continue
+      const paths = result.get(connection.deviceId) ?? new Set<ConnectionPath>()
+      paths.add(connection.path)
+      result.set(connection.deviceId, paths)
+    }
+    return result
   }
 
   /** Closes every connection of one paired device. */
