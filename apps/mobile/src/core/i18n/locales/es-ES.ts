@@ -597,9 +597,12 @@ const esES = {
     },
     question: {
       title: '{{agent}} tiene una pregunta',
+      progress: 'Pregunta {{n}} de {{total}}',
       multi: 'Elige una o más',
       other: 'Otra…',
       answer: 'Tu respuesta…',
+      back: 'Atrás',
+      next: 'Siguiente',
       send: 'Enviar',
       decline: 'Rechazar',
     },

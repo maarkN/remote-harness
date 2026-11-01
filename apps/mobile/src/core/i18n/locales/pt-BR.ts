@@ -598,9 +598,12 @@ const ptBR = {
     },
     question: {
       title: '{{agent}} tem uma pergunta',
+      progress: 'Pergunta {{n}} de {{total}}',
       multi: 'Escolha uma ou mais',
       other: 'Outra…',
       answer: 'Sua resposta…',
+      back: 'Voltar',
+      next: 'Próxima',
       send: 'Enviar',
       decline: 'Recusar',
     },
