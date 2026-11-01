@@ -400,6 +400,9 @@ const enUS = {
     provider: 'via {{provider}}',
     open: 'Session status: {{summary}}',
     openHint: 'Shows the tokens in use and when the limits reset',
+    /** Last row of the status sheet: opens the Session details sheet. */
+    details: 'Session details',
+    detailsHint: 'Folder, branch, profile, mode and session ID',
     short: { context: 'ctx', fiveHour: '5h', sevenDay: 'week' },
     labels: {
       model: 'Model',

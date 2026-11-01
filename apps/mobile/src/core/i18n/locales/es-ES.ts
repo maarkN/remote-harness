@@ -397,6 +397,8 @@ const esES = {
     provider: 'vía {{provider}}',
     open: 'Estado de la sesión: {{summary}}',
     openHint: 'Muestra los tokens en uso y cuándo se reinician los límites',
+    details: 'Detalles de la sesión',
+    detailsHint: 'Carpeta, rama, perfil, modo e ID de la sesión',
     short: { context: 'ctx', fiveHour: '5h', sevenDay: 'sem' },
     labels: {
       model: 'Modelo',

@@ -397,6 +397,8 @@ const ptBR = {
     provider: 'via {{provider}}',
     open: 'Status da sessão: {{summary}}',
     openHint: 'Mostra os tokens em uso e quando os limites reiniciam',
+    details: 'Detalhes da sessão',
+    detailsHint: 'Pasta, branch, perfil, modo e ID da sessão',
     short: { context: 'ctx', fiveHour: '5h', sevenDay: 'sem' },
     labels: {
       model: 'Modelo',

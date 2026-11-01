@@ -280,7 +280,7 @@ The conversation SHALL show the images of user prompts and tool results as thumb
 - **THEN** the viewer closes and the conversation stays open
 
 ### Requirement: Status bar
-The session screen SHALL show a second context line under the first with, when known: the model as an outlined chip (with the effort level after a dot, `sonnet-5.5 · high`), the provider as a dashed chip (`via OpenRouter`, from the session's profile), the git branch (`⎇`), and then the context window usage and the profile's 5-hour and weekly usage limits. Items without data MUST be hidden (never shown as `0%`), a limit whose reset time has passed MUST be hidden, and the whole line MUST be hidden when nothing is known. Percentages SHALL use secondary text below 70%, Claude orange from 70% and red from 90%. Tapping the line SHALL open a sheet with the details (tokens used and window size, reset times in the device's locale). All texts MUST be translated.
+The session screen SHALL show a second context line under the first with, when known: the model as an outlined chip (with the effort level after a dot, `sonnet-5.5 · high`), the provider as a dashed chip (`via OpenRouter`, from the session's profile), the git branch (`⎇`), and then the context window usage and the profile's 5-hour and weekly usage limits. Items without data MUST be hidden (never shown as `0%`), a limit whose reset time has passed MUST be hidden, and the whole line MUST be hidden when nothing is known. Percentages SHALL use secondary text below 70%, Claude orange from 70% and red from 90%. Tapping the line SHALL open a sheet with the details (tokens used and window size, reset times in the device's locale). The sheet SHALL end with a **Session details** row, on phones and tablets alike, that closes it and opens the "Session details" sheet of the same session in one tap. All texts MUST be translated.
 
 #### Scenario: Full data
 - **WHEN** the session reports Opus 5.5, effort high, context 62%, the folder is on branch `feat/rate-limit` and the profile reports 41% (5 h) and 73% (week)
@@ -301,6 +301,10 @@ The session screen SHALL show a second context line under the first with, when k
 #### Scenario: Details
 - **WHEN** the user taps the line
 - **THEN** a sheet shows `124k / 200k` tokens and when each limit resets
+
+#### Scenario: From status to details
+- **WHEN** the status sheet is open and the user taps **Session details**
+- **THEN** the status sheet closes and the Session details sheet opens with the folder, branch, profile, mode and session ID of the same session
 
 ### Requirement: Context line
 Under the header, the session screen SHALL show a first context line with the agent badge, the profile tag (name in the profile color), the folder (truncating; opens the session details), the state pill and the permission mode chip. The header itself SHALL show, after the title, the notifications bell, a terminal button (disabled in read-only sessions) and the More options button, on iOS and on Android alike (the tablet layout adds its inspector button); on iOS they are native bar items with the shared background turned off, elsewhere they fill the header's classic right slot.
