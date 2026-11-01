@@ -10,7 +10,15 @@ import type { Logger } from '../../core/logger.ts'
 import type { TmuxClient } from '../../infra/tmux.ts'
 import { type AgentAdapter, adapterOf, profileAgentId, type TranscriptSummary } from '../agents/index.ts'
 import type { HookEvent } from '../hooks/payloads.ts'
-import { isMarkupTitle, promptTitle } from './prompt-title.ts'
+import {
+  isMarkupTitle,
+  oneLine,
+  promptTitle,
+  promptTitleSource,
+  renameTitle,
+  replacesTitle,
+  type TitleSource,
+} from './prompt-title.ts'
 import { scanRecentTranscripts } from './recent-scan.ts'
 import { acceptsHook, hookState } from './state.ts'
 import type { SessionStore } from './store.ts'
@@ -38,6 +46,8 @@ export class SessionService {
   private lastScan = 0
   /** Last `updatedAt` touch from transcript activity, per session (epoch ms). */
   private readonly lastTouch = new Map<string, number>()
+  /** What gave each live session its title: a later title only replaces a weaker one (#474). */
+  private readonly titleSources = new Map<string, TitleSource>()
 
   constructor(
     private readonly store: SessionStore,
@@ -118,7 +128,10 @@ export class SessionService {
         if (hook.paneId) this.releasePane(hook.paneId, id)
         const path = hook.payload.transcript_path
         const summary = path ? await this.summary(hook.profileId, path) : null
-        if (summary?.title) patch.title = summary.title
+        if (summary?.title) {
+          patch.title = summary.title
+          this.titleSources.set(id, summary.titleSource ?? 'prompt')
+        } else this.titleSources.delete(id)
         if (summary?.approvalPolicy) patch.approvalPolicy = summary.approvalPolicy
         if (summary?.permissionProfile) patch.permissionProfile = summary.permissionProfile
         if (summary?.status) patch.status = summary.status
@@ -127,21 +140,44 @@ export class SessionService {
         break
       }
       case 'UserPromptSubmit': {
-        const current = this.store.get(id)
         const prompt = hook.payload.prompt
-        const untitled = !current || current.title === basename(current.cwd) || isMarkupTitle(current.title)
-        const title = typeof prompt === 'string' && untitled ? promptTitle(prompt) : null
-        if (title) patch.title = title
+        if (typeof prompt !== 'string') break
+        // `/rename` names the session at once; a plain prompt beats a command, nothing beats a name.
+        const name = renameTitle(prompt)
+        const title = name ?? promptTitle(prompt)
+        const source: TitleSource = name ? 'custom' : promptTitleSource(prompt)
+        if (title && replacesTitle(this.titleSourceOf(this.store.get(id)), source)) {
+          patch.title = title
+          this.titleSources.set(id, source)
+        }
         break
       }
       case 'SessionEnd':
         patch.controllable = false
         patch.paneId = null
+        this.titleSources.delete(id)
         break
       default:
         break
     }
     this.store.upsert(id, patch, () => this.defaults(id, hook))
+  }
+
+  /**
+   * What gave a session its current title: as recorded for live sessions, else read off the title
+   * itself (the folder name or raw markup are the weakest; anything else counts as a prompt).
+   */
+  private titleSourceOf(record: SessionRecord | undefined): TitleSource {
+    // The folder name or raw markup is weak whatever set it (a title an older daemon left, say).
+    if (!record || record.title === basename(record.cwd) || isMarkupTitle(record.title)) return 'folder'
+    return this.titleSources.get(record.id) ?? 'prompt'
+  }
+
+  /** A name the agent wrote to the transcript (`/rename`, `--name`): it wins over any prompt title. */
+  setCustomTitle(sessionId: string, title: string): void {
+    if (!this.store.get(sessionId)) return
+    this.titleSources.set(sessionId, 'custom')
+    this.store.upsert(sessionId, { title: oneLine(title) })
   }
 
   /** A pane hosts one live session; `/clear` or `--resume` replace it with a new id. */
@@ -191,6 +227,7 @@ export class SessionService {
       if (!alive.has(link.paneId)) continue
       const meta = link.transcriptPath ? await this.summary(link.profileId, link.transcriptPath) : null
       if (meta?.limits) this.options.onLimits?.({ profileId: link.profileId, ...meta.limits })
+      if (meta?.title) this.titleSources.set(link.id, meta.titleSource ?? 'prompt')
       // Last activity survives the restart: the persisted stamp, else the transcript's mtime.
       const updatedAt =
         link.updatedAt ??

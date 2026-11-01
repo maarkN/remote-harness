@@ -6,6 +6,7 @@ import type {
   PermissionMode,
   SessionStatus,
 } from '@remote-harness/protocol'
+import type { TitleSource } from '../sessions/prompt-title.ts'
 import type { TranscriptFormat } from '../transcript/format.ts'
 
 /** A main-session transcript on disk. */
@@ -14,6 +15,8 @@ export type TranscriptLocation = { sessionId: string; path: string; mtime: Date 
 /** What the session list needs from a transcript; unknown items are null. */
 export type TranscriptSummary = {
   title: string | null
+  /** What gave the title (Claude Code): a name, a prompt or a command; absent when unknown. */
+  titleSource?: TitleSource | null
   cwd: string | null
   /** Claude Code's permission mode. */
   permissionMode: PermissionMode | null

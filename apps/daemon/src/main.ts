@@ -325,8 +325,11 @@ async function registerFeatures(
   commandsEnabled: () => boolean
 }> {
   const sessions = registerSessionsFeature(ctx, ctx.tmux)
-  const transcript = registerTranscriptFeature(ctx, sessions.store, (id, at) =>
-    sessions.service.noteActivity(id, at),
+  const transcript = registerTranscriptFeature(
+    ctx,
+    sessions.store,
+    (id, at) => sessions.service.noteActivity(id, at),
+    (id, title) => sessions.service.setCustomTitle(id, title),
   )
   registerSubagentsFeature(ctx, sessions.store, transcript.addResolver)
   registerLastActivityFeature(ctx, sessions.store, transcript.readTail)

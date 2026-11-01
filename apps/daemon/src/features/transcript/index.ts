@@ -17,6 +17,9 @@ export function registerTranscriptFeature(
   store: SessionStore,
   /** Called when new transcript lines were read for a session (last activity). */
   onActivity: (sessionId: string, at: number) => void = () => {},
+  /** A name the agent wrote to the transcript (`/rename`, `--name`); the store is patched when absent. */
+  onCustomTitle: (sessionId: string, title: string) => void = (sessionId, title) =>
+    store.upsert(sessionId, { title: oneLine(title) }),
 ) {
   const service = new TranscriptService(
     ctx.logger,
@@ -24,10 +27,10 @@ export function registerTranscriptFeature(
       const mode = PermissionModeSchema.safeParse(update.permissionMode)
       store.upsert(sessionId, {
         ...(mode.success ? { permissionMode: mode.data } : {}),
-        ...(update.customTitle ? { title: oneLine(update.customTitle) } : {}),
         ...(update.approvalPolicy ? { approvalPolicy: update.approvalPolicy } : {}),
         ...(update.permissionProfile ? { permissionProfile: update.permissionProfile } : {}),
       })
+      if (update.customTitle) onCustomTitle(sessionId, update.customTitle)
       const session = store.get(sessionId)
       if (!session) return
       if (update.status) {
