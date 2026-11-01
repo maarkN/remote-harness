@@ -154,7 +154,18 @@ export default function MainLayout() {
             ...menuButton,
           }}
         />
-        <Stack.Screen name="settings" options={{ title: t('nav.settings') }} />
+        <Stack.Screen name="settings/index" options={{ title: t('nav.settings') }} />
+        <Stack.Screen name="settings/computer" options={{ title: t('settings.sections.computer') }} />
+        <Stack.Screen name="settings/devices" options={{ title: t('settings.sections.devices') }} />
+        <Stack.Screen name="settings/appearance" options={{ title: t('settings.sections.appearance') }} />
+        <Stack.Screen name="settings/profiles" options={{ title: t('settings.sections.profiles') }} />
+        <Stack.Screen name="settings/sessions" options={{ title: t('settings.sections.sessions') }} />
+        <Stack.Screen
+          name="settings/notifications"
+          options={{ title: t('settings.sections.notifications') }}
+        />
+        <Stack.Screen name="settings/voice" options={{ title: t('settings.sections.voice') }} />
+        <Stack.Screen name="settings/app" options={{ title: t('settings.sections.app') }} />
         <Stack.Screen name="new" options={{ title: t('nav.newSession'), presentation: 'modal' }} />
         <Stack.Screen name="report" options={{ title: t('errorReports.problem.title') }} />
         <Stack.Screen name="permissions" options={{ title: t('systemPermissions.title') }} />
