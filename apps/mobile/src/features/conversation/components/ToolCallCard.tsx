@@ -5,8 +5,11 @@ import { useTranslation } from 'react-i18next'
 import { Pressable, ScrollView, View } from 'react-native'
 import { makeStyles, radius, space, useTheme } from '@/core/theme'
 import { Text } from '@/ui'
+import { showCommandMenu } from '../../commands/command-menu'
+import { useRunCommand } from '../../commands/run-context'
 import { ImageStrip } from '../../images/ImageStrip'
 import { toolTabCopyText } from '../copy'
+import { copyText } from '../copy-text'
 import { cachedDiffForTool, type diffForTool } from '../diff'
 import { summarizeTool } from '../summarize-tool'
 import { cutText, TOOL_TABS, type ToolTab, tabFor, toolCallJson, toolInputFields } from '../tool-details'
@@ -28,10 +31,29 @@ export const ToolCallCard = memo(function ToolCallCard({
   result: Result | null
 }) {
   const { t } = useTranslation()
-  const { colors } = useTheme()
+  const theme = useTheme()
+  const { colors } = theme
   const styles = useStyles()
   const [open, setOpen] = useState(false)
   const title = use ? summarizeTool(use.name, use.input, t) : t('conversation.toolResult')
+  // A Bash call's command can be copied or run on the computer from a long press (#477), when the
+  // computer accepts commands.
+  const runCommand = useRunCommand()
+  const command =
+    use?.name === 'Bash' && typeof use.input.command === 'string' && use.input.command.trim()
+      ? use.input.command
+      : null
+  const commandMenu =
+    runCommand && command
+      ? () => showCommandMenu(command, { t, theme, onRun: () => runCommand.run(command) })
+      : undefined
+  const commandActions =
+    runCommand && command
+      ? [
+          { name: 'copyCommand', label: t('commands.copyCommand') },
+          { name: 'runHere', label: t('commands.runHere') },
+        ]
+      : undefined
   const diff = useMemo(() => (use ? cachedDiffForTool(use, t) : null), [use, t])
   const status: 'running' | 'ok' | 'error' = !result ? 'running' : result.isError ? 'error' : 'ok'
   const Icon = open ? ChevronDown : ChevronRight
@@ -43,7 +65,22 @@ export const ToolCallCard = memo(function ToolCallCard({
 
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={() => setOpen(!open)} style={styles.header}>
+      <Pressable
+        onPress={() => setOpen(!open)}
+        onLongPress={commandMenu}
+        accessibilityHint={commandMenu ? t('commands.longPressHint') : undefined}
+        accessibilityActions={commandActions}
+        onAccessibilityAction={
+          runCommand && command
+            ? (event) => {
+                if (event.nativeEvent.actionName === 'runHere') runCommand.run(command)
+                else if (event.nativeEvent.actionName === 'copyCommand')
+                  void copyText(command, t('conversation.copy.copied'), { toast: true })
+              }
+            : undefined
+        }
+        style={styles.header}
+      >
         <Text size="sm" color={dotColor}>
           ●
         </Text>

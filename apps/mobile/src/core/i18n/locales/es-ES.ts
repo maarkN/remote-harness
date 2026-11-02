@@ -221,6 +221,9 @@ const esES = {
     multilineHint:
       'Retorno añade una línea. Ejecutar (o ⌘↩ con teclado) ejecuta las líneas en orden y se detiene en la primera que falle.',
     tooLong: 'El comando supera los {{max}} caracteres.',
+    copyCommand: 'Copiar comando',
+    runHere: 'Ejecutar en el ordenador',
+    longPressHint: 'Mantén pulsado para Copiar y Ejecutar en el ordenador',
     confirm: {
       title: '¿Ejecutar este comando?',
       body: '{{command}}\n\nSe ejecuta en el ordenador, en {{folder}}, con tu usuario.',

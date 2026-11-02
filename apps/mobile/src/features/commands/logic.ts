@@ -106,6 +106,25 @@ export function commandEcho(command: string): string {
     .join('\n')
 }
 
+/** Fence languages that hold shell commands (`shell` is what "Add to prompt" writes). */
+const SHELL_LANGUAGES = new Set(['sh', 'bash', 'zsh', 'shell'])
+
+/** Whether a fenced block's language names a shell; an info string counts by its first word (`bash title=x`). */
+export function isShellBlock(language: string | undefined): boolean {
+  const first = language?.trim().split(/\s+/)[0]?.toLowerCase()
+  return first !== undefined && SHELL_LANGUAGES.has(first)
+}
+
+/**
+ * The commands of a shell block, ready for the Run command sheet (#477): blank lines dropped, and
+ * the `$ ` console prompts removed when every line starts with one.
+ */
+export function shellCommandText(code: string): string {
+  const lines = commandLines(code)
+  const prompted = lines.length > 0 && lines.every((line) => /^\$\s/.test(line))
+  return (prompted ? lines.map((line) => line.replace(/^\$\s+/, '')) : lines).join('\n')
+}
+
 /** A fence longer than any backtick run in the text, so the output cannot close it. */
 function fence(text: string): string {
   const longest = Math.max(0, ...[...text.matchAll(/`+/g)].map((match) => match[0].length))

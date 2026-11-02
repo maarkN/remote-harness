@@ -221,6 +221,9 @@ const ptBR = {
     multilineHint:
       'Return adiciona uma linha. Rodar (ou ⌘↩ com teclado) roda as linhas em ordem e para na primeira que falhar.',
     tooLong: 'O comando passa de {{max}} caracteres.',
+    copyCommand: 'Copiar comando',
+    runHere: 'Rodar no computador',
+    longPressHint: 'Toque e segure para Copiar e Rodar no computador',
     confirm: {
       title: 'Rodar este comando?',
       body: '{{command}}\n\nEle roda no computador, em {{folder}}, com o seu usuário.',

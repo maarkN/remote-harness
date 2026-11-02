@@ -1,6 +1,6 @@
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router'
 import { ChevronDown, EllipsisVertical, PanelRight, Radio, Terminal } from 'lucide-react-native'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Keyboard, Pressable, StyleSheet, View } from 'react-native'
 import { useConnectionStore, useDaemonClient } from '@/core/connection'
@@ -10,6 +10,7 @@ import { shortPath } from '@/core/utils/time'
 import { SmartComposer } from '@/features/autocomplete/SmartComposer'
 import { CommandSheet } from '@/features/commands/CommandSheet'
 import { appendToDraft } from '@/features/commands/logic'
+import { RunCommandContext } from '@/features/commands/run-context'
 import { ConversationScreen } from '@/features/conversation/ConversationScreen'
 import { setFollow, useFollowStore } from '@/features/conversation/follow-store'
 import { setKeyBarVisible, useKeyBarStore } from '@/features/conversation/key-bar-store'
@@ -80,6 +81,21 @@ export default function SessionRoute() {
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  // A command picked in the conversation (#477) opens the sheet with it filled in.
+  const [commandPrefill, setCommandPrefill] = useState<string | null>(null)
+  const runFromConversation = useMemo(
+    () =>
+      commands?.enabled
+        ? {
+            run: (command: string) => {
+              Keyboard.dismiss()
+              setCommandPrefill(command)
+              setCommandOpen(true)
+            },
+          }
+        : null,
+    [commands?.enabled],
+  )
   const [templatesOpen, setTemplatesOpen] = useState(false)
   // Scheduled prompts (#432): offered when the daemon keeps them; the sheet targets this session.
   const schedulesSupported = useSchedulesStore((s) => s.supported)
@@ -129,6 +145,7 @@ export default function SessionRoute() {
     changes: () => router.push({ pathname: '/session/[id]/changes', params: { id } }),
     runCommand: () => {
       Keyboard.dismiss()
+      setCommandPrefill(null)
       setCommandOpen(true)
     },
     templates: () => {
@@ -243,7 +260,11 @@ export default function SessionRoute() {
           cwd={session.cwd}
           enabled={commands.enabled}
           visible={commandOpen}
-          onClose={() => setCommandOpen(false)}
+          initialCommand={commandPrefill}
+          onClose={() => {
+            setCommandOpen(false)
+            setCommandPrefill(null)
+          }}
           onAddToPrompt={(block) => prompt.setText((current) => appendToDraft(current, block))}
         />
       ) : null}
@@ -272,82 +293,84 @@ export default function SessionRoute() {
           onClose={() => setModelOpen(false)}
         />
       ) : null}
-      <ConversationScreen
-        sessionId={id}
-        onKey={prompt.sendKey}
-        historyOpen={historyOpen}
-        onHistoryClose={() => setHistoryOpen(false)}
-        header={
-          session ? (
-            <>
-              {/* Session details live below the header: on iOS 26+ the bar has no room for them. */}
-              <View style={styles.info}>
-                <View style={styles.meta}>
-                  {agent ? <AgentBadge agent={agent} size={18} /> : null}
-                  <ProfileTag profile={profile ?? { name: session.profileId, color: '' }} />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('sessionDetails.openFolder', { folder: shortPath(session.cwd) })}
-                    accessibilityHint={t('sessionDetails.openHint')}
-                    hitSlop={{ top: 12, bottom: 12 }}
-                    onPress={openDetails}
-                    style={({ pressed }) => [styles.cwd, pressed && styles.pressed]}
-                  >
-                    <Text size="xs" color="textMuted" numberOfLines={1}>
-                      {shortPath(session.cwd)}
-                    </Text>
-                  </Pressable>
-                  <StateBadge state={session.state} />
+      <RunCommandContext.Provider value={runFromConversation}>
+        <ConversationScreen
+          sessionId={id}
+          onKey={prompt.sendKey}
+          historyOpen={historyOpen}
+          onHistoryClose={() => setHistoryOpen(false)}
+          header={
+            session ? (
+              <>
+                {/* Session details live below the header: on iOS 26+ the bar has no room for them. */}
+                <View style={styles.info}>
+                  <View style={styles.meta}>
+                    {agent ? <AgentBadge agent={agent} size={18} /> : null}
+                    <ProfileTag profile={profile ?? { name: session.profileId, color: '' }} />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('sessionDetails.openFolder', { folder: shortPath(session.cwd) })}
+                      accessibilityHint={t('sessionDetails.openHint')}
+                      hitSlop={{ top: 12, bottom: 12 }}
+                      onPress={openDetails}
+                      style={({ pressed }) => [styles.cwd, pressed && styles.pressed]}
+                    >
+                      <Text size="xs" color="textMuted" numberOfLines={1}>
+                        {shortPath(session.cwd)}
+                      </Text>
+                    </Pressable>
+                    <StateBadge state={session.state} />
+                  </View>
+                  {hasSwitchableModes(agent) ? (
+                    <ModeSelector sessionId={id} mode={session.permissionMode} disabled={!controllable} />
+                  ) : (
+                    <CodexPermissionsChip
+                      sessionId={id}
+                      profile={session.permissionProfile}
+                      policy={session.approvalPolicy}
+                      disabled={!controllable}
+                    />
+                  )}
                 </View>
-                {hasSwitchableModes(agent) ? (
-                  <ModeSelector sessionId={id} mode={session.permissionMode} disabled={!controllable} />
-                ) : (
-                  <CodexPermissionsChip
-                    sessionId={id}
-                    profile={session.permissionProfile}
-                    policy={session.approvalPolicy}
-                    disabled={!controllable}
-                  />
-                )}
-              </View>
-              <StatusBar
-                status={session.status}
-                profileId={session.profileId}
-                branch={session.checkout?.branch ?? null}
-                provider={provider}
-                onDetails={openDetails}
-              />
-            </>
-          ) : null
-        }
-        footer={
-          session ? (
-            <>
-              <SessionPermissions
+                <StatusBar
+                  status={session.status}
+                  profileId={session.profileId}
+                  branch={session.checkout?.branch ?? null}
+                  provider={provider}
+                  onDetails={openDetails}
+                />
+              </>
+            ) : null
+          }
+          footer={
+            session ? (
+              <>
+                <SessionPermissions
+                  sessionId={id}
+                  cwd={session.cwd}
+                  profileId={session.profileId}
+                  onOpenTerminal={controllable ? actions.terminal : undefined}
+                />
+                <QueueCard sessionId={id} />
+                <ResumeBanner session={session} />
+              </>
+            ) : null
+          }
+          composer={
+            handsFree ? (
+              <HandsFreeSession />
+            ) : (
+              <SmartComposer
                 sessionId={id}
-                cwd={session.cwd}
-                profileId={session.profileId}
-                onOpenTerminal={controllable ? actions.terminal : undefined}
+                prompt={prompt}
+                disabled={!controllable}
+                autoFocus={autofocus === '1'}
+                onTemplates={actions.templates}
               />
-              <QueueCard sessionId={id} />
-              <ResumeBanner session={session} />
-            </>
-          ) : null
-        }
-        composer={
-          handsFree ? (
-            <HandsFreeSession />
-          ) : (
-            <SmartComposer
-              sessionId={id}
-              prompt={prompt}
-              disabled={!controllable}
-              autoFocus={autofocus === '1'}
-              onTemplates={actions.templates}
-            />
-          )
-        }
-      />
+            )
+          }
+        />
+      </RunCommandContext.Provider>
     </>
   )
 }

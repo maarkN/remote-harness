@@ -222,6 +222,10 @@ const enUS = {
     multilineHint:
       'Return adds a line. Run (or ⌘↩ with a keyboard) runs the lines in order and stops at the first one that fails.',
     tooLong: 'The command is over {{max}} characters.',
+    /** Long press on a command in the conversation (#477). */
+    copyCommand: 'Copy command',
+    runHere: 'Run on the computer',
+    longPressHint: 'Press and hold for Copy and Run on the computer',
     confirm: {
       title: 'Run this command?',
       body: '{{command}}\n\nIt runs on the computer, in {{folder}}, as your user.',
