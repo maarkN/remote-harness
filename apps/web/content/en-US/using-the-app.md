@@ -38,7 +38,7 @@ The **mode** chip switches the permission mode: default, accept edits, plan and 
 
 ## Running a command
 
-**Run command…** (session menu) runs a shell command in the session's folder on the computer, like Claude Code's `!`, and streams its output: `git status`, `ls`, `pnpm test`. The app asks before every command; **Stop** kills it, **Copy output** copies it and **Add to prompt** puts the command and its output in the composer as a code block for the agent, without sending it. It is off until you run `remote-harness commands on` on the computer; commands have a time limit and an output limit, and nothing interactive works (there is no keyboard input).
+**Run command…** (session menu) runs a shell command in the session's folder on the computer, like Claude Code's `!`, and streams its output: `git status`, `ls`, `pnpm test`. The field takes several lines (Return adds one; Run, or ⌘↩ with a keyboard, runs): they run in order and stop at the first one that fails, so a sequence copied from the conversation (`cd app`, `yarn install`, `yarn dev`) can be pasted as is. The app asks before every command; **Stop** kills it, **Copy output** copies it and **Add to prompt** puts the command and its output in the composer as a code block for the agent, without sending it. Press and hold a command in the conversation (a Bash tool call, or a `sh` / `bash` code block) for **Copy** and **Run on the computer**, which opens the sheet with that command filled in. It is off until you run `remote-harness commands on` on the computer; commands have a time limit and an output limit, and nothing interactive works (there is no keyboard input).
 
 ## Reviewing changes
 
@@ -56,9 +56,13 @@ While the agent delegates work, the header's menu shows **Subagents (N · M runn
 
 **Resume** reopens an ended or read-only session inside tmux, with the same history. **Close** ends the session; when it ran in a worktree, the app offers to delete it only when it is clean and pushed, to commit and push first, or to discard the work, asking twice before discarding anything.
 
+## Scheduled prompts
+
+Settings → Sessions → **Scheduled prompts** lets the computer send a prompt by its own clock, with the app closed: once at a date and time, or every day at a time on the weekdays you pick (times follow the computer's clock). The prompt goes to an open session (queued while it is busy, like any prompt) or starts a new session in a folder with a profile, optionally in an isolated copy and with a name; **Use a template…** fills it from your prompt templates, and a session's More options menu has **Schedule a prompt…** with that session as the target. The phone gets a notification when a schedule ran or failed, with the schedule's title and never the prompt. A run the computer missed (asleep, daemon down for more than five minutes) does not run late: the schedule shows **Missed** with **Run now**, and you decide. Needs a computer updated to this version.
+
 ## Live status
 
-On iOS, a running session shows a Live Activity on the lock screen and in the Dynamic Island with the state, the current step and the elapsed time; a permission request adds Allow and Deny buttons. On Android it is a silent notification without buttons: tap it to answer in the app. It never carries the conversation. Turn it off in Settings → Notifications → Live status.
+On iOS, a running session shows a Live Activity on the lock screen and in the Dynamic Island with the agent's badge (Claude Code, Codex…), the state, the current step and the elapsed time; a permission request adds Allow and Deny buttons, and once the turn is done the card says how long it took ("Finished after 12 min"). On Android it is a silent notification without buttons: tap it to answer in the app. It never carries the conversation. Turn it off in Settings → Notifications → Live status.
 
 ## Widgets
 
@@ -72,7 +76,7 @@ A finished or waiting session's notification has actions: **Reply** (type, or di
 
 ## Hands-free
 
-For when your hands and eyes are busy (on a bike, walking), turn on **Hands-free** in a session's More options menu. The message field becomes a large bar with **Talk**, **Repeat** and **Exit**, and the screen stays on. The app reads aloud the end of each answer (without code), each permission ("… Say allow or deny.") and each question with its numbered options, then listens: say **allow** or **deny**, an **option number**, **repeat** or **stop**. Press Talk to say a message: it is read back and sent only after you say **yes**. Plans and requests waiting in the terminal are announced but answered on the screen. Commands are understood in the transcription language (Settings → Voice); the voice uses the app language. It works with the app open; locked-screen readout is not available yet.
+For when your hands and eyes are busy (on a bike, walking), turn on **Hands-free** in a session's More options menu. The message field becomes a large bar with **Talk**, **Repeat** and **Exit**, and the screen stays on. The app reads aloud the end of each answer (without code), each permission ("… Say allow or deny.") and each question with its numbered options, then listens: say **allow** or **deny**, an **option number**, **repeat** or **stop**. Press Talk to say a message: it is read back and sent only after you say **yes**. Plans and requests waiting in the terminal are announced but answered on the screen. Commands are understood in the transcription language (Settings → Voice); the voice uses the app language. It keeps going when you leave the session, lock the phone or switch apps: on iOS the lock screen shows a Now Playing card ("Hands-free is on") whose pause button turns it off, and a headset's play/pause button works as Talk; on Android a notification with a **Stop** button stays while it is on. In the background a muted session is not read aloud, and after 30 minutes without anything to read or hear the mode turns itself off, saying so. The locked-screen part needs an app build from this version on; on older builds hands-free works with the app open.
 
 ## Siri and Shortcuts
 

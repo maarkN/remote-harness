@@ -43,6 +43,7 @@ import { registerProvidersFeature } from './features/providers/index.ts'
 import { registerPushFeature } from './features/push/index.ts'
 import type { PushSender } from './features/push/sender.ts'
 import { registerQueueFeature } from './features/queue/index.ts'
+import { registerSchedulesFeature } from './features/schedules/index.ts'
 import { registerSessionsFeature } from './features/sessions/index.ts'
 import { justEnded } from './features/sessions/state.ts'
 import { registerShellFeature } from './features/shell/index.ts'
@@ -256,6 +257,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       update: { channel: features.updateChannel() },
       live: { follow: true },
       commands: { enabled: features.commandsEnabled() },
+      schedules: true,
       paths: connectivity.paths(),
     }),
   }
@@ -384,6 +386,12 @@ async function registerFeatures(
       : null
   }
   const push = await registerPushFeature(ctx, { isMuted, isEnded, turnInfo, sender: ctx.pushSender })
+  const schedules = registerSchedulesFeature(ctx, {
+    queue: queue.service,
+    lifecycle: lifecycle.service,
+    push: push.service,
+    profileOf: (sessionId) => sessions.store.get(sessionId)?.profileId ?? null,
+  })
   await registerLiveStatusFeature(ctx, {
     store: sessions.store,
     sender: push.sender,
@@ -452,6 +460,8 @@ async function registerFeatures(
   power = registerPowerFeature(ctx, sessions.store, sleepInhibitor)
   // After the sessions, so prompts queued for sessions that ended meanwhile are dropped.
   await queue.service.load().catch((error) => ctx.logger.warn({ err: error }, 'queue restore failed'))
+  // After the sessions and the queue, so a schedule due while the daemon was down finds its session.
+  await schedules.start().catch((error) => ctx.logger.warn({ err: error }, 'schedules restore failed'))
   return {
     mute: mute.store,
     pushMode: push.mode,

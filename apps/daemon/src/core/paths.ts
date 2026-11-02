@@ -69,6 +69,8 @@ export const paths = {
   mute: () => join(dataHome(), 'mute.json'),
   liveFollows: () => join(dataHome(), 'live-follows.json'),
   queue: () => join(dataHome(), 'queue.json'),
+  /** Scheduled prompts (#432), with their next run and last outcome. */
+  schedules: () => join(dataHome(), 'schedules.json'),
   /** A profile's provider key when the secret store is the file one (0600, in a 0700 folder). */
   providerKey: (profileId: string) => join(dataHome(), 'secrets', `provider-${profileId}`),
   /** Model catalogs fetched from the providers, by base URL. */

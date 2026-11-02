@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDaemonClient } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
-import { appendOutput, type CommandRun, newRun } from './logic'
+import { appendOutput, type CommandRun, commandLines, commandScript, newRun } from './logic'
 
 /**
  * One shell command at a time for a session: starts it, follows its output and exit (sent only to
@@ -42,10 +42,15 @@ export function useCommandRun(sessionId: string) {
       setStarting(true)
       setError(null)
       try {
-        const reply = await client.request({ type: 'command.run', sessionId, command })
+        // Several lines go under `set -e` (#475); the run keeps the lines as typed.
+        const reply = await client.request({
+          type: 'command.run',
+          sessionId,
+          command: commandScript(command),
+        })
         if (reply.type !== 'command.started') throw new Error(`unexpected reply ${reply.type}`)
         runIdRef.current = reply.runId
-        setRun(newRun(reply.runId, command, reply.cwd, Date.now()))
+        setRun(newRun(reply.runId, commandLines(command).join('\n'), reply.cwd, Date.now()))
       } catch (e) {
         setError(
           errorMessage(e, t, {

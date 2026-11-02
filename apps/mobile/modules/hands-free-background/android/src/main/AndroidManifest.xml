@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Hands-free with the screen locked (#446): a foreground service keeps the app alive while it listens and speaks. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+  <application>
+    <service
+      android:name="expo.modules.handsfreebackground.HandsFreeService"
+      android:exported="false"
+      android:foregroundServiceType="microphone|mediaPlayback" />
+  </application>
+</manifest>

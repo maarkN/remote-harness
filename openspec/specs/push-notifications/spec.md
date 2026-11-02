@@ -25,11 +25,15 @@ The app SHALL request notification permission, obtain the FCM token and send `de
 - **THEN** the daemon keeps the flag and sends that phone widget refresh pushes
 
 ### Requirement: Push delivery
-The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`, except one that keeps the session `running` because agent work is still in flight: the push follows the `Stop` that ends it), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.
+The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`, except one that keeps the session `running` because agent work is still in flight: the push follows the `Stop` that ends it), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. A client with hands-free on SHALL report itself as in the foreground while the mode is on, even with the screen locked or the app in the background, since it reads those events aloud; when it turns hands-free off it SHALL report its real visibility again. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.
 
 #### Scenario: Session finishes
 - **WHEN** `Stop` arrives and the app is in the background
 - **THEN** the device receives "Session finished" with the profile
+
+#### Scenario: Hands-free on in the background
+- **WHEN** `Stop` arrives, the only connected app is in the background with hands-free on for that session
+- **THEN** no push is sent, because that app reads the turn aloud
 
 #### Scenario: Firebase not configured
 - **WHEN** there is no service account and the phone registered with a relay grant
@@ -44,11 +48,15 @@ The daemon SHALL send a push to the registered tokens when a session finishes a 
 - **THEN** no "Session finished" push is sent; it is sent on the later `Stop` with no agent work in flight
 
 ### Requirement: Content-free payload
-The payload MUST contain only a generic title, the profile name, `sessionId`, the event type and `requestId` when present; never prompts, commands or paths.
+The payload MUST contain only a generic title, the profile name, `sessionId`, the event type and `requestId` when present; never prompts, commands or paths. Schedule pushes (`scheduleRan`, `scheduleFailed`, `scheduleMissed`) carry the schedule's title (a label the user wrote, at most 60 characters) as the body instead of the profile name, and never the schedule's prompt.
 
 #### Scenario: Permission request
 - **WHEN** a `Bash` call asks for permission
 - **THEN** the push says "Permission pending" and the profile, without the command
+
+#### Scenario: Schedule missed
+- **WHEN** the schedule "Daily summary" is missed
+- **THEN** the push says "Scheduled prompt missed" and "Daily summary", without the prompt
 
 ### Requirement: Deep link and actions
 Every push and the live status link SHALL carry the sending daemon's ID. Tapping the notification SHALL open the session on that computer, switching the active computer first when it is another one; the "Allow"/"Deny" actions MUST answer the request by connecting in the background to that notification's computer. Requests with an `interaction` (question or plan) MUST NOT offer these actions. Permission pushes offer only Allow and Deny; the turn actions are only on turn pushes.

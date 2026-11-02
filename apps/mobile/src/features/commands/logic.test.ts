@@ -3,13 +3,18 @@ import {
   appendOutput,
   appendToDraft,
   type CommandExit,
+  commandEcho,
+  commandLines,
+  commandScript,
   exitFailed,
   formatElapsed,
+  isShellBlock,
   MAX_DISPLAY_CHARS,
   MAX_PROMPT_CHARS,
   newRun,
   outputText,
   promptBlock,
+  shellCommandText,
 } from './logic'
 
 const exited = (code: number): CommandExit => ({
@@ -84,6 +89,49 @@ describe('prompt block', () => {
   test('appended to the draft after a blank line', () => {
     expect(appendToDraft('', 'B')).toBe('B')
     expect(appendToDraft('look at this  \n', 'B')).toBe('look at this\n\nB')
+  })
+
+  test('several lines are echoed one per line', () => {
+    let run = newRun('r', 'cd app\nyarn install', '/w', 0)
+    run = appendOutput(run, 'stdout', 'done\n')
+    run = { ...run, exit: exited(0) }
+    expect(promptBlock(run)).toBe('```shell\n$ cd app\n$ yarn install\ndone\n[exit 0]\n```')
+  })
+})
+
+describe('several lines', () => {
+  test('commandLines drops blank lines and trailing spaces, keeps indentation', () => {
+    expect(commandLines('cd app  \r\n\n  yarn install\n')).toEqual(['cd app', '  yarn install'])
+    expect(commandLines('   ')).toEqual([])
+  })
+
+  test('commandScript sends one line as typed and several under set -e', () => {
+    expect(commandScript('git status')).toBe('git status')
+    expect(commandScript('cd app\nyarn install\nyarn dev')).toBe('set -e\ncd app\nyarn install\nyarn dev')
+    expect(commandScript('\n')).toBe('')
+  })
+
+  test('commandEcho prefixes every line', () => {
+    expect(commandEcho('cd app\nyarn install')).toBe('$ cd app\n$ yarn install')
+    expect(commandEcho('')).toBe('')
+  })
+})
+
+describe('commands in the conversation', () => {
+  test('shell blocks by their fence language, first word only', () => {
+    for (const language of ['sh', 'bash', 'zsh', 'shell', 'Bash', 'bash title=x']) {
+      expect(isShellBlock(language), language).toBe(true)
+    }
+    for (const language of ['ts', 'json', '', undefined, 'shellscript']) {
+      expect(isShellBlock(language), String(language)).toBe(false)
+    }
+  })
+
+  test('shellCommandText drops console prompts only when every line has one', () => {
+    expect(shellCommandText('$ cd app\n$ yarn install\n')).toBe('cd app\nyarn install')
+    expect(shellCommandText('cd app\n\nyarn install  ')).toBe('cd app\nyarn install')
+    expect(shellCommandText('$ pnpm test\n PASS src/a.test.ts')).toBe('$ pnpm test\n PASS src/a.test.ts')
+    expect(shellCommandText('')).toBe('')
   })
 })
 

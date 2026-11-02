@@ -25,6 +25,15 @@ export type AgentId = z.infer<typeof AgentIdSchema>
 /** An agent id in a message: one this parser does not know yet reads as absent (Claude Code). */
 const wireAgentId = AgentIdSchema.optional().catch(undefined)
 
+/** Display names of the agents (product names, not translated); the app's badges and the live status texts use them. */
+export const AGENT_LABELS: Record<AgentId, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini CLI',
+  kimi: 'Kimi',
+  qwen: 'Qwen',
+}
+
 /** Model gateways a profile can route Claude Code through; a profile without one uses the Anthropic account. */
 export const ProviderKindSchema = z.enum(['openrouter'])
 export type ProviderKind = z.infer<typeof ProviderKindSchema>
@@ -575,8 +584,24 @@ export const LiveStatusPropsSchema = z.object({
   labels: LiveLabelsSchema.nullable().default(null),
   /** Theme colors of the app that registered; absent from older daemons (the widget uses dark). */
   palette: LivePaletteSchema.optional(),
+  /** The session's agent, so the card shows its badge; absent from older daemons, and an unknown id reads as absent (the app mark). */
+  agent: wireAgentId,
 })
 export type LiveStatusProps = z.infer<typeof LiveStatusPropsSchema>
+
+/**
+ * A turn's duration in words for the done state: seconds under a minute ("40 s"), whole minutes
+ * under an hour ("12 min"), hours and minutes past it ("1 h 05 min", "2 h"). Same in every language.
+ */
+export function liveTurnDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000))
+  if (total < 60) return `${total} s`
+  const minutes = Math.floor(total / 60)
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest > 0 ? `${hours} h ${rest < 10 ? `0${rest}` : rest} min` : `${hours} h`
+}
 
 /**
  * How the daemon reaches one phone with the live status of the sessions it follows: the FCM token
@@ -609,12 +634,16 @@ export const LiveDataMessageSchema = z.object({
 export type LiveDataMessage = z.infer<typeof LiveDataMessageSchema>
 
 /**
- * Title and body of the Android live status notification: "<session> · <state>", then the current
- * task or the phrase, the current step (else the step category), the progress, the counts and the
- * glyph row (oldest → newest). The same text whether the system or the app draws it.
+ * Title and body of the Android live status notification: "<agent> · <session> · <state>" (the
+ * agent's name when the props carry one), then the current task or the phrase, the current step
+ * (else the step category), the progress, the counts and the glyph row (oldest → newest). The same
+ * text whether the system or the app draws it.
  */
 export function liveNotificationText(props: LiveStatusProps): { title: string; body: string } {
   const glyphs = [...props.glyphs].reverse().join(' ')
+  const title = [props.agent ? AGENT_LABELS[props.agent] : '', props.session || props.title, props.status]
+    .filter(Boolean)
+    .join(' · ')
   const details = [
     props.task || props.activity,
     props.current || props.step,
@@ -625,7 +654,7 @@ export function liveNotificationText(props: LiveStatusProps): { title: string; b
   ]
     .filter(Boolean)
     .join(' · ')
-  return { title: `${props.session || props.title} · ${props.status}`, body: details || props.status }
+  return { title, body: details || props.status }
 }
 
 export const QuestionKindSchema = z.enum(['choice', 'text', 'number'])
@@ -757,6 +786,80 @@ export type QueuedMessage = z.infer<typeof QueuedMessageSchema>
 export const MAX_QUEUE = 20
 /** Decoded bytes per image (the Claude API limit). */
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+
+// --- Scheduled prompts (#432) ---------------------------------------------------------------------
+
+export const SCHEDULE_TITLE_MAX = 60
+/** Same cap as a first prompt at start, which a scheduled prompt often is. */
+export const SCHEDULE_PROMPT_MAX = 8_000
+
+/** Where a schedule's prompt goes: an existing session, or a new one started with it as its first prompt. */
+export const ScheduleTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('session'), sessionId: z.string().min(1) }),
+  z.object({
+    kind: z.literal('new'),
+    profileId: z.string().min(1),
+    cwd: z.string().min(1),
+    /** Start in an isolated copy (git worktree), like the New session screen's switch. */
+    worktree: z.boolean().default(false),
+    name: SessionNameSchema.optional(),
+  }),
+])
+export type ScheduleTarget = z.infer<typeof ScheduleTargetSchema>
+
+/** A time of day on the computer's clock, `HH:MM`. */
+export const ScheduleTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'time as HH:MM')
+
+/** When a schedule runs: once at an instant, or every day at a time on some weekdays. */
+export const ScheduleWhenSchema = z.discriminatedUnion('kind', [
+  /** One run at an instant (ISO 8601 with its offset); the computer's clock decides when that is. */
+  z.object({
+    kind: z.literal('once'),
+    at: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'an ISO date-time'),
+  }),
+  /** At `time` (computer local time) on `days` (0 = Sunday … 6 = Saturday; none = every day). */
+  z.object({
+    kind: z.literal('repeat'),
+    time: ScheduleTimeSchema,
+    days: z.array(z.number().int().min(0).max(6)).max(7).default([]),
+  }),
+])
+export type ScheduleWhen = z.infer<typeof ScheduleWhenSchema>
+
+/** What a run did: delivered to a free session, queued in a busy one, started a session, failed, or was missed. */
+export const ScheduleOutcomeSchema = z.enum(['sent', 'queued', 'started', 'failed', 'missed'])
+export type ScheduleOutcome = z.infer<typeof ScheduleOutcomeSchema>
+
+export const ScheduleRunSchema = z.object({
+  at: z.string(),
+  outcome: ScheduleOutcomeSchema,
+  /** Why the run failed. */
+  error: z.string().nullable().default(null),
+  /** The session the prompt went to, or the one started. */
+  sessionId: z.string().nullable().default(null),
+})
+export type ScheduleRun = z.infer<typeof ScheduleRunSchema>
+
+/** What the app sends to create a schedule or replace one. */
+export const ScheduleInputSchema = z.object({
+  title: z.string().trim().min(1).max(SCHEDULE_TITLE_MAX),
+  prompt: z.string().trim().min(1).max(SCHEDULE_PROMPT_MAX),
+  target: ScheduleTargetSchema,
+  when: ScheduleWhenSchema,
+  enabled: z.boolean().default(true),
+})
+export type ScheduleInput = z.infer<typeof ScheduleInputSchema>
+
+/** A schedule as the daemon keeps and reports it. */
+export const ScheduleSchema = ScheduleInputSchema.extend({
+  id: z.string().min(1),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastRun: ScheduleRunSchema.nullable().default(null),
+  /** Its next run (ISO), computed by the daemon; `null` while disabled or once it is spent. */
+  nextRunAt: z.string().nullable().default(null),
+})
+export type Schedule = z.infer<typeof ScheduleSchema>
 
 /** Keys the app may send to a session. Anything else is rejected by the daemon. */
 export const ALLOWED_KEYS = [

@@ -534,7 +534,7 @@ export const ptBR = {
       thinking: 'Pensando…',
       writing: 'Escrevendo a resposta…',
       tool: 'Usando ferramentas…',
-      finished: 'Concluído',
+      finishedAfter: (duration: string) => `Concluído após ${duration}`,
     },
     /** Small words around the card's timers, and its Open button. */
     labels: {
@@ -679,6 +679,9 @@ export const ptBR = {
     planPending: 'Plano pronto para revisão',
     questionReminder: 'Ainda esperando sua resposta',
     planReminder: 'O plano ainda espera sua revisão',
+    scheduleRan: 'Prompt agendado enviado',
+    scheduleFailed: 'Prompt agendado falhou',
+    scheduleMissed: 'Prompt agendado perdido',
     testTitle: 'Notificação de teste',
     testBody: (host: string) => `As notificações de ${host} estão funcionando`,
   },

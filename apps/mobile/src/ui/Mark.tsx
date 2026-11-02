@@ -8,14 +8,14 @@ type Weight = 'regular' | 'bold'
  * cut out of the cursor block and the width of the three arcs; bold widens both under 24 pt.
  */
 const GEOMETRY: Record<Weight, { cutout: number; arcs: number }> = {
-  regular: { cutout: 16, arcs: 22 },
-  bold: { cutout: 24, arcs: 28 },
+  regular: { cutout: 18, arcs: 22 },
+  bold: { cutout: 26, arcs: 28 },
 }
-const CUTOUT = 'M51 104L79 128L51 152'
+const CUTOUT = 'M47 99L81 128L47 157'
 const ARCS = [
-  'M123.6 104.9A36 36 0 0 1 123.6 151.1',
-  'M154.2 79.1A76 76 0 0 1 154.2 176.9',
-  'M184.9 53.4A116 116 0 0 1 184.9 202.6',
+  'M129.6 104.9A36 36 0 0 1 129.6 151.1',
+  'M160.2 79.1A76 76 0 0 1 160.2 176.9',
+  'M190.9 53.4A116 116 0 0 1 190.9 202.6',
 ]
 
 /**
@@ -52,7 +52,7 @@ export function Mark({
           />
         </Mask>
       </Defs>
-      <Rect x={34} y={76} width={62} height={104} rx={13} fill={paint} mask={`url(#${maskId})`} />
+      <Rect x={26} y={60} width={76} height={136} rx={15} fill={paint} mask={`url(#${maskId})`} />
       {ARCS.map((d) => (
         <Path key={d} d={d} stroke={paint} strokeWidth={m.arcs} strokeLinecap="round" fill="none" />
       ))}

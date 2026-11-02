@@ -73,14 +73,16 @@ describe('phrase and current task in the props', () => {
   const info = { title: 'Work', host: 'mac', session: 'Fix login', path: '~/app' }
   const working = (patch: Partial<LiveStatus> = {}): LiveStatus => ({ ...initialLiveStatus(1), ...patch })
 
-  test('the phrase is translated; delegating counts the running agents; done is Finished', () => {
+  test('the phrase is translated; delegating counts the running agents; done says how long the turn took', () => {
     expect(activityText(working({ activity: 'testing' }), en)).toBe('Running tests…')
     expect(activityText(working({ activity: 'testing' }), pt)).toBe('Rodando testes…')
     expect(activityText(working({ activity: 'delegating' }), en)).toBe('Delegating to 1 agent…')
     expect(
       activityText(working({ activity: 'delegating', tasks: { subagents: 2, background: 0 } }), en),
     ).toBe('Delegating to 2 agents…')
-    expect(activityText(working({ activity: 'testing', state: 'done' }), en)).toBe('Finished')
+    const done = working({ activity: 'testing', state: 'done', startedAt: 0, endedAt: 4 * 60_000 })
+    expect(activityText(done, en)).toBe('Finished after 4 min')
+    expect(activityText(done, pt)).toBe('Concluído após 4 min')
     expect(activityText(working({ activity: 'testing', state: 'closed' }), en)).toBe('')
     expect(activityText(working(), en)).toBe('')
   })

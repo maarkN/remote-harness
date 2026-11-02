@@ -256,17 +256,17 @@ namespace RemoteHarness
                     // cursor block, the `>` prompt punched out of it (unless a session is working: a busy
                     // cursor is solid), then the three signal arcs.
                     using (SolidBrush brush = new SolidBrush(ink))
-                    using (GraphicsPath block = RoundedRect(34 * s, 76 * s, 62 * s, 104 * s, 13 * s))
+                    using (GraphicsPath block = RoundedRect(26 * s, 60 * s, 76 * s, 136 * s, 15 * s))
                         g.FillPath(brush, block);
                     if (state != "working")
                     {
                         g.CompositingMode = CompositingMode.SourceCopy;
-                        using (Pen cut = new Pen(Color.Transparent, 24 * s))
+                        using (Pen cut = new Pen(Color.Transparent, 26 * s))
                         {
                             cut.StartCap = LineCap.Round;
                             cut.EndCap = LineCap.Round;
                             cut.LineJoin = LineJoin.Round;
-                            PointF[] prompt = { new PointF(51 * s, 104 * s), new PointF(79 * s, 128 * s), new PointF(51 * s, 152 * s) };
+                            PointF[] prompt = { new PointF(47 * s, 99 * s), new PointF(81 * s, 128 * s), new PointF(47 * s, 157 * s) };
                             g.DrawLines(cut, prompt);
                         }
                         g.CompositingMode = CompositingMode.SourceOver;
@@ -277,13 +277,13 @@ namespace RemoteHarness
                         pen.EndCap = LineCap.Round;
                         float[] radii = { 36, 76, 116 };
                         foreach (float r in radii)
-                            g.DrawArc(pen, (96 - r) * s, (128 - r) * s, 2 * r * s, 2 * r * s, -40, 80);
+                            g.DrawArc(pen, (102 - r) * s, (128 - r) * s, 2 * r * s, 2 * r * s, -40, 80);
                     }
                     if (state == "waiting")
                     {
                         // Amber accent (#E8A33D), over the outer arc's upper end.
                         using (SolidBrush amber = new SolidBrush(Color.FromArgb(232, 163, 61)))
-                            g.FillEllipse(amber, 184 * s, 12 * s, 64 * s, 64 * s);
+                            g.FillEllipse(amber, 190 * s, 12 * s, 64 * s, 64 * s);
                     }
                 }
                 IntPtr handle = bitmap.GetHicon();

@@ -19,7 +19,6 @@ export const ImageStrip = memo(function ImageStrip({ images }: { images: readonl
   const [open, setOpen] = useRecyclingState<number | null>(null, [images])
   const styles = useStyles()
   if (images.length === 0) return null
-  const current = open === null ? undefined : images[open]
   return (
     <View style={styles.strip}>
       {images.map((image, index) => (
@@ -31,8 +30,8 @@ export const ImageStrip = memo(function ImageStrip({ images }: { images: readonl
           onOpen={() => setOpen(index, true)}
         />
       ))}
-      {current && open !== null ? (
-        <ImageViewer image={current} index={open} count={images.length} onClose={() => setOpen(null, true)} />
+      {open !== null ? (
+        <ImageViewer images={images} initialIndex={open} onClose={() => setOpen(null, true)} />
       ) : null}
     </View>
   )

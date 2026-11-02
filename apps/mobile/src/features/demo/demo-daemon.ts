@@ -447,6 +447,12 @@ export class DemoDaemon {
       case 'changes.generate':
       case 'rules.undo':
       case 'rules.delete':
+      // The demo announces no schedules, so the app never asks for them.
+      case 'schedules.list':
+      case 'schedule.create':
+      case 'schedule.update':
+      case 'schedule.remove':
+      case 'schedule.run':
         throw this.unavailable()
       default: {
         // A new client message fails to compile here until the demo answers it.

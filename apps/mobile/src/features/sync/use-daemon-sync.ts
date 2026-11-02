@@ -9,6 +9,7 @@ import { bindSessionSnapshot } from '@/features/history/session-snapshot'
 import { bindMute } from '@/features/mute/store'
 import { bindPermissions, usePermissionsStore } from '@/features/permissions/store'
 import { bindQueue } from '@/features/queue/store'
+import { bindSchedules } from '@/features/schedules/store'
 import { bindLimits } from '@/features/session-status/limits-store'
 import { bindSessions, useSessionsStore } from '@/features/sessions/store'
 
@@ -44,6 +45,7 @@ export function useDaemonSync() {
       bindMute(client),
       bindLimits(client),
       bindQueue(client),
+      bindSchedules(client),
       bindDaemonUpdate(client),
       // The offline demo's refusals are not the app's errors.
       ...(demo ? [] : [bindErrorReports(client)]),

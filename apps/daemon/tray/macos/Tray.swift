@@ -235,17 +235,17 @@ final class Tray: NSObject {
       let ink = (colored ? NSColor.labelColor : NSColor.black)
         .withAlphaComponent(state == "offline" ? 0.4 : 1)
       ink.set()
-      let block = NSRect(x: 34 * s, y: 76 * s, width: 62 * s, height: 104 * s)
-      NSBezierPath(roundedRect: block, xRadius: 13 * s, yRadius: 13 * s).fill()
+      let block = NSRect(x: 26 * s, y: 60 * s, width: 76 * s, height: 136 * s)
+      NSBezierPath(roundedRect: block, xRadius: 15 * s, yRadius: 15 * s).fill()
       if state != "working" {
         // The prompt is punched out of the block: an opaque stroke erased from what is drawn so far.
         let prompt = NSBezierPath()
-        prompt.lineWidth = 24 * s
+        prompt.lineWidth = 26 * s
         prompt.lineCapStyle = .round
         prompt.lineJoinStyle = .round
-        prompt.move(to: p(51, 104))
-        prompt.line(to: p(79, 128))
-        prompt.line(to: p(51, 152))
+        prompt.move(to: p(47, 99))
+        prompt.line(to: p(81, 128))
+        prompt.line(to: p(47, 157))
         NSColor.black.set()
         NSGraphicsContext.current?.compositingOperation = .destinationOut
         prompt.stroke()
@@ -257,13 +257,13 @@ final class Tray: NSObject {
         let arc = NSBezierPath()
         arc.lineWidth = 28 * s
         arc.lineCapStyle = .round
-        arc.appendArc(withCenter: p(96, 128), radius: radius * s, startAngle: -40, endAngle: 40)
+        arc.appendArc(withCenter: p(102, 128), radius: radius * s, startAngle: -40, endAngle: 40)
         arc.stroke()
       }
       if colored {
         // Amber accent (#E8A33D), the only color the glyph ever carries, over the outer arc's upper end.
         NSColor(calibratedRed: 0.91, green: 0.64, blue: 0.24, alpha: 1).set()
-        NSBezierPath(ovalIn: NSRect(x: 184 * s, y: 12 * s, width: 64 * s, height: 64 * s)).fill()
+        NSBezierPath(ovalIn: NSRect(x: 190 * s, y: 12 * s, width: 64 * s, height: 64 * s)).fill()
       }
       return true
     }

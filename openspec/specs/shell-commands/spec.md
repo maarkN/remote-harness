@@ -54,16 +54,35 @@ Commands and their output MUST NOT be logged, persisted, broadcast to other clie
 - **THEN** the daemon log has a "command ran" line with the session and exit status and neither the command nor its output
 
 ### Requirement: Run command sheet
-The session's More options menu SHALL offer "Run command…" when the daemon's `auth.ok` has `commands`. It SHALL open a sheet with a monospaced command field (no autocorrect or capitalization) and the session's folder. Running SHALL ask for confirmation every time, showing the command and the folder. The output SHALL stream into a scrollable, selectable, monospaced panel that stays at the end while new output arrives, with the state (running with elapsed time, exit code, cancelled, timed out, output limit reached, failed to start), Cancel while running, Copy output and "Add to prompt", which appends the command and its output as a fenced code block to the session's composer draft without sending it. Closing the sheet cancels a running command. When `commands.enabled` is false the sheet SHALL say that commands are off on the computer and show the command that turns them on. Texts SHALL be translated (en-US, pt-BR, es-ES).
+The session's More options menu SHALL offer "Run command…" when the daemon's `auth.ok` has `commands`. It SHALL open a sheet with a monospaced, multi-line command field (no autocorrect or capitalization) and the session's folder: Return inserts a line break, the Run button (and Command+Return with a hardware keyboard) runs, and a pasted block keeps its lines. Several lines SHALL run in order and stop at the first one that fails (the app sends them under `set -e`), which the sheet says under the field; a script over the command size limit SHALL not be runnable, with the reason shown. Running SHALL ask for confirmation every time, showing every line of the command and the folder. The output SHALL stream into a scrollable, selectable, monospaced panel, headed by `$ <line>` for each line of the command, that stays at the end while new output arrives, with the state (running with elapsed time, exit code, cancelled, timed out, output limit reached, failed to start), Cancel while running, Copy output and "Add to prompt", which appends the command (every line, each after `$ `) and its output as a fenced code block to the session's composer draft without sending it. Closing the sheet cancels a running command. When `commands.enabled` is false the sheet SHALL say that commands are off on the computer and show the command that turns them on. Texts SHALL be translated (en-US, pt-BR, es-ES).
 
 #### Scenario: Confirm before running
 - **WHEN** the user types `pnpm test` and taps Run
 - **THEN** an alert asks to run `pnpm test` in the session's folder, and nothing runs until the user confirms
 
+#### Scenario: Several lines
+- **WHEN** the user pastes `cd app`, `yarn install` and `yarn dev` on three lines and taps Run
+- **THEN** the alert shows the three lines, the daemon receives them under `set -e` so a failing `yarn install` stops `yarn dev`, and the panel starts with `$ cd app`, `$ yarn install`, `$ yarn dev`
+
 #### Scenario: Add to prompt
 - **WHEN** a command finished and the user taps "Add to prompt"
-- **THEN** the session's draft gains a fenced block with `$ <command>`, its output and the exit status, the sheet closes and nothing is sent yet
+- **THEN** the session's draft gains a fenced block with `$ <command>` (one `$` line per command line), its output and the exit status, the sheet closes and nothing is sent yet
 
 #### Scenario: Commands off
 - **WHEN** the daemon reports `commands.enabled: false`
 - **THEN** the sheet shows that commands are off and `remote-harness commands on`, with no Run button
+
+### Requirement: Run from the conversation
+While the daemon offers commands and they are on (`auth.ok.commands.enabled`), a long press on the command of a `Bash` tool call card and on a fenced code block whose language is `sh`, `bash`, `zsh` or `shell` SHALL show a menu with **Copy** and **Run on the computer**. Run on the computer SHALL open the Run command sheet with the command filled in — every line of a multi-line command, and without the `$ ` console prompts when every line of the block starts with one — where the user confirms as usual; nothing runs from the menu itself, and a plain tap keeps its current behavior. The same two actions SHALL be reachable as accessibility actions on the card and the block. Without commands on that computer the menu and the actions SHALL be absent. Texts SHALL be translated (en-US, pt-BR, es-ES).
+
+#### Scenario: From a Bash card
+- **WHEN** the user presses and holds the card of a `Bash` call that ran `pnpm test` and picks Run on the computer
+- **THEN** the Run command sheet opens with `pnpm test` in the field and the usual confirmation follows when they tap Run
+
+#### Scenario: Console block
+- **WHEN** an assistant message has a `bash` block reading `$ cd app` and `$ yarn install` and the user picks Run on the computer
+- **THEN** the sheet opens with `cd app` and `yarn install` on two lines, without the prompts
+
+#### Scenario: Commands off
+- **WHEN** the daemon reports `commands.enabled: false`
+- **THEN** a long press on a Bash card or a shell block offers no Run on the computer

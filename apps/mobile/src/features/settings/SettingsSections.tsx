@@ -19,6 +19,7 @@ import { MachineCard } from './MachineCard'
 import { NewSessionCard } from './NewSessionCard'
 import { NotificationsCard } from './NotificationsCard'
 import { ProfilesCard } from './ProfilesCard'
+import { SchedulesCard } from './SchedulesCard'
 import { TemplatesCard } from './TemplatesCard'
 
 /** One section of Settings: its cards in a scrolling column, under the section's title in the header. */
@@ -71,12 +72,13 @@ export function ProfilesSettings() {
   )
 }
 
-/** Settings → Sessions: New session defaults, prompt templates and the keyboard. */
+/** Settings → Sessions: New session defaults, prompt templates, scheduled prompts and the keyboard. */
 export function SessionsSettings() {
   return (
     <SettingsSectionScreen>
       <NewSessionCard />
       <TemplatesCard />
+      <SchedulesCard />
       <KeyboardCard />
     </SettingsSectionScreen>
   )

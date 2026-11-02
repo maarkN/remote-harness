@@ -6,6 +6,7 @@ import {
   LiveDataMessageSchema,
   LiveStatusPropsSchema,
   liveNotificationText,
+  liveTurnDuration,
   ProfileSchema,
   parseClientMessage,
   parseServerMessage,
@@ -176,6 +177,32 @@ const clientSamples: ClientMessage[] = [
   { type: 'pane.subscribe', id: '1', sessionId: 's' },
   { type: 'pane.unsubscribe', id: '1', sessionId: 's' },
   { type: 'settings.mute', id: '1', target: 'profile', targetId: 'claudin', muted: true },
+  { type: 'schedules.list', id: '1' },
+  {
+    type: 'schedule.create',
+    id: '1',
+    schedule: {
+      title: 'Daily summary',
+      prompt: 'Summarize yesterday',
+      target: { kind: 'session', sessionId: 's' },
+      when: { kind: 'repeat', time: '09:00', days: [1, 2, 3, 4, 5] },
+      enabled: true,
+    },
+  },
+  {
+    type: 'schedule.update',
+    id: '1',
+    scheduleId: 'sch1',
+    schedule: {
+      title: 'Once',
+      prompt: 'Run the tests',
+      target: { kind: 'new', profileId: 'claudin', cwd: '/w', worktree: true, name: 'Nightly' },
+      when: { kind: 'once', at: '2026-11-02T08:00:00.000Z' },
+      enabled: true,
+    },
+  },
+  { type: 'schedule.remove', id: '1', scheduleId: 'sch1' },
+  { type: 'schedule.run', id: '1', scheduleId: 'sch1' },
 ]
 
 const session: Session = {
@@ -523,6 +550,25 @@ const serverSamples: ServerMessage[] = [
   { type: 'diagnostics.result', replyTo: '1', daemonVersion: '0.12.0', errors: [] },
   { type: 'mute.updated', muted: { profiles: ['claudin'], sessions: [] } },
   {
+    type: 'schedules.result',
+    replyTo: '1',
+    schedules: [
+      {
+        id: 'sch1',
+        title: 'Daily summary',
+        prompt: 'Summarize yesterday',
+        target: { kind: 'session', sessionId: 's' },
+        when: { kind: 'repeat', time: '09:00', days: [1, 2, 3, 4, 5] },
+        enabled: true,
+        createdAt: '2026-11-01T10:00:00.000Z',
+        updatedAt: '2026-11-01T10:00:00.000Z',
+        lastRun: { at: '2026-11-02T12:00:00.000Z', outcome: 'missed', error: null, sessionId: null },
+        nextRunAt: '2026-11-03T12:00:00.000Z',
+      },
+    ],
+  },
+  { type: 'schedules.updated', schedules: [] },
+  {
     type: 'daemon.update.info',
     replyTo: '1',
     info: {
@@ -725,8 +771,12 @@ describe('client messages', () => {
         finished: 'finished',
         open: 'Open',
       },
+      agent: 'codex',
     }
     expect(LiveStatusPropsSchema.parse({ ...full, prompt: 'secret' })).toEqual(full)
+    // An agent this app does not know reads as absent, like `Session.agent`.
+    expect(LiveStatusPropsSchema.parse({ ...full, agent: 'other' }).agent).toBeUndefined()
+    expect(LiveStatusPropsSchema.parse(props).agent).toBeUndefined()
     expect(LiveStatusPropsSchema.safeParse({ ...full, progress: { done: 1, total: 0 } }).success).toBe(false)
     // The pending request carries identifiers and labels only.
     expect(
@@ -734,6 +784,34 @@ describe('client messages', () => {
         .pending,
     ).toEqual(full.pending)
     expect(LiveStatusPropsSchema.safeParse({ ...props, state: 'error' }).success).toBe(false)
+  })
+
+  test('the turn duration reads in words: seconds, minutes, then hours', () => {
+    expect(liveTurnDuration(40_000)).toBe('40 s')
+    expect(liveTurnDuration(59_900)).toBe('1 min')
+    expect(liveTurnDuration(12 * 60_000 + 30_000)).toBe('12 min')
+    expect(liveTurnDuration(65 * 60_000)).toBe('1 h 05 min')
+    expect(liveTurnDuration(2 * 3_600_000)).toBe('2 h')
+    expect(liveTurnDuration(-5)).toBe('0 s')
+  })
+
+  test('the Android title starts with the agent name when the props carry one', () => {
+    const props = LiveStatusPropsSchema.parse({
+      title: 'Work',
+      state: 'done',
+      status: 'Done',
+      step: '',
+      tools: '',
+      startedAt: 1,
+      session: 'Fix login',
+      activity: 'Finished after 4 min',
+      agent: 'codex',
+    })
+    expect(liveNotificationText(props)).toEqual({
+      title: 'Codex · Fix login · Done',
+      body: 'Finished after 4 min',
+    })
+    expect(liveNotificationText({ ...props, agent: undefined }).title).toBe('Fix login · Done')
   })
 
   test('live status props carry the app palette when the registration had one', () => {

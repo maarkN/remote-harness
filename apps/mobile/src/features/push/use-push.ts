@@ -6,6 +6,8 @@ import { AppState, Platform } from 'react-native'
 import { useConnectionStore } from '@/core/connection'
 import type { TFunction } from '@/core/i18n/create'
 import { devicePlatform } from '@/core/platform/platform'
+import { reportedForeground } from '@/features/hands-free/background'
+import { useHandsFreeStore } from '@/features/hands-free/store'
 import { openSession as openSessionScreen } from '@/features/sessions/open-session'
 import { switchToComputer } from '@/features/sessions/switch-computer'
 import { requestVoiceReply } from '@/features/voice/voice-request-store'
@@ -199,10 +201,20 @@ export function usePush() {
 
   useEffect(() => {
     if (!client || demo) return
+    // With hands-free on the app reads the events aloud, so it counts as the foreground (no push).
     const report = () =>
-      client.send({ type: 'app.visibility', foreground: AppState.currentState === 'active' })
+      client.send({
+        type: 'app.visibility',
+        foreground: reportedForeground(
+          AppState.currentState,
+          useHandsFreeStore.getState().sessionId !== null,
+        ),
+      })
     const appState = AppState.addEventListener('change', report)
     const offReady = client.onReady(report)
+    const offHandsFree = useHandsFreeStore.subscribe((state, previous) => {
+      if ((state.sessionId !== null) !== (previous.sessionId !== null)) report()
+    })
 
     const messaging = loadMessaging()
     const platform = devicePlatform(Platform.OS)
@@ -273,6 +285,7 @@ export function usePush() {
     return () => {
       appState.remove()
       offReady()
+      offHandsFree()
       offToken?.()
     }
   }, [client, demo])

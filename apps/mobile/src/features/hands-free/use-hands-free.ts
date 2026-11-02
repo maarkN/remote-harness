@@ -3,14 +3,18 @@ import * as Haptics from 'expo-haptics'
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AppState } from 'react-native'
 import { useDaemonClient } from '@/core/connection'
 import { currentLocale, i18n } from '@/core/i18n'
-import { streamKey, useTranscriptStore } from '../conversation/store'
+import { HandsFreeBackground } from '../../../modules/hands-free-background'
+import { streamKey, subscribeTranscript, useTranscriptStore } from '../conversation/store'
+import { useMuteStore } from '../mute/store'
 import { usePermissionsStore } from '../permissions/store'
 import { useRespond } from '../permissions/use-respond'
 import { useSessionsStore } from '../sessions/store'
 import { resolveVoiceLanguage } from '../voice/language'
 import { useVoiceLanguageStore } from '../voice/voice-language-store'
+import { announces, backgroundTexts, idleDeadline, idleOffSentence } from './background'
 import { parseCommand } from './commands'
 import {
   type Effect,
@@ -27,6 +31,10 @@ import { lastAnswer, permissionSentence, questionSentence, turnSentence } from '
 /** Listening stops after this long without a final result (counts as silence). */
 const LISTEN_MS = 8_000
 const KEEP_AWAKE_TAG = 'hands-free'
+/** How often the background idle check runs. */
+const IDLE_CHECK_MS = 60_000
+/** iOS: speech plays through the session `HandsFreeBackground` configured (spoken audio, ducking others). */
+const SPEECH_SESSION = HandsFreeBackground ? { useApplicationAudioSession: true } : {}
 
 export type HandsFree = {
   phase: Phase
@@ -63,7 +71,10 @@ function requestItem(request: PermissionRequestInfo, t: typeof i18n.t): Item {
 /**
  * Runs the hands-free engine for a session while `enabled`: reads new turns, permissions and
  * questions aloud, listens for commands and carries out what the engine decides. Only what happens
- * after it is turned on is read. `onExit` turns it off ("stop", or the session ended).
+ * after it is turned on is read. `onExit` turns it off ("stop", the lock-screen control, the idle
+ * timeout, or the session ended). With the screen locked or the app in the background (#446) the
+ * native keep-alive holds the connection and the audio session; a muted session is not read then,
+ * and 30 minutes without activity turn the mode off.
  */
 export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => void): HandsFree {
   const { t } = useTranslation()
@@ -74,6 +85,8 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
   const listenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const heardText = useRef('')
   const listening = useRef(false)
+  /** When something was last read, heard or changed; the background idle timeout counts from it. */
+  const lastActivity = useRef(Date.now())
   // Effects call back into `dispatch`; refs keep the latest callbacks without re-subscribing.
   const latest = useRef({ client, respond, answer, onExit, t })
   latest.current = { client, respond, answer, onExit, t }
@@ -87,6 +100,7 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
   // `run` reads the latest callbacks through refs, so `dispatch` never changes.
   const runEffect = useRef<(effect: Effect) => void>(() => undefined)
   const dispatch = useCallback((event: HandsFreeEvent) => {
+    lastActivity.current = Date.now()
     const { state, effects } = step(engine.current, event, latest.current.t)
     engine.current = state
     setUi({ phase: state.phase, lastSaid: state.lastSaid })
@@ -100,6 +114,7 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
         stopListening()
         loadSpeech()?.speak(effect.text, {
           language: i18n.language,
+          ...SPEECH_SESSION,
           onDone: () => dispatch({ type: 'spoken' }),
           onError: () => dispatch({ type: 'spoken' }),
         })
@@ -154,15 +169,40 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
     clearTimeout(listenTimer.current)
     const language = resolveVoiceLanguage(useVoiceLanguageStore.getState().language, currentLocale())
     dispatch({ type: 'heard', command: parseCommand(heardText.current, language) })
+    // The recognizer left the session in record mode: back to playback until the next listening.
+    if (!listening.current) HandsFreeBackground?.release()
   })
+
+  // Our own subscription keeps the turns coming after the conversation screen is gone.
+  useEffect(() => {
+    if (!enabled || !client) return
+    return subscribeTranscript(client, sessionId)
+  }, [enabled, client, sessionId])
 
   useEffect(() => {
     if (!enabled) return
     let active = true
+    let exiting = false
     engine.current = INITIAL_STATE
+    lastActivity.current = Date.now()
     const keepAwake = loadKeepAwake()
     void keepAwake?.activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined)
     void ExpoSpeechRecognitionModule.requestPermissionsAsync().catch(() => undefined)
+
+    // The keep-alive and the lock-screen control (#446); `null` on binaries without the module.
+    const sessionNow = () => useSessionsStore.getState().sessions[sessionId]
+    HandsFreeBackground?.start(
+      backgroundTexts({ id: sessionId, title: sessionNow()?.title ?? '' }, latest.current.t),
+    )
+    const offStop = HandsFreeBackground?.addListener('onStop', () => {
+      if (active) latest.current.onExit()
+    })
+    const offTalk = HandsFreeBackground?.addListener('onTalk', () => dispatch({ type: 'talk' }))
+    /** Read aloud now? Always in the foreground; not a muted session in the background. */
+    const announced = () => {
+      const session = sessionNow()
+      return !session || announces(session, useMuteStore.getState(), AppState.currentState === 'active')
+    }
 
     // Only what happens from now on is read: the current answer and requests count as seen.
     const key = streamKey(sessionId)
@@ -173,7 +213,7 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
     const seen = new Set(pendingOf().map((r) => r.requestId))
     dispatch({ type: 'enqueue', item: { kind: 'notice', say: latest.current.t('handsFree.on') } })
 
-    let state = useSessionsStore.getState().sessions[sessionId]?.state
+    let state = sessionNow()?.state
     const offSessions = useSessionsStore.subscribe((store) => {
       const session = store.sessions[sessionId]
       if (!session || session.state === 'ended' || !session.controllable) {
@@ -181,11 +221,13 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
         return
       }
       const finished = state === 'running' && session.state !== 'running'
+      if (session.state !== state) lastActivity.current = Date.now()
       state = session.state
       if (!finished) return
       const entry = lastAnswer(entries())
       if (entry?.kind !== 'assistant_text' || entry.uuid === lastRead) return
       lastRead = entry.uuid
+      if (!announced()) return
       dispatch({ type: 'enqueue', item: { kind: 'notice', say: turnSentence(entry.text, latest.current.t) } })
     })
     const offPermissions = usePermissionsStore.subscribe(() => {
@@ -194,6 +236,8 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
       for (const request of pending) {
         if (seen.has(request.requestId)) continue
         seen.add(request.requestId)
+        // A muted session's request in the background stays for the screen.
+        if (!announced()) continue
         dispatch({ type: 'enqueue', item: requestItem(request, latest.current.t) })
       }
       for (const id of [...seen]) {
@@ -202,22 +246,47 @@ export function useHandsFree(sessionId: string, enabled: boolean, onExit: () => 
         dispatch({ type: 'resolved', requestId: id })
       }
     })
+
+    // In the background, 30 minutes without anything read, heard or changed turn the mode off.
+    const idle = setInterval(async () => {
+      if (!active || exiting || AppState.currentState === 'active') return
+      if (Date.now() < idleDeadline(lastActivity.current)) return
+      exiting = true
+      stopListening()
+      engine.current = INITIAL_STATE
+      const bye = () => {
+        if (active) latest.current.onExit()
+      }
+      const speech = loadSpeech()
+      if (!speech) return bye()
+      await speech.stop().catch(() => undefined)
+      if (!active) return
+      speech.speak(idleOffSentence(latest.current.t), {
+        language: i18n.language,
+        ...SPEECH_SESSION,
+        onDone: bye,
+        onError: bye,
+      })
+    }, IDLE_CHECK_MS)
+
     return () => {
       active = false
+      clearInterval(idle)
+      offStop?.remove()
+      offTalk?.remove()
       offSessions()
       offPermissions()
       loadSpeech()?.stop()
       stopListening()
       keepAwake?.deactivateKeepAwake(KEEP_AWAKE_TAG)
+      HandsFreeBackground?.stop()
       engine.current = INITIAL_STATE
       setUi({ phase: 'idle', lastSaid: '' })
     }
   }, [enabled, sessionId, dispatch, stopListening])
 
-  return {
-    phase: ui.phase,
-    lastSaid: ui.lastSaid,
-    talk: () => dispatch({ type: 'talk' }),
-    repeat: () => dispatch({ type: 'repeat' }),
-  }
+  const talk = useCallback(() => dispatch({ type: 'talk' }), [dispatch])
+  const repeat = useCallback(() => dispatch({ type: 'repeat' }), [dispatch])
+
+  return { phase: ui.phase, lastSaid: ui.lastSaid, talk, repeat }
 }

@@ -49,8 +49,11 @@ export async function registerLiveStatusFeature(
     profileOf: (sessionId) => options.store.get(sessionId)?.profileId ?? null,
     info: (sessionId, profileId) => {
       const session = options.store.get(sessionId)
+      const profile = ctx.profiles.find((p) => p.id === profileId)
       return {
-        title: ctx.profiles.find((p) => p.id === profileId)?.name ?? profileId ?? 'Claude',
+        title: profile?.name ?? profileId ?? 'Claude',
+        // The card shows the agent's badge; a profile without one runs Claude Code.
+        agent: profile?.agent ?? 'claude',
         host,
         session: session?.title ?? '',
         path: session ? shortenHome(session.cwd) : '',

@@ -533,7 +533,7 @@ export const esES = {
       thinking: 'Pensando…',
       writing: 'Escribiendo la respuesta…',
       tool: 'Usando herramientas…',
-      finished: 'Terminado',
+      finishedAfter: (duration: string) => `Terminado tras ${duration}`,
     },
     /** Small words around the card's timers, and its Open button. */
     labels: {
@@ -679,6 +679,9 @@ export const esES = {
     planPending: 'Plan listo para revisar',
     questionReminder: 'Todavía esperando tu respuesta',
     planReminder: 'El plan todavía espera tu revisión',
+    scheduleRan: 'Prompt programado enviado',
+    scheduleFailed: 'Prompt programado falló',
+    scheduleMissed: 'Prompt programado perdido',
     testTitle: 'Notificación de prueba',
     testBody: (host: string) => `Las notificaciones de ${host} funcionan`,
   },

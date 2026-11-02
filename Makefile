@@ -7,6 +7,8 @@
 #   OTA_KEY=<path>       private key that signs OTA updates
 #   IOS_LINK_DIR=<path>  folder of the install link: builds, the web token shared with install-android-link
 #                        (default ~/.remote-harness-builds/ios)
+#   STORE_DIR=<path>     where build-android-bundle and build-ios leave the store builds
+#                        (default ~/.remote-harness-builds/store)
 #   PROJECT=<id>         Firebase project for deploy-push-relay
 #   REMOTE_HARNESS_UPDATES_TOKEN (or the older CLAUDE_REMOTE_UPDATES_TOKEN) must be in the environment for publish-ota (never stored here).
 #   REMOTE_HARNESS_WEB_SSH=<user@host> server of remoteharness.app for deploy-web and the web install links
@@ -25,6 +27,7 @@ APP := @remote-harness/mobile
 # ~/.remote-harness-keys, or the folder used before the rename when only that one exists.
 OTA_KEY ?= $(if $(wildcard $(HOME)/.remote-harness-keys/private-key.pem),$(HOME)/.remote-harness-keys,$(if $(wildcard $(HOME)/.claude-remote-keys/private-key.pem),$(HOME)/.claude-remote-keys,$(HOME)/.remote-harness-keys))/private-key.pem
 IOS_LINK_DIR ?= $(HOME)/.remote-harness-builds/ios
+STORE_DIR ?= $(HOME)/.remote-harness-builds/store
 
 device_flag = $(if $(DEVICE),--device "$(DEVICE)",--device)
 platform_flag = $(if $(PLATFORM),--platform $(PLATFORM))
@@ -33,6 +36,7 @@ CHANNEL ?= production
 .PHONY: help install check lint-fix openspec \
 	daemon-dev daemon-build \
 	start ios-dev android-dev prebuild ios-devices install-ios install-ios-link install-android install-android-link \
+	build-android-bundle build-ios publish-ios \
 	publish-ota publish-ota-dry \
 	deploy-push-relay deploy-relay deploy-relay-br
 
@@ -116,6 +120,25 @@ install-android-link: ## Release APK on the same remoteharness.app link as insta
 		echo "▸ gradlew assembleRelease" && \
 		(cd android && ./gradlew --quiet assembleRelease) && \
 		npx tsx scripts/android-link.mts android/app/build/outputs/apk/release/app-release.apk "$(IOS_LINK_DIR)"
+
+## Store builds
+
+build-android-bundle: ## Google Play bundle (.aab) signed with the upload key, into STORE_DIR (fresh android/)
+	@cd $(MOBILE) && npx tsx scripts/store-android.mts --check && \
+		npx expo prebuild --platform android --clean && \
+		npx tsx scripts/store-android.mts "$(STORE_DIR)"
+
+build-ios: ## App Store build (.ipa) into STORE_DIR (fresh ios/; bump APP_VERSION before each upload)
+	@cd $(MOBILE) && npx tsx scripts/store-ios.mts --check && \
+		npx expo prebuild --platform ios --clean && \
+		echo "▸ xcodebuild archive (Release)" && \
+		xcodebuild -quiet -workspace ios/$(IOS_APP).xcworkspace -scheme $(IOS_APP) \
+			-configuration Release -destination generic/platform=iOS -derivedDataPath ios/build \
+			-archivePath ios/build/$(IOS_APP).xcarchive -allowProvisioningUpdates archive && \
+		npx tsx scripts/store-ios.mts export ios/build/$(IOS_APP).xcarchive "$(STORE_DIR)"
+
+publish-ios: ## Upload the last build-ios to App Store Connect / TestFlight (REMOTE_HARNESS_ASC_* keys)
+	@cd $(MOBILE) && npx tsx scripts/store-ios.mts upload "$(STORE_DIR)/RemoteHarness.ipa"
 
 ## OTA updates
 

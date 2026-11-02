@@ -218,6 +218,14 @@ const enUS = {
     addToPrompt: 'Add to prompt',
     running: 'Running… {{elapsed}}',
     clipped: '… earlier output hidden',
+    /** Several lines (#475): Return adds one; they run in order under `set -e`. */
+    multilineHint:
+      'Return adds a line. Run (or ⌘↩ with a keyboard) runs the lines in order and stops at the first one that fails.',
+    tooLong: 'The command is over {{max}} characters.',
+    /** Long press on a command in the conversation (#477). */
+    copyCommand: 'Copy command',
+    runHere: 'Run on the computer',
+    longPressHint: 'Press and hold for Copy and Run on the computer',
     confirm: {
       title: 'Run this command?',
       body: '{{command}}\n\nIt runs on the computer, in {{folder}}, as your user.',
@@ -302,6 +310,7 @@ const enUS = {
     showKeys: 'Show keyboard shortcuts',
     hideKeys: 'Hide keyboard shortcuts',
     templates: 'Prompt templates…',
+    schedule: 'Schedule a prompt…',
     history: 'Conversation history',
     changes: 'Review changes',
     follow: 'Follow output',
@@ -539,7 +548,8 @@ const enUS = {
       finished: 'finished',
       open: 'Open',
     },
-    finished: 'Finished',
+    /** Done state of the app's own update; `duration` is the turn's length in words ("12 min"). */
+    finishedAfter: 'Finished after {{duration}}',
   },
   widgets: {
     /** Widget gallery (iOS) and widget picker (Android). */
@@ -825,6 +835,11 @@ const enUS = {
     open: 'Image {{index}} of {{count}}. Opens full screen',
     viewer: 'Image {{index}} of {{count}}',
     zoomHint: 'Pinch or double tap to zoom',
+    /** The viewer as a gallery of the message's images (#478). */
+    swipeHint: 'Swipe to see the other images',
+    previous: 'Previous image',
+    next: 'Next image',
+    thumbnail: 'Show image {{index}} of {{count}}',
     close: 'Close image',
     count_one: '{{count}} image',
     count_other: '{{count}} images',
@@ -1219,6 +1234,9 @@ const enUS = {
     templates: 'Prompt templates',
     templatesHint:
       'Reusable prompts with placeholders, kept on this device; picked from the composer and from New session.',
+    schedules: 'Scheduled prompts',
+    schedulesHint:
+      'Prompts the computer sends by itself, once or every day at a time, even with the app closed.',
     keyboardCard: 'Keyboard',
     returnSends: 'Return key sends',
     returnSendsHint:
@@ -1444,6 +1462,87 @@ const enUS = {
     repeat: 'Repeat',
     exit: 'Exit',
     talkHint: 'Starts listening for a message or a command',
+    /** Lock-screen card (iOS) / persistent notification (Android) while hands-free is on (#446). */
+    background: {
+      title: 'Hands-free is on',
+      stop: 'Stop',
+      channel: 'Hands-free',
+    },
+    idleOff: 'Hands-free turned off after {{minutes}} minutes without activity.',
+  },
+  /** In-app banner for what happens in the other sessions while the app is in front (#472). */
+  notices: {
+    finished: 'Session finished',
+    permission: 'Permission requested',
+    question: 'Has a question',
+    plan: 'Plan ready for review',
+    openHint: 'Opens the session',
+    dismiss: 'Dismiss',
+  },
+  /** Scheduled prompts (#432): kept and run by the computer, managed here. */
+  schedules: {
+    title: 'Scheduled prompts',
+    hint: 'The computer sends these prompts by its own clock, with the app closed. A run it missed (asleep, daemon down) waits for you here.',
+    new: 'New schedule',
+    edit: 'Edit schedule',
+    empty: 'No scheduled prompts',
+    emptyHint: 'Send a prompt to an open session or start a new one: once, or every day at a time.',
+    count_one: '{{count}} schedule',
+    count_other: '{{count}} schedules',
+    titleLabel: 'Title',
+    titlePlaceholder: 'Daily summary',
+    promptLabel: 'Prompt',
+    promptPlaceholder: 'What the agent should do',
+    useTemplate: 'Use a template…',
+    targetLabel: 'Where',
+    targetSession: 'Open session',
+    targetNew: 'New session',
+    noSessions: 'No open session takes input right now.',
+    profileLabel: 'Profile',
+    folderLabel: 'Folder',
+    folderPlaceholder: '~/code/app',
+    worktree: 'Isolated copy (git worktree)',
+    whenLabel: 'When',
+    repeat: 'Repeat',
+    once: 'Once',
+    daysHint: 'No day selected = every day.',
+    timeLabel: 'Time (HH:MM)',
+    dateLabel: 'Date (YYYY-MM-DD)',
+    clockHint: 'Times follow the computer’s clock.',
+    enabled: 'Enabled',
+    save: 'Save',
+    delete: 'Delete schedule',
+    deleteTitle: 'Delete this schedule?',
+    deleteBody: '“{{title}}” will not run again.',
+    runNow: 'Run now',
+    failed: 'That didn’t work',
+    errors: {
+      title: 'Give it a title.',
+      prompt: 'Write the prompt.',
+      promptTooLong: 'The prompt is over {{max}} characters.',
+      target: 'Pick where it runs.',
+      time: 'Time as HH:MM.',
+      date: 'Date as YYYY-MM-DD.',
+      past: 'That moment has passed.',
+    },
+    when: {
+      once: 'Once · {{when}}',
+      daily: 'Every day at {{time}}',
+      workdays: 'Weekdays at {{time}}',
+      days: '{{days}} at {{time}}',
+    },
+    /** Keyed by `Date.getDay()` (d0 = Sunday). */
+    days: { d0: 'Sun', d1: 'Mon', d2: 'Tue', d3: 'Wed', d4: 'Thu', d5: 'Fri', d6: 'Sat' },
+    target: { newSession: 'New session', goneSession: 'Session no longer open' },
+    next: { none: 'No next run', off: 'Off', at: 'Next: {{when}}' },
+    run: {
+      never: 'Never ran',
+      sent: 'Sent {{ago}}',
+      queued: 'Queued {{ago}}',
+      started: 'Started a session {{ago}}',
+      missed: 'Missed {{ago}}',
+      failed: 'Failed: {{reason}}',
+    },
   },
   /** Sentences Siri (and other voice assistants) speak back; plain text, read aloud. */
   assistant: {

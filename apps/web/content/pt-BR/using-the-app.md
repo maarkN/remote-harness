@@ -38,7 +38,7 @@ O chip de **modo** troca o modo de permissão: padrão, aceitar edições, plano
 
 ## Rodar um comando
 
-**Rodar comando…** (menu da sessão) roda um comando de shell na pasta da sessão no computador, como o `!` do Claude Code, e mostra a saída ao vivo: `git status`, `ls`, `pnpm test`. O app confirma antes de cada comando; **Parar** encerra, **Copiar saída** copia e **Adicionar ao prompt** coloca o comando e a saída no composer como bloco de código para o agente, sem enviar. Fica desligado até você rodar `remote-harness commands on` no computador; os comandos têm limite de tempo e de saída, e nada interativo funciona (não há entrada pelo teclado).
+**Rodar comando…** (menu da sessão) roda um comando de shell na pasta da sessão no computador, como o `!` do Claude Code, e mostra a saída ao vivo: `git status`, `ls`, `pnpm test`. O campo aceita várias linhas (Return adiciona uma; Rodar, ou ⌘↩ com teclado, executa): elas rodam em ordem e param na primeira que falhar, então uma sequência copiada da conversa (`cd app`, `yarn install`, `yarn dev`) pode ser colada como está. O app confirma antes de cada comando; **Parar** encerra, **Copiar saída** copia e **Adicionar ao prompt** coloca o comando e a saída no composer como bloco de código para o agente, sem enviar. Toque e segure um comando na conversa (uma chamada da ferramenta Bash, ou um bloco de código `sh` / `bash`) para **Copiar** e **Rodar no computador**, que abre a folha com esse comando preenchido. Fica desligado até você rodar `remote-harness commands on` no computador; os comandos têm limite de tempo e de saída, e nada interativo funciona (não há entrada pelo teclado).
 
 ## Revisando alterações
 
@@ -56,9 +56,13 @@ Enquanto o agente delega trabalho, o menu do cabeçalho mostra **Subagentes (N �
 
 **Retomar** reabre uma sessão encerrada ou somente leitura dentro do tmux, com o mesmo histórico. **Encerrar** termina a sessão; quando ela rodou num worktree, o app oferece apagar só se estiver limpo e enviado, fazer commit e push antes, ou descartar o trabalho, perguntando duas vezes antes de descartar qualquer coisa.
 
+## Prompts agendados
+
+Ajustes → Sessões → **Prompts agendados** deixa o computador enviar um prompt pelo próprio relógio, com o app fechado: uma vez numa data e horário, ou todo dia num horário nos dias da semana que você escolher (os horários seguem o relógio do computador). O prompt vai para uma sessão aberta (entra na fila enquanto ela está ocupada, como qualquer prompt) ou abre uma nova sessão numa pasta com um perfil, opcionalmente numa cópia isolada e com um nome; **Usar um modelo…** preenche a partir dos seus modelos de prompt, e o menu Mais opções de uma sessão tem **Agendar um prompt…** com essa sessão como destino. O celular recebe uma notificação quando um agendamento rodou ou falhou, com o título do agendamento e nunca o prompt. Uma execução que o computador perdeu (dormindo, daemon parado por mais de cinco minutos) não roda atrasada: o agendamento mostra **Perdido** com **Rodar agora**, e você decide. Precisa de um computador atualizado para esta versão.
+
 ## Status ao vivo
 
-No iOS, uma sessão em andamento mostra uma Live Activity na tela de bloqueio e na Dynamic Island com o estado, o passo atual e o tempo decorrido; um pedido de permissão acrescenta os botões Permitir e Negar. No Android é uma notificação silenciosa sem botões: toque para responder no app. Nunca leva a conversa. Desligue em Ajustes → Notificações → Status ao vivo.
+No iOS, uma sessão em andamento mostra uma Live Activity na tela de bloqueio e na Dynamic Island com o badge do agente (Claude Code, Codex…), o estado, o passo atual e o tempo decorrido; um pedido de permissão acrescenta os botões Permitir e Negar, e quando o turno termina o cartão diz quanto ele levou ("Concluído após 12 min"). No Android é uma notificação silenciosa sem botões: toque para responder no app. Nunca leva a conversa. Desligue em Ajustes → Notificações → Status ao vivo.
 
 ## Widgets
 
@@ -72,7 +76,7 @@ A notificação de uma sessão que terminou ou está esperando tem ações: **Re
 
 ## Mãos livres
 
-Para quando as mãos e os olhos estão ocupados (de bicicleta, andando), ligue **Mãos livres** no menu Mais opções de uma sessão. O campo de mensagem vira uma barra grande com **Falar**, **Repetir** e **Sair**, e a tela fica acesa. O app lê em voz alta o fim de cada resposta (sem código), cada permissão ("… Diga permitir ou negar.") e cada pergunta com as opções numeradas, e então escuta: diga **permitir** ou **negar**, o **número da opção**, **repetir** ou **parar**. Toque em Falar para dizer uma mensagem: ela é lida de volta e só é enviada depois que você diz **sim**. Planos e pedidos esperando no terminal são avisados, mas respondidos na tela. Os comandos são entendidos no idioma de transcrição (Ajustes → Voz); a voz usa o idioma do app. Funciona com o app aberto; a leitura com a tela bloqueada ainda não está disponível.
+Para quando as mãos e os olhos estão ocupados (de bicicleta, andando), ligue **Mãos livres** no menu Mais opções de uma sessão. O campo de mensagem vira uma barra grande com **Falar**, **Repetir** e **Sair**, e a tela fica acesa. O app lê em voz alta o fim de cada resposta (sem código), cada permissão ("… Diga permitir ou negar.") e cada pergunta com as opções numeradas, e então escuta: diga **permitir** ou **negar**, o **número da opção**, **repetir** ou **parar**. Toque em Falar para dizer uma mensagem: ela é lida de volta e só é enviada depois que você diz **sim**. Planos e pedidos esperando no terminal são avisados, mas respondidos na tela. Os comandos são entendidos no idioma de transcrição (Ajustes → Voz); a voz usa o idioma do app. Continua funcionando quando você sai da sessão, bloqueia o celular ou troca de app: no iOS a tela bloqueada mostra um cartão de reprodução ("Mãos livres ligado") cujo botão de pausa desliga o modo, e o botão play/pause de um fone funciona como Falar; no Android fica uma notificação com o botão **Parar** enquanto o modo está ligado. Em segundo plano uma sessão silenciada não é lida, e depois de 30 minutos sem nada para ler ou ouvir o modo se desliga sozinho, avisando. A parte com a tela bloqueada precisa de uma build do app a partir desta versão; em builds antigas o mãos livres funciona com o app aberto.
 
 ## Siri e Atalhos
 

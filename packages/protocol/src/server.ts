@@ -29,6 +29,7 @@ import {
   RejectedRequestSchema,
   RuleFileSchema,
   RuleScopeSchema,
+  ScheduleSchema,
   SessionSchema,
   SessionStateSchema,
   SubagentInfoSchema,
@@ -59,6 +60,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     live: z.object({ follow: z.boolean() }).optional(),
     /** Present when the daemon accepts `command.run`; `enabled` is its config's opt-in. */
     commands: z.object({ enabled: z.boolean() }).optional(),
+    /** `true` when the daemon keeps scheduled prompts (`schedules.list` and the `schedule.*` messages). */
+    schedules: z.boolean().optional(),
     /** Where to reach this daemon (direct addresses, home relay); `daemon.paths` follows changes. */
     paths: DaemonPathsSchema.optional(),
   }),
@@ -271,6 +274,9 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   /** `null` when the session's folder is not inside a linked git worktree. */
   z.object({ type: z.literal('worktree.info'), replyTo, worktree: WorktreeInfoSchema.nullable() }),
   z.object({ type: z.literal('mute.updated'), muted: MuteStateSchema }),
+  /** Scheduled prompts: the reply to `schedules.list`, and the broadcast after any change or run. */
+  z.object({ type: z.literal('schedules.result'), replyTo, schedules: z.array(ScheduleSchema) }),
+  z.object({ type: z.literal('schedules.updated'), schedules: z.array(ScheduleSchema) }),
   /** Reply to `daemon.update.check` / `start`, and broadcast whenever an update run changes. */
   z.object({ type: z.literal('daemon.update.info'), replyTo, info: DaemonUpdateInfoSchema }),
   z.object({ type: z.literal('push.testResult'), replyTo, result: PushTestResultSchema }),

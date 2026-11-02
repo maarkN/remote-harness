@@ -195,6 +195,19 @@ const withSceneLifecycle: ConfigPlugin = (config) => {
  * `@expo/config-plugins`'s `ios/Orientation.ts` and `ios/DeviceFamily.ts` — so this plugin can only
  * add a key, never race with it regardless of plugin order).
  */
+/**
+ * Hands-free with the screen locked (#446): under the `audio` background mode the app keeps running
+ * while its spoken-audio session plays (`modules/hands-free-background`). expo-notifications puts
+ * `remote-notification` in the same array, so the mode is merged in, never replacing the key.
+ */
+const withHandsFreeBackground: ConfigPlugin = (config) =>
+  withInfoPlist(config, (plist) => {
+    const modes = plist.modResults.UIBackgroundModes
+    const current = Array.isArray(modes) ? modes.filter((mode) => typeof mode === 'string') : []
+    plist.modResults.UIBackgroundModes = current.includes('audio') ? current : [...current, 'audio']
+    return plist
+  })
+
 const withPerIdiomOrientation: ConfigPlugin = (config) =>
   withInfoPlist(config, (plist) => {
     plist.modResults['UISupportedInterfaceOrientations~ipad'] = [
@@ -419,29 +432,42 @@ const withAssistantActions: ConfigPlugin = (config) => {
 
 /** Target `expo-widgets` creates (and recreates on every prebuild) for the Live Activity. */
 const WIDGET_TARGET = 'ExpoWidgetsTarget'
-/** Asset the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`). */
-const LIVE_ACTIVITY_ICON_ASSET = 'LiveActivityIcon'
-const LIVE_ACTIVITY_ICON = './assets/live-activity-icon.png'
+/** Agents with a badge PNG from `scripts/icons.mts` (the ids of `src/core/theme/agents.ts`, kept literal: the config runs outside the app's module graph). */
+const LIVE_ACTIVITY_AGENTS = ['claude', 'codex', 'gemini', 'kimi', 'qwen']
+/**
+ * Assets the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`): the app
+ * mark for the header and, since #471, one badge per agent.
+ */
+const LIVE_ACTIVITY_IMAGES: { asset: string; file: string }[] = [
+  { asset: 'LiveActivityIcon', file: './assets/live-activity-icon.png' },
+  ...LIVE_ACTIVITY_AGENTS.map((id) => ({
+    asset: `Agent-${id}`,
+    file: `./assets/live-activity/agent-${id}.png`,
+  })),
+]
 
 /**
  * The widget extension is its own bundle, without the app's asset catalog: give it one holding the
- * app icon for the Live Activity header. Applied before the `plugins` list, so its mods run after
- * the `expo-widgets` ones that recreate the target directory and add the target.
+ * app icon and the agent badges for the Live Activity header. Applied before the `plugins` list, so
+ * its mods run after the `expo-widgets` ones that recreate the target directory and add the target.
  */
 const withLiveActivityIcon: ConfigPlugin = (config) => {
   const withCatalog = withDangerousMod(config, [
     'ios',
     (config) => {
       const catalog = join(config.modRequest.platformProjectRoot, WIDGET_TARGET, 'Assets.xcassets')
-      const imageSet = join(catalog, `${LIVE_ACTIVITY_ICON_ASSET}.imageset`)
       const info = { author: 'xcode', version: 1 }
-      mkdirSync(imageSet, { recursive: true })
+      mkdirSync(catalog, { recursive: true })
       writeFileSync(join(catalog, 'Contents.json'), JSON.stringify({ info }, null, 2))
-      copyFileSync(join(config.modRequest.projectRoot, LIVE_ACTIVITY_ICON), join(imageSet, 'icon.png'))
-      writeFileSync(
-        join(imageSet, 'Contents.json'),
-        JSON.stringify({ images: [{ filename: 'icon.png', idiom: 'universal' }], info }, null, 2),
-      )
+      for (const image of LIVE_ACTIVITY_IMAGES) {
+        const imageSet = join(catalog, `${image.asset}.imageset`)
+        mkdirSync(imageSet, { recursive: true })
+        copyFileSync(join(config.modRequest.projectRoot, image.file), join(imageSet, 'icon.png'))
+        writeFileSync(
+          join(imageSet, 'Contents.json'),
+          JSON.stringify({ images: [{ filename: 'icon.png', idiom: 'universal' }], info }, null, 2),
+        )
+      }
       return config
     },
   ])
@@ -760,7 +786,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                   withKeyCommandMainActivity(
                     withKeyCommandAppDelegate(
                       withKeyCommandBridgingHeader(
-                        withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+                        withPerIdiomOrientation(
+                          withHandsFreeBackground(withSceneLifecycle(appConfig(config))),
+                        ),
                       ),
                     ),
                   ),
@@ -775,12 +803,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.1.0'
+const APP_VERSION = '1.1.1'
 /**
  * Android `versionCode`: one integer, bumped by one on every release (1 = v1.1.0). Google Play only
  * takes a bundle whose code is higher than every one uploaded before, so it never goes down.
  */
-const ANDROID_VERSION_CODE = 1
+const ANDROID_VERSION_CODE = 2
 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,
@@ -912,6 +940,12 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
     [
       'expo-widgets',
       {
+        // Explicit identifiers for the widget extension and its App Group: without them the plugin falls
+        // back to `<app>.ExpoWidgetsTarget` and `group.<app>` and warns on every prebuild.
+        bundleIdentifier: `${APP_ID}.widgets`,
+        // `group.<app>` is already registered to a different Apple Developer account, so automatic
+        // signing can never create it under this team: Apple rejects the identifier outright.
+        groupIdentifier: `group.${APP_ID}app`,
         enablePushNotifications: true,
         frequentUpdates: true,
         widgets: [

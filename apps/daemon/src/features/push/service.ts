@@ -1,4 +1,10 @@
-import type { PermissionRequestInfo, Profile, PushMode, PushTestResult } from '@remote-harness/protocol'
+import type {
+  PermissionRequestInfo,
+  Profile,
+  PushMode,
+  PushTestResult,
+  Schedule,
+} from '@remote-harness/protocol'
 import type { Messages } from '../../core/i18n/index.ts'
 import type { Logger } from '../../core/logger.ts'
 import type { HookEvent } from '../hooks/payloads.ts'
@@ -111,6 +117,27 @@ export class PushService {
       body: this.profileName(info.profileId),
       data: { sessionId: info.sessionId, profileId: info.profileId, event: 'PermissionReminder' },
     }
+  }
+
+  /**
+   * A scheduled prompt's outcome (#432): the schedule's title as the body (a label the user wrote,
+   * never the prompt), opened as the session it reached or started when there is one.
+   */
+  messageForSchedule(
+    event: 'scheduleRan' | 'scheduleFailed' | 'scheduleMissed',
+    schedule: Pick<Schedule, 'title' | 'target' | 'lastRun'>,
+    profileId: string | null,
+  ): PushMessage {
+    const { messages } = this.options
+    const title =
+      event === 'scheduleRan'
+        ? messages.scheduleRan
+        : event === 'scheduleFailed'
+          ? messages.scheduleFailed
+          : messages.scheduleMissed
+    const sessionId =
+      schedule.lastRun?.sessionId ?? (schedule.target.kind === 'session' ? schedule.target.sessionId : '')
+    return { title, body: schedule.title, data: { sessionId, profileId: profileId ?? '', event } }
   }
 
   testMessage(): PushMessage {

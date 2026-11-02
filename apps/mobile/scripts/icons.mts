@@ -3,8 +3,9 @@
  * "Cursor Signal" (a terminal cursor block with the `>` prompt cut out of it and three signal arcs
  * leaving it to the right, see docs/design/identity/branding), in two weights: regular for the app
  * icon, splash and banner; bold under 24 px (notification, favicon, Live Activity, tray). Outputs:
- * `assets/*.png` + `assets/icon/*.svg` (app), the Linux tray glyph next to `tray.py`,
- * `docs/brand/og.png` (README header, Open Graph) and the Google Play feature graphic in `store/`.
+ * `assets/*.png` + `assets/icon/*.svg` (app), the agent badges of the Live Activity in
+ * `assets/live-activity/`, the Linux tray glyph next to `tray.py`, `docs/brand/og.png` (README
+ * header, Open Graph) and the Google Play feature graphic in `store/`.
  * Run: pnpm --filter @remote-harness/mobile icons
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -13,6 +14,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import opentype, { type Font } from 'opentype.js'
 import sharp from 'sharp'
+import { CLAUDE_PATH } from '../src/ui/agent-icons/paths.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const assets = join(here, '..', 'assets')
@@ -41,19 +43,19 @@ type Weight = 'regular' | 'bold'
 
 /**
  * Geometry of the mark in a 256 × 256 box (docs/design/identity/branding/icon.svg): the cursor block
- * is 62 × 104 at (34, 76), rx 13, with the `>` cut out by a round stroke; the three arcs are
- * concentric on the block's right edge (96, 128), radii 36 / 76 / 116, ±40°. The bold weight widens
+ * is 76 × 136 at (26, 60), rx 15, with the `>` cut out by a round stroke; the three arcs are
+ * concentric on the block's right edge (102, 128), radii 36 / 76 / 116, ±40°. The bold weight widens
  * the cutout and the arcs so neither closes up under 24 px.
  */
 const MARK: Record<Weight, { cutout: number; arcs: number }> = {
-  regular: { cutout: 16, arcs: 22 },
-  bold: { cutout: 24, arcs: 28 },
+  regular: { cutout: 18, arcs: 22 },
+  bold: { cutout: 26, arcs: 28 },
 }
-const CUTOUT = 'M51 104L79 128L51 152'
+const CUTOUT = 'M47 99L81 128L47 157'
 const ARCS = [
-  'M123.6 104.9A36 36 0 0 1 123.6 151.1',
-  'M154.2 79.1A76 76 0 0 1 154.2 176.9',
-  'M184.9 53.4A116 116 0 0 1 184.9 202.6',
+  'M129.6 104.9A36 36 0 0 1 129.6 151.1',
+  'M160.2 79.1A76 76 0 0 1 160.2 176.9',
+  'M190.9 53.4A116 116 0 0 1 190.9 202.6',
 ]
 
 /**
@@ -64,7 +66,7 @@ function mark(weight: Weight, color: string, id: string = weight): string {
   const m = MARK[weight]
   const maskId = `cursor-${id}`
   const mask = `<mask id="${maskId}"><rect width="256" height="256" fill="#fff"/><path d="${CUTOUT}" fill="none" stroke="#000" stroke-width="${m.cutout}" stroke-linecap="round" stroke-linejoin="round"/></mask>`
-  const block = `<rect x="34" y="76" width="62" height="104" rx="13" fill="${color}" mask="url(#${maskId})"/>`
+  const block = `<rect x="26" y="60" width="76" height="136" rx="15" fill="${color}" mask="url(#${maskId})"/>`
   const arcs = `<g fill="none" stroke="${color}" stroke-width="${m.arcs}" stroke-linecap="round">${ARCS.map((d) => `<path d="${d}"/>`).join('')}</g>`
   return `<defs>${mask}</defs>${block}${arcs}`
 }
@@ -328,4 +330,44 @@ await render(featureGraphicSvg(), join(store, 'feature-graphic.png'))
 for (const [theme, { bg, accent }] of Object.entries(ICON_THEMES)) {
   await render(containerSvg(1024, bg, accent), join(assets, 'app-icon', `${theme}.png`), 1024, bg)
   await render(adaptiveForegroundSvg(accent), join(assets, 'app-icon', `${theme}-foreground.png`), 1024)
+}
+
+// --- Agent badges for the Live Activity (#471) ---------------------------------------------------
+
+/** Ink over an agent color, as `src/core/theme/agents.ts` (`AGENT_BADGE_INK`). */
+const AGENT_BADGE_INK = '#0D0D0D'
+/**
+ * Each agent as the session list draws it (`src/ui/AgentBadge.tsx`): its fixed color (duplicated from
+ * `src/core/theme/agents.ts`, like the colors above) under the app's 24-box icon for it
+ * (`src/ui/agent-icons`; the non-Claude ones are the same neutral placeholders, see its README).
+ */
+const AGENT_BADGES: Record<string, { color: string; icon: string }> = {
+  claude: { color: '#D97757', icon: `<path d="${CLAUDE_PATH}" fill="${AGENT_BADGE_INK}"/>` },
+  codex: { color: '#2FBF8F', icon: `<path d="M12 4 L20 12 L12 20 L4 12 Z" fill="${AGENT_BADGE_INK}"/>` },
+  gemini: {
+    color: '#E3729E',
+    icon: `<rect x="5" y="5" width="14" height="14" rx="3" fill="${AGENT_BADGE_INK}"/>`,
+  },
+  kimi: { color: '#5B9BF5', icon: `<path d="M12 4 L20 19 L4 19 Z" fill="${AGENT_BADGE_INK}"/>` },
+  qwen: {
+    color: '#8C6CF5',
+    icon: `<path d="M12 3 L19.8 7.5 L19.8 16.5 L12 21 L4.2 16.5 L4.2 7.5 Z" fill="${AGENT_BADGE_INK}"/>`,
+  },
+}
+
+/** The badge: a square with corners of a quarter of its size and the icon at 60 % of it, centered. */
+function agentBadgeSvg(color: string, icon: string): string {
+  const size = 256
+  const iconSize = size * 0.6
+  const inset = (size - iconSize) / 2
+  return svg(
+    size,
+    size,
+    `<rect width="${size}" height="${size}" rx="${size / 4}" fill="${color}"/><g transform="translate(${inset} ${inset}) scale(${(iconSize / 24).toFixed(4)})">${icon}</g>`,
+  )
+}
+
+// 144 px like the Live Activity mark; app.config.ts copies them into the widget's asset catalog.
+for (const [id, badge] of Object.entries(AGENT_BADGES)) {
+  await render(agentBadgeSvg(badge.color, badge.icon), join(assets, 'live-activity', `agent-${id}.png`), 144)
 }
