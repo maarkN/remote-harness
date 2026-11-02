@@ -804,11 +804,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 }
 
 const APP_VERSION = '1.1.1'
+
 /**
- * Android `versionCode`: one integer, bumped by one on every bundle sent to the console (1 = the internal test build of v1.1.0, 2 = v1.1.1). Google Play only
- * takes a bundle whose code is higher than every one uploaded before, so it never goes down.
+ * Android `versionCode` from the version: MAJOR × 1 000 000 + MINOR × 1 000 + PATCH, so 1.1.1 is
+ * 1001001. Google Play only rolls out a bundle whose code is higher than every one it already has for
+ * any user, and the first internal builds went up with the same scheme (1.0.2 was 1000002), so the
+ * code can never restart from 1 again. A second bundle of the same version needs a PATCH bump.
  */
-const ANDROID_VERSION_CODE = 2
+export function androidVersionCode(version: string): number {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+  if (!match) throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH, got "${version}"`)
+  const [major, minor, patch] = match.slice(1).map(Number) as [number, number, number]
+  if (minor > 999 || patch > 999)
+    throw new Error(`version parts above 999 do not fit the version code: "${version}"`)
+  return major * 1_000_000 + minor * 1_000 + patch
+}
+const ANDROID_VERSION_CODE = androidVersionCode(APP_VERSION)
 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,

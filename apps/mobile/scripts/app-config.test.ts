@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addShortcutsMetaData,
+  androidVersionCode,
   appIntentFiles,
   copyMainActivityFiltersToAliases,
   USER_LEAVE_HINT_EVENT,
@@ -8,6 +9,21 @@ import {
   widgetPickerStrings,
 } from '../app.config.ts'
 import { USER_LEAVE_HINT_EVENT as APP_ICON_EVENT } from '../src/features/settings/app-icon.ts'
+
+describe('androidVersionCode', () => {
+  it('grows with the version and stays above the codes Google Play already has', () => {
+    expect(androidVersionCode('1.0.2')).toBe(1000002)
+    expect(androidVersionCode('1.1.1')).toBe(1001001)
+    expect(androidVersionCode('1.1.1')).toBeGreaterThan(androidVersionCode('1.0.2'))
+    expect(androidVersionCode('2.0.0')).toBeGreaterThan(androidVersionCode('1.999.999'))
+  })
+
+  it('refuses anything but MAJOR.MINOR.PATCH', () => {
+    expect(() => androidVersionCode('1.1')).toThrow()
+    expect(() => androidVersionCode('1.1.1-beta')).toThrow()
+    expect(() => androidVersionCode('1.1000.0')).toThrow()
+  })
+})
 
 type Application = Parameters<typeof copyMainActivityFiltersToAliases>[0]
 
