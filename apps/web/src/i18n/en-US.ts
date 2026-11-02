@@ -179,6 +179,7 @@ export const enUS = {
     agents: {
       title: 'Your agents, in tmux',
       body: 'One window per session, one alias per profile, for Claude Code, Codex, Gemini CLI, Kimi CLI or Qwen Code.',
+      moreAliases: 'see more',
       aliases: [
         { mark: 'claude' as MarkId, text: 'personal → ~/.claude' },
         { mark: 'claude' as MarkId, text: 'work → ~/.claude-work' },

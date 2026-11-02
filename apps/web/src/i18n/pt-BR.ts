@@ -171,6 +171,7 @@ export const ptBR: WebMessages = {
     agents: {
       title: 'Seus agentes, no tmux',
       body: 'Uma janela por sessão, um alias por perfil, para Claude Code, Codex, Gemini CLI, Kimi CLI ou Qwen Code.',
+      moreAliases: 'veja mais',
       aliases: [
         { mark: 'claude', text: 'pessoal → ~/.claude' },
         { mark: 'claude', text: 'trabalho → ~/.claude-work' },

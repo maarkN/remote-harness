@@ -2,6 +2,7 @@ import { agentMark } from './agent-marks.ts'
 import { esc, inline } from './html.ts'
 import { LOCALE_PATHS, type Locale, messagesFor, WEB_LOCALES, type WebMessages } from './i18n/index.ts'
 import { INSTALL_COMMANDS } from './install.ts'
+import { platformMark } from './platform-marks.ts'
 import {
   AUTHOR,
   CONTRIBUTORS,
@@ -267,22 +268,30 @@ function agents(m: WebMessages): string {
 
 function how(m: WebMessages): string {
   const h = m.how
-  const aliases = h.agents.aliases
-    .map((alias) => `<span>${agentMark(alias.mark, 14)}${esc(alias.text)}</span>`)
-    .join('')
+  const aliasSpan = (alias: (typeof h.agents.aliases)[number]) =>
+    `<span>${agentMark(alias.mark, 14)}${esc(alias.text)}</span>`
+  const [firstAlias, ...restAliases] = h.agents.aliases
+  const aliases = firstAlias
+    ? aliasSpan(firstAlias) +
+      (restAliases.length
+        ? `<details class="more"><summary>${esc(h.agents.moreAliases)}</summary><div class="tip">${restAliases.map(aliasSpan).join('')}</div></details>`
+        : '')
+    : ''
   const steps = h.steps
     .map((s) => `<li class="step"><div><b>${esc(s.title)}</b><p>${inline(s.body)}</p></div></li>`)
     .join('')
   return `<section class="s" id="how">
   <div class="head"><span class="eyebrow">${esc(h.eyebrow)}</span><h2>${esc(h.title)}</h2><p>${esc(h.lead)}</p></div>
-  <div class="how">
-    <div class="node"><div class="ic" aria-hidden="true">📱</div><h3>${esc(h.phone.title)}</h3><p>${inline(h.phone.body)}</p></div>
-    <div class="link" aria-hidden="true"><span>${esc(h.link1.top)}</span><i></i><span>${esc(h.link1.bottom)}</span></div>
-    <div class="node"><div class="ic" aria-hidden="true">💻</div><h3>${esc(h.machine.title)}</h3><p>${inline(h.machine.body)}</p></div>
-    <div class="link" aria-hidden="true"><span>${esc(h.link2.top)}</span><i></i><span>${esc(h.link2.bottom)}</span></div>
-    <div class="node"><div class="ic" aria-hidden="true">▣</div><h3>${esc(h.agents.title)}</h3><p>${inline(h.agents.body)}</p><div class="win">${aliases}</div></div>
+  <div class="how-grid">
+    <div class="how">
+      <div class="node"><div class="ic" aria-hidden="true">📱</div><h3>${esc(h.phone.title)}</h3><p>${inline(h.phone.body)}</p></div>
+      <div class="link" aria-hidden="true"><span>${esc(h.link1.top)}</span><i></i><span>${esc(h.link1.bottom)}</span></div>
+      <div class="node"><div class="ic" aria-hidden="true">💻</div><h3>${esc(h.machine.title)}</h3><p>${inline(h.machine.body)}</p></div>
+      <div class="link" aria-hidden="true"><span>${esc(h.link2.top)}</span><i></i><span>${esc(h.link2.bottom)}</span></div>
+      <div class="node"><div class="ic" aria-hidden="true">▣</div><h3>${esc(h.agents.title)}</h3><p>${inline(h.agents.body)}</p><div class="win">${aliases}</div></div>
+    </div>
+    <ol class="steps">${steps}</ol>
   </div>
-  <ol class="steps">${steps}</ol>
 </section>`
 }
 
@@ -350,8 +359,8 @@ function install(locale: Locale, m: WebMessages, site: SiteConfig): string {
     </div>
     <div class="stores" id="app">
       <h3>${esc(i.appTitle)}</h3>
-      <a class="store" href="${esc(ios.href)}"><span class="ic" aria-hidden="true"></span><span><b>${esc(i.ios.title)}</b><small>${esc(ios.detail)}</small></span></a>
-      <a class="store" href="${LINKS.android}"><span class="ic" aria-hidden="true">▲</span><span><b>${esc(i.android.title)}</b><small>${esc(i.android.detail)}</small></span></a>
+      <a class="store" href="${esc(ios.href)}"><span class="ic" aria-hidden="true">${platformMark('apple')}</span><span><b>${esc(i.ios.title)}</b><small>${esc(ios.detail)}</small></span></a>
+      <a class="store" href="${LINKS.android}"><span class="ic" aria-hidden="true">${platformMark('android')}</span><span><b>${esc(i.android.title)}</b><small>${esc(i.android.detail)}</small></span></a>
       ${iosNote}
       <p class="note">${inline(i.appNote)}</p>
     </div>
