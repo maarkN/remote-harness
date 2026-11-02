@@ -37,7 +37,14 @@ const INK = '#1A1206'
 const WHITE = '#FFFFFF'
 /** Standard fill of GTK symbolic icons, recolored by the theme. */
 const SYMBOLIC = '#BEBEBE'
-const AGENTS = { claude: '#D97757', codex: '#2FBF8F' } as const
+const AGENTS = {
+  claude: '#D97757',
+  codex: '#2FBF8F',
+  gemini: '#E3729E',
+  kimi: '#5B9BF5',
+  qwen: '#8C6CF5',
+} as const
+type AgentId = keyof typeof AGENTS
 
 type Weight = 'regular' | 'bold'
 
@@ -202,27 +209,38 @@ const textWidth = (content: string, weight: Weight, size: number) =>
  * something closer to a mark while #226 (official brand assets) is still open. Drawn strokes and
  * dots, like the mark itself, rather than an imported logo.
  */
-const AGENT_GLYPHS: Record<'claude' | 'codex', (color: string, cx: number, cy: number, r: number) => string> =
-  {
-    /** Three crossing strokes through the center. */
-    claude: (color, cx, cy, r) =>
-      `<g stroke="${color}" stroke-width="${(r / 3.4).toFixed(2)}" stroke-linecap="round">${[0, 60, 120]
-        .map((deg) => {
-          const rad = (deg * Math.PI) / 180
-          const dx = r * Math.cos(rad)
-          const dy = r * Math.sin(rad)
-          return `<line x1="${(cx - dx).toFixed(2)}" y1="${(cy - dy).toFixed(2)}" x2="${(cx + dx).toFixed(2)}" y2="${(cy + dy).toFixed(2)}"/>`
-        })
-        .join('')}</g>`,
-    /** Six dots around a ring. */
-    codex: (color, cx, cy, r) =>
-      Array.from({ length: 6 }, (_, i) => {
-        const rad = (i * 60 * Math.PI) / 180
-        const x = cx + r * 0.72 * Math.cos(rad)
-        const y = cy + r * 0.72 * Math.sin(rad)
-        return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(r / 3.2).toFixed(2)}" fill="${color}"/>`
-      }).join(''),
-  }
+const AGENT_GLYPHS: Record<AgentId, (color: string, cx: number, cy: number, r: number) => string> = {
+  /** Three crossing strokes through the center. */
+  claude: (color, cx, cy, r) =>
+    `<g stroke="${color}" stroke-width="${(r / 3.4).toFixed(2)}" stroke-linecap="round">${[0, 60, 120]
+      .map((deg) => {
+        const rad = (deg * Math.PI) / 180
+        const dx = r * Math.cos(rad)
+        const dy = r * Math.sin(rad)
+        return `<line x1="${(cx - dx).toFixed(2)}" y1="${(cy - dy).toFixed(2)}" x2="${(cx + dx).toFixed(2)}" y2="${(cy + dy).toFixed(2)}"/>`
+      })
+      .join('')}</g>`,
+  /** Six dots around a ring. */
+  codex: (color, cx, cy, r) =>
+    Array.from({ length: 6 }, (_, i) => {
+      const rad = (i * 60 * Math.PI) / 180
+      const x = cx + r * 0.72 * Math.cos(rad)
+      const y = cy + r * 0.72 * Math.sin(rad)
+      return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(r / 3.2).toFixed(2)}" fill="${color}"/>`
+    }).join(''),
+  /** A rounded square, like the Live Activity badge. */
+  gemini: (color, cx, cy, r) =>
+    `<rect x="${(cx - r * 0.7).toFixed(2)}" y="${(cy - r * 0.7).toFixed(2)}" width="${(r * 1.4).toFixed(2)}" height="${(r * 1.4).toFixed(2)}" rx="${(r * 0.3).toFixed(2)}" fill="${color}"/>`,
+  /** A triangle pointing up. */
+  kimi: (color, cx, cy, r) =>
+    `<path d="M${cx.toFixed(2)} ${(cy - r * 0.85).toFixed(2)} L${(cx + r * 0.85).toFixed(2)} ${(cy + r * 0.65).toFixed(2)} L${(cx - r * 0.85).toFixed(2)} ${(cy + r * 0.65).toFixed(2)} Z" fill="${color}"/>`,
+  /** A hexagon. */
+  qwen: (color, cx, cy, r) =>
+    `<path d="${Array.from({ length: 6 }, (_, i) => {
+      const rad = ((i * 60 - 90) * Math.PI) / 180
+      return `${i === 0 ? 'M' : 'L'}${(cx + r * 0.9 * Math.cos(rad)).toFixed(2)} ${(cy + r * 0.9 * Math.sin(rad)).toFixed(2)}`
+    }).join(' ')} Z" fill="${color}"/>`,
+}
 
 /** Open Graph / README banner, 1200 × 630: mark, name, tagline and the agent chips. */
 function bannerSvg(): string {
@@ -232,31 +250,37 @@ function bannerSvg(): string {
     text('Follow and drive your coding agents from your phone.', 'regular', 25, MUTED, left, 354),
   ]
 
-  // Chips: outline sized by the label, agent square with a drawn glyph instead of a letter code.
-  const top = 404
+  // Chips: outline sized by the label, agent square with a drawn glyph instead of a letter code;
+  // one chip per agent, wrapping to a second row at the banner's right margin.
+  let top = 404
   const height = 44
   const pad = 14
   const square = 24
+  const right = 1100
   let x = left
-  for (const item of [
-    { label: 'Claude Code', agent: { glyph: AGENT_GLYPHS.claude, color: AGENTS.claude } },
-    { label: 'Codex', agent: { glyph: AGENT_GLYPHS.codex, color: AGENTS.codex } },
-    { label: '+ soon', agent: null },
-  ]) {
-    const lead = item.agent ? square + 10 : 0
+  const chips: Array<{ label: string; agent: AgentId }> = [
+    { label: 'Claude Code', agent: 'claude' },
+    { label: 'Codex', agent: 'codex' },
+    { label: 'Gemini CLI', agent: 'gemini' },
+    { label: 'Kimi CLI', agent: 'kimi' },
+    { label: 'Qwen Code', agent: 'qwen' },
+  ]
+  for (const item of chips) {
+    const lead = square + 10
     const width = Math.round(pad + lead + textWidth(item.label, 'regular', 23) + pad)
-    const dash = item.agent ? '' : ' stroke-dasharray="6 5"'
-    parts.push(
-      `<rect x="${x}" y="${top}" width="${width}" height="${height}" rx="${height / 2}" fill="none" stroke="${BORDER_STRONG}" stroke-width="2"${dash}/>`,
-    )
-    if (item.agent) {
-      const sx = x + pad
-      const sy = top + (height - square) / 2
-      parts.push(
-        `<rect x="${sx}" y="${sy}" width="${square}" height="${square}" rx="6" fill="${item.agent.color}"/>`,
-      )
-      parts.push(item.agent.glyph(INK, sx + square / 2, sy + square / 2, square / 2 - 4))
+    if (x > left && x + width > right) {
+      x = left
+      top += height + 12
     }
+    parts.push(
+      `<rect x="${x}" y="${top}" width="${width}" height="${height}" rx="${height / 2}" fill="none" stroke="${BORDER_STRONG}" stroke-width="2"/>`,
+    )
+    const sx = x + pad
+    const sy = top + (height - square) / 2
+    parts.push(
+      `<rect x="${sx}" y="${sy}" width="${square}" height="${square}" rx="6" fill="${AGENTS[item.agent]}"/>`,
+    )
+    parts.push(AGENT_GLYPHS[item.agent](INK, sx + square / 2, sy + square / 2, square / 2 - 4))
     parts.push(text(item.label, 'regular', 23, TEXT, x + pad + lead, top + 30))
     x += width + 14
   }
