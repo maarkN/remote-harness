@@ -803,12 +803,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.1.0'
+const APP_VERSION = '1.1.1'
 /**
  * Android `versionCode`: one integer, bumped by one on every release (1 = v1.1.0). Google Play only
  * takes a bundle whose code is higher than every one uploaded before, so it never goes down.
  */
-const ANDROID_VERSION_CODE = 1
+const ANDROID_VERSION_CODE = 2
 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,
