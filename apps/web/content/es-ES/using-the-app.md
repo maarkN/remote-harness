@@ -38,7 +38,7 @@ El chip de **modo** cambia el modo de permisos: predeterminado, aceptar edicione
 
 ## Ejecutar un comando
 
-**Ejecutar comando…** (menú de la sesión) ejecuta un comando de shell en la carpeta de la sesión en el ordenador, como el `!` de Claude Code, y muestra la salida en directo: `git status`, `ls`, `pnpm test`. La app pide confirmación antes de cada comando; **Detener** lo termina, **Copiar salida** la copia y **Añadir al prompt** pone el comando y su salida en el compositor como bloque de código para el agente, sin enviarlo. Está desactivado hasta que ejecutes `remote-harness commands on` en el ordenador; los comandos tienen límite de tiempo y de salida, y nada interactivo funciona (no hay entrada de teclado).
+**Ejecutar comando…** (menú de la sesión) ejecuta un comando de shell en la carpeta de la sesión en el ordenador, como el `!` de Claude Code, y muestra la salida en directo: `git status`, `ls`, `pnpm test`. El campo admite varias líneas (Retorno añade una; Ejecutar, o ⌘↩ con teclado, ejecuta): se ejecutan en orden y se detienen en la primera que falle, así que una secuencia copiada de la conversación (`cd app`, `yarn install`, `yarn dev`) se puede pegar tal cual. La app pide confirmación antes de cada comando; **Detener** lo termina, **Copiar salida** la copia y **Añadir al prompt** pone el comando y su salida en el compositor como bloque de código para el agente, sin enviarlo. Está desactivado hasta que ejecutes `remote-harness commands on` en el ordenador; los comandos tienen límite de tiempo y de salida, y nada interactivo funciona (no hay entrada de teclado).
 
 ## Revisar cambios
 

@@ -82,6 +82,30 @@ const END_TAGS: Record<CommandEndReason, string> = {
   failed: 'failed to start',
 }
 
+/** The command's lines, trailing spaces and blank lines dropped. */
+export function commandLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0)
+}
+
+/**
+ * What the daemon runs (#475): one line as typed; several lines under `set -e`, so the shell runs
+ * them in order and a failing one stops the rest.
+ */
+export function commandScript(text: string): string {
+  const lines = commandLines(text)
+  return lines.length > 1 ? ['set -e', ...lines].join('\n') : (lines[0] ?? '')
+}
+
+/** `$ <line>` per line: the panel's header and the prompt block's first lines. */
+export function commandEcho(command: string): string {
+  return commandLines(command)
+    .map((line) => `$ ${line}`)
+    .join('\n')
+}
+
 /** A fence longer than any backtick run in the text, so the output cannot close it. */
 function fence(text: string): string {
   const longest = Math.max(0, ...[...text.matchAll(/`+/g)].map((match) => match[0].length))
@@ -89,8 +113,8 @@ function fence(text: string): string {
 }
 
 /**
- * The command and its output as a fenced block for the prompt, like Claude Code's `!`: `$ command`,
- * the end of the output (at most `MAX_PROMPT_CHARS`) and the exit status.
+ * The command and its output as a fenced block for the prompt, like Claude Code's `!`: `$ command`
+ * (one line per command line), the end of the output (at most `MAX_PROMPT_CHARS`) and the exit status.
  */
 export function promptBlock(run: CommandRun): string {
   const full = outputText(run)
@@ -103,7 +127,8 @@ export function promptBlock(run: CommandRun): string {
       : `[${END_TAGS[exit.reason]}]`
     : '[running]'
   const text = output.replace(/\n+$/, '')
-  const body = [`$ ${run.command}`, ...(omitted ? ['…'] : []), ...(text ? [text] : []), status].join('\n')
+  const echo = commandEcho(run.command) || `$ ${run.command}`
+  const body = [echo, ...(omitted ? ['…'] : []), ...(text ? [text] : []), status].join('\n')
   const marks = fence(body)
   return `${marks}shell\n${body}\n${marks}`
 }

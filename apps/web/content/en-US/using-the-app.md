@@ -38,7 +38,7 @@ The **mode** chip switches the permission mode: default, accept edits, plan and 
 
 ## Running a command
 
-**Run command…** (session menu) runs a shell command in the session's folder on the computer, like Claude Code's `!`, and streams its output: `git status`, `ls`, `pnpm test`. The app asks before every command; **Stop** kills it, **Copy output** copies it and **Add to prompt** puts the command and its output in the composer as a code block for the agent, without sending it. It is off until you run `remote-harness commands on` on the computer; commands have a time limit and an output limit, and nothing interactive works (there is no keyboard input).
+**Run command…** (session menu) runs a shell command in the session's folder on the computer, like Claude Code's `!`, and streams its output: `git status`, `ls`, `pnpm test`. The field takes several lines (Return adds one; Run, or ⌘↩ with a keyboard, runs): they run in order and stop at the first one that fails, so a sequence copied from the conversation (`cd app`, `yarn install`, `yarn dev`) can be pasted as is. The app asks before every command; **Stop** kills it, **Copy output** copies it and **Add to prompt** puts the command and its output in the composer as a code block for the agent, without sending it. It is off until you run `remote-harness commands on` on the computer; commands have a time limit and an output limit, and nothing interactive works (there is no keyboard input).
 
 ## Reviewing changes
 

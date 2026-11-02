@@ -1,3 +1,4 @@
+import { MAX_COMMAND_LENGTH } from '@remote-harness/protocol'
 import * as Clipboard from 'expo-clipboard'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,10 +14,20 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { keys, onKeyCommand } from '@/core/keyboard/key-commands'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { shortPath } from '@/core/utils/time'
 import { Button, Text } from '@/ui'
-import { exitFailed, exitLabel, formatElapsed, outputText, promptBlock } from './logic'
+import {
+  commandEcho,
+  commandLines,
+  commandScript,
+  exitFailed,
+  exitLabel,
+  formatElapsed,
+  outputText,
+  promptBlock,
+} from './logic'
 import { useCommandRun } from './use-command-run'
 
 /** Re-renders every second while a command runs, for the elapsed time. */
@@ -61,7 +72,10 @@ export function CommandSheet({
   const now = useTicker(running)
   const outputRef = useRef<ScrollView>(null)
   const folder = shortPath(run?.cwd ?? cwd)
-  const trimmed = command.trim()
+  // Several lines run in order under `set -e` (#475); the typed lines are what the alert shows.
+  const lines = commandLines(command).join('\n')
+  const tooLong = commandScript(command).length > MAX_COMMAND_LENGTH
+  const canRun = lines.length > 0 && !tooLong
 
   const close = () => {
     if (running) cancel()
@@ -71,19 +85,31 @@ export function CommandSheet({
   }
 
   const confirmRun = () => {
-    if (!trimmed || running || starting) return
-    Alert.alert(t('commands.confirm.title'), t('commands.confirm.body', { command: trimmed, folder }), [
+    if (!canRun || running || starting) return
+    Alert.alert(t('commands.confirm.title'), t('commands.confirm.body', { command: lines, folder }), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('commands.run'),
         style: 'destructive',
         onPress: () => {
           setCopied(false)
-          void start(trimmed)
+          void start(lines)
         },
       },
     ])
   }
+
+  // Return adds a line in the field; ⌘↩ on a hardware keyboard runs, like the composer's send.
+  const confirmRunRef = useRef(confirmRun)
+  useEffect(() => {
+    confirmRunRef.current = confirmRun
+  })
+  useEffect(() => {
+    if (!visible || !enabled) return
+    return onKeyCommand({ input: keys.keyInputEnter, modifierFlags: keys.keyModifierCommand }, () =>
+      confirmRunRef.current(),
+    )
+  }, [visible, enabled])
 
   const copy = async () => {
     if (!run) return
@@ -117,7 +143,7 @@ export function CommandSheet({
           {enabled ? (
             <>
               <View style={styles.inputRow}>
-                <Text color="accentText" weight="bold">
+                <Text color="accentText" weight="bold" style={styles.prompt}>
                   $
                 </Text>
                 <TextInput
@@ -130,12 +156,14 @@ export function CommandSheet({
                   autoCorrect={false}
                   spellCheck={false}
                   autoComplete="off"
-                  returnKeyType="go"
-                  onSubmitEditing={confirmRun}
+                  multiline
                   editable={!running}
                   style={styles.input}
                 />
               </View>
+              <Text size="xs" color={tooLong ? 'danger' : 'textDim'}>
+                {tooLong ? t('commands.tooLong', { max: MAX_COMMAND_LENGTH }) : t('commands.multilineHint')}
+              </Text>
               {error ? (
                 <Text size="xs" color="danger">
                   {error}
@@ -148,6 +176,9 @@ export function CommandSheet({
                     onContentSizeChange={() => outputRef.current?.scrollToEnd({ animated: false })}
                     contentContainerStyle={styles.outputContent}
                   >
+                    <Text size="xs" color="textMuted" selectable>
+                      {commandEcho(run.command)}
+                    </Text>
                     {run.clipped ? (
                       <Text size="xs" color="textDim">
                         {t('commands.clipped')}
@@ -188,7 +219,7 @@ export function CommandSheet({
                     variant="primary"
                     onPress={confirmRun}
                     loading={starting}
-                    disabled={!trimmed}
+                    disabled={!canRun}
                     flex
                   />
                 )}
@@ -235,7 +266,7 @@ const useStyles = makeStyles((theme) => ({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: space.sm,
     paddingHorizontal: space.sm,
     borderRadius: radius.md,
@@ -243,9 +274,14 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
   },
+  prompt: { paddingVertical: space.sm },
+  // One line of room; grows with the lines, up to about six.
   input: {
     flex: 1,
     paddingVertical: space.sm,
+    minHeight: 40,
+    maxHeight: 150,
+    textAlignVertical: 'top',
     color: theme.colors.text,
     fontFamily: fonts.regular,
     fontSize: fontSize.md,

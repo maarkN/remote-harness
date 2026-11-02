@@ -218,6 +218,10 @@ const enUS = {
     addToPrompt: 'Add to prompt',
     running: 'Running… {{elapsed}}',
     clipped: '… earlier output hidden',
+    /** Several lines (#475): Return adds one; they run in order under `set -e`. */
+    multilineHint:
+      'Return adds a line. Run (or ⌘↩ with a keyboard) runs the lines in order and stops at the first one that fails.',
+    tooLong: 'The command is over {{max}} characters.',
     confirm: {
       title: 'Run this command?',
       body: '{{command}}\n\nIt runs on the computer, in {{folder}}, as your user.',
