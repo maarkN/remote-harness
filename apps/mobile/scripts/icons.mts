@@ -43,19 +43,19 @@ type Weight = 'regular' | 'bold'
 
 /**
  * Geometry of the mark in a 256 × 256 box (docs/design/identity/branding/icon.svg): the cursor block
- * is 62 × 104 at (34, 76), rx 13, with the `>` cut out by a round stroke; the three arcs are
- * concentric on the block's right edge (96, 128), radii 36 / 76 / 116, ±40°. The bold weight widens
+ * is 76 × 136 at (26, 60), rx 15, with the `>` cut out by a round stroke; the three arcs are
+ * concentric on the block's right edge (102, 128), radii 36 / 76 / 116, ±40°. The bold weight widens
  * the cutout and the arcs so neither closes up under 24 px.
  */
 const MARK: Record<Weight, { cutout: number; arcs: number }> = {
-  regular: { cutout: 16, arcs: 22 },
-  bold: { cutout: 24, arcs: 28 },
+  regular: { cutout: 18, arcs: 22 },
+  bold: { cutout: 26, arcs: 28 },
 }
-const CUTOUT = 'M51 104L79 128L51 152'
+const CUTOUT = 'M47 99L81 128L47 157'
 const ARCS = [
-  'M123.6 104.9A36 36 0 0 1 123.6 151.1',
-  'M154.2 79.1A76 76 0 0 1 154.2 176.9',
-  'M184.9 53.4A116 116 0 0 1 184.9 202.6',
+  'M129.6 104.9A36 36 0 0 1 129.6 151.1',
+  'M160.2 79.1A76 76 0 0 1 160.2 176.9',
+  'M190.9 53.4A116 116 0 0 1 190.9 202.6',
 ]
 
 /**
@@ -66,7 +66,7 @@ function mark(weight: Weight, color: string, id: string = weight): string {
   const m = MARK[weight]
   const maskId = `cursor-${id}`
   const mask = `<mask id="${maskId}"><rect width="256" height="256" fill="#fff"/><path d="${CUTOUT}" fill="none" stroke="#000" stroke-width="${m.cutout}" stroke-linecap="round" stroke-linejoin="round"/></mask>`
-  const block = `<rect x="34" y="76" width="62" height="104" rx="13" fill="${color}" mask="url(#${maskId})"/>`
+  const block = `<rect x="26" y="60" width="76" height="136" rx="15" fill="${color}" mask="url(#${maskId})"/>`
   const arcs = `<g fill="none" stroke="${color}" stroke-width="${m.arcs}" stroke-linecap="round">${ARCS.map((d) => `<path d="${d}"/>`).join('')}</g>`
   return `<defs>${mask}</defs>${block}${arcs}`
 }
