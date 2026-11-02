@@ -56,7 +56,7 @@ export function faviconSvg(): string {
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" color="#e8a33d">' +
     '<rect width="256" height="256" rx="56" fill="#1c1a17"/>' +
-    `<g transform="translate(28 28) scale(0.78125)">${MARK_BOLD}</g></svg>`
+    `<g transform="translate(16 16) scale(0.875)">${MARK_BOLD}</g></svg>`
   )
 }
 
