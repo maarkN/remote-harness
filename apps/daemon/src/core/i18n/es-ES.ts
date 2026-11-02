@@ -533,7 +533,7 @@ export const esES = {
       thinking: 'Pensando…',
       writing: 'Escribiendo la respuesta…',
       tool: 'Usando herramientas…',
-      finished: 'Terminado',
+      finishedAfter: (duration: string) => `Terminado tras ${duration}`,
     },
     /** Small words around the card's timers, and its Open button. */
     labels: {

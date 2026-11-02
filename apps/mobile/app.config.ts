@@ -432,29 +432,42 @@ const withAssistantActions: ConfigPlugin = (config) => {
 
 /** Target `expo-widgets` creates (and recreates on every prebuild) for the Live Activity. */
 const WIDGET_TARGET = 'ExpoWidgetsTarget'
-/** Asset the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`). */
-const LIVE_ACTIVITY_ICON_ASSET = 'LiveActivityIcon'
-const LIVE_ACTIVITY_ICON = './assets/live-activity-icon.png'
+/** Agents with a badge PNG from `scripts/icons.mts` (the ids of `src/core/theme/agents.ts`, kept literal: the config runs outside the app's module graph). */
+const LIVE_ACTIVITY_AGENTS = ['claude', 'codex', 'gemini', 'kimi', 'qwen']
+/**
+ * Assets the Live Activity layout loads with `Image assetName` (see `SessionActivity.tsx`): the app
+ * mark for the header and, since #471, one badge per agent.
+ */
+const LIVE_ACTIVITY_IMAGES: { asset: string; file: string }[] = [
+  { asset: 'LiveActivityIcon', file: './assets/live-activity-icon.png' },
+  ...LIVE_ACTIVITY_AGENTS.map((id) => ({
+    asset: `Agent-${id}`,
+    file: `./assets/live-activity/agent-${id}.png`,
+  })),
+]
 
 /**
  * The widget extension is its own bundle, without the app's asset catalog: give it one holding the
- * app icon for the Live Activity header. Applied before the `plugins` list, so its mods run after
- * the `expo-widgets` ones that recreate the target directory and add the target.
+ * app icon and the agent badges for the Live Activity header. Applied before the `plugins` list, so
+ * its mods run after the `expo-widgets` ones that recreate the target directory and add the target.
  */
 const withLiveActivityIcon: ConfigPlugin = (config) => {
   const withCatalog = withDangerousMod(config, [
     'ios',
     (config) => {
       const catalog = join(config.modRequest.platformProjectRoot, WIDGET_TARGET, 'Assets.xcassets')
-      const imageSet = join(catalog, `${LIVE_ACTIVITY_ICON_ASSET}.imageset`)
       const info = { author: 'xcode', version: 1 }
-      mkdirSync(imageSet, { recursive: true })
+      mkdirSync(catalog, { recursive: true })
       writeFileSync(join(catalog, 'Contents.json'), JSON.stringify({ info }, null, 2))
-      copyFileSync(join(config.modRequest.projectRoot, LIVE_ACTIVITY_ICON), join(imageSet, 'icon.png'))
-      writeFileSync(
-        join(imageSet, 'Contents.json'),
-        JSON.stringify({ images: [{ filename: 'icon.png', idiom: 'universal' }], info }, null, 2),
-      )
+      for (const image of LIVE_ACTIVITY_IMAGES) {
+        const imageSet = join(catalog, `${image.asset}.imageset`)
+        mkdirSync(imageSet, { recursive: true })
+        copyFileSync(join(config.modRequest.projectRoot, image.file), join(imageSet, 'icon.png'))
+        writeFileSync(
+          join(imageSet, 'Contents.json'),
+          JSON.stringify({ images: [{ filename: 'icon.png', idiom: 'universal' }], info }, null, 2),
+        )
+      }
       return config
     },
   ])

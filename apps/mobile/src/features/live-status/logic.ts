@@ -6,6 +6,7 @@ import type {
   Session,
   SessionState,
 } from '@remote-harness/protocol'
+import { liveTurnDuration } from '@remote-harness/protocol'
 import type { TFunction } from '../../core/i18n/create'
 import type { Theme } from '../../core/theme/palettes'
 
@@ -98,7 +99,7 @@ export function tasksLine(counts: { subagents: number; background: number }, t: 
 /** Props for an update made by the app itself (no steps: only the daemon follows the transcript). */
 export function localLiveProps(
   session: Pick<Session, 'id' | 'state' | 'title' | 'cwd'> &
-    Partial<Pick<Session, 'backgroundTasks' | 'subagents'>>,
+    Partial<Pick<Session, 'agent' | 'backgroundTasks' | 'subagents'>>,
   info: LocalLiveInfo,
   t: TFunction,
   now: number = Date.now(),
@@ -124,7 +125,13 @@ export function localLiveProps(
     tasks: tasksLine(taskCounts(session), t),
     current: '',
     progress: null,
-    activity: state === 'done' ? t('liveStatus.finished') : '',
+    // Done: how long the turn took, in words ("Finished after 4 min").
+    activity:
+      state === 'done'
+        ? t('liveStatus.finishedAfter', {
+            duration: liveTurnDuration((info.endedAt ?? now) - info.startedAt),
+          })
+        : '',
     task: '',
     notifiedAt: now,
     link: `remoteharness://session/${session.id}`,
@@ -137,6 +144,8 @@ export function localLiveProps(
       open: t('liveStatus.labels.open'),
     },
     ...(info.palette ? { palette: info.palette } : {}),
+    // The card shows the agent's badge; older daemons send no agent, which means Claude Code.
+    agent: session.agent ?? 'claude',
   }
 }
 

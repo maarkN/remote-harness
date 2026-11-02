@@ -542,7 +542,7 @@ const ptBR = {
       finished: 'concluído',
       open: 'Abrir',
     },
-    finished: 'Concluído',
+    finishedAfter: 'Concluído após {{duration}}',
   },
   widgets: {
     galleryName: 'Sessões',

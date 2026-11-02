@@ -406,6 +406,20 @@ describe('pending permission and glyphs', () => {
     expect(liveProps(closed, info, en).hint).toBe('transcript kept · resume from the app')
     expect(liveProps(closed, info, pt).hint).toBe('transcrição mantida · retome pelo app')
   })
+
+  test('done says how long the turn took, in words, and the props carry the agent', () => {
+    const started = initialLiveStatus(0)
+    const done = reduceLiveStatus(started, { type: 'stop' }, 4 * 60_000)
+    expect(liveProps(done, info, en).activity).toBe('Finished after 4 min')
+    expect(liveProps(done, info, pt).activity).toBe('Concluído após 4 min')
+    expect(liveProps(done, info, messagesFor('es-ES').live).activity).toBe('Terminado tras 4 min')
+    const short = reduceLiveStatus(started, { type: 'stop' }, 40_000)
+    expect(liveProps(short, info, en).activity).toBe('Finished after 40 s')
+    expect(liveProps(done, { ...info, agent: 'codex' }, en).agent).toBe('codex')
+    expect(liveProps(done, info, en)).not.toHaveProperty('agent')
+    // Closed: no phrase, the card keeps the frozen total.
+    expect(liveProps(reduceLiveStatus(started, { type: 'end' }, 2), info, en).activity).toBe('')
+  })
 })
 
 describe('buildLiveMessage', () => {

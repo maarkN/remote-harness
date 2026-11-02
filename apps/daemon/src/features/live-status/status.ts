@@ -1,4 +1,5 @@
 import type {
+  AgentId,
   LiveLabels,
   LiveProgress,
   LiveState,
@@ -6,7 +7,7 @@ import type {
   Session,
   TranscriptEntry,
 } from '@remote-harness/protocol'
-import { LIVE_TASK_MAX } from '@remote-harness/protocol'
+import { LIVE_TASK_MAX, liveTurnDuration } from '@remote-harness/protocol'
 import type { Messages } from '../../core/i18n/index.ts'
 import { agentWorkInFlight } from '../sessions/state.ts'
 import { type ActivityKind, activityKind } from './activity.ts'
@@ -525,14 +526,20 @@ export type LiveSessionInfo = {
   path: string
   /** Deep link that opens the session. */
   link?: string
+  /** The session's agent (its profile's); absent when unknown, and the card shows the app mark. */
+  agent?: AgentId
 }
 
 /** How one registration wants its props: the opt-in task and when the update goes out. */
 export type LivePropsOptions = { showTask?: boolean; notifiedAt?: number }
 
-/** The translated phrase of what the session is doing: "Finished" once done, none when closed. */
+/** The translated phrase of what the session is doing: "Finished after 12 min" once done, none when closed. */
 export function activityText(status: LiveStatus, messages: Messages['live']): string {
-  if (status.state === 'done') return messages.activities.finished
+  if (status.state === 'done') {
+    return messages.activities.finishedAfter(
+      liveTurnDuration((status.endedAt ?? status.changedAt) - status.startedAt),
+    )
+  }
   if (status.state === 'closed' || !status.activity) return ''
   if (status.activity === 'delegating')
     return messages.activities.delegating(Math.max(1, status.tasks.subagents))
@@ -619,5 +626,6 @@ export function liveProps(
     notifiedAt: options.notifiedAt ?? 0,
     link: info.link ?? '',
     labels: labelsOf(messages),
+    ...(info.agent ? { agent: info.agent } : {}),
   }
 }

@@ -79,12 +79,28 @@ describe('localLiveProps', () => {
         finished: 'concluído',
         open: 'Abrir',
       },
+      agent: 'claude',
     })
-    // A finished turn reads "Finished"; the app never sends a task of its own.
-    expect(localLiveProps(session('a', 'idle'), info, createI18n('en-US').t, 9)).toMatchObject({
-      activity: 'Finished',
+    // A finished turn says how long it took; the app never sends a task of its own.
+    const ended = { ...info, startedAt: 0, endedAt: 4 * 60_000 }
+    expect(localLiveProps(session('a', 'idle'), ended, createI18n('en-US').t, 9)).toMatchObject({
+      activity: 'Finished after 4 min',
       task: '',
     })
+    expect(localLiveProps(session('a', 'idle'), ended, createI18n('pt-BR').t, 9).activity).toBe(
+      'Concluído após 4 min',
+    )
+    // Without an end time yet, the duration runs to `now`.
+    expect(
+      localLiveProps(session('a', 'idle'), { ...info, startedAt: 0 }, createI18n('en-US').t, 40_000).activity,
+    ).toBe('Finished after 40 s')
+  })
+
+  test('carries the session agent, Claude Code when the daemon sends none', () => {
+    const info = { title: 'Work', host: 'mac', startedAt: 5, changedAt: 6, endedAt: null }
+    const t = createI18n('en-US').t
+    expect(localLiveProps({ ...session('a', 'running'), agent: 'codex' }, info, t).agent).toBe('codex')
+    expect(localLiveProps(session('a', 'running'), info, t).agent).toBe('claude')
   })
 
   test('carries the theme palette the status started with', () => {

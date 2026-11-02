@@ -1,3 +1,5 @@
+import { AGENT_LABELS } from '@remote-harness/protocol'
+
 /** Coding agents the app can tell apart. */
 export const AGENT_IDS = ['claude', 'codex', 'gemini', 'kimi', 'qwen'] as const
 export type AgentId = (typeof AGENT_IDS)[number]
@@ -14,14 +16,8 @@ export const AGENT_COLORS: Record<AgentId, string> = {
   qwen: '#8C6CF5',
 }
 
-/** Display names (product names, not translated). */
-export const AGENT_NAMES: Record<AgentId, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex',
-  gemini: 'Gemini CLI',
-  kimi: 'Kimi',
-  qwen: 'Qwen',
-}
+/** Display names (product names, not translated); the protocol keeps them, so the live status texts match. */
+export const AGENT_NAMES: Record<AgentId, string> = AGENT_LABELS
 
 /** Two-letter codes shown in the agent badge. */
 export const AGENT_CODES: Record<AgentId, string> = {

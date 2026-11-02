@@ -58,7 +58,7 @@ Mientras el agente delega trabajo, el menú de la cabecera muestra **Subagentes 
 
 ## Estado en vivo
 
-En iOS, una sesión en marcha muestra una Live Activity en la pantalla de bloqueo y en la Dynamic Island con el estado, el paso actual y el tiempo transcurrido; una petición de permiso añade los botones Permitir y Denegar. En Android es una notificación silenciosa sin botones: tócala para responder en la app. Nunca lleva la conversación. Desactívalo en Ajustes → Notificaciones → Estado en vivo.
+En iOS, una sesión en marcha muestra una Live Activity en la pantalla de bloqueo y en la Dynamic Island con el badge del agente (Claude Code, Codex…), el estado, el paso actual y el tiempo transcurrido; una petición de permiso añade los botones Permitir y Denegar, y cuando el turno termina la tarjeta dice cuánto tardó ("Terminado tras 12 min"). En Android es una notificación silenciosa sin botones: tócala para responder en la app. Nunca lleva la conversación. Desactívalo en Ajustes → Notificaciones → Estado en vivo.
 
 ## Widgets
 
