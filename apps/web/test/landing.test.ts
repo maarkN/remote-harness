@@ -251,9 +251,9 @@ describe('site files', () => {
     // The Cursor Signal on the flat warm dark: the prompt cut out of the block, the arcs, the corners.
     expect(faviconSvg()).toContain('<rect width="256" height="256" rx="56" fill="#1c1a17"/>')
     expect(faviconSvg()).toContain(
-      '<path d="M51 104L79 128L51 152" fill="none" stroke="#000" stroke-width="24"',
+      '<path d="M47 99L81 128L47 157" fill="none" stroke="#000" stroke-width="26"',
     )
-    expect(faviconSvg()).toContain('A116 116 0 0 1 184.9 202.6')
+    expect(faviconSvg()).toContain('A116 116 0 0 1 190.9 202.6')
     expect(faviconSvg()).not.toContain('<circle')
   })
 })

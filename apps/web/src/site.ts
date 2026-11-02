@@ -37,19 +37,19 @@ export const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`
 function markMarkup(cutout: number, arcs: number, maskId: string): string {
   return (
     `<mask id="${maskId}"><rect width="256" height="256" fill="#fff"/>` +
-    `<path d="M51 104L79 128L51 152" fill="none" stroke="#000" stroke-width="${cutout}" stroke-linecap="round" stroke-linejoin="round"/></mask>` +
-    `<rect x="34" y="76" width="62" height="104" rx="13" fill="currentColor" mask="url(#${maskId})"/>` +
+    `<path d="M47 99L81 128L47 157" fill="none" stroke="#000" stroke-width="${cutout}" stroke-linecap="round" stroke-linejoin="round"/></mask>` +
+    `<rect x="26" y="60" width="76" height="136" rx="15" fill="currentColor" mask="url(#${maskId})"/>` +
     `<g fill="none" stroke="currentColor" stroke-width="${arcs}" stroke-linecap="round">` +
-    '<path d="M123.6 104.9A36 36 0 0 1 123.6 151.1"/><path d="M154.2 79.1A76 76 0 0 1 154.2 176.9"/>' +
-    '<path d="M184.9 53.4A116 116 0 0 1 184.9 202.6"/></g>'
+    '<path d="M129.6 104.9A36 36 0 0 1 129.6 151.1"/><path d="M160.2 79.1A76 76 0 0 1 160.2 176.9"/>' +
+    '<path d="M190.9 53.4A116 116 0 0 1 190.9 202.6"/></g>'
   )
 }
 
 /** Regular weight: the landing and the install link page. */
-export const MARK_REGULAR = markMarkup(16, 22, 'rh-cursor')
+export const MARK_REGULAR = markMarkup(18, 22, 'rh-cursor')
 
 /** Bold weight (wider cutout and arcs), for anything under 24 px (the favicon). */
-export const MARK_BOLD = markMarkup(24, 28, 'rh-cursor-bold')
+export const MARK_BOLD = markMarkup(26, 28, 'rh-cursor-bold')
 
 /** Amber mark in a 78 % box on the flat warm dark, with the icon's 22 % corners. */
 export function faviconSvg(): string {
