@@ -1461,6 +1461,14 @@ const esES = {
     },
     idleOff: 'Manos libres desactivado tras {{minutes}} minutos sin actividad.',
   },
+  notices: {
+    finished: 'Sesión terminada',
+    permission: 'Permiso solicitado',
+    question: 'Tiene una pregunta',
+    plan: 'Plan listo para revisar',
+    openHint: 'Abre la sesión',
+    dismiss: 'Descartar',
+  },
   assistant: {
     sent: 'Enviado a “{{title}}”.',
     emptyText: 'No había nada que enviar.',

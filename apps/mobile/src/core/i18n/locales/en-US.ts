@@ -1453,6 +1453,15 @@ const enUS = {
     },
     idleOff: 'Hands-free turned off after {{minutes}} minutes without activity.',
   },
+  /** In-app banner for what happens in the other sessions while the app is in front (#472). */
+  notices: {
+    finished: 'Session finished',
+    permission: 'Permission requested',
+    question: 'Has a question',
+    plan: 'Plan ready for review',
+    openHint: 'Opens the session',
+    dismiss: 'Dismiss',
+  },
   /** Sentences Siri (and other voice assistants) speak back; plain text, read aloud. */
   assistant: {
     sent: 'Sent to “{{title}}”.',

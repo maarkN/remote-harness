@@ -15,6 +15,8 @@ import { InspectorPane } from '@/features/inspector/InspectorPane'
 import { setInspectorOpen, useInspectorStore } from '@/features/inspector/store'
 import { useLiveFollow } from '@/features/live-status/use-live-follow'
 import { useLiveStatus } from '@/features/live-status/use-live-status'
+import { NoticeBanner } from '@/features/notices/NoticeBanner'
+import { useNotices } from '@/features/notices/use-notices'
 import { selectPendingCounts, usePermissionsStore } from '@/features/permissions/store'
 import { usePush } from '@/features/push/use-push'
 import { extractSessionIdFromPathname } from '@/features/sessions/active-session'
@@ -95,6 +97,8 @@ export default function MainLayout() {
   const inspectorWidth = useInspectorStore((s) => s.width)
   useShellKeyCommands(pathname)
   useSessionShortcuts(selectedSessionId, layout)
+  // Events of the other sessions, announced in-app while this one is on screen (#472).
+  useNotices(selectedSessionId)
   trackPathname(pathname)
 
   // Portrait tablets: the list slides over the conversation; it opens on its own while no session
@@ -181,6 +185,7 @@ export default function MainLayout() {
         <Stack.Screen name="session/[id]/changes" options={{ title: t('nav.changes') }} />
         <Stack.Screen name="session/[id]/agent/[agentId]" options={{ title: t('nav.subagent') }} />
       </Stack>
+      <NoticeBanner />
       <KeyboardShortcutsSheet />
     </MasterDetailLayout>
   )
