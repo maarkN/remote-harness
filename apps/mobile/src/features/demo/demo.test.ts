@@ -172,6 +172,30 @@ describe('demo daemon', () => {
       { type: 'rules.undo', ruleId: 'x' },
       { type: 'rules.delete', file: 'x', rule: 'y' },
       { type: 'approvals.list' },
+      { type: 'schedules.list' },
+      {
+        type: 'schedule.create',
+        schedule: {
+          title: 'Daily',
+          prompt: 'Go',
+          target: { kind: 'session', sessionId: IDLE.id },
+          when: { kind: 'repeat', time: '09:00', days: [] },
+          enabled: true,
+        },
+      },
+      {
+        type: 'schedule.update',
+        scheduleId: 'x',
+        schedule: {
+          title: 'Daily',
+          prompt: 'Go',
+          target: { kind: 'session', sessionId: IDLE.id },
+          when: { kind: 'repeat', time: '09:00', days: [] },
+          enabled: true,
+        },
+      },
+      { type: 'schedule.remove', scheduleId: 'x' },
+      { type: 'schedule.run', scheduleId: 'x' },
       { type: 'session.close', sessionId: IDLE.id },
     ]
   }

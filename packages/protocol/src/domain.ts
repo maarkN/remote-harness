@@ -787,6 +787,80 @@ export const MAX_QUEUE = 20
 /** Decoded bytes per image (the Claude API limit). */
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 
+// --- Scheduled prompts (#432) ---------------------------------------------------------------------
+
+export const SCHEDULE_TITLE_MAX = 60
+/** Same cap as a first prompt at start, which a scheduled prompt often is. */
+export const SCHEDULE_PROMPT_MAX = 8_000
+
+/** Where a schedule's prompt goes: an existing session, or a new one started with it as its first prompt. */
+export const ScheduleTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('session'), sessionId: z.string().min(1) }),
+  z.object({
+    kind: z.literal('new'),
+    profileId: z.string().min(1),
+    cwd: z.string().min(1),
+    /** Start in an isolated copy (git worktree), like the New session screen's switch. */
+    worktree: z.boolean().default(false),
+    name: SessionNameSchema.optional(),
+  }),
+])
+export type ScheduleTarget = z.infer<typeof ScheduleTargetSchema>
+
+/** A time of day on the computer's clock, `HH:MM`. */
+export const ScheduleTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'time as HH:MM')
+
+/** When a schedule runs: once at an instant, or every day at a time on some weekdays. */
+export const ScheduleWhenSchema = z.discriminatedUnion('kind', [
+  /** One run at an instant (ISO 8601 with its offset); the computer's clock decides when that is. */
+  z.object({
+    kind: z.literal('once'),
+    at: z.string().refine((value) => Number.isFinite(Date.parse(value)), 'an ISO date-time'),
+  }),
+  /** At `time` (computer local time) on `days` (0 = Sunday … 6 = Saturday; none = every day). */
+  z.object({
+    kind: z.literal('repeat'),
+    time: ScheduleTimeSchema,
+    days: z.array(z.number().int().min(0).max(6)).max(7).default([]),
+  }),
+])
+export type ScheduleWhen = z.infer<typeof ScheduleWhenSchema>
+
+/** What a run did: delivered to a free session, queued in a busy one, started a session, failed, or was missed. */
+export const ScheduleOutcomeSchema = z.enum(['sent', 'queued', 'started', 'failed', 'missed'])
+export type ScheduleOutcome = z.infer<typeof ScheduleOutcomeSchema>
+
+export const ScheduleRunSchema = z.object({
+  at: z.string(),
+  outcome: ScheduleOutcomeSchema,
+  /** Why the run failed. */
+  error: z.string().nullable().default(null),
+  /** The session the prompt went to, or the one started. */
+  sessionId: z.string().nullable().default(null),
+})
+export type ScheduleRun = z.infer<typeof ScheduleRunSchema>
+
+/** What the app sends to create a schedule or replace one. */
+export const ScheduleInputSchema = z.object({
+  title: z.string().trim().min(1).max(SCHEDULE_TITLE_MAX),
+  prompt: z.string().trim().min(1).max(SCHEDULE_PROMPT_MAX),
+  target: ScheduleTargetSchema,
+  when: ScheduleWhenSchema,
+  enabled: z.boolean().default(true),
+})
+export type ScheduleInput = z.infer<typeof ScheduleInputSchema>
+
+/** A schedule as the daemon keeps and reports it. */
+export const ScheduleSchema = ScheduleInputSchema.extend({
+  id: z.string().min(1),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastRun: ScheduleRunSchema.nullable().default(null),
+  /** Its next run (ISO), computed by the daemon; `null` while disabled or once it is spent. */
+  nextRunAt: z.string().nullable().default(null),
+})
+export type Schedule = z.infer<typeof ScheduleSchema>
+
 /** Keys the app may send to a session. Anything else is rejected by the daemon. */
 export const ALLOWED_KEYS = [
   'Enter',

@@ -122,6 +122,17 @@ describe('sessionMenu', () => {
     expect(menu.disabledReason).toMatch(/read-only/i)
   })
 
+  test('"Schedule a prompt…" appears when the daemon keeps schedules, after the templates', () => {
+    const base = { controllable: true, keyBarVisible: false, following: false }
+    expect(sessionMenu(base, en).items.some((i) => i.key === 'schedule')).toBe(false)
+    const keys = sessionMenu({ ...base, schedules: true }, en).items.map((i) => i.key)
+    expect(keys.indexOf('schedule')).toBe(keys.indexOf('templates') + 1)
+    const item = (controllable: boolean) =>
+      sessionMenu({ ...base, controllable, schedules: true }, en).items.find((i) => i.key === 'schedule')
+    expect(item(true)).toEqual({ key: 'schedule', label: 'Schedule a prompt…', disabled: false })
+    expect(item(false)?.disabled).toBe(true)
+  })
+
   test('"Prompt templates…" sits right before the history and is disabled when read-only', () => {
     const items = (controllable: boolean) =>
       sessionMenu({ controllable, keyBarVisible: false, following: false }, en).items

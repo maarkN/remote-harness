@@ -9,6 +9,7 @@ export type SessionMenuAction =
   | 'toggleKeyBar'
   | 'toggleHandsFree'
   | 'templates'
+  | 'schedule'
   | 'history'
   | 'toggleFollow'
   | 'toggleLiveFollow'
@@ -28,6 +29,7 @@ export type SubagentCounts = { count: number; running: number }
  * the daemon accepts shell commands (`commands`); it runs in the session's folder, pane or not.
  * "Hands-free" appears when the binary can speak (`handsFree` is its state), labeled by the action.
  * "Prompt templates…" opens the templates picker, which types into the composer, so it needs a pane too.
+ * "Schedule a prompt…" appears when the daemon keeps schedules (`schedules`), with the session as the target.
  */
 export function sessionMenu(
   {
@@ -39,6 +41,7 @@ export function sessionMenu(
     liveFollow = null,
     commands = false,
     handsFree = null,
+    schedules = false,
   }: {
     controllable: boolean
     keyBarVisible: boolean
@@ -52,6 +55,8 @@ export function sessionMenu(
     commands?: boolean
     /** Hands-free is on; `null` when this binary cannot speak (no `expo-speech`). */
     handsFree?: boolean | null
+    /** The daemon keeps scheduled prompts (its `auth.ok` has `schedules`). */
+    schedules?: boolean
   },
   t: TFunction,
 ): { items: SessionMenuItem[]; disabledReason?: string } {
@@ -94,6 +99,9 @@ export function sessionMenu(
             },
           ]),
       { key: 'templates', label: t('sessionMenu.templates'), disabled: !controllable },
+      ...(schedules
+        ? [{ key: 'schedule' as const, label: t('sessionMenu.schedule'), disabled: !controllable }]
+        : []),
       { key: 'history', label: t('sessionMenu.history'), disabled: false },
       { key: 'changes', label: t('sessionMenu.changes'), disabled: false },
       {

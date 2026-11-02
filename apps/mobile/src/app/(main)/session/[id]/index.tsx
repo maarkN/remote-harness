@@ -30,6 +30,8 @@ import { SessionPermissions } from '@/features/permissions/components/SessionPer
 import { providerName } from '@/features/providers/logic'
 import { ModelPickerSheet } from '@/features/providers/ModelPickerSheet'
 import { QueueCard } from '@/features/queue/components/QueueCard'
+import { ScheduleEditorSheet } from '@/features/schedules/ScheduleEditorSheet'
+import { useSchedulesStore } from '@/features/schedules/store'
 import { StatusBar } from '@/features/session-status/StatusBar'
 import { sessionAgent } from '@/features/sessions/agent'
 import { CloseSessionSheet } from '@/features/sessions/components/CloseSessionSheet'
@@ -79,6 +81,9 @@ export default function SessionRoute() {
   const [modelOpen, setModelOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  // Scheduled prompts (#432): offered when the daemon keeps them; the sheet targets this session.
+  const schedulesSupported = useSchedulesStore((s) => s.supported)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   // Hands-free (#416): the composer becomes the voice bar; only for sessions that take input. It
   // runs for the whole app (#446), so it is on here when this session is the store's.
   const handsFreeSessionId = useHandsFreeStore((s) => s.sessionId)
@@ -108,6 +113,7 @@ export default function SessionRoute() {
       liveFollow,
       commands: commands !== undefined,
       handsFree: handsFreeSupported() ? handsFree : null,
+      schedules: schedulesSupported,
     },
     t,
   )
@@ -128,6 +134,10 @@ export default function SessionRoute() {
     templates: () => {
       Keyboard.dismiss()
       setTemplatesOpen(true)
+    },
+    schedule: () => {
+      Keyboard.dismiss()
+      setScheduleOpen(true)
     },
     model: () => {
       Keyboard.dismiss()
@@ -235,6 +245,13 @@ export default function SessionRoute() {
           visible={commandOpen}
           onClose={() => setCommandOpen(false)}
           onAddToPrompt={(block) => prompt.setText((current) => appendToDraft(current, block))}
+        />
+      ) : null}
+      {session && scheduleOpen ? (
+        <ScheduleEditorSheet
+          schedule={null}
+          preset={{ target: { kind: 'session', sessionId: id } }}
+          onClose={() => setScheduleOpen(false)}
         />
       ) : null}
       {session ? (

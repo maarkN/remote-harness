@@ -56,6 +56,10 @@ Mientras el agente delega trabajo, el menú de la cabecera muestra **Subagentes 
 
 **Reanudar** vuelve a abrir una sesión terminada o de solo lectura dentro de tmux, con el mismo historial. **Cerrar** termina la sesión; cuando se ejecutó en un worktree, la app ofrece borrarlo solo si está limpio y subido, hacer commit y push antes, o descartar el trabajo, preguntando dos veces antes de descartar nada.
 
+## Prompts programados
+
+Ajustes → Sesiones → **Prompts programados** deja que el ordenador envíe un prompt con su propio reloj, con la app cerrada: una vez en una fecha y hora, o cada día a una hora en los días de la semana que elijas (las horas siguen el reloj del ordenador). El prompt va a una sesión abierta (en cola mientras está ocupada, como cualquier prompt) o abre una sesión nueva en una carpeta con un perfil, opcionalmente en una copia aislada y con un nombre; **Usar una plantilla…** lo rellena desde tus plantillas de prompt, y el menú Más opciones de una sesión tiene **Programar un prompt…** con esa sesión como destino. El móvil recibe una notificación cuando una programación se ejecutó o falló, con el título de la programación y nunca el prompt. Una ejecución que el ordenador se perdió (en reposo, daemon parado más de cinco minutos) no se ejecuta tarde: la programación muestra **Perdido** con **Ejecutar ahora**, y tú decides. Necesita un ordenador actualizado a esta versión.
+
 ## Estado en vivo
 
 En iOS, una sesión en marcha muestra una Live Activity en la pantalla de bloqueo y en la Dynamic Island con el badge del agente (Claude Code, Codex…), el estado, el paso actual y el tiempo transcurrido; una petición de permiso añade los botones Permitir y Denegar, y cuando el turno termina la tarjeta dice cuánto tardó ("Terminado tras 12 min"). En Android es una notificación silenciosa sin botones: tócala para responder en la app. Nunca lleva la conversación. Desactívalo en Ajustes → Notificaciones → Estado en vivo.

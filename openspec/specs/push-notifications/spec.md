@@ -48,11 +48,15 @@ The daemon SHALL send a push to the registered tokens when a session finishes a 
 - **THEN** no "Session finished" push is sent; it is sent on the later `Stop` with no agent work in flight
 
 ### Requirement: Content-free payload
-The payload MUST contain only a generic title, the profile name, `sessionId`, the event type and `requestId` when present; never prompts, commands or paths.
+The payload MUST contain only a generic title, the profile name, `sessionId`, the event type and `requestId` when present; never prompts, commands or paths. Schedule pushes (`scheduleRan`, `scheduleFailed`, `scheduleMissed`) carry the schedule's title (a label the user wrote, at most 60 characters) as the body instead of the profile name, and never the schedule's prompt.
 
 #### Scenario: Permission request
 - **WHEN** a `Bash` call asks for permission
 - **THEN** the push says "Permission pending" and the profile, without the command
+
+#### Scenario: Schedule missed
+- **WHEN** the schedule "Daily summary" is missed
+- **THEN** the push says "Scheduled prompt missed" and "Daily summary", without the prompt
 
 ### Requirement: Deep link and actions
 Every push and the live status link SHALL carry the sending daemon's ID. Tapping the notification SHALL open the session on that computer, switching the active computer first when it is another one; the "Allow"/"Deny" actions MUST answer the request by connecting in the background to that notification's computer. Requests with an `interaction` (question or plan) MUST NOT offer these actions. Permission pushes offer only Allow and Deny; the turn actions are only on turn pushes.

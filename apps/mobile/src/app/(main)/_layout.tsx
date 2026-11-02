@@ -176,6 +176,7 @@ export default function MainLayout() {
         <Stack.Screen name="permission-rules" options={{ title: t('permissionRules.title') }} />
         <Stack.Screen name="permission-activity" options={{ title: t('approvals.title') }} />
         <Stack.Screen name="templates" options={{ title: t('templates.title') }} />
+        <Stack.Screen name="schedules" options={{ title: t('schedules.title') }} />
         <Stack.Screen name="assistant/[action]" options={{ title: t('assistantLink.title') }} />
         <Stack.Screen
           name="session/[id]/index"

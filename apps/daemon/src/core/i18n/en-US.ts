@@ -674,6 +674,10 @@ export const enUS = {
     planPending: 'Plan ready for review',
     questionReminder: 'Still waiting for your answer',
     planReminder: 'Plan still waiting for review',
+    /** Scheduled prompts (#432); the body is the schedule's title. */
+    scheduleRan: 'Scheduled prompt sent',
+    scheduleFailed: 'Scheduled prompt failed',
+    scheduleMissed: 'Scheduled prompt missed',
     testTitle: 'Test notification',
     testBody: (host: string) => `Notifications from ${host} are working`,
   },
