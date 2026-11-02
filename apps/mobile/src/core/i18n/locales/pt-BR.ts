@@ -1446,6 +1446,12 @@ const ptBR = {
     repeat: 'Repetir',
     exit: 'Sair',
     talkHint: 'Começa a ouvir uma mensagem ou um comando',
+    background: {
+      title: 'Mãos livres ligado',
+      stop: 'Parar',
+      channel: 'Mãos livres',
+    },
+    idleOff: 'Mãos livres desligado após {{minutes}} minutos sem atividade.',
   },
   assistant: {
     sent: 'Enviado para “{{title}}”.',

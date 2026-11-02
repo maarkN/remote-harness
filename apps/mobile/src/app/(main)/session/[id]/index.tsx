@@ -17,6 +17,7 @@ import { type SessionMenuAction, sessionMenu } from '@/features/conversation/ses
 import { promptErrorMessage, usePrompt } from '@/features/conversation/use-prompt'
 import { HandsFreeSession } from '@/features/hands-free/HandsFreeSession'
 import { handsFreeSupported } from '@/features/hands-free/native'
+import { useHandsFreeStore } from '@/features/hands-free/store'
 import { toggleInspector } from '@/features/inspector/store'
 import { ResumeBanner } from '@/features/lifecycle/ResumeBanner'
 import { useLiveFollowStore } from '@/features/live-status/follow-store'
@@ -78,9 +79,12 @@ export default function SessionRoute() {
   const [modelOpen, setModelOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
-  // Hands-free (#416): the composer becomes the voice bar; only for sessions that take input.
-  const [handsFreeOn, setHandsFreeOn] = useState(false)
-  const handsFree = handsFreeOn && controllable
+  // Hands-free (#416): the composer becomes the voice bar; only for sessions that take input. It
+  // runs for the whole app (#446), so it is on here when this session is the store's.
+  const handsFreeSessionId = useHandsFreeStore((s) => s.sessionId)
+  const startHandsFree = useHandsFreeStore((s) => s.start)
+  const stopHandsFree = useHandsFreeStore((s) => s.stop)
+  const handsFree = handsFreeSessionId === id && controllable
   // ⌘⇧O opens More options of the session on screen (others stay mounted under it on phones).
   const [menuRequests, setMenuRequests] = useState(0)
   useShortcutRequest('sessionMenu', () => setMenuRequests((n) => n + 1), useIsFocused())
@@ -136,7 +140,8 @@ export default function SessionRoute() {
     toggleKeyBar: () => void setKeyBarVisible(!keyBarVisible),
     toggleHandsFree: () => {
       Keyboard.dismiss()
-      setHandsFreeOn(!handsFree)
+      if (handsFree) stopHandsFree()
+      else startHandsFree(id)
     },
     history: () => setHistoryOpen(true),
     toggleFollow: () => void setFollow(!following),
@@ -314,7 +319,7 @@ export default function SessionRoute() {
         }
         composer={
           handsFree ? (
-            <HandsFreeSession sessionId={id} onExit={() => setHandsFreeOn(false)} />
+            <HandsFreeSession />
           ) : (
             <SmartComposer
               sessionId={id}

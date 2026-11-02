@@ -27,6 +27,7 @@ import { bindDrafts } from '@/features/drafts/persistence'
 import { installErrorCapture, setRoute } from '@/features/error-reports/capture'
 import { CrashPromptSheet } from '@/features/error-reports/components/CrashPromptSheet'
 import { ErrorFallback } from '@/features/error-reports/components/ErrorFallback'
+import { HandsFreeRunner } from '@/features/hands-free/HandsFreeRunner'
 import { restoreOpenAfterCreateSettings } from '@/features/lifecycle/open-after-create-store'
 import { restoreLiveStatusSetting } from '@/features/live-status/settings-store'
 import { restorePerformanceSetting } from '@/features/performance/store'
@@ -142,6 +143,8 @@ function Shell({ ready }: { ready: boolean }) {
               </Stack>
             ) : null}
             <CrashPromptSheet />
+            {/* Hands-free keeps running when the user leaves the session screen or locks the phone. */}
+            <HandsFreeRunner />
           </ConnectionProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

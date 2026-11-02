@@ -149,6 +149,20 @@ describe('transcript store', () => {
     expect(Object.keys(useTranscriptStore.getState().streams).sort()).toEqual(['b', 'c', 'd'])
   })
 
+  test('unsubscribes from the daemon only when the last subscriber leaves', async () => {
+    const f = fakeClient()
+    f.reply(page([entry(1)], false), page([entry(1)], false))
+    const screen = subscribeTranscript(f.client, 's')
+    const runner = subscribeTranscript(f.client, 's')
+    await tick()
+    screen()
+    expect(f.requests.filter((m) => m.type === 'session.unsubscribe')).toHaveLength(0)
+    runner()
+    expect(f.requests.filter((m) => m.type === 'session.unsubscribe')).toEqual([
+      { type: 'session.unsubscribe', sessionId: 's', agentId: undefined },
+    ])
+  })
+
   test('an open conversation is never dropped', async () => {
     const f = fakeClient()
     f.reply(page([entry(1)], false))
