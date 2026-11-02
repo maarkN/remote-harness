@@ -827,6 +827,11 @@ const enUS = {
     open: 'Image {{index}} of {{count}}. Opens full screen',
     viewer: 'Image {{index}} of {{count}}',
     zoomHint: 'Pinch or double tap to zoom',
+    /** The viewer as a gallery of the message's images (#478). */
+    swipeHint: 'Swipe to see the other images',
+    previous: 'Previous image',
+    next: 'Next image',
+    thumbnail: 'Show image {{index}} of {{count}}',
     close: 'Close image',
     count_one: '{{count}} image',
     count_other: '{{count}} images',
