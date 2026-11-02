@@ -1453,6 +1453,14 @@ const ptBR = {
     },
     idleOff: 'Mãos livres desligado após {{minutes}} minutos sem atividade.',
   },
+  notices: {
+    finished: 'Sessão concluída',
+    permission: 'Permissão pedida',
+    question: 'Tem uma pergunta',
+    plan: 'Plano pronto para revisão',
+    openHint: 'Abre a sessão',
+    dismiss: 'Dispensar',
+  },
   assistant: {
     sent: 'Enviado para “{{title}}”.',
     emptyText: 'Não havia nada para enviar.',
