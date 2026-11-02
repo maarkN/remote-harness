@@ -56,6 +56,10 @@ Enquanto o agente delega trabalho, o menu do cabeçalho mostra **Subagentes (N �
 
 **Retomar** reabre uma sessão encerrada ou somente leitura dentro do tmux, com o mesmo histórico. **Encerrar** termina a sessão; quando ela rodou num worktree, o app oferece apagar só se estiver limpo e enviado, fazer commit e push antes, ou descartar o trabalho, perguntando duas vezes antes de descartar qualquer coisa.
 
+## Prompts agendados
+
+Ajustes → Sessões → **Prompts agendados** deixa o computador enviar um prompt pelo próprio relógio, com o app fechado: uma vez numa data e horário, ou todo dia num horário nos dias da semana que você escolher (os horários seguem o relógio do computador). O prompt vai para uma sessão aberta (entra na fila enquanto ela está ocupada, como qualquer prompt) ou abre uma nova sessão numa pasta com um perfil, opcionalmente numa cópia isolada e com um nome; **Usar um modelo…** preenche a partir dos seus modelos de prompt, e o menu Mais opções de uma sessão tem **Agendar um prompt…** com essa sessão como destino. O celular recebe uma notificação quando um agendamento rodou ou falhou, com o título do agendamento e nunca o prompt. Uma execução que o computador perdeu (dormindo, daemon parado por mais de cinco minutos) não roda atrasada: o agendamento mostra **Perdido** com **Rodar agora**, e você decide. Precisa de um computador atualizado para esta versão.
+
 ## Status ao vivo
 
 No iOS, uma sessão em andamento mostra uma Live Activity na tela de bloqueio e na Dynamic Island com o badge do agente (Claude Code, Codex…), o estado, o passo atual e o tempo decorrido; um pedido de permissão acrescenta os botões Permitir e Negar, e quando o turno termina o cartão diz quanto ele levou ("Concluído após 12 min"). No Android é uma notificação silenciosa sem botões: toque para responder no app. Nunca leva a conversa. Desligue em Ajustes → Notificações → Status ao vivo.

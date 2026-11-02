@@ -13,6 +13,7 @@ import {
   PermissionAnswerSchema,
   PushRelaySchema,
   RuleScopeSchema,
+  ScheduleInputSchema,
   SessionNameSchema,
   SettingsPaneSchema,
   WorktreeActionSchema,
@@ -81,6 +82,18 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('queue.flush'), id, sessionId }),
   /** Delivers the first queued prompt now (a notification action); `not_found` when the queue is empty. */
   z.object({ type: z.literal('queue.sendNext'), id, sessionId }),
+  /** Scheduled prompts (#432): kept and run on the computer; `schedules.updated` follows every change. */
+  z.object({ type: z.literal('schedules.list'), id }),
+  z.object({ type: z.literal('schedule.create'), id, schedule: ScheduleInputSchema }),
+  z.object({
+    type: z.literal('schedule.update'),
+    id,
+    scheduleId: z.string().min(1),
+    schedule: ScheduleInputSchema,
+  }),
+  z.object({ type: z.literal('schedule.remove'), id, scheduleId: z.string().min(1) }),
+  /** Runs the schedule now, enabled or not, without touching its timing. */
+  z.object({ type: z.literal('schedule.run'), id, scheduleId: z.string().min(1) }),
   z.object({ type: z.literal('session.setMode'), id, sessionId, mode: z.string() }),
   z.object({
     type: z.literal('permission.respond'),

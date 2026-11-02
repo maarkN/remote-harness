@@ -56,6 +56,10 @@ While the agent delegates work, the header's menu shows **Subagents (N · M runn
 
 **Resume** reopens an ended or read-only session inside tmux, with the same history. **Close** ends the session; when it ran in a worktree, the app offers to delete it only when it is clean and pushed, to commit and push first, or to discard the work, asking twice before discarding anything.
 
+## Scheduled prompts
+
+Settings → Sessions → **Scheduled prompts** lets the computer send a prompt by its own clock, with the app closed: once at a date and time, or every day at a time on the weekdays you pick (times follow the computer's clock). The prompt goes to an open session (queued while it is busy, like any prompt) or starts a new session in a folder with a profile, optionally in an isolated copy and with a name; **Use a template…** fills it from your prompt templates, and a session's More options menu has **Schedule a prompt…** with that session as the target. The phone gets a notification when a schedule ran or failed, with the schedule's title and never the prompt. A run the computer missed (asleep, daemon down for more than five minutes) does not run late: the schedule shows **Missed** with **Run now**, and you decide. Needs a computer updated to this version.
+
 ## Live status
 
 On iOS, a running session shows a Live Activity on the lock screen and in the Dynamic Island with the agent's badge (Claude Code, Codex…), the state, the current step and the elapsed time; a permission request adds Allow and Deny buttons, and once the turn is done the card says how long it took ("Finished after 12 min"). On Android it is a silent notification without buttons: tap it to answer in the app. It never carries the conversation. Turn it off in Settings → Notifications → Live status.

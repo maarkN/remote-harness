@@ -177,6 +177,32 @@ const clientSamples: ClientMessage[] = [
   { type: 'pane.subscribe', id: '1', sessionId: 's' },
   { type: 'pane.unsubscribe', id: '1', sessionId: 's' },
   { type: 'settings.mute', id: '1', target: 'profile', targetId: 'claudin', muted: true },
+  { type: 'schedules.list', id: '1' },
+  {
+    type: 'schedule.create',
+    id: '1',
+    schedule: {
+      title: 'Daily summary',
+      prompt: 'Summarize yesterday',
+      target: { kind: 'session', sessionId: 's' },
+      when: { kind: 'repeat', time: '09:00', days: [1, 2, 3, 4, 5] },
+      enabled: true,
+    },
+  },
+  {
+    type: 'schedule.update',
+    id: '1',
+    scheduleId: 'sch1',
+    schedule: {
+      title: 'Once',
+      prompt: 'Run the tests',
+      target: { kind: 'new', profileId: 'claudin', cwd: '/w', worktree: true, name: 'Nightly' },
+      when: { kind: 'once', at: '2026-11-02T08:00:00.000Z' },
+      enabled: true,
+    },
+  },
+  { type: 'schedule.remove', id: '1', scheduleId: 'sch1' },
+  { type: 'schedule.run', id: '1', scheduleId: 'sch1' },
 ]
 
 const session: Session = {
@@ -523,6 +549,25 @@ const serverSamples: ServerMessage[] = [
   },
   { type: 'diagnostics.result', replyTo: '1', daemonVersion: '0.12.0', errors: [] },
   { type: 'mute.updated', muted: { profiles: ['claudin'], sessions: [] } },
+  {
+    type: 'schedules.result',
+    replyTo: '1',
+    schedules: [
+      {
+        id: 'sch1',
+        title: 'Daily summary',
+        prompt: 'Summarize yesterday',
+        target: { kind: 'session', sessionId: 's' },
+        when: { kind: 'repeat', time: '09:00', days: [1, 2, 3, 4, 5] },
+        enabled: true,
+        createdAt: '2026-11-01T10:00:00.000Z',
+        updatedAt: '2026-11-01T10:00:00.000Z',
+        lastRun: { at: '2026-11-02T12:00:00.000Z', outcome: 'missed', error: null, sessionId: null },
+        nextRunAt: '2026-11-03T12:00:00.000Z',
+      },
+    ],
+  },
+  { type: 'schedules.updated', schedules: [] },
   {
     type: 'daemon.update.info',
     replyTo: '1',
