@@ -539,7 +539,8 @@ const enUS = {
       finished: 'finished',
       open: 'Open',
     },
-    finished: 'Finished',
+    /** Done state of the app's own update; `duration` is the turn's length in words ("12 min"). */
+    finishedAfter: 'Finished after {{duration}}',
   },
   widgets: {
     /** Widget gallery (iOS) and widget picker (Android). */

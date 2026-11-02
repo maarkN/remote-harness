@@ -22,11 +22,13 @@ import { createLiveActivity } from 'expo-widgets'
  * only `@expo/ui/swift-ui`, no app state, no imports used inside, so the texts arrive translated in
  * the props, the colors arrive in `props.palette` (the app theme; the literals below are the dark
  * theme, used when an older daemon sends none) and props from older daemons may lack the fields
- * after `startedAt`. The mark (`LiveActivityIcon`, from the widget extension's asset catalog) is the
- * only icon; color encodes only the state (border, state pill, timer, progress bar, current glyph).
- * The big timer counts the time in the current state (working: the turn; waiting: the wait; done:
- * the frozen total); the right side says how long ago the phone was notified (and, waiting, the
- * turn's working time; done, when it finished), all self-updating `Text` dates, so no extra pushes.
+ * after `startedAt`. The only icon is the session's agent badge (`Agent-<id>` from the widget
+ * extension's asset catalog, #471) or, without an agent in the props, the app mark
+ * (`LiveActivityIcon`); color encodes only the state (border, state pill, timer, progress bar,
+ * current glyph). The big timer counts the time in the current state (working: the turn; waiting:
+ * the wait); once done, the phrase "Finished after 12 min" takes its place (closed: the frozen
+ * total); the right side says how long ago the phone was notified (and, waiting, the turn's working
+ * time; done, when it finished), all self-updating `Text` dates, so no extra pushes.
  * Nothing spins: widgets don't animate an indeterminate `ProgressView`, so progress is only the
  * ticking timer and, with a todo list, a determinate bar. The Deny and Allow buttons carry
  * `deny:<requestId>` / `allow:<requestId>` as their target; the app answers them. Open is a link to
@@ -87,9 +89,14 @@ function SessionActivityLayout(props: LiveStatusProps) {
     return hours > 0 ? `${hours}:${twoDigits(minutes)}:${seconds}` : `${minutes}:${seconds}`
   }
 
+  // The agent's badge when the props name one the catalog has (the ids of `src/core/theme/agents.ts`,
+  // listed here because nothing is imported into the widget); the app mark otherwise.
+  const agentBadges = ['claude', 'codex', 'gemini', 'kimi', 'qwen']
+  const agent = props.agent ?? ''
+  const markAsset = agentBadges.includes(agent) ? `Agent-${agent}` : 'LiveActivityIcon'
   const mark = (size: number) => (
     <Image
-      assetName="LiveActivityIcon"
+      assetName={markAsset}
       modifiers={[resizable(), frame({ width: size, height: size }), clipShape('roundedRectangle', size / 4)]}
     />
   )
@@ -127,11 +134,19 @@ function SessionActivityLayout(props: LiveStatusProps) {
     </HStack>
   )
   const timerLabel = labels ? (finished ? labels.total : waiting ? labels.waiting : labels.working) : ''
-  // Big timer with its label on the left; how fresh the card is on the right.
+  // Done (newer daemons): "Finished after 12 min" in words where the timer was (#471).
+  const donePhrase = state === 'done' && doing ? doing : ''
+  // Big timer with its label (or the done phrase) on the left; how fresh the card is on the right.
   const timesRow = labels ? (
     <HStack spacing={8}>
-      {timer(30, 140)}
-      {small(timerLabel)}
+      {donePhrase ? (
+        <Text modifiers={[font({ size: 16, weight: 'bold' }), foregroundStyle(stateColor), lineLimit(1)]}>
+          {donePhrase}
+        </Text>
+      ) : (
+        timer(30, 140)
+      )}
+      {donePhrase ? null : small(timerLabel)}
       <Spacer />
       <VStack alignment="trailing" spacing={1}>
         {waiting && changedAt > props.startedAt
@@ -158,11 +173,13 @@ function SessionActivityLayout(props: LiveStatusProps) {
       {`● ${props.status}`}
     </Text>
   )
-  const doingLine = doing ? (
-    <Text modifiers={[font({ size: 14, weight: 'semibold' }), foregroundStyle(text), lineLimit(1)]}>
-      {`↳ ${doing}`}
-    </Text>
-  ) : null
+  // Once done, the phrase already sits in the times row.
+  const doingLine =
+    doing && !donePhrase ? (
+      <Text modifiers={[font({ size: 14, weight: 'semibold' }), foregroundStyle(text), lineLimit(1)]}>
+        {`↳ ${doing}`}
+      </Text>
+    ) : null
   const sessionName = props.session ? (
     <Text modifiers={[font({ size: 16, weight: 'bold' }), foregroundStyle(text), lineLimit(1)]}>
       {props.session}

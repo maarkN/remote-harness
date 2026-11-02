@@ -528,7 +528,8 @@ export const enUS = {
       thinking: 'Thinking…',
       writing: 'Writing the answer…',
       tool: 'Using tools…',
-      finished: 'Finished',
+      /** Done state; `duration` is the turn's length in words from `liveTurnDuration` ("12 min"). */
+      finishedAfter: (duration: string) => `Finished after ${duration}`,
     },
     /** Small words around the card's timers, and its Open button. */
     labels: {

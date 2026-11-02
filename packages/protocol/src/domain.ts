@@ -25,6 +25,15 @@ export type AgentId = z.infer<typeof AgentIdSchema>
 /** An agent id in a message: one this parser does not know yet reads as absent (Claude Code). */
 const wireAgentId = AgentIdSchema.optional().catch(undefined)
 
+/** Display names of the agents (product names, not translated); the app's badges and the live status texts use them. */
+export const AGENT_LABELS: Record<AgentId, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini CLI',
+  kimi: 'Kimi',
+  qwen: 'Qwen',
+}
+
 /** Model gateways a profile can route Claude Code through; a profile without one uses the Anthropic account. */
 export const ProviderKindSchema = z.enum(['openrouter'])
 export type ProviderKind = z.infer<typeof ProviderKindSchema>
@@ -575,8 +584,24 @@ export const LiveStatusPropsSchema = z.object({
   labels: LiveLabelsSchema.nullable().default(null),
   /** Theme colors of the app that registered; absent from older daemons (the widget uses dark). */
   palette: LivePaletteSchema.optional(),
+  /** The session's agent, so the card shows its badge; absent from older daemons, and an unknown id reads as absent (the app mark). */
+  agent: wireAgentId,
 })
 export type LiveStatusProps = z.infer<typeof LiveStatusPropsSchema>
+
+/**
+ * A turn's duration in words for the done state: seconds under a minute ("40 s"), whole minutes
+ * under an hour ("12 min"), hours and minutes past it ("1 h 05 min", "2 h"). Same in every language.
+ */
+export function liveTurnDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000))
+  if (total < 60) return `${total} s`
+  const minutes = Math.floor(total / 60)
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest > 0 ? `${hours} h ${rest < 10 ? `0${rest}` : rest} min` : `${hours} h`
+}
 
 /**
  * How the daemon reaches one phone with the live status of the sessions it follows: the FCM token
@@ -609,12 +634,16 @@ export const LiveDataMessageSchema = z.object({
 export type LiveDataMessage = z.infer<typeof LiveDataMessageSchema>
 
 /**
- * Title and body of the Android live status notification: "<session> · <state>", then the current
- * task or the phrase, the current step (else the step category), the progress, the counts and the
- * glyph row (oldest → newest). The same text whether the system or the app draws it.
+ * Title and body of the Android live status notification: "<agent> · <session> · <state>" (the
+ * agent's name when the props carry one), then the current task or the phrase, the current step
+ * (else the step category), the progress, the counts and the glyph row (oldest → newest). The same
+ * text whether the system or the app draws it.
  */
 export function liveNotificationText(props: LiveStatusProps): { title: string; body: string } {
   const glyphs = [...props.glyphs].reverse().join(' ')
+  const title = [props.agent ? AGENT_LABELS[props.agent] : '', props.session || props.title, props.status]
+    .filter(Boolean)
+    .join(' · ')
   const details = [
     props.task || props.activity,
     props.current || props.step,
@@ -625,7 +654,7 @@ export function liveNotificationText(props: LiveStatusProps): { title: string; b
   ]
     .filter(Boolean)
     .join(' · ')
-  return { title: `${props.session || props.title} · ${props.status}`, body: details || props.status }
+  return { title, body: details || props.status }
 }
 
 export const QuestionKindSchema = z.enum(['choice', 'text', 'number'])

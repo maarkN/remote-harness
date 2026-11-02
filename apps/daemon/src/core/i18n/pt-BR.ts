@@ -534,7 +534,7 @@ export const ptBR = {
       thinking: 'Pensando…',
       writing: 'Escrevendo a resposta…',
       tool: 'Usando ferramentas…',
-      finished: 'Concluído',
+      finishedAfter: (duration: string) => `Concluído após ${duration}`,
     },
     /** Small words around the card's timers, and its Open button. */
     labels: {

@@ -58,7 +58,7 @@ While the agent delegates work, the header's menu shows **Subagents (N · M runn
 
 ## Live status
 
-On iOS, a running session shows a Live Activity on the lock screen and in the Dynamic Island with the state, the current step and the elapsed time; a permission request adds Allow and Deny buttons. On Android it is a silent notification without buttons: tap it to answer in the app. It never carries the conversation. Turn it off in Settings → Notifications → Live status.
+On iOS, a running session shows a Live Activity on the lock screen and in the Dynamic Island with the agent's badge (Claude Code, Codex…), the state, the current step and the elapsed time; a permission request adds Allow and Deny buttons, and once the turn is done the card says how long it took ("Finished after 12 min"). On Android it is a silent notification without buttons: tap it to answer in the app. It never carries the conversation. Turn it off in Settings → Notifications → Live status.
 
 ## Widgets
 

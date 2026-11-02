@@ -23,6 +23,10 @@
   .la .top { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .la .ic { width: 40px; height: 40px; border-radius: 11px; background: #1b1a17; display: grid; place-items: center; flex: none; }
   .la .ic svg { width: 26px; height: 26px; color: var(--accent); }
+  /* The session's agent badge (#471): its fixed color with its icon, as the session list draws it. */
+  .la .ic.agent { background: var(--agent); }
+  .la .ic.agent svg { width: 24px; height: 24px; color: #0d0d0d; }
+  .la .times b.words { font-size: 15px; letter-spacing: 0; white-space: nowrap; }
   .la .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .la .tx .who { font-size: 11px; color: #8a8784; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .la .tx .ttl { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -112,6 +116,11 @@
 </style>
 </head>
 <body>
+<!-- Agent icons as the app draws them (apps/mobile/src/ui/agent-icons): the Claude spark; the others are neutral placeholders. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="agent-claude" viewBox="0 0 24 24"><path fill="currentColor" d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/></symbol>
+  <symbol id="agent-codex" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4 L20 12 L12 20 L4 12 Z"/></symbol>
+</svg>
 <nav class="nav"><div class="nav-in">
   <a class="brand" href="index.html"><svg><use href="#rh-mark"/></svg>Remote Harness <small>· identidade</small></a>
   <div class="links">
@@ -127,7 +136,7 @@
       <p class="lead">O status ao vivo continua carregando só o que o push já carrega hoje: máquina, perfil, nome e pasta da sessão, estado, categoria do passo, contagem de ferramentas e tempos. Nunca a conversa. O redesenho troca o ícone, usa a cor de estado como o único acento e faz a permissão pendente respondível direto da tela bloqueada.</p>
     </div>
     <div class="notes" style="grid-template-columns:1fr">
-      <div class="note"><span class="n">1</span><div><b>Cor = estado.</b> Working âmbar, Waiting for you amarelo-limão, Done verde, Closed cinza. O ícone fica sempre âmbar sobre o quadrado escuro; é a marca, não o estado.</div></div>
+      <div class="note"><span class="n">1</span><div><b>Cor = estado.</b> Working âmbar, Waiting for you amarelo-limão, Done verde, Closed cinza. O ícone é o badge do agente da sessão (cor fixa do agente, como na lista de sessões), não o estado; sem agente (daemon antigo) fica a marca âmbar sobre o quadrado escuro.</div></div>
       <div class="note"><span class="n">2</span><div><b>Categorias de passo</b> viram glifos na fileira "recent": <code>⌘</code> comando, <code>✎</code> edição, <code>⌕</code> busca, <code>⇄</code> rede, <code>⌥</code> subagente, <code>?</code> pergunta. O atual fica na cor do estado.</div></div>
     </div>
   </section>
@@ -140,7 +149,7 @@
           <div class="date">Saturday, 18 October</div>
           <div class="time">9:41</div>
           <div class="la">
-            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Work · MacBook Pro</span><span class="st">Working</span></div>
+            <div class="hd"><div class="ic agent" style="--agent:#D97757"><svg><use href="#agent-claude"/></svg></div><span class="who">Work · MacBook Pro</span><span class="st">Working</span></div>
             <div class="tx"><span class="ttl">Add rate limit on login</span><span class="path">~/projects/acme-api</span></div>
             <div class="times"><b>14:12</b><small>working</small><span class="side">notified<br>30 s ago</span></div>
             <div class="doing">↳ Running tests…</div>
@@ -155,7 +164,7 @@
       </div>
       <div class="stack">
         <div class="la waiting">
-            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Work · MacBook Pro</span><span class="st">Waiting for you</span></div>
+            <div class="hd"><div class="ic agent" style="--agent:#D97757"><svg><use href="#agent-claude"/></svg></div><span class="who">Work · MacBook Pro</span><span class="st">Waiting for you</span></div>
             <div class="tx"><span class="ttl">Add rate limit on login</span><span class="path">~/projects/acme-api</span></div>
             <div class="times"><b>2:31</b><small>waiting</small><span class="side">working 14:12<br>notified 2 min ago</span></div>
             <div class="doing">↳ Committing and pushing…</div>
@@ -163,19 +172,18 @@
             <div class="ans"><span class="no">Deny</span><span class="ok">Allow</span><span>Open</span></div>
           </div>
         <div class="la done">
-            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Personal · MacBook Pro</span><span class="st">Done</span></div>
+            <div class="hd"><div class="ic agent" style="--agent:#D97757"><svg><use href="#agent-claude"/></svg></div><span class="who">Personal · MacBook Pro</span><span class="st">Done</span></div>
             <div class="tx"><span class="ttl">Migrate landing to Tailwind 4</span><span class="path">~/projects/landing</span></div>
-            <div class="times"><b>6:12</b><small>total</small><span class="side">finished<br>3 min ago</span></div>
-            <div class="doing">↳ Finished</div>
+            <div class="times"><b class="words">Finished after 6 min</b><span class="side">finished<br>3 min ago</span></div>
             <div class="row"><span class="step"></span><span class="tools">☑ 7/7 · 31 tools</span></div>
             
           </div>
         <div class="la closed">
-            <div class="hd"><div class="ic"><svg><use href="#rh-mark-bold"/></svg></div><span class="who">Codex · MacBook Pro</span><span class="st">Session closed</span></div>
+            <div class="hd"><div class="ic agent" style="--agent:#2FBF8F"><svg><use href="#agent-codex"/></svg></div><span class="who">Codex · MacBook Pro</span><span class="st">Session closed</span></div>
             <div class="tx"><span class="ttl">Review deploy pipeline</span><span class="path">~/projects/infra</span></div>
             <div class="row"><span class="step">transcript kept · resume from the app</span></div>
           </div>
-        <p class="cap"><b>Waiting / Done / Closed.</b> Esperando: o timer grande conta a espera e o tempo trabalhado do turno vai para o lado; Deny / Allow respondem em segundo plano e Open abre a sessão (link). Done: total congelado, "finished … ago", fica 15 min. Closed: cinza, com a dica de retomar pelo app.</p>
+        <p class="cap"><b>Waiting / Done / Closed.</b> Esperando: o timer grande conta a espera e o tempo trabalhado do turno vai para o lado; Deny / Allow respondem em segundo plano e Open abre a sessão (link). Done: quanto o turno levou, em palavras ("Finished after 6 min"), no lugar do timer congelado, com "finished … ago" ao lado; fica 15 min. Closed: cinza, com a dica de retomar pelo app. O ícone de todos é o badge do agente da sessão (#471); daemons antigos, sem agente, mostram a marca do app.</p>
       </div>
     </div>
   </section>

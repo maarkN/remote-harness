@@ -6,6 +6,7 @@ import {
   LiveDataMessageSchema,
   LiveStatusPropsSchema,
   liveNotificationText,
+  liveTurnDuration,
   ProfileSchema,
   parseClientMessage,
   parseServerMessage,
@@ -725,8 +726,12 @@ describe('client messages', () => {
         finished: 'finished',
         open: 'Open',
       },
+      agent: 'codex',
     }
     expect(LiveStatusPropsSchema.parse({ ...full, prompt: 'secret' })).toEqual(full)
+    // An agent this app does not know reads as absent, like `Session.agent`.
+    expect(LiveStatusPropsSchema.parse({ ...full, agent: 'other' }).agent).toBeUndefined()
+    expect(LiveStatusPropsSchema.parse(props).agent).toBeUndefined()
     expect(LiveStatusPropsSchema.safeParse({ ...full, progress: { done: 1, total: 0 } }).success).toBe(false)
     // The pending request carries identifiers and labels only.
     expect(
@@ -734,6 +739,34 @@ describe('client messages', () => {
         .pending,
     ).toEqual(full.pending)
     expect(LiveStatusPropsSchema.safeParse({ ...props, state: 'error' }).success).toBe(false)
+  })
+
+  test('the turn duration reads in words: seconds, minutes, then hours', () => {
+    expect(liveTurnDuration(40_000)).toBe('40 s')
+    expect(liveTurnDuration(59_900)).toBe('1 min')
+    expect(liveTurnDuration(12 * 60_000 + 30_000)).toBe('12 min')
+    expect(liveTurnDuration(65 * 60_000)).toBe('1 h 05 min')
+    expect(liveTurnDuration(2 * 3_600_000)).toBe('2 h')
+    expect(liveTurnDuration(-5)).toBe('0 s')
+  })
+
+  test('the Android title starts with the agent name when the props carry one', () => {
+    const props = LiveStatusPropsSchema.parse({
+      title: 'Work',
+      state: 'done',
+      status: 'Done',
+      step: '',
+      tools: '',
+      startedAt: 1,
+      session: 'Fix login',
+      activity: 'Finished after 4 min',
+      agent: 'codex',
+    })
+    expect(liveNotificationText(props)).toEqual({
+      title: 'Codex · Fix login · Done',
+      body: 'Finished after 4 min',
+    })
+    expect(liveNotificationText({ ...props, agent: undefined }).title).toBe('Fix login · Done')
   })
 
   test('live status props carry the app palette when the registration had one', () => {

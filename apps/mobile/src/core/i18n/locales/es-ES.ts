@@ -542,7 +542,7 @@ const esES = {
       finished: 'terminado',
       open: 'Abrir',
     },
-    finished: 'Terminado',
+    finishedAfter: 'Terminado tras {{duration}}',
   },
   widgets: {
     galleryName: 'Sesiones',

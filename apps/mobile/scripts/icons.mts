@@ -3,8 +3,9 @@
  * "Cursor Signal" (a terminal cursor block with the `>` prompt cut out of it and three signal arcs
  * leaving it to the right, see docs/design/identity/branding), in two weights: regular for the app
  * icon, splash and banner; bold under 24 px (notification, favicon, Live Activity, tray). Outputs:
- * `assets/*.png` + `assets/icon/*.svg` (app), the Linux tray glyph next to `tray.py`,
- * `docs/brand/og.png` (README header, Open Graph) and the Google Play feature graphic in `store/`.
+ * `assets/*.png` + `assets/icon/*.svg` (app), the agent badges of the Live Activity in
+ * `assets/live-activity/`, the Linux tray glyph next to `tray.py`, `docs/brand/og.png` (README
+ * header, Open Graph) and the Google Play feature graphic in `store/`.
  * Run: pnpm --filter @remote-harness/mobile icons
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -13,6 +14,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import opentype, { type Font } from 'opentype.js'
 import sharp from 'sharp'
+import { CLAUDE_PATH } from '../src/ui/agent-icons/paths.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const assets = join(here, '..', 'assets')
@@ -328,4 +330,44 @@ await render(featureGraphicSvg(), join(store, 'feature-graphic.png'))
 for (const [theme, { bg, accent }] of Object.entries(ICON_THEMES)) {
   await render(containerSvg(1024, bg, accent), join(assets, 'app-icon', `${theme}.png`), 1024, bg)
   await render(adaptiveForegroundSvg(accent), join(assets, 'app-icon', `${theme}-foreground.png`), 1024)
+}
+
+// --- Agent badges for the Live Activity (#471) ---------------------------------------------------
+
+/** Ink over an agent color, as `src/core/theme/agents.ts` (`AGENT_BADGE_INK`). */
+const AGENT_BADGE_INK = '#0D0D0D'
+/**
+ * Each agent as the session list draws it (`src/ui/AgentBadge.tsx`): its fixed color (duplicated from
+ * `src/core/theme/agents.ts`, like the colors above) under the app's 24-box icon for it
+ * (`src/ui/agent-icons`; the non-Claude ones are the same neutral placeholders, see its README).
+ */
+const AGENT_BADGES: Record<string, { color: string; icon: string }> = {
+  claude: { color: '#D97757', icon: `<path d="${CLAUDE_PATH}" fill="${AGENT_BADGE_INK}"/>` },
+  codex: { color: '#2FBF8F', icon: `<path d="M12 4 L20 12 L12 20 L4 12 Z" fill="${AGENT_BADGE_INK}"/>` },
+  gemini: {
+    color: '#E3729E',
+    icon: `<rect x="5" y="5" width="14" height="14" rx="3" fill="${AGENT_BADGE_INK}"/>`,
+  },
+  kimi: { color: '#5B9BF5', icon: `<path d="M12 4 L20 19 L4 19 Z" fill="${AGENT_BADGE_INK}"/>` },
+  qwen: {
+    color: '#8C6CF5',
+    icon: `<path d="M12 3 L19.8 7.5 L19.8 16.5 L12 21 L4.2 16.5 L4.2 7.5 Z" fill="${AGENT_BADGE_INK}"/>`,
+  },
+}
+
+/** The badge: a square with corners of a quarter of its size and the icon at 60 % of it, centered. */
+function agentBadgeSvg(color: string, icon: string): string {
+  const size = 256
+  const iconSize = size * 0.6
+  const inset = (size - iconSize) / 2
+  return svg(
+    size,
+    size,
+    `<rect width="${size}" height="${size}" rx="${size / 4}" fill="${color}"/><g transform="translate(${inset} ${inset}) scale(${(iconSize / 24).toFixed(4)})">${icon}</g>`,
+  )
+}
+
+// 144 px like the Live Activity mark; app.config.ts copies them into the widget's asset catalog.
+for (const [id, badge] of Object.entries(AGENT_BADGES)) {
+  await render(agentBadgeSvg(badge.color, badge.icon), join(assets, 'live-activity', `agent-${id}.png`), 144)
 }
