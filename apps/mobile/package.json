@@ -85,6 +85,7 @@
     "icons": "tsx scripts/icons.mts",
     "store:metadata": "tsx scripts/store-metadata.mts",
     "store:screenshots": "tsx scripts/store-screenshots.mts",
+    "store:compose": "tsx scripts/store-compose.mts",
     "doctor": "expo-doctor",
     "xterm": "tsx scripts/build-xterm-html.mts",
     "compiler:report": "tsx scripts/compiler-report.mts"
