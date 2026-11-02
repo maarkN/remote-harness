@@ -156,6 +156,8 @@ Install a Release build on the simulator (`cd apps/mobile && npx expo run:ios --
 pnpm --filter @remote-harness/mobile screenshots <folder>   # half size, palette PNGs, into docs/screenshots
 ```
 
+On a machine without a working iOS simulator, the same README images come from the Android store captures below: copy `store/screenshots/android/en-US/pixel-9-pro-NN-<scene>.png` into a folder under the README names (`sessions.png`, `permission.png`, `conversation.png`, `terminal.png`, `new-session.png`, `settings.png`, plus the tablet's conversation as `tablet.png`) and run the same command.
+
 The **store screenshots** come from a screenshot build instead: `REMOTE_HARNESS_SCREENSHOTS=1` at build time makes the app open the offline demo by itself, without the demo banner and card, so the fictional computer passes for a paired one and no daemon is needed. Never ship a build made with it.
 
 ```bash

@@ -21,30 +21,31 @@ Um daemon pequeno no computador, um app nativo no celular e um link criptografad
 <p align="center">
   <img src="docs/screenshots/new-session.png" width="24%" alt="Nova sessão" />
   <img src="docs/screenshots/settings.png" width="24%" alt="Ajustes" />
-  <img src="docs/screenshots/ipad.png" width="44%" alt="iPad com a lista de sessões ao lado" />
+  <img src="docs/screenshots/tablet.png" width="44%" alt="Tablet com a lista de sessões, a conversa e o inspetor lado a lado" />
 </p>
 
 ---
 
 ## Por quê
 
-O Claude Code rende mais em tarefas longas e autônomas — justamente quando você sai da mesa. Aí ele para pedindo permissão para rodar `pnpm test` e a tarefa inteira espera você voltar.
+Agentes de programação rendem mais em tarefas longas e autônomas — justamente quando você sai da mesa. Aí o agente para pedindo permissão para rodar `pnpm test`, ou termina e fica esperando o próximo prompt, e a tarefa inteira espera você voltar.
 
-O controle remoto nativo (`/rc`) ajuda, mas não atendia um uso real:
+As opções remotas que vêm com as ferramentas não atendiam um uso real:
 
-- **Notifica todos os dispositivos da conta**, inclusive os que não deveriam receber nada.
-- **Trabalha com uma conta por vez.** Muita gente usa dois logins do Claude Code no mesmo Mac (pessoal e trabalho, via `CLAUDE_CONFIG_DIR`) e quer ver os dois juntos.
+- **Notificam todos os dispositivos da conta**, inclusive os que não deveriam receber nada.
+- **Trabalham com uma conta e um agente por vez.** Muita gente usa dois logins do Claude Code no mesmo computador (pessoal e trabalho, via `CLAUDE_CONFIG_DIR`), mais Codex ou Gemini CLI em alguns projetos, e quer ver tudo junto.
 - **Não existe API pública para se anexar a uma sessão interativa** a partir de outro processo.
+- **Nada no meio do caminho deveria conseguir ler as suas sessões**, e nada deveria exigir conta, VPN ou porta aberta no roteador.
 
-O Remote Harness resolve isso com ferramentas em que você já confia: as sessões rodam no **tmux**, o Claude Code avisa o que acontece pelos **hooks HTTP** nativos e um **daemon** local liga tudo ao celular, direto em casa ou por um **relay criptografado de ponta a ponta** em qualquer outro lugar.
+O Remote Harness resolve isso com ferramentas em que você já confia: as sessões rodam no **tmux**, cada agente avisa o que acontece pelos seus próprios **hooks** (Claude Code, Codex CLI, Gemini CLI, Kimi CLI e Qwen Code) e um **daemon** local liga tudo ao celular — direto na sua rede ou por um **relay de conexão** que só repassa tráfego cifrado de ponta a ponta e não consegue ler nada dele.
 
 ## Status
 
-**Alpha.** As versões ficam no [GitHub Releases](https://github.com/maarkN/remote-harness/releases), todas com o sufixo `-ALPHA` enquanto o projeto está em testes. Ele é usado todo dia pelos autores, mas espere arestas e mudanças incompatíveis entre versões.
+**1.x.** As versões ficam no [GitHub Releases](https://github.com/maarkN/remote-harness/releases); os apps instalados recebem o JavaScript pelo ar e o daemon se atualiza sozinho. Ele é usado todo dia pelos autores, mas espere arestas e mudanças incompatíveis entre versões menores.
 
 - **Computador:** macOS, Linux e Windows (WSL2), instalado com um comando e atualizado com `remote-harness update` (ou sozinho, pela barra de menus).
 - **Celular:** iOS/iPadOS e Android 10+. Ainda fora das lojas: instale o APK do Android pelas releases ou compile o app ([primeiros passos](https://remoteharness.app/pt-br/docs/getting-started/#instalar-o-app)); TestFlight e Google Play estão em andamento ([#161](https://github.com/maarkN/remote-harness/issues/161)). Os builds instalados recebem atualizações de JavaScript pelo ar.
-- **Agentes:** Claude Code (quantas contas quiser, também via OpenRouter) e Codex CLI. Kimi e Qwen Code estão nos planos.
+- **Agentes:** Claude Code (quantas contas quiser, também via OpenRouter), Codex CLI, Gemini CLI, Kimi CLI e Qwen Code.
 - **Idiomas:** o app, o CLI, as notificações e o [site](https://remoteharness.app/pt-br/) em inglês, português do Brasil e espanhol.
 
 ## O que ele faz
