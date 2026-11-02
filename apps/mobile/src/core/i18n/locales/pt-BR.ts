@@ -218,6 +218,9 @@ const ptBR = {
     addToPrompt: 'Adicionar ao prompt',
     running: 'Rodando… {{elapsed}}',
     clipped: '… saída anterior oculta',
+    multilineHint:
+      'Return adiciona uma linha. Rodar (ou ⌘↩ com teclado) roda as linhas em ordem e para na primeira que falhar.',
+    tooLong: 'O comando passa de {{max}} caracteres.',
     confirm: {
       title: 'Rodar este comando?',
       body: '{{command}}\n\nEle roda no computador, em {{folder}}, com o seu usuário.',
