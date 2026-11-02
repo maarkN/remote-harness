@@ -25,11 +25,15 @@ The app SHALL request notification permission, obtain the FCM token and send `de
 - **THEN** the daemon keeps the flag and sends that phone widget refresh pushes
 
 ### Requirement: Push delivery
-The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`, except one that keeps the session `running` because agent work is still in flight: the push follows the `Stop` that ends it), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.
+The daemon SHALL send a push to the registered tokens when a session finishes a turn (`Stop`, except one that keeps the session `running` because agent work is still in flight: the push follows the `Stop` that ends it), receives `Notification` or produces a permission request, unless a connected client has the app in the foreground. A client with hands-free on SHALL report itself as in the foreground while the mode is on, even with the screen locked or the app in the background, since it reads those events aloud; when it turns hands-free off it SHALL report its real visibility again. With a Firebase service account file the daemon SHALL send directly to FCM; without one it SHALL send through the push relay with each phone's grant. The config `push: "off"` (also set by `remote-harness push off`) MUST stop every push, live status updates included, and MUST apply to a running daemon without a restart.
 
 #### Scenario: Session finishes
 - **WHEN** `Stop` arrives and the app is in the background
 - **THEN** the device receives "Session finished" with the profile
+
+#### Scenario: Hands-free on in the background
+- **WHEN** `Stop` arrives, the only connected app is in the background with hands-free on for that session
+- **THEN** no push is sent, because that app reads the turn aloud
 
 #### Scenario: Firebase not configured
 - **WHEN** there is no service account and the phone registered with a relay grant

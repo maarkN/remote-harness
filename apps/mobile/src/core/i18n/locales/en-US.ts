@@ -1444,6 +1444,13 @@ const enUS = {
     repeat: 'Repeat',
     exit: 'Exit',
     talkHint: 'Starts listening for a message or a command',
+    /** Lock-screen card (iOS) / persistent notification (Android) while hands-free is on (#446). */
+    background: {
+      title: 'Hands-free is on',
+      stop: 'Stop',
+      channel: 'Hands-free',
+    },
+    idleOff: 'Hands-free turned off after {{minutes}} minutes without activity.',
   },
   /** Sentences Siri (and other voice assistants) speak back; plain text, read aloud. */
   assistant: {

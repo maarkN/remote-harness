@@ -237,7 +237,11 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
     offEntry()
     offReady()
     batch.flushNow()
-    client.send({ type: 'session.unsubscribe', sessionId, agentId })
+    // The daemon keeps one subscription per connection and conversation: while another subscriber
+    // (the hands-free runner, the screen) still wants this stream, leaving must not end it.
+    if ((useTranscriptStore.getState().open[key] ?? 1) <= 1) {
+      client.send({ type: 'session.unsubscribe', sessionId, agentId })
+    }
     closed(key)
   }
 }

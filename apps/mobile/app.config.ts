@@ -195,6 +195,19 @@ const withSceneLifecycle: ConfigPlugin = (config) => {
  * `@expo/config-plugins`'s `ios/Orientation.ts` and `ios/DeviceFamily.ts` — so this plugin can only
  * add a key, never race with it regardless of plugin order).
  */
+/**
+ * Hands-free with the screen locked (#446): under the `audio` background mode the app keeps running
+ * while its spoken-audio session plays (`modules/hands-free-background`). expo-notifications puts
+ * `remote-notification` in the same array, so the mode is merged in, never replacing the key.
+ */
+const withHandsFreeBackground: ConfigPlugin = (config) =>
+  withInfoPlist(config, (plist) => {
+    const modes = plist.modResults.UIBackgroundModes
+    const current = Array.isArray(modes) ? modes.filter((mode) => typeof mode === 'string') : []
+    plist.modResults.UIBackgroundModes = current.includes('audio') ? current : [...current, 'audio']
+    return plist
+  })
+
 const withPerIdiomOrientation: ConfigPlugin = (config) =>
   withInfoPlist(config, (plist) => {
     plist.modResults['UISupportedInterfaceOrientations~ipad'] = [
@@ -760,7 +773,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                   withKeyCommandMainActivity(
                     withKeyCommandAppDelegate(
                       withKeyCommandBridgingHeader(
-                        withPerIdiomOrientation(withSceneLifecycle(appConfig(config))),
+                        withPerIdiomOrientation(
+                          withHandsFreeBackground(withSceneLifecycle(appConfig(config))),
+                        ),
                       ),
                     ),
                   ),

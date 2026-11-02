@@ -1454,6 +1454,12 @@ const esES = {
     repeat: 'Repetir',
     exit: 'Salir',
     talkHint: 'Empieza a escuchar un mensaje o una orden',
+    background: {
+      title: 'Manos libres activado',
+      stop: 'Detener',
+      channel: 'Manos libres',
+    },
+    idleOff: 'Manos libres desactivado tras {{minutes}} minutos sin actividad.',
   },
   assistant: {
     sent: 'Enviado a “{{title}}”.',
