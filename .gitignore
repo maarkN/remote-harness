@@ -33,3 +33,4 @@ apps/mobile/store/screenshots/
 
 # Python bytecode (the Linux tray helper is compiled when it runs)
 __pycache__/
+apps/mobile/modules/*/android/build/
