@@ -943,7 +943,9 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
         // Explicit identifiers for the widget extension and its App Group: without them the plugin falls
         // back to `<app>.ExpoWidgetsTarget` and `group.<app>` and warns on every prebuild.
         bundleIdentifier: `${APP_ID}.widgets`,
-        groupIdentifier: `group.${APP_ID}`,
+        // `group.<app>` is already registered to a different Apple Developer account, so automatic
+        // signing can never create it under this team: Apple rejects the identifier outright.
+        groupIdentifier: `group.${APP_ID}app`,
         enablePushNotifications: true,
         frequentUpdates: true,
         widgets: [
