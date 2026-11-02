@@ -135,9 +135,9 @@ Remote Harness is an independent project, not affiliated with Anthropic or OpenA
   promotionalText:
     'Claude Code and Codex on your own computer, driven from your phone: approve permissions, send prompts, read every step. End-to-end encrypted, no account.',
   releaseNotes: {
-    ios: 'First release on the App Store: follow and drive your Claude Code and Codex sessions from your iPhone or iPad.',
+    ios: 'First release on the App Store. Follow and drive the coding agents on your own computer from your iPhone or iPad: Claude Code, Codex, Gemini CLI, Kimi CLI and Qwen Code sessions in tmux, from anywhere. Read the conversation as it happens, answer permission requests, send the next prompt, dictate or go hands-free, start sessions with a first prompt or a template, and keep an eye on them from the Lock Screen and the widgets. No account; encrypted end to end between the phone and the computer.',
     android:
-      'First release on Google Play: follow and drive your Claude Code and Codex sessions from your Android phone or tablet.',
+      'First release on Google Play. Follow and drive the coding agents on your own computer from your phone: Claude Code, Codex, Gemini CLI, Kimi CLI and Qwen Code sessions in tmux, from anywhere. Read the conversation as it happens, answer permission requests, send the next prompt, dictate or go hands-free, start sessions with a first prompt or a template, and keep an eye on them from the live notification and home screen widgets. No account; encrypted end to end between the phone and the computer.',
   },
   supportUrl: 'https://remoteharness.app/en/docs/troubleshooting/',
   marketingUrl: 'https://remoteharness.app/en/',
@@ -206,9 +206,9 @@ O Remote Harness é um projeto independente, sem afiliação com a Anthropic ou 
   promotionalText:
     'Claude Code e Codex no seu computador, comandados pelo celular: aprove permissões, mande prompts, acompanhe cada passo. Ponta a ponta, sem conta.',
   releaseNotes: {
-    ios: 'Primeira versão na App Store: acompanhe e comande as suas sessões do Claude Code e do Codex pelo iPhone ou iPad.',
+    ios: 'Primeira versão na App Store. Acompanhe e comande os agentes de programação do seu computador pelo iPhone ou iPad: sessões do Claude Code, Codex, Gemini CLI, Kimi CLI e Qwen Code no tmux. Leia a conversa enquanto acontece, responda aos pedidos de permissão, mande o próximo prompt, dite ou use o modo mãos livres, inicie sessões com um primeiro prompt ou um modelo e acompanhe pela tela de bloqueio e pelos widgets. Sem conta; cifrado de ponta a ponta entre celular e computador.',
     android:
-      'Primeira versão no Google Play: acompanhe e comande as suas sessões do Claude Code e do Codex pelo celular ou tablet Android.',
+      'Primeira versão no Google Play. Acompanhe e comande os agentes de programação do seu computador pelo celular: sessões do Claude Code, Codex, Gemini CLI, Kimi CLI e Qwen Code no tmux. Leia a conversa enquanto acontece, responda aos pedidos de permissão, mande o próximo prompt, dite ou use o modo mãos livres, inicie sessões com um primeiro prompt ou um modelo e acompanhe pela notificação ao vivo e pelos widgets da tela inicial. Sem conta; cifrado de ponta a ponta entre celular e computador.',
   },
   supportUrl: 'https://remoteharness.app/pt-br/docs/troubleshooting/',
   marketingUrl: 'https://remoteharness.app/pt-br/',
@@ -277,9 +277,9 @@ Remote Harness es un proyecto independiente, sin afiliación con Anthropic ni Op
   promotionalText:
     'Claude Code y Codex en tu ordenador, dirigidos desde el móvil: aprueba permisos, envía prompts, sigue cada paso. Cifrado de extremo a extremo, sin cuenta.',
   releaseNotes: {
-    ios: 'Primera versión en el App Store: sigue y dirige tus sesiones de Claude Code y Codex desde el iPhone o el iPad.',
+    ios: 'Primera versión en el App Store. Sigue y dirige los agentes de programación de tu ordenador desde el iPhone o el iPad: sesiones de Claude Code, Codex, Gemini CLI, Kimi CLI y Qwen Code en tmux. Lee la conversación según ocurre, responde a las solicitudes de permiso, envía el siguiente prompt, dicta o usa el modo manos libres, inicia sesiones con un primer prompt o una plantilla y síguelas desde la pantalla de bloqueo y los widgets. Sin cuenta; cifrado de extremo a extremo entre móvil y ordenador.',
     android:
-      'Primera versión en Google Play: sigue y dirige tus sesiones de Claude Code y Codex desde el móvil o la tableta Android.',
+      'Primera versión en Google Play. Sigue y dirige los agentes de programación de tu ordenador desde el móvil: sesiones de Claude Code, Codex, Gemini CLI, Kimi CLI y Qwen Code en tmux. Lee la conversación según ocurre, responde a las solicitudes de permiso, envía el siguiente prompt, dicta o usa el modo manos libres, inicia sesiones con un primer prompt o una plantilla y síguelas desde la notificación en vivo y los widgets. Sin cuenta; cifrado de extremo a extremo entre el móvil y el ordenador.',
   },
   supportUrl: 'https://remoteharness.app/es/docs/troubleshooting/',
   marketingUrl: 'https://remoteharness.app/es/',
