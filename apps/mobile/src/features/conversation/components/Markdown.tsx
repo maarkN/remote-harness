@@ -2,6 +2,7 @@ import { Fragment, isValidElement, memo, type ReactNode, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   type ImageStyle,
+  Pressable,
   Text as RNText,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,9 @@ import {
 import { MarkedTokenizer, Renderer, useMarkdown } from 'react-native-marked'
 import { fontSize, fonts, radius, space, type Theme, useTheme } from '@/core/theme'
 import { Text } from '@/ui'
+import { showCommandMenu } from '../../commands/command-menu'
+import { isShellBlock, shellCommandText } from '../../commands/logic'
+import { useRunCommand } from '../../commands/run-context'
 import { codeLabel, plainText } from '../copy'
 import { copyText } from '../copy-text'
 import { hasLinks, splitLinks, tagLinkTarget } from '../links'
@@ -105,7 +109,11 @@ function CopyableBlock({ style, children }: { style?: TextStyle; children: strin
   )
 }
 
-/** Fenced code block: header with the language and a Copy button over the scrolling code. */
+/**
+ * Fenced code block: header with the language and a Copy button over the scrolling code. A shell
+ * block (`sh`, `bash`, `zsh`, `shell`) also offers Copy and "Run on the computer" on a long press,
+ * and as accessibility actions, while the computer accepts commands (#477).
+ */
 function CodeBlock({
   code,
   language,
@@ -118,8 +126,36 @@ function CodeBlock({
   children: ReactNode
 }) {
   const { t } = useTranslation()
+  const theme = useTheme()
+  const runCommand = useRunCommand()
+  const shell = runCommand && isShellBlock(language) ? shellCommandText(code) : ''
+  const run = runCommand && shell ? () => runCommand.run(shell) : undefined
+  const menu = run ? () => showCommandMenu(shell, { t, theme, onRun: run }) : undefined
   return (
-    <View style={style}>
+    <Pressable
+      onLongPress={menu}
+      disabled={!menu}
+      accessible={!!menu}
+      accessibilityHint={menu ? t('commands.longPressHint') : undefined}
+      accessibilityActions={
+        menu
+          ? [
+              { name: 'copyCommand', label: t('commands.copyCommand') },
+              { name: 'runHere', label: t('commands.runHere') },
+            ]
+          : undefined
+      }
+      onAccessibilityAction={
+        run
+          ? (event) => {
+              if (event.nativeEvent.actionName === 'runHere') run()
+              else if (event.nativeEvent.actionName === 'copyCommand')
+                void copyText(shell, t('conversation.copy.copied'), { toast: true })
+            }
+          : undefined
+      }
+      style={style}
+    >
       <View style={local.codeHeader}>
         <Text size="xs" color="textDim">
           {codeLabel(language) ?? ''}
@@ -130,7 +166,7 @@ function CodeBlock({
         {/* The View avoids "Cannot add a child that doesn't have a YogaNode" (react-native#18773). */}
         <View>{children}</View>
       </ScrollView>
-    </View>
+    </Pressable>
   )
 }
 

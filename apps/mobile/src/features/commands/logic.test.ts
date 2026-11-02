@@ -8,11 +8,13 @@ import {
   commandScript,
   exitFailed,
   formatElapsed,
+  isShellBlock,
   MAX_DISPLAY_CHARS,
   MAX_PROMPT_CHARS,
   newRun,
   outputText,
   promptBlock,
+  shellCommandText,
 } from './logic'
 
 const exited = (code: number): CommandExit => ({
@@ -112,6 +114,24 @@ describe('several lines', () => {
   test('commandEcho prefixes every line', () => {
     expect(commandEcho('cd app\nyarn install')).toBe('$ cd app\n$ yarn install')
     expect(commandEcho('')).toBe('')
+  })
+})
+
+describe('commands in the conversation', () => {
+  test('shell blocks by their fence language, first word only', () => {
+    for (const language of ['sh', 'bash', 'zsh', 'shell', 'Bash', 'bash title=x']) {
+      expect(isShellBlock(language), language).toBe(true)
+    }
+    for (const language of ['ts', 'json', '', undefined, 'shellscript']) {
+      expect(isShellBlock(language), String(language)).toBe(false)
+    }
+  })
+
+  test('shellCommandText drops console prompts only when every line has one', () => {
+    expect(shellCommandText('$ cd app\n$ yarn install\n')).toBe('cd app\nyarn install')
+    expect(shellCommandText('cd app\n\nyarn install  ')).toBe('cd app\nyarn install')
+    expect(shellCommandText('$ pnpm test\n PASS src/a.test.ts')).toBe('$ pnpm test\n PASS src/a.test.ts')
+    expect(shellCommandText('')).toBe('')
   })
 })
 

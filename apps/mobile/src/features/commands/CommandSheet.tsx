@@ -51,6 +51,7 @@ export function CommandSheet({
   cwd,
   enabled,
   visible,
+  initialCommand = null,
   onClose,
   onAddToPrompt,
 }: {
@@ -59,6 +60,8 @@ export function CommandSheet({
   /** The daemon config allows commands (`remote-harness commands on`). */
   enabled: boolean
   visible: boolean
+  /** A command from the conversation (#477): the field starts with it when the sheet opens. */
+  initialCommand?: string | null
   onClose: () => void
   onAddToPrompt: (block: string) => void
 }) {
@@ -72,6 +75,9 @@ export function CommandSheet({
   const now = useTicker(running)
   const outputRef = useRef<ScrollView>(null)
   const folder = shortPath(run?.cwd ?? cwd)
+  useEffect(() => {
+    if (visible && initialCommand) setCommand(initialCommand)
+  }, [visible, initialCommand])
   // Several lines run in order under `set -e` (#475); the typed lines are what the alert shows.
   const lines = commandLines(command).join('\n')
   const tooLong = commandScript(command).length > MAX_COMMAND_LENGTH
