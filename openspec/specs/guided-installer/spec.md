@@ -70,7 +70,7 @@ The pairing screen SHALL offer a step-by-step guide for those who installed the 
 - **THEN** they see the steps in order, with the install command and the install link ready to share and a shortcut back to the QR scanner
 
 ### Requirement: Update command
-`remote-harness update [--ref <ref>] [--force]` SHALL update an installation made by the installer: fetch the ref (default `main`) into `~/.remote-harness/src`, run the new `install.sh --update` (checks, dependencies and build without the wizard), refresh launchers, shortcut, PATH and hooks idempotently, restart the background service only when it is installed, and print the old and new version. It MUST NOT ask setup questions or show the pairing code, MUST refuse a checkout other than the installer's or one with local changes, and SHALL say when the installation is already up to date.
+`remote-harness update [--ref <ref>] [--force]` SHALL update an installation made by the installer: fetch the ref (default `main`) into `~/.remote-harness/src`, run the new `install.sh --update` (checks, dependencies and build without the wizard), refresh launchers, shortcut, PATH and hooks idempotently, restart the background service only when it is installed, and print the old and new version. It MUST NOT ask setup questions or show the pairing code, MUST refuse a checkout other than the installer's or one with local changes, and SHALL say when the installation is already up to date. The update MUST behave the same whatever directory it is run from, and it MUST NOT wait on input the user cannot see: every tool the installer probes or runs with its output hidden SHALL run from the source checkout with its input closed, so a package-manager shim resolves the version pinned by the checkout and never asks a download question.
 
 #### Scenario: New version available
 - **WHEN** the user runs `remote-harness update` and `main` has new commits
@@ -87,6 +87,10 @@ The pairing screen SHALL offer a step-by-step guide for those who installed the 
 #### Scenario: Installer only
 - **WHEN** the user runs `curl -fsSL https://remoteharness.app/install.sh | bash -s -- --update`
 - **THEN** the update runs the same way, without the wizard
+
+#### Scenario: Run from another directory
+- **WHEN** the user runs `remote-harness update` from `/` on a computer whose `pnpm` is the Corepack shim and the latest pnpm is not in Corepack's cache
+- **THEN** the build starts right away with the pnpm pinned by the source checkout, and nothing waits for an answer the user cannot see
 
 ### Requirement: OpenRouter profiles in the wizard
 The accounts step of `remote-harness setup` SHALL offer "Add an OpenRouter profile", which asks the name (default `OpenRouter`), the alias (same validation and PATH clash check as accounts), the config folder (default the first free of `~/.claude-openrouter`, `~/.claude-openrouter-2`…, created when missing, no login asked) and an optional default model, then the key in a hidden prompt. The key SHALL be checked against the gateway (see model-providers "Provider key check") and stored with the provider key store only after the summary is confirmed and the config written; an empty key MUST skip storing it and print the `remote-harness provider key <alias>` command. When the setup runs again, every configured provider profile SHALL be listed with whether its key is stored, offering keep, replace the key or remove the profile; its folder MUST NOT be offered in the Claude Code accounts checkbox. Removing a provider profile SHALL remove its launcher, its hooks and its stored key. All texts MUST be translated.
