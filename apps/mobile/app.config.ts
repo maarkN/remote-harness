@@ -154,6 +154,32 @@ const withFirebaseCocoaPods: ConfigPlugin = (config) =>
   })
 
 /**
+ * Xcode 26.3 (Swift 6.2.4) rejects expo-modules-core 57.0.x in the Swift 6 language mode its podspec
+ * selects: "sending 'emitter' risks causing data races" in EventEmitter.swift. Build that one pod in
+ * Swift 5 mode, where the same diagnostics are warnings, until Expo ships a fix.
+ */
+const withExpoModulesCoreSwift5: ConfigPlugin = (config) =>
+  withPodfile(config, (podfile) => {
+    const marker = '# expo-modules-core in Swift 5 mode'
+    if (!podfile.modResults.contents.includes(marker)) {
+      const hook = 'post_install do |installer|'
+      if (!podfile.modResults.contents.includes(hook)) {
+        throw new Error('withExpoModulesCoreSwift5: Podfile template changed; update the plugin')
+      }
+      podfile.modResults.contents = podfile.modResults.contents.replace(
+        hook,
+        `${hook}
+    ${marker} (Swift 6.2.4 data-race diagnostics)
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'ExpoModulesCore'
+      target.build_configurations.each { |build| build.build_settings['SWIFT_VERSION'] = '5.0' }
+    end`,
+      )
+    }
+    return podfile
+  })
+
+/**
  * iOS 27 asserts at launch unless the app adopts the UIScene life cycle, and the SDK 57 template
  * still starts React Native from the app delegate. Hand the window over to Expo's
  * `ExpoAppSceneDelegate` (registered in Objective-C as `EXExpoAppSceneDelegate`).
@@ -787,7 +813,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                     withKeyCommandAppDelegate(
                       withKeyCommandBridgingHeader(
                         withPerIdiomOrientation(
-                          withHandsFreeBackground(withSceneLifecycle(appConfig(config))),
+                          withHandsFreeBackground(
+                            withSceneLifecycle(withExpoModulesCoreSwift5(appConfig(config))),
+                          ),
                         ),
                       ),
                     ),
