@@ -22,6 +22,8 @@ const clientSamples: ClientMessage[] = [
   { type: 'pairing.create', id: '1' },
   { type: 'permissions.list', id: '1' },
   { type: 'changes.list', id: '1', sessionId: 's' },
+  { type: 'transcript.search', id: '1', query: 'connection pool', limit: 20 },
+  { type: 'transcript.search', id: '1', query: 'pool', sessionId: 's', limit: 1, cursor: 's:3.0' },
   { type: 'changes.diff', id: '1', sessionId: 's', path: 'src/a.ts' },
   { type: 'changes.commit', id: '1', sessionId: 's', paths: ['src/a.ts'], message: 'fix: a' },
   {
@@ -275,6 +277,29 @@ const serverSamples: ServerMessage[] = [
     ],
   },
   { type: 'transcript.page', replyTo: '1', sessionId: 's', entries: [], hasMore: false, lineCount: 0 },
+  {
+    type: 'transcript.searchResult',
+    replyTo: '1',
+    hits: [
+      {
+        sessionId: 's',
+        key: 'u1:0',
+        cursor: 3,
+        index: 0,
+        kind: 'user',
+        timestamp: null,
+        snippet: 'check the connection pool',
+        cutStart: true,
+        cutEnd: false,
+        ranges: [
+          { start: 10, end: 20 },
+          { start: 21, end: 25 },
+        ],
+      },
+    ],
+    nextCursor: 's:3.0',
+    scanned: 1,
+  },
   { type: 'pane.frame', sessionId: 's', text: '>', cols: 80, rows: 24 },
   { type: 'pane.diff', sessionId: 's', cols: 80, rows: 24, lineCount: 2, lines: [[1, '$ ls']] },
   { type: 'session.changed', sessionId: 's', set: { state: 'running' }, unset: ['statusLine'] },
@@ -728,6 +753,16 @@ describe('client messages', () => {
     expect(
       parseClientMessage({ type: 'session.input', id: '1', sessionId: 's', text: 'hi', mode: 'later' }).ok,
     ).toBe(false)
+  })
+
+  test('transcript.search defaults its page size and bounds the query', () => {
+    const parsed = parseClientMessage({ type: 'transcript.search', id: '1', query: 'pool' })
+    expect(parsed.ok && parsed.value.type === 'transcript.search' ? parsed.value.limit : null).toBe(20)
+    expect(parseClientMessage({ type: 'transcript.search', id: '1', query: '' }).ok).toBe(false)
+    expect(parseClientMessage({ type: 'transcript.search', id: '1', query: 'a'.repeat(201) }).ok).toBe(false)
+    expect(parseClientMessage({ type: 'transcript.search', id: '1', query: 'pool', limit: 51 }).ok).toBe(
+      false,
+    )
   })
 
   test('worktree actions are a closed set', () => {

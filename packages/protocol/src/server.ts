@@ -34,6 +34,7 @@ import {
   SessionStateSchema,
   SubagentInfoSchema,
   TranscriptEntrySchema,
+  TranscriptSearchHitSchema,
   WireProfileSchema,
   WorktreeCopySchema,
   WorktreeInfoSchema,
@@ -123,6 +124,15 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     hasMore: z.boolean(),
     /** Total number of lines known for the transcript when the page was built. */
     lineCount: z.number().int().nonnegative(),
+  }),
+  /** Reply to `transcript.search`: this page's hits and where the next page starts (`null` at the end). */
+  z.object({
+    type: z.literal('transcript.searchResult'),
+    replyTo,
+    hits: z.array(TranscriptSearchHitSchema),
+    nextCursor: z.string().nullable(),
+    /** Transcripts read for this page. */
+    scanned: z.number().int().nonnegative(),
   }),
   z.object({
     type: z.literal('pane.frame'),

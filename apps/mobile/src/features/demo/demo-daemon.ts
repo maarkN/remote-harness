@@ -423,6 +423,9 @@ export class DemoDaemon {
         throw new DemoError('commands_disabled', this.options.labels.unavailable)
       case 'transcript.image':
         throw new DemoError('not_found', 'image not found')
+      // The demo's conversations are not searched yet (#372, app half): every search is empty.
+      case 'transcript.search':
+        return { type: 'transcript.searchResult', hits: [], nextCursor: null, scanned: this.sessions.size }
       // Not simulated: starting or resuming sessions, attachments, the queue, shell commands, commit
       // and push, follows, rules edits, adding or removing devices, updating the daemon.
       case 'attachment.upload':
