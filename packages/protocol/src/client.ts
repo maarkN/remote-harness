@@ -10,12 +10,14 @@ import {
   MAX_ATTACHMENTS,
   MAX_COMMAND_LENGTH,
   MAX_DIRECTORY_LIST_LIMIT,
+  MAX_TRANSCRIPT_SEARCH_QUERY,
   PermissionAnswerSchema,
   PushRelaySchema,
   RuleScopeSchema,
   ScheduleInputSchema,
   SessionNameSchema,
   SettingsPaneSchema,
+  TRANSCRIPT_SEARCH_LIMIT,
   WorktreeActionSchema,
 } from './domain.ts'
 
@@ -54,6 +56,19 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     agentId: z.string().optional(),
     before: z.number().int().nonnegative(),
     limit: z.number().int().positive().max(200).default(50),
+  }),
+  /**
+   * Whole-word search, case- and accent-insensitive, over the transcripts of the sessions the daemon
+   * knows (newest first) or of one session; answered with `transcript.searchResult`, paged by `cursor`.
+   */
+  z.object({
+    type: z.literal('transcript.search'),
+    id,
+    query: z.string().min(1).max(MAX_TRANSCRIPT_SEARCH_QUERY),
+    sessionId: sessionId.optional(),
+    limit: z.number().int().positive().max(TRANSCRIPT_SEARCH_LIMIT).default(20),
+    /** `nextCursor` of the previous page. */
+    cursor: z.string().min(1).optional(),
   }),
   z.object({
     type: z.literal('session.input'),

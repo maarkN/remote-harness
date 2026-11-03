@@ -163,6 +163,7 @@ describe('demo daemon', () => {
       { type: 'devices.revoke', deviceId: 'demo-tablet' },
       { type: 'pairing.create' },
       { type: 'changes.list', sessionId: EDITED.id },
+      { type: 'transcript.search', query: 'pool' },
       { type: 'changes.diff', sessionId: EDITED.id, path: file?.path ?? '' },
       { type: 'changes.commit', sessionId: EDITED.id, paths: ['a'], message: 'm' },
       { type: 'changes.push', sessionId: EDITED.id },
