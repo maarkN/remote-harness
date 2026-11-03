@@ -28,26 +28,27 @@ A small daemon on your computer, a native app on your phone, an end-to-end encry
 <p align="center">
   <img src="docs/screenshots/new-session.png" width="24%" alt="New session" />
   <img src="docs/screenshots/settings.png" width="24%" alt="Settings" />
-  <img src="docs/screenshots/ipad.png" width="44%" alt="iPad with the session sidebar" />
+  <img src="docs/screenshots/tablet.png" width="44%" alt="Tablet with the session sidebar, the conversation and the inspector" />
 </p>
 
 ---
 
 ## Why
 
-Claude Code is at its best on long, autonomous tasks — which is exactly when you walk away from the desk. Then it stops to ask for permission to run `pnpm test`, and the whole task waits until you are back.
+Coding agents are at their best on long, autonomous tasks — which is exactly when you walk away from the desk. Then the agent stops to ask for permission to run `pnpm test`, or finishes and waits for the next prompt, and the whole task sits there until you are back.
 
-The built-in remote control (`/rc`) helps, but it did not fit a real setup:
+The remote options that come with the tools did not fit a real setup:
 
-- **It notifies every device on the account**, including ones that should never receive anything.
-- **It works with one account at a time.** Many of us run two Claude Code logins on the same computer (personal and work, via `CLAUDE_CONFIG_DIR`) and want a single view of both.
+- **They notify every device on the account**, including ones that should never receive anything.
+- **They work with one account and one agent at a time.** Many of us run two Claude Code logins on the same computer (personal and work, via `CLAUDE_CONFIG_DIR`), plus Codex or Gemini CLI on some projects, and want a single view of all of them.
 - **There is no public API to attach to a live interactive session** from another process.
+- **Nothing in between should be able to read your sessions**, and nothing should require an account, a VPN or a port opened on the router.
 
-Remote Harness solves this with tools you already trust: sessions run inside **tmux**, Claude Code reports what happens through its native **HTTP hooks**, and a local **daemon** bridges both to the phone, directly at home or through an **end-to-end encrypted relay** anywhere else.
+Remote Harness solves this with tools you already trust: sessions run inside **tmux**, each agent reports what happens through its own **hooks** (Claude Code, Codex CLI, Gemini CLI, Kimi CLI and Qwen Code), and a local **daemon** bridges both to the phone — directly on your network, or through a **connection relay** that only forwards traffic encrypted end to end, so it cannot read a word of it.
 
 ## Status
 
-**Alpha.** Releases are on [GitHub Releases](https://github.com/maarkN/remote-harness/releases), each tagged `-ALPHA` while the project is being tested. It is used every day by its authors, but expect rough edges and breaking changes between versions.
+**1.x.** Releases are on [GitHub Releases](https://github.com/maarkN/remote-harness/releases); installed apps get their JavaScript over the air and the daemon updates itself. It is used every day by its authors, but expect rough edges and breaking changes between minor versions.
 
 - **Computer:** macOS, Linux and Windows (WSL2), installed with one command and updated with `remote-harness update` (or automatically, from the menu bar).
 - **Phone:** iOS/iPadOS and Android 10+. Not in the stores yet: install the Android APK from the releases or build the app yourself ([getting started](https://remoteharness.app/docs/getting-started/#install-the-app)); TestFlight and Google Play are in progress ([#161](https://github.com/maarkN/remote-harness/issues/161)). Installed builds get JavaScript updates over the air.

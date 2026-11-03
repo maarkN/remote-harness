@@ -179,6 +179,7 @@ export const esES: WebMessages = {
     agents: {
       title: 'Tus agentes, en tmux',
       body: 'Una ventana por sesión, un alias por perfil, para Claude Code, Codex, Gemini CLI, Kimi CLI o Qwen Code.',
+      moreAliases: 'ver más',
       aliases: [
         { mark: 'claude', text: 'personal → ~/.claude' },
         { mark: 'claude', text: 'trabajo → ~/.claude-work' },

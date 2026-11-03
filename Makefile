@@ -131,10 +131,7 @@ build-android-bundle: ## Google Play bundle (.aab) signed with the upload key, i
 build-ios: ## App Store build (.ipa) into STORE_DIR (fresh ios/; bump APP_VERSION before each upload)
 	@cd $(MOBILE) && npx tsx scripts/store-ios.mts --check && \
 		npx expo prebuild --platform ios --clean && \
-		echo "▸ xcodebuild archive (Release)" && \
-		xcodebuild -quiet -workspace ios/$(IOS_APP).xcworkspace -scheme $(IOS_APP) \
-			-configuration Release -destination generic/platform=iOS -derivedDataPath ios/build \
-			-archivePath ios/build/$(IOS_APP).xcarchive -allowProvisioningUpdates archive && \
+		npx tsx scripts/store-ios.mts archive ios/build/$(IOS_APP).xcarchive && \
 		npx tsx scripts/store-ios.mts export ios/build/$(IOS_APP).xcarchive "$(STORE_DIR)"
 
 publish-ios: ## Upload the last build-ios to App Store Connect / TestFlight (REMOTE_HARNESS_ASC_* keys)

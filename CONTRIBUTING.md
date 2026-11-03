@@ -156,6 +156,8 @@ Install a Release build on the simulator (`cd apps/mobile && npx expo run:ios --
 pnpm --filter @remote-harness/mobile screenshots <folder>   # half size, palette PNGs, into docs/screenshots
 ```
 
+On a machine without a working iOS simulator, the same README images come from the Android store captures below: copy `store/screenshots/android/en-US/pixel-9-pro-NN-<scene>.png` into a folder under the README names (`sessions.png`, `permission.png`, `conversation.png`, `terminal.png`, `new-session.png`, `settings.png`, plus the tablet's conversation as `tablet.png`) and run the same command.
+
 The **store screenshots** come from a screenshot build instead: `REMOTE_HARNESS_SCREENSHOTS=1` at build time makes the app open the offline demo by itself, without the demo banner and card, so the fictional computer passes for a paired one and no daemon is needed. Never ship a build made with it.
 
 ```bash
@@ -168,7 +170,7 @@ pnpm store:screenshots -- --udid <udid>             # every language and scene, 
 pnpm store:screenshots -- --android --apk android/app/build/outputs/apk/release/app-release.apk   # into store/screenshots/android/<locale>/
 ```
 
-The script walks the storyboard scenes through deep links (list, permission, conversation, terminal, new session, settings), sets a clean status bar and the app's language per run (per-app locales on Android, `AppleLanguages` on iOS), and saves the raw captures under `store/screenshots/`, ignored by git. `--serial`/`--udid` pick the device, `--name` the file prefix (default: the model), `--scenes` and `--locales` a subset. For a tablet in landscape on the emulator, rotate it first: `adb shell settings put system accelerometer_rotation 0` then `adb shell settings put system user_rotation 1`. The scenes that need typing or the lock screen (the prompt with hands-free, the live status) are taken by hand on the same build.
+The script walks the storyboard scenes through deep links (list, permission, conversation, terminal, new session, settings), sets a clean status bar and the app's language per run (per-app locales on Android, `AppleLanguages` on iOS), and saves the raw captures under `store/screenshots/`, ignored by git. `pnpm store:compose -- --platform ios` (or `android`) then puts each capture on its store canvas (iPhone 6.9" 1320 × 2868, iPad 13" 2064 × 2752, Play phone 1080 × 1920, Play tablet 1600 × 2560) with the scene's caption and a device frame, into `store/screenshots/<platform>-composed/<locale>/`; the captions come from the publishing sheet's `copy.mjs` (`--captions <file>`, outside the repository), one text per scene and language. `--serial`/`--udid` pick the device, `--name` the file prefix (default: the model), `--scenes` and `--locales` a subset. For a tablet in landscape on the emulator, rotate it first: `adb shell settings put system accelerometer_rotation 0` then `adb shell settings put system user_rotation 1`. The scenes that need typing or the lock screen (the prompt with hands-free, the live status) are taken by hand on the same build.
 
 ### Performance numbers
 

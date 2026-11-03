@@ -154,6 +154,32 @@ const withFirebaseCocoaPods: ConfigPlugin = (config) =>
   })
 
 /**
+ * Xcode 26.3 (Swift 6.2.4) rejects expo-modules-core 57.0.x in the Swift 6 language mode its podspec
+ * selects: "sending 'emitter' risks causing data races" in EventEmitter.swift. Build that one pod in
+ * Swift 5 mode, where the same diagnostics are warnings, until Expo ships a fix.
+ */
+const withExpoModulesCoreSwift5: ConfigPlugin = (config) =>
+  withPodfile(config, (podfile) => {
+    const marker = '# expo-modules-core in Swift 5 mode'
+    if (!podfile.modResults.contents.includes(marker)) {
+      const hook = 'post_install do |installer|'
+      if (!podfile.modResults.contents.includes(hook)) {
+        throw new Error('withExpoModulesCoreSwift5: Podfile template changed; update the plugin')
+      }
+      podfile.modResults.contents = podfile.modResults.contents.replace(
+        hook,
+        `${hook}
+    ${marker} (Swift 6.2.4 data-race diagnostics)
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'ExpoModulesCore'
+      target.build_configurations.each { |build| build.build_settings['SWIFT_VERSION'] = '5.0' }
+    end`,
+      )
+    }
+    return podfile
+  })
+
+/**
  * iOS 27 asserts at launch unless the app adopts the UIScene life cycle, and the SDK 57 template
  * still starts React Native from the app delegate. Hand the window over to Expo's
  * `ExpoAppSceneDelegate` (registered in Objective-C as `EXExpoAppSceneDelegate`).
@@ -787,7 +813,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                     withKeyCommandAppDelegate(
                       withKeyCommandBridgingHeader(
                         withPerIdiomOrientation(
-                          withHandsFreeBackground(withSceneLifecycle(appConfig(config))),
+                          withHandsFreeBackground(
+                            withSceneLifecycle(withExpoModulesCoreSwift5(appConfig(config))),
+                          ),
                         ),
                       ),
                     ),
@@ -804,11 +832,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 }
 
 const APP_VERSION = '1.1.1'
+
 /**
- * Android `versionCode`: one integer, bumped by one on every release (1 = v1.1.0). Google Play only
- * takes a bundle whose code is higher than every one uploaded before, so it never goes down.
+ * Android `versionCode` from the version: MAJOR × 1 000 000 + MINOR × 1 000 + PATCH, so 1.1.1 is
+ * 1001001. Google Play only rolls out a bundle whose code is higher than every one it already has for
+ * any user, and the first internal builds went up with the same scheme (1.0.2 was 1000002), so the
+ * code can never restart from 1 again. A second bundle of the same version needs a PATCH bump.
  */
-const ANDROID_VERSION_CODE = 2
+export function androidVersionCode(version: string): number {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+  if (!match) throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH, got "${version}"`)
+  const [major, minor, patch] = match.slice(1).map(Number) as [number, number, number]
+  if (minor > 999 || patch > 999)
+    throw new Error(`version parts above 999 do not fit the version code: "${version}"`)
+  return major * 1_000_000 + minor * 1_000 + patch
+}
+const ANDROID_VERSION_CODE = androidVersionCode(APP_VERSION)
 
 const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
   ...config,
@@ -943,9 +982,7 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
         // Explicit identifiers for the widget extension and its App Group: without them the plugin falls
         // back to `<app>.ExpoWidgetsTarget` and `group.<app>` and warns on every prebuild.
         bundleIdentifier: `${APP_ID}.widgets`,
-        // `group.<app>` is already registered to a different Apple Developer account, so automatic
-        // signing can never create it under this team: Apple rejects the identifier outright.
-        groupIdentifier: `group.${APP_ID}app`,
+        groupIdentifier: `group.${APP_ID}`,
         enablePushNotifications: true,
         frequentUpdates: true,
         widgets: [
