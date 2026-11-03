@@ -736,11 +736,13 @@ program
       REMOTE_HARNESS_LANG: configuredLocaleSync(),
       REMOTE_HARNESS_UPDATE_FROM: DAEMON_VERSION,
     }
-    // The new install.sh checks the tools, builds and calls `update --finish` with the new CLI.
+    // The new install.sh checks the tools, builds and calls `update --finish` with the new CLI. It runs
+    // in the checkout so the result does not depend on where the user typed the command (#458).
     const code = await runInteractive(
       'bash',
       [`${source.root}/install.sh`, '--update', '--ref', options.ref],
       {
+        cwd: source.root,
         env,
       },
     )
@@ -769,6 +771,7 @@ async function rollBack(
     'bash',
     ['-c', 'source "$1" && build_daemon', 'bash', `${root}/install.sh`],
     {
+      cwd: root,
       env: { ...env, PATH: `${dirname(process.execPath)}:${env.PATH ?? ''}` },
     },
   )

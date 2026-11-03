@@ -20,6 +20,10 @@
 
 set -euo pipefail
 
+# A Corepack `pnpm`/`npx` shim asks before downloading a version it has not cached when stdin is a
+# terminal; nothing here may wait on a question the user cannot see (#458).
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
 REPO_URL="${REMOTE_HARNESS_REPO:-${CLAUDE_REMOTE_REPO:-https://github.com/maarkN/remote-harness.git}}"
 REF="${REMOTE_HARNESS_REF:-${CLAUDE_REMOTE_REF:-main}}"
 # Data directory, as the daemon resolves it: an install made before the rename keeps ~/.claude-remote.
@@ -292,11 +296,14 @@ require_tools() {
   command -v claude >/dev/null 2>&1 || warn "$T_NO_CLAUDE"
 }
 
-# Uses the pnpm pinned in package.json ("packageManager") when the local one is older.
+# Uses the pnpm pinned in package.json ("packageManager") when the local one matches it. The probe
+# runs in the checkout with stdin closed: a Corepack shim resolves the version from the current
+# directory and, where nothing is pinned, asks before downloading on the stderr hidden here (#458).
 pnpm_cmd() {
-  local wanted
+  local wanted found
   wanted="$(node -p 'require(process.argv[1]).packageManager.split("@")[1]' "$SRC_DIR/package.json")"
-  if command -v pnpm >/dev/null 2>&1 && [[ "$(pnpm --version 2>/dev/null)" == "$wanted" ]]; then
+  found="$( (cd "$SRC_DIR" && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version) </dev/null 2>/dev/null || true)"
+  if [[ "$found" == "$wanted" ]]; then
     PNPM=(pnpm)
   else
     PNPM=(npx --yes "pnpm@$wanted")
