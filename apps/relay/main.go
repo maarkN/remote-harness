@@ -23,6 +23,15 @@ func main() {
 		os.Exit(2)
 	}
 	srv := relay.New(cfg, log)
+	paidLimits, closeBilling, err := relay.LongplayLimitsFromEnv(os.Getenv, cfg.Limits)
+	if err != nil {
+		log.Error("bad paid-device configuration", "error", err)
+		os.Exit(2)
+	}
+	defer closeBilling()
+	if paidLimits != nil {
+		srv.LimitsFor = paidLimits
+	}
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           srv.Handler(),

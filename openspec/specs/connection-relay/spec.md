@@ -116,3 +116,27 @@ On SIGTERM or SIGINT the relay SHALL stop accepting connections, answer `/health
 #### Scenario: Broken relay test
 - **WHEN** a relay test fails
 - **THEN** `pnpm check` fails
+
+### Optional paid-device access pilot
+
+The connection relay MAY use the Longplay Go SDK to raise only the concurrent-device
+limit for an operator-bound computer after daemon authentication. Unconfigured or unbound
+computers retain the configured free limits and make no billing requests. Denial, an
+invalid response, a wrong Feature kind or a service outage MUST retain free access.
+Only access Features qualify; a balance observation MUST NOT be treated as a reservation.
+
+Configuration uses `RELAY_LONGPLAY_FEATURE_ID`, `RELAY_LONGPLAY_MAX_DEVICES` (greater
+than the free limit), `RELAY_LONGPLAY_BASE_URL`, `RELAY_LONGPLAY_SECRET_KEY`,
+`RELAY_LONGPLAY_APP_ID`, `RELAY_LONGPLAY_ENVIRONMENT` (`sandbox`/`live`) and
+`RELAY_LONGPLAY_BINDINGS_FILE`. The file is an operator-controlled JSON object mapping
+authenticated 64-character daemon public-key hashes to existing Longplay Customer IDs.
+The map is loaded at startup; do not accept bindings or paid flags from device messages.
+The operator must establish ownership before binding a computer to a purchased plan.
+
+The check runs once per authenticated daemon connection, with a three-second deadline.
+A later connection rechecks grants; a room already open keeps its admitted limits until
+it reconnects. This pilot therefore does not claim immediate in-room revocation, automatic
+account linking, checkout, restore, StoreKit or Play Billing support. Those lifecycle choices
+remain part of #420/#421. It adds no accounts, prices, new protocol messages, background
+sync or access to encrypted session content. The direct path and other connection-relay
+limits are unchanged. Longplay receives only the operator-bound Customer and Feature IDs.
