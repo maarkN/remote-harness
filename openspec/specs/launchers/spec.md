@@ -6,15 +6,15 @@ Provides commands that start Claude Code inside tmux, with the correct profile, 
 ## Requirements
 
 ### Requirement: Open session in tmux
-The launcher SHALL create (if it does not exist) the tmux session `claude-remote` on the Remote Harness tmux server (see "Dedicated tmux server") and open in it a new window named `<profile>:<directory>` running `claude` with the profile's `CLAUDE_CONFIG_DIR` and `CLAUDE_REMOTE_PROFILE` set, forwarding all arguments received. Outside tmux the terminal SHALL attach to that window through a grouped view session of its own. Inside tmux, the launcher MUST NOT take over a client of another tmux server: when the current client belongs to the Remote Harness server it SHALL switch that client to the window; otherwise it SHALL attach the view session nested in the current pane, with the view's status line off, leaving the user's server, sessions and client untouched. For a profile with a provider, the launcher SHALL export the provider's `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` and `ANTHROPIC_SMALL_FAST_MODEL` (those configured), unset `ANTHROPIC_API_KEY` in the window, and read the provider key from the OS secret store (the `0600` file when present, else the macOS Keychain, else the Secret Service) only inside the new window, exporting it as `ANTHROPIC_AUTH_TOKEN`; the key MUST NOT appear on any command line nor in the launcher file. When no key is stored, the launcher MUST fail before creating the window with a message naming `remote-harness provider key <profile>`.
+The launcher SHALL create (if it does not exist) the tmux session `remote-harness` (`tmuxSession` in `config.json`) on the Remote Harness tmux server (see "Dedicated tmux server") and open in it a new window named `<profile>:<directory>` running `claude` with the profile's `CLAUDE_CONFIG_DIR` and `REMOTE_HARNESS_PROFILE` set (`CLAUDE_REMOTE_PROFILE` too, for the hooks of sessions installed before the rename), forwarding all arguments received. Outside tmux the terminal SHALL attach to that window through a grouped view session of its own. Inside tmux, the launcher MUST NOT take over a client of another tmux server: when the current client belongs to the Remote Harness server it SHALL switch that client to the window; otherwise it SHALL attach the view session nested in the current pane, with the view's status line off, leaving the user's server, sessions and client untouched. For a profile with a provider, the launcher SHALL export the provider's `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` and `ANTHROPIC_SMALL_FAST_MODEL` (those configured), unset `ANTHROPIC_API_KEY` in the window, and read the provider key from the OS secret store (the `0600` file when present, else the macOS Keychain, else the Secret Service) only inside the new window, exporting it as `ANTHROPIC_AUTH_TOKEN`; the key MUST NOT appear on any command line nor in the launcher file. When no key is stored, the launcher MUST fail before creating the window with a message naming `remote-harness provider key <profile>`.
 
 #### Scenario: Outside tmux
 - **WHEN** the user runs `claudin --resume` in a terminal outside tmux
-- **THEN** a window is created in the `claude-remote` session of the Remote Harness server with `claude --resume` and the terminal attaches to it
+- **THEN** a window is created in the `remote-harness` session of the Remote Harness server with `claude --resume` and the terminal attaches to it
 
 #### Scenario: Inside tmux
 - **WHEN** the user runs `drclaude` in a pane of their own tmux server (their `tmux.conf`, their sessions)
-- **THEN** the window is created in the `claude-remote` session of the Remote Harness server and shows nested in that pane, without a second status line; the user's client, sessions and windows are not changed, and detaching returns to their shell prompt
+- **THEN** the window is created in the `remote-harness` session of the Remote Harness server and shows nested in that pane, without a second status line; the user's client, sessions and windows are not changed, and detaching returns to their shell prompt
 
 #### Scenario: Inside the Remote Harness server
 - **WHEN** the user runs `drclaude` in a pane of a terminal attached to the Remote Harness server
@@ -48,12 +48,12 @@ The launchers, the daemon, "Open in terminal (tmux)" and the demo SHALL address 
 
 #### Scenario: Attaching by hand
 - **WHEN** the user runs `remote-harness tmux` in a terminal
-- **THEN** the terminal attaches to the `claude-remote` session of the Remote Harness server; `remote-harness tmux ls` lists only that server's sessions
+- **THEN** the terminal attaches to the `remote-harness` session of the Remote Harness server; `remote-harness tmux ls` lists only that server's sessions
 
 #### Scenario: Default server by choice
 - **WHEN** `config.json` has `"tmuxSocket": null`
 - **THEN** the launchers and the daemon use the user's default tmux server and `tmux.conf`, and no `tmux.conf` is generated
 
 #### Scenario: Sessions from before the upgrade
-- **WHEN** `remote-harness update` finishes while a `claude-remote` session exists on the user's default server
-- **THEN** the install output says those sessions are no longer managed and names `tmux attach -t claude-remote` to reach them
+- **WHEN** `remote-harness update` finishes while a `remote-harness` or `claude-remote` session exists on the user's default server
+- **THEN** the install output says those sessions are no longer managed and names `tmux attach -t <that session>` to reach them

@@ -79,7 +79,7 @@ export class LifecycleService {
     const launcher = join(this.binDir, profile.id)
     const result = await this.exec(launcher, args, {
       cwd,
-      env: { CLAUDE_REMOTE_NO_ATTACH: '1', ...env },
+      env: { REMOTE_HARNESS_NO_ATTACH: '1', ...env },
       timeoutMs: 10_000,
     })
     if (result.exitCode !== 0) {
@@ -101,7 +101,7 @@ export class LifecycleService {
    * `worktree` runs Claude Code with `--worktree <name>` (its own git worktree and branch); `model`
    * adds `--model <id>` (a provider model picked in the app); `name` adds the agent's display-name
    * flag and becomes the session's title as soon as it registers; `prompt` is the first prompt, which
-   * the launcher hands to the CLI through the window's environment (`CLAUDE_REMOTE_PROMPT`) so the
+   * the launcher hands to the CLI through the window's environment (`REMOTE_HARNESS_PROMPT`) so the
    * agent runs it itself as soon as it is ready.
    */
   async start(
@@ -127,7 +127,7 @@ export class LifecycleService {
       profile,
       cwd,
       args,
-      options.prompt ? { CLAUDE_REMOTE_PROMPT: options.prompt } : {},
+      options.prompt ? { REMOTE_HARNESS_PROMPT: options.prompt } : {},
     )
     // The launcher only reports the window it created; a window whose command exits closes at once.
     if (this.settleMs > 0) {

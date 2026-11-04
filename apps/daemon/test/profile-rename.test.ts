@@ -40,7 +40,7 @@ describe('renameProfileInConfig', () => {
       ...original.profiles[0],
       name: 'Acme',
     })
-    expect(JSON.parse(await readFile(`${path}.bak-claude-remote`, 'utf8'))).toEqual(original)
+    expect(JSON.parse(await readFile(`${path}.bak-remote-harness`, 'utf8'))).toEqual(original)
     expect(await renameProfileInConfig('work', '', path)).toBe(false)
   })
 })

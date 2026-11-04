@@ -26,12 +26,10 @@ export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 REPO_URL="${REMOTE_HARNESS_REPO:-${CLAUDE_REMOTE_REPO:-https://github.com/maarkN/remote-harness.git}}"
 REF="${REMOTE_HARNESS_REF:-${CLAUDE_REMOTE_REF:-main}}"
-# Data directory, as the daemon resolves it: an install made before the rename keeps ~/.claude-remote.
-DATA_DIR="${REMOTE_HARNESS_HOME:-${CLAUDE_REMOTE_HOME:-}}"
-if [[ -z "$DATA_DIR" ]]; then
-  DATA_DIR="$HOME/.remote-harness"
-  if [[ ! -d "$DATA_DIR" && -d "$HOME/.claude-remote" ]]; then DATA_DIR="$HOME/.claude-remote"; fi
-fi
+# Data directory, as the daemon resolves it. An install made before the rename still keeps its data in
+# ~/.claude-remote: main() moves it here first (migrate_data_dir).
+DATA_DIR="${REMOTE_HARNESS_HOME:-${CLAUDE_REMOTE_HOME:-$HOME/.remote-harness}}"
+LEGACY_DATA_DIR="$HOME/.claude-remote"
 SRC_DIR="${REMOTE_HARNESS_SRC:-${CLAUDE_REMOTE_SRC:-$DATA_DIR/src}}"
 MIN_NODE_MAJOR=24
 # Private Node used when the system one is missing or too old (never added to the user's shell).
@@ -70,6 +68,7 @@ pt*)
   T_UNKNOWN='Opção desconhecida: %s (veja --help)'
   T_OPT_UPDATE='só atualiza: compila e reinicia o serviço, sem o assistente (= remote-harness update)'
   T_NOT_INSTALLED='O Remote Harness ainda não está instalado em %s: rode o instalador sem --update.'
+  T_MOVING_DATA='Movendo os dados de %s para %s (um link fica no caminho antigo)'
   ;;
 es*)
   UI_LANG=es-ES
@@ -101,6 +100,7 @@ es*)
   T_UNKNOWN='Opción desconocida: %s (consulta --help)'
   T_OPT_UPDATE='solo actualiza: compila y reinicia el servicio, sin el asistente (= remote-harness update)'
   T_NOT_INSTALLED='Remote Harness todavía no está instalado en %s: ejecuta el instalador sin --update.'
+  T_MOVING_DATA='Moviendo los datos de %s a %s (queda un enlace en la ruta antigua)'
   ;;
 *)
   UI_LANG=en-US
@@ -132,6 +132,7 @@ es*)
   T_UNKNOWN='Unknown option: %s (see --help)'
   T_OPT_UPDATE='update only: build and restart the service, without the wizard (= remote-harness update)'
   T_NOT_INSTALLED='Remote Harness is not installed in %s yet: run the installer without --update.'
+  T_MOVING_DATA='Moving the data from %s to %s (a link stays at the old path)'
   ;;
 esac
 
@@ -342,6 +343,18 @@ build_daemon() {
   quiet "${PNPM[@]}" --filter @remote-harness/daemon build
 }
 
+# An install made before the rename keeps its data in ~/.claude-remote: moved to ~/.remote-harness once,
+# with a symbolic link left behind for the sessions, hooks and launchers still running from the old
+# path (#85). Nothing moves with an explicit data directory, when the old path is not a real directory,
+# or when anything exists at the new path.
+migrate_data_dir() {
+  [[ -z "${REMOTE_HARNESS_HOME:-${CLAUDE_REMOTE_HOME:-}}" ]] || return 0
+  [[ -d "$LEGACY_DATA_DIR" && ! -L "$LEGACY_DATA_DIR" && ! -e "$DATA_DIR" && ! -L "$DATA_DIR" ]] || return 0
+  step "$(t "$T_MOVING_DATA" "$LEGACY_DATA_DIR" "$DATA_DIR")"
+  mv "$LEGACY_DATA_DIR" "$DATA_DIR"
+  ln -s "$DATA_DIR" "$LEGACY_DATA_DIR"
+}
+
 # Version of the code in $SRC_DIR (before fetching), shown by `remote-harness update --finish`.
 installed_version() {
   sed -n 's/^  "version": "\(.*\)",$/\1/p' "$SRC_DIR/apps/daemon/package.json" 2>/dev/null | head -n 1
@@ -374,6 +387,7 @@ main() {
 
   printf '\n%s✻%s %sRemote Harness%s %s· %s%s\n\n' "$ORANGE" "$RESET" "$BOLD" "$RESET" "$DIM" "$T_INSTALLER" "$RESET"
   detect_platform
+  migrate_data_dir
   require_node
   require_tools
   if $update; then

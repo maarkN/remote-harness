@@ -10,7 +10,7 @@ A profile with `agent: "codex"` SHALL run OpenAI Codex CLI: its `configDir` is t
 
 #### Scenario: Launcher
 - **WHEN** `remote-harness install` runs with a Codex profile `cdx` whose `configDir` is `~/.codex-work`
-- **THEN** `~/.claude-remote/bin/cdx` exports `CODEX_HOME=~/.codex-work` and opens `codex` in a new tmux window
+- **THEN** `~/.remote-harness/bin/cdx` exports `CODEX_HOME=~/.codex-work` and opens `codex` in a new tmux window
 
 #### Scenario: Resume
 - **WHEN** the app resumes Codex session `0199fd2a-…`

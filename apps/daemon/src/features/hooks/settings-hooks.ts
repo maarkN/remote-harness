@@ -86,7 +86,8 @@ function curlOptions(options: HookInstallOptions): string {
   return [
     `-K ${shellQuote(options.curlConfig)}`,
     `-H "${PANE_HEADER}: $TMUX_PANE"`,
-    `-H "${PROFILE_HEADER}: $CLAUDE_REMOTE_PROFILE"`,
+    // The pane of a session started before the rename only has the old variable.
+    `-H "${PROFILE_HEADER}: \${REMOTE_HARNESS_PROFILE:-$CLAUDE_REMOTE_PROFILE}"`,
   ].join(' ')
 }
 

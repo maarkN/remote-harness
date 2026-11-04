@@ -10,7 +10,7 @@ A profile with `agent: "qwen"` SHALL run Qwen Code: its `configDir` is the Qwen 
 
 #### Scenario: Launcher
 - **WHEN** `remote-harness install` runs with a Qwen profile `qw-work` whose `configDir` is `~/.qwen-work`
-- **THEN** `~/.claude-remote/bin/qw-work` exports `QWEN_HOME=~/.qwen-work` and opens `qwen` in a new tmux window
+- **THEN** `~/.remote-harness/bin/qw-work` exports `QWEN_HOME=~/.qwen-work` and opens `qwen` in a new tmux window
 
 #### Scenario: Resume
 - **WHEN** the app resumes Qwen session `8b0e…`

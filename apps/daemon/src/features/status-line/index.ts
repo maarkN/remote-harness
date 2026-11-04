@@ -1,5 +1,5 @@
 import type { DaemonContext } from '../../main.ts'
-import { headerValue, PROFILE_HEADER } from '../hooks/receiver.ts'
+import { headerValue, LEGACY_PROFILE_HEADER, PROFILE_HEADER } from '../hooks/receiver.ts'
 import type { SessionStore } from '../sessions/store.ts'
 import { StatusLineService } from './service.ts'
 import { STATUS_LINE_ROUTE } from './wrapper.ts'
@@ -8,7 +8,10 @@ export function registerStatusLineFeature(ctx: DaemonContext, store: SessionStor
   const service = new StatusLineService(store, ctx.hub, ctx.profiles, ctx.logger)
   ctx.bus.on('account.limits', ({ profileId, ...windows }) => service.reportLimits(profileId, windows))
   ctx.hooks.post(STATUS_LINE_ROUTE, async (request, reply) => {
-    const ok = service.handle(request.body, headerValue(request.headers[PROFILE_HEADER]))
+    const ok = service.handle(
+      request.body,
+      headerValue(request.headers[PROFILE_HEADER] ?? request.headers[LEGACY_PROFILE_HEADER]),
+    )
     return reply.code(ok ? 204 : 400).send()
   })
   ctx.onClientConnected((connection) => {

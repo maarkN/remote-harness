@@ -28,11 +28,11 @@ The pairing token SHALL be stored in the macOS Keychain on macOS and in the Secr
 - **THEN** the token is stored in `~/.remote-harness/token` with mode `0600` and `doctor` reports the file store
 
 ### Requirement: Background service per platform
-`remote-harness service install` SHALL install a launchd LaunchAgent on macOS and a systemd user unit on Linux, both restarting the daemon when it stops; on Linux the setup MUST offer to enable lingering.
+`remote-harness service install` SHALL install a launchd LaunchAgent on macOS and a systemd user unit on Linux, both restarting the daemon when it stops; on Linux the setup MUST offer to enable lingering. The LaunchAgent SHALL be labelled `com.alvyntech.remoteharness.daemon` (also the bundle identifier of `Remote Harness.app`) and the unit SHALL be `remote-harness.service`; when the legacy `tech.doctorx.claude-remote` agent or `claude-remote.service` unit is installed, installing the service SHALL unload and remove it first, so one daemon runs.
 
 #### Scenario: systemd user unit
 - **WHEN** the user accepts the service on Linux
-- **THEN** `~/.config/systemd/user/claude-remote.service` is written, enabled and started, and `remote-harness service status` shows it running
+- **THEN** `~/.config/systemd/user/remote-harness.service` is written, enabled and started, and `remote-harness service status` shows it running
 
 ### Requirement: Shell PATH
 The setup SHALL add the launcher directory to the PATH in the user's zsh and/or bash startup files, idempotently, with a backup and an atomic write.

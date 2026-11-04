@@ -10,7 +10,7 @@ A profile with `agent: "kimi"` SHALL run Moonshot's Kimi CLI: its `configDir` is
 
 #### Scenario: Launcher
 - **WHEN** `remote-harness install` runs with a Kimi profile `km-work` whose `configDir` is `~/.kimi-work`
-- **THEN** `~/.claude-remote/bin/km-work` exports `KIMI_SHARE_DIR=~/.kimi-work` and opens `kimi` in a new tmux window
+- **THEN** `~/.remote-harness/bin/km-work` exports `KIMI_SHARE_DIR=~/.kimi-work` and opens `kimi` in a new tmux window
 
 #### Scenario: Resume
 - **WHEN** the app resumes Kimi session `5d1c…`

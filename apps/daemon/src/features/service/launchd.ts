@@ -17,8 +17,10 @@ import {
 
 export { dedupePath }
 
-/** launchd label and bundle id; kept from before the rename so the LaunchAgent is replaced in place. */
-export const LAUNCHD_LABEL = 'tech.doctorx.claude-remote'
+/** launchd label and bundle id, in the family of the store identifier `com.alvyntech.remoteharness`. */
+export const LAUNCHD_LABEL = 'com.alvyntech.remoteharness.daemon'
+/** Label of installs made before the rename: booted out and removed when the service is (re)installed (#85). */
+export const LEGACY_LAUNCHD_LABEL = 'tech.doctorx.claude-remote'
 /** Name shown by macOS in "Login Items", the background activity notice and privacy prompts. */
 export const APP_NAME = 'Remote Harness'
 const APP_EXECUTABLE = 'remote-harness'
@@ -38,14 +40,14 @@ export const USAGE_DESCRIPTION_KEYS = [
 export const LPROJ: Record<Locale, string> = { 'en-US': 'en', 'pt-BR': 'pt-BR', 'es-ES': 'es' }
 
 /** Changes whenever the bundle layout changes, so older bundles are rebuilt once. */
-const BUNDLE_FORMAT = 'remote-harness-bundle-1'
+const BUNDLE_FORMAT = 'remote-harness-bundle-2'
 
 export function appExecutablePath(appDir: string): string {
   return join(appDir, 'Contents', 'MacOS', APP_EXECUTABLE)
 }
 
-export function plistPath(home = homedir()): string {
-  return join(home, 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`)
+export function plistPath(home = homedir(), label = LAUNCHD_LABEL): string {
+  return join(home, 'Library', 'LaunchAgents', `${label}.plist`)
 }
 
 function xml(value: string): string {
@@ -261,6 +263,7 @@ export async function installService(
   await mkdir(join(home, 'Library', 'LaunchAgents'), { recursive: true })
   await mkdir(options.logsDir, { recursive: true })
   await writeFile(path, renderPlist({ ...options, path: dedupePath(options.path) }))
+  await bootOutLegacy(exec, home)
   await exec('launchctl', ['bootout', target])
   for (let i = 0; i < 50 && (await exec('launchctl', ['print', target])).exitCode === 0; i++) await sleep(100)
   let result = await exec('launchctl', ['bootstrap', domain(), path])
@@ -279,15 +282,36 @@ export async function uninstallService(
 ): Promise<void> {
   await exec('launchctl', ['bootout', `${domain()}/${LAUNCHD_LABEL}`])
   await rm(plistPath(home), { force: true })
+  await bootOutLegacy(exec, home)
   for (const dir of appDirs) await rm(dir, { recursive: true, force: true })
 }
 
-export async function serviceStatus(exec: Executor): Promise<ServiceStatus> {
-  const result = await exec('launchctl', ['print', `${domain()}/${LAUNCHD_LABEL}`])
-  if (result.exitCode !== 0) return { loaded: false, detail: 'not loaded' }
+/** Unloads and removes the LaunchAgent of a version before the rename, when it is installed (#85). */
+async function bootOutLegacy(exec: Executor, home: string): Promise<boolean> {
+  const legacy = plistPath(home, LEGACY_LAUNCHD_LABEL)
+  if (!existsSync(legacy)) return false
+  await exec('launchctl', ['bootout', `${domain()}/${LEGACY_LAUNCHD_LABEL}`])
+  await rm(legacy, { force: true })
+  return true
+}
+
+async function printJob(exec: Executor, label: string): Promise<ServiceStatus | null> {
+  const result = await exec('launchctl', ['print', `${domain()}/${label}`])
+  if (result.exitCode !== 0) return null
   const state = /state = (\w+)/.exec(result.stdout)?.[1] ?? 'unknown'
   const pid = /pid = (\d+)/.exec(result.stdout)?.[1]
   return { loaded: true, detail: pid ? `${state} (pid ${pid})` : state }
+}
+
+/** The current label's job, else the legacy one while its plist is still installed (so an update replaces it). */
+export async function serviceStatus(exec: Executor, home = homedir()): Promise<ServiceStatus> {
+  const current = await printJob(exec, LAUNCHD_LABEL)
+  if (current) return current
+  if (existsSync(plistPath(home, LEGACY_LAUNCHD_LABEL))) {
+    const legacy = await printJob(exec, LEGACY_LAUNCHD_LABEL)
+    if (legacy) return { loaded: true, detail: `${legacy.detail}, as ${LEGACY_LAUNCHD_LABEL}` }
+  }
+  return { loaded: false, detail: 'not loaded' }
 }
 
 export type LaunchdServiceOptions = {
@@ -347,6 +371,6 @@ export class LaunchdService implements ServiceManager {
   }
 
   status(): Promise<ServiceStatus> {
-    return serviceStatus(this.exec)
+    return serviceStatus(this.exec, this.o.home)
   }
 }

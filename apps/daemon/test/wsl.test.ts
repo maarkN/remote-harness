@@ -126,7 +126,7 @@ describe('/etc/wsl.conf', () => {
     const args = wslConfSudoArgs('/tmp/x/wsl.conf', '/etc/wsl.conf', true)
     expect(args.slice(0, 2)).toEqual(['sh', '-c'])
     expect(args[2]).toBe(
-      `cp -p "$2" "$2${BACKUP_SUFFIX}" && install -m 644 "$1" "$2.claude-remote.tmp" && mv -f "$2.claude-remote.tmp" "$2"`,
+      `cp -p "$2" "$2${BACKUP_SUFFIX}" && install -m 644 "$1" "$2.remote-harness.tmp" && mv -f "$2.remote-harness.tmp" "$2"`,
     )
     expect(args.slice(3)).toEqual(['sh', '/tmp/x/wsl.conf', '/etc/wsl.conf'])
     expect(wslConfSudoArgs('/m', '/etc/wsl.conf', false)[2]).not.toContain('cp -p')

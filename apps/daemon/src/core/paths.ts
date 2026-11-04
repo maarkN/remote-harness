@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { lstatSync, renameSync, symlinkSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 import { envVar } from './env.ts'
@@ -30,23 +30,44 @@ export function displayHostName(config: { machineName?: string }): string {
 }
 
 export const DATA_DIR = '.remote-harness'
-/** Data directory of installs made before the rename; kept in place, never moved. */
+/** Data directory of installs made before the rename; moved to `DATA_DIR` once (`migrateLegacyDataDir`). */
 export const LEGACY_DATA_DIR = '.claude-remote'
 
-/**
- * Root directory for everything the daemon persists: the `HOME` override, else `~/.remote-harness`
- * when it exists, else an existing `~/.claude-remote`, else `~/.remote-harness`.
- */
-export function dataHome(
-  env: NodeJS.ProcessEnv = process.env,
-  home = homedir(),
-  exists: (path: string) => boolean = existsSync,
-): string {
+/** Root directory for everything the daemon persists: the `HOME` override, else `~/.remote-harness`. */
+export function dataHome(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
   const override = envVar('HOME', env)
-  if (override) return expandHome(override)
-  const current = join(home, DATA_DIR)
+  return override ? expandHome(override) : join(home, DATA_DIR)
+}
+
+function lexists(path: string): boolean {
+  try {
+    lstatSync(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Moves the data of an install made before the rename from `~/.claude-remote` to `~/.remote-harness`,
+ * once, and leaves a symbolic link at the old path: the sessions, hooks and launchers still running
+ * from it keep working until they are regenerated or end (#85). Nothing moves with the `HOME`
+ * override, when the old path is not a real directory, or when anything exists at the new path.
+ * Returns the new path when the data was moved.
+ */
+export function migrateLegacyDataDir(env: NodeJS.ProcessEnv = process.env, home = homedir()): string | null {
+  if (envVar('HOME', env)) return null
   const legacy = join(home, LEGACY_DATA_DIR)
-  return !exists(current) && exists(legacy) ? legacy : current
+  const current = join(home, DATA_DIR)
+  try {
+    if (!lstatSync(legacy).isDirectory()) return null
+  } catch {
+    return null
+  }
+  if (lexists(current)) return null
+  renameSync(legacy, current)
+  symlinkSync(current, legacy)
+  return current
 }
 
 export const paths = {

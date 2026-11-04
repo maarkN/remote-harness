@@ -10,7 +10,7 @@ A profile with `agent: "gemini"` SHALL run Google's Gemini CLI: its `configDir` 
 
 #### Scenario: Launcher
 - **WHEN** `remote-harness install` runs with a Gemini profile `gem-work` whose `configDir` is `~/work/.gemini`
-- **THEN** `~/.claude-remote/bin/gem-work` exports `GEMINI_CLI_HOME=~/work` and opens `gemini` in a new tmux window
+- **THEN** `~/.remote-harness/bin/gem-work` exports `GEMINI_CLI_HOME=~/work` and opens `gemini` in a new tmux window
 
 #### Scenario: Default folder
 - **WHEN** the Gemini profile's `configDir` is `~/.gemini`

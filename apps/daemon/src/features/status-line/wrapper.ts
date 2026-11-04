@@ -73,7 +73,7 @@ export function renderStatusLineScript(options: { port: number; curlConfig: stri
     `-K ${shellQuote(options.curlConfig)}`,
     `-H 'content-type: application/json'`,
     `-H "${PANE_HEADER}: $TMUX_PANE"`,
-    `-H "${PROFILE_HEADER}: $CLAUDE_REMOTE_PROFILE"`,
+    `-H "${PROFILE_HEADER}: \${REMOTE_HARNESS_PROFILE:-$CLAUDE_REMOTE_PROFILE}"`,
   ].join(' ')
   return `#!/bin/sh
 # Remote Harness status line: sends Claude Code's status JSON to the daemon, then runs the original
