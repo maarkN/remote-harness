@@ -197,7 +197,7 @@ describe('installer files', () => {
     await writeFile(zshrc, '# zsh\n')
     expect(await installShellPath('/x/bin', [bashrc, zshrc])).toEqual([bashrc, zshrc])
     expect(await readFile(bashrc, 'utf8')).toBe(
-      '# >>> claude-remote >>>\nexport PATH=\'/x/bin\':"$PATH"\n# <<< claude-remote <<<\n',
+      '# >>> remote-harness >>>\nexport PATH=\'/x/bin\':"$PATH"\n# <<< remote-harness <<<\n',
     )
     await expect(stat(`${bashrc}${BACKUP_SUFFIX}`)).rejects.toThrow()
     execFileSync('bash', ['-n', bashrc])
@@ -218,6 +218,15 @@ describe('installer files', () => {
   test('PATH helpers handle empty files', () => {
     const added = upsertPathBlock('', '/b')
     expect(removePathBlock(added)).toBe('')
+  })
+
+  test('a PATH block written before the rename is replaced, not duplicated', () => {
+    const legacy =
+      'alias ll="ls -la"\n\n# >>> claude-remote >>>\nexport PATH=\'/old/bin\':"$PATH"\n# <<< claude-remote <<<\n'
+    expect(upsertPathBlock(legacy, '/x/bin')).toBe(
+      'alias ll="ls -la"\n\n# >>> remote-harness >>>\nexport PATH=\'/x/bin\':"$PATH"\n# <<< remote-harness <<<\n',
+    )
+    expect(removePathBlock(legacy)).toBe('alias ll="ls -la"\n')
   })
 
   test('rc files: the one of $SHELL first, then the other ones that exist', () => {
@@ -354,24 +363,28 @@ exit 0
     const { TMUX: _, ...env } = process.env
     const run = (extra: Record<string, string>) =>
       execFileSync('zsh', ['-c', script], {
-        env: { ...env, CLAUDE_REMOTE_NO_ATTACH: '1', ...extra },
+        env: { ...env, REMOTE_HARNESS_NO_ATTACH: '1', ...extra },
         cwd: home.dir(),
       })
     run({})
     const before = await fake.log()
-    expect(before).not.toContain('CLAUDE_REMOTE_PROMPT')
+    expect(before).not.toContain('REMOTE_HARNESS_PROMPT')
     const prompt = 'Review the open PR.\nList the "risks" for $USER.'
-    run({ CLAUDE_REMOTE_PROMPT: prompt })
+    run({ REMOTE_HARNESS_PROMPT: prompt })
     const after = (await fake.log()).slice(before.length)
     // The window gets the text, line break and quotes intact, and its shell expands it: the command
     // line (the last argument, before ` | TMUX=`) ends with the variable, not the text.
-    expect(after).toContain(`-e CLAUDE_REMOTE_PROMPT=${prompt} `)
-    expect(after).toContain('env -u CLAUDE_CONFIG_DIR claude -- "$CLAUDE_REMOTE_PROMPT" | TMUX=')
+    expect(after).toContain(`-e REMOTE_HARNESS_PROMPT=${prompt} `)
+    expect(after).toContain('env -u CLAUDE_CONFIG_DIR claude -- "$REMOTE_HARNESS_PROMPT" | TMUX=')
     expect(after).not.toContain(`${prompt} | TMUX=`)
+    // The variable name from before the rename still reaches the window (a daemon not restarted yet).
+    run({ CLAUDE_REMOTE_PROMPT: prompt })
+    const legacy = (await fake.log()).slice(before.length + after.length)
+    expect(legacy).toContain(`-e REMOTE_HARNESS_PROMPT=${prompt} `)
     // A Kimi CLI launcher has no such block at all.
     const kimi = renderLauncher({ ...profile, configDir: '/Users/u/.kimi', agent: 'kimi' }, options)
     execFileSync('zsh', ['-n', '-c', kimi])
-    expect(kimi).not.toContain('CLAUDE_REMOTE_PROMPT')
+    expect(kimi).not.toContain('REMOTE_HARNESS_PROMPT')
   })
 
   test('inside a client of the Remote Harness server: switches that client', async () => {
@@ -420,9 +433,9 @@ describe('hook receiver', () => {
       method: 'POST',
       url: '/hooks/SessionStart',
       headers: {
-        'x-claude-remote-secret': 'sec',
-        'x-claude-remote-pane': '%12',
-        'x-claude-remote-profile': 'claudin',
+        'x-remote-harness-secret': 'sec',
+        'x-remote-harness-pane': '%12',
+        'x-remote-harness-profile': 'claudin',
       },
       payload: { session_id: 'abc', cwd: '/w', source: 'startup', hook_event_name: 'SessionStart' },
     })
@@ -430,6 +443,22 @@ describe('hook receiver', () => {
     expect(res.json()).toEqual({})
     expect(events[0]).toMatchObject({ event: 'SessionStart', paneId: '%12', profileId: 'claudin' })
     expect(events[0]?.payload.source).toBe('startup')
+  })
+
+  test('accepts the headers of hooks installed before the rename', async () => {
+    const { app, events } = await setup()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/hooks/SessionStart',
+      headers: {
+        'x-claude-remote-secret': 'sec',
+        'x-claude-remote-pane': '%12',
+        'x-claude-remote-profile': 'claudin',
+      },
+      payload: { session_id: 'abc', cwd: '/w', source: 'startup', hook_event_name: 'SessionStart' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(events[0]).toMatchObject({ event: 'SessionStart', paneId: '%12', profileId: 'claudin' })
   })
 
   test('the SessionStart command hook posts stdin with pane and profile and prints nothing', async () => {
@@ -467,9 +496,9 @@ describe('hook receiver', () => {
       method: 'POST',
       url: '/hooks/Stop',
       headers: {
-        'x-claude-remote-secret': 'sec',
-        'x-claude-remote-pane': '$TMUX_PANE',
-        'x-claude-remote-profile': '',
+        'x-remote-harness-secret': 'sec',
+        'x-remote-harness-pane': '$TMUX_PANE',
+        'x-remote-harness-profile': '',
       },
       payload: { session_id: 'abc' },
     })
@@ -478,7 +507,7 @@ describe('hook receiver', () => {
 
   test('rejects unknown events, bad payloads and missing secret', async () => {
     const { app } = await setup()
-    const headers = { 'x-claude-remote-secret': 'sec' }
+    const headers = { 'x-remote-harness-secret': 'sec' }
     expect((await app.inject({ method: 'POST', url: '/hooks/Nope', headers, payload: {} })).statusCode).toBe(
       404,
     )
@@ -496,7 +525,7 @@ describe('hook receiver', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/hooks/PermissionRequest',
-      headers: { 'x-claude-remote-secret': 'sec' },
+      headers: { 'x-remote-harness-secret': 'sec' },
       payload: { session_id: 'abc', tool_name: 'Bash' },
     })
     expect(res.json()).toEqual({ decided: true })

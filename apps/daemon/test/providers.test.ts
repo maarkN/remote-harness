@@ -204,7 +204,7 @@ describe('provider key store (file backend)', () => {
     expect(keychain.calls[0]?.args).toEqual([
       'delete-generic-password',
       '-s',
-      'claude-remote',
+      'remote-harness',
       '-a',
       'provider-work',
     ])
@@ -213,7 +213,7 @@ describe('provider key store (file backend)', () => {
     expect(secretTool.calls[0]?.args).toEqual([
       'clear',
       'service',
-      'claude-remote',
+      'remote-harness',
       'account',
       'provider-work',
     ])
@@ -285,9 +285,9 @@ describe('provider launcher', () => {
     expect(script).toContain("export ANTHROPIC_BASE_URL='https://openrouter.ai/api'")
     expect(script).toContain("export ANTHROPIC_MODEL='anthropic/claude-sonnet-5.5'")
     expect(script).toContain('unset ANTHROPIC_API_KEY')
-    expect(script).toContain("security find-generic-password -s 'claude-remote' -a 'provider-work' -w")
+    expect(script).toContain("security find-generic-password -s 'remote-harness' -a 'provider-work' -w")
     expect(script).toContain(`cmd=("\${0:A}" "$@")`)
-    expect(script).toContain('-e "CLAUDE_REMOTE_EXEC=1"')
+    expect(script).toContain('-e "REMOTE_HARNESS_EXEC=1"')
     expect(script).toContain('remote-harness provider key work')
     // The key is read by the window itself, never baked into the file nor passed as an argument.
     expect(script).toContain('ANTHROPIC_AUTH_TOKEN="$(read_provider_key)"')
@@ -318,7 +318,7 @@ describe('provider launcher', () => {
 
     await providerKeyStore('file', fakeExecutor(), 'work').set('sk-or-v1-abc')
     const ran = spawnSync('zsh', [launcher, '--resume', 'x'], {
-      env: { ...env, CLAUDE_REMOTE_EXEC: '1' },
+      env: { ...env, REMOTE_HARNESS_EXEC: '1' },
       encoding: 'utf8',
     })
     expect(ran.status).toBe(0)

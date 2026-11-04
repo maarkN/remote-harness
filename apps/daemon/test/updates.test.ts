@@ -55,6 +55,7 @@ describe('versions and moments', () => {
   })
 
   test('underServiceManager', () => {
+    expect(underServiceManager({ XPC_SERVICE_NAME: 'com.alvyntech.remoteharness.daemon' })).toBe(true)
     expect(underServiceManager({ XPC_SERVICE_NAME: 'tech.doctorx.claude-remote' })).toBe(true)
     expect(underServiceManager({ INVOCATION_ID: 'abc' })).toBe(true)
     expect(underServiceManager({ XPC_SERVICE_NAME: '0' })).toBe(false)

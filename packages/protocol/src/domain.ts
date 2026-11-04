@@ -363,6 +363,41 @@ export const TranscriptEntrySchema = z.discriminatedUnion('kind', [
 ])
 export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>
 export type TranscriptEntryKind = TranscriptEntry['kind']
+const TRANSCRIPT_ENTRY_KINDS = [
+  'user',
+  'assistant_text',
+  'thinking',
+  'tool_use',
+  'tool_result',
+  'system',
+  'unknown',
+] as const satisfies readonly TranscriptEntryKind[]
+
+/** Longest `transcript.search` query, in characters. */
+export const MAX_TRANSCRIPT_SEARCH_QUERY = 200
+/** Most hits one `transcript.search` page carries. */
+export const TRANSCRIPT_SEARCH_LIMIT = 50
+/** Longest snippet of a search hit, in characters. */
+export const TRANSCRIPT_SEARCH_SNIPPET_CHARS = 160
+
+/** A `transcript.search` hit: the entry, and the text around the first matched word for the list. */
+export const TranscriptSearchHitSchema = z.object({
+  sessionId: z.string(),
+  /** The matched entry's `key`, `cursor`, `index` and `kind`: enough to open the session at it. */
+  key: z.string(),
+  cursor: z.number().int().nonnegative(),
+  index: z.number().int().nonnegative(),
+  kind: z.enum(TRANSCRIPT_ENTRY_KINDS),
+  timestamp: z.string().nullable(),
+  /** At most `TRANSCRIPT_SEARCH_SNIPPET_CHARS` of the entry's searchable text around the first match. */
+  snippet: z.string(),
+  /** The snippet starts / ends inside the text (the app draws an ellipsis there). */
+  cutStart: z.boolean(),
+  cutEnd: z.boolean(),
+  /** Matched words inside `snippet`, as `[start, end)` offsets in UTF-16 code units, for highlighting. */
+  ranges: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })),
+})
+export type TranscriptSearchHit = z.infer<typeof TranscriptSearchHitSchema>
 
 export const RuleScopeSchema = z.enum(['profile', 'project'])
 export type RuleScope = z.infer<typeof RuleScopeSchema>

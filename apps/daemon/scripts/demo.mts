@@ -94,6 +94,7 @@ for (const name of [
   'CLAUDE_CONFIG_DIR',
   'CLAUDE_REMOTE_HOME',
   'CLAUDE_REMOTE_PROFILE',
+  'REMOTE_HARNESS_PROFILE',
 ]) {
   delete env[name]
 }
@@ -328,7 +329,7 @@ function post(path: string, body: unknown, headers: Record<string, string> = {})
         headers: {
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(data),
-          'x-claude-remote-secret': hookSecret,
+          'x-remote-harness-secret': hookSecret,
           ...headers,
         },
       },
@@ -357,7 +358,7 @@ async function waitForDaemon(): Promise<void> {
 }
 
 function hookHeaders(session: DemoSession, pane: string): Record<string, string> {
-  return { 'x-claude-remote-pane': pane, 'x-claude-remote-profile': session.profileId }
+  return { 'x-remote-harness-pane': pane, 'x-remote-harness-profile': session.profileId }
 }
 
 function hookBody(session: DemoSession, event: string, extra: Record<string, unknown> = {}) {
@@ -439,7 +440,7 @@ for (const session of sessions) {
   const pane = panes.get(session.id)
   if (!pane) continue
   const status = statusLineBody(session, transcriptPath(session), now)
-  if (status) await post('/statusline', status, { 'x-claude-remote-profile': session.profileId })
+  if (status) await post('/statusline', status, { 'x-remote-harness-profile': session.profileId })
   if (session.state === 'running') {
     const prompt = [...session.entries].reverse().find((e) => e.kind === 'user')
     await post(
@@ -456,7 +457,7 @@ if (perf) startBursts()
 // A single-use pairing code (5 minutes) from the demo daemon, like `remote-harness pair`.
 const pairing = await fetch(`http://127.0.0.1:${DEMO_HOOK_PORT}/admin/pairing-code`, {
   method: 'POST',
-  headers: { 'x-claude-remote-secret': hookSecret },
+  headers: { 'x-remote-harness-secret': hookSecret },
 })
 const link = ((await pairing.json()) as { url: string }).url
 console.log(`Remote Harness demo running in ${root} (machine "${DEMO_HOST_NAME}").`)

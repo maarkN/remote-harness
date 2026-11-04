@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { homedir, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -28,9 +28,10 @@ import {
 import { envVar } from './core/env.ts'
 import { type Messages, messagesFor } from './core/i18n/index.ts'
 import { createLogger } from './core/logger.ts'
-import { paths } from './core/paths.ts'
+import { migrateLegacyDataDir, paths } from './core/paths.ts'
 import {
   ensureHookSecret,
+  migrateLegacySecrets,
   providerKeyStore,
   type SelectedTokenStore,
   selectTokenStore,
@@ -57,7 +58,12 @@ import { RulesLog } from './features/permissions/rules-log.ts'
 import type { PowerState } from './features/power/index.ts'
 import { DeviceRegistry, describeDevices } from './features/push/devices.ts'
 import { resolvePushMode } from './features/push/mode.ts'
-import { bundleLauncherKind, LaunchdService } from './features/service/launchd.ts'
+import {
+  bundleLauncherKind,
+  LaunchdService,
+  LEGACY_LAUNCHD_LABEL,
+  plistPath,
+} from './features/service/launchd.ts'
 import type { ServiceManager } from './features/service/service-manager.ts'
 import { SystemdUserService } from './features/service/systemd.ts'
 import { colorEnabled, createPaint } from './features/setup/banner.ts'
@@ -108,6 +114,9 @@ import { startDaemon } from './main.ts'
 import { SECRET_HEADER } from './transport/hooks-server.ts'
 
 const PushTestReplySchema = z.object({ result: PushTestResultSchema, sent: z.number() })
+
+// The data of an install made before the rename moves to ~/.remote-harness before anything reads it (#85).
+migrateLegacyDataDir()
 
 /** Language of every text below: config `language`, else the system one (read at startup). */
 let m: Messages = messagesFor(configuredLocaleSync())
@@ -194,11 +203,28 @@ function installOptions(): InstallOptions {
   }
 }
 
+/** Copies the secrets of an install made before the rename to the new Keychain / Secret Service name (#85). */
+async function migrateIdentifiers(profiles: readonly { id: string }[]): Promise<string[]> {
+  const { kind } = await selectStore()
+  const copied = await migrateLegacySecrets(
+    kind,
+    execaExecutor,
+    profiles.map((p) => p.id),
+  )
+  return copied.length > 0 ? [m.install.secretsMigrated(copied.length)] : []
+}
+
+/** Whether the LaunchAgent of a version before the rename is still installed (macOS only). */
+function legacyServiceInstalled(): boolean {
+  return platform === 'darwin' && existsSync(plistPath(homedir(), LEGACY_LAUNCHD_LABEL))
+}
+
 function builtCliPath(): string | null {
   const path = fileURLToPath(
     new URL(import.meta.url.endsWith('.ts') ? '../dist/cli.js' : './cli.js', import.meta.url),
   )
-  return existsSync(path) ? path : null
+  // The real path: what the service, the shortcuts and the hooks point at, never the link of a moved data dir.
+  return existsSync(path) ? realpathSync(path) : null
 }
 
 /** POSTs an admin route of the running daemon; its JSON reply, or null when it is not running. */
@@ -586,6 +612,7 @@ program
     const logger = createLogger({ level: 'silent' })
     const config = await loadConfig(logger)
     const profiles = await resolveProfiles(config, createLogger({ level: 'warn' }))
+    for (const line of await migrateIdentifiers(profiles)) console.log(`✓ ${line}`)
     const lines = await installAll(config, profiles, installOptions(), m.install)
     for (const line of lines) console.log(`${line.status === 'done' ? '✓' : '·'} ${line.text}`)
     console.log(`\n${m.cli.install.openTerminal(displayPaths(userRcFiles(platform).slice(0, 1)))}`)
@@ -635,8 +662,10 @@ service
       console.error(`✗ ${m.cli.service.unavailable}`)
       process.exit(1)
     }
+    const relabelled = legacyServiceInstalled()
     const path = await installServiceFromCli({ ...installOptions(), cliPath, service: manager })
     console.log(`✓ ${m.cli.service.loaded(path)}`)
+    if (relabelled) console.log(`  ${m.install.serviceRelabelled(manager.name)}`)
     if (manager.kind === 'launchd') console.log(`  ${m.cli.service.app(paths.app())}`)
     if (manager.linger && !(await manager.linger.enabled())) console.log(`  ${m.cli.service.lingerHint}`)
     if (wslHost && !(await wslHost.logonTask.exists())) {
@@ -736,11 +765,13 @@ program
       REMOTE_HARNESS_LANG: configuredLocaleSync(),
       REMOTE_HARNESS_UPDATE_FROM: DAEMON_VERSION,
     }
-    // The new install.sh checks the tools, builds and calls `update --finish` with the new CLI.
+    // The new install.sh checks the tools, builds and calls `update --finish` with the new CLI. It runs
+    // in the checkout so the result does not depend on where the user typed the command (#458).
     const code = await runInteractive(
       'bash',
       [`${source.root}/install.sh`, '--update', '--ref', options.ref],
       {
+        cwd: source.root,
         env,
       },
     )
@@ -769,6 +800,7 @@ async function rollBack(
     'bash',
     ['-c', 'source "$1" && build_daemon', 'bash', `${root}/install.sh`],
     {
+      cwd: root,
       env: { ...env, PATH: `${dirname(process.execPath)}:${env.PATH ?? ''}` },
     },
   )
@@ -781,9 +813,11 @@ async function finishUpdate(from: string | undefined): Promise<void> {
   const logger = createLogger({ level: 'silent' })
   const config = await loadConfig(logger)
   const profiles = await resolveProfiles(config, logger)
+  for (const line of await migrateIdentifiers(profiles)) console.log(`✓ ${line}`)
   const lines = await installAll(config, profiles, installOptions(), m.install)
   for (const line of lines) if (line.status === 'done') console.log(`✓ ${line.text}`)
   const manager = serviceManager()
+  const relabelled = legacyServiceInstalled()
   const cliPath = builtCliPath()
   // The run the old CLI recorded: the new daemon marks `restarting` as done when it starts.
   const run = await readRun(paths.updateRun())
@@ -793,6 +827,7 @@ async function finishUpdate(from: string | undefined): Promise<void> {
       await writeRun(paths.updateRun(), advanceRun(run, 'restarting', new Date(), { to: DAEMON_VERSION }))
     await installServiceFromCli({ ...installOptions(), cliPath, service: manager })
     console.log(`✓ ${u.serviceRestarted}`)
+    if (relabelled) console.log(`  ${m.install.serviceRelabelled(manager.name)}`)
   } else {
     if (recording)
       await writeRun(paths.updateRun(), advanceRun(run, 'done', new Date(), { to: DAEMON_VERSION }))

@@ -12,8 +12,11 @@ import {
   isHookEventName,
 } from './payloads.ts'
 
-export const PANE_HEADER = 'x-claude-remote-pane'
-export const PROFILE_HEADER = 'x-claude-remote-profile'
+export const PANE_HEADER = 'x-remote-harness-pane'
+export const PROFILE_HEADER = 'x-remote-harness-profile'
+/** Headers of the hooks installed before the rename, accepted while those sessions run (#85). */
+export const LEGACY_PANE_HEADER = 'x-claude-remote-pane'
+export const LEGACY_PROFILE_HEADER = 'x-claude-remote-profile'
 
 /** Answers hooks that expect a decision (PermissionRequest). Aborted if Claude Code drops the request. */
 export type HookResponder = (hook: HookEvent, signal: AbortSignal) => Promise<Record<string, unknown>>
@@ -71,7 +74,7 @@ export class HookReceiver {
         return reply.code(400).send({ error: 'invalid payload' })
       }
       const profileId = resolveProfileId(
-        headerValue(request.headers[PROFILE_HEADER]),
+        headerValue(request.headers[PROFILE_HEADER] ?? request.headers[LEGACY_PROFILE_HEADER]),
         parsed.data.transcript_path,
         this.profiles,
       )
@@ -81,7 +84,7 @@ export class HookReceiver {
           parsed.data,
           this.profiles.find((p) => p.id === profileId),
         ),
-        paneId: headerValue(request.headers[PANE_HEADER]),
+        paneId: headerValue(request.headers[PANE_HEADER] ?? request.headers[LEGACY_PANE_HEADER]),
         profileId,
         receivedAt: new Date().toISOString(),
       }

@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, readlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DaemonUpdateChannel, ServerMessage } from '@remote-harness/protocol'
+import { execa } from 'execa'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createLogger } from '../src/core/logger.ts'
 import { SourceUpdater } from '../src/features/update/update.ts'
@@ -326,5 +327,83 @@ describe('rollback pieces', () => {
     const result = await execaExecutor('bash', ['-c', 'source "$1" && type -t build_daemon', 'bash', script])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.trim().split('\n').at(-1)).toBe('function')
+  })
+
+  test('install.sh moves ~/.claude-remote to ~/.remote-harness once and links the old path', async () => {
+    const script = fileURLToPath(new URL('../../../install.sh', import.meta.url))
+    const h = join(home.dir(), 'h')
+    await mkdir(join(h, '.claude-remote'), { recursive: true })
+    await writeFile(join(h, '.claude-remote', 'config.json'), '{}')
+    const env: Record<string, string> = {}
+    for (const [key, value] of Object.entries(process.env))
+      if (value !== undefined && !/^(REMOTE_HARNESS|CLAUDE_REMOTE)_/.test(key)) env[key] = value
+    // The temp-home helper exports the data dir override; the script must see the real default.
+    env.HOME = h
+    env.REMOTE_HARNESS_HOME = ''
+    env.CLAUDE_REMOTE_HOME = ''
+    const run = () =>
+      execaExecutor('bash', ['-c', 'source "$1" && migrate_data_dir && echo "$DATA_DIR"', 'bash', script], {
+        env,
+      })
+    const first = await run()
+    expect(first.exitCode).toBe(0)
+    expect(first.stdout.trim().split('\n').at(-1)).toBe(join(h, '.remote-harness'))
+    expect(await readFile(join(h, '.remote-harness', 'config.json'), 'utf8')).toBe('{}')
+    expect(await readlink(join(h, '.claude-remote'))).toBe(join(h, '.remote-harness'))
+    const second = await run()
+    expect(second.stdout.trim()).toBe(join(h, '.remote-harness'))
+  })
+})
+
+describe('install.sh pnpm probe (#458)', () => {
+  const script = fileURLToPath(new URL('../../../install.sh', import.meta.url))
+
+  /**
+   * A checkout pinning pnpm 9.9.9 and a fake `pnpm` on PATH that behaves like the Corepack shim: it
+   * reads its stdin to the end (the download prompt) before running `answer` (bash).
+   */
+  async function fakeShim(answer: string): Promise<{ src: string; bin: string }> {
+    const src = join(home.dir(), 'src')
+    const bin = join(home.dir(), 'bin')
+    await mkdir(src)
+    await mkdir(bin)
+    await writeFile(join(src, 'package.json'), JSON.stringify({ packageManager: 'pnpm@9.9.9' }))
+    await writeFile(join(bin, 'pnpm'), `#!/usr/bin/env bash\ncat >/dev/null\n${answer}\n`)
+    await chmod(join(bin, 'pnpm'), 0o755)
+    return { src, bin }
+  }
+
+  /** Sources install.sh from outside the checkout and prints `PNPM`, with the stdin pipe kept open. */
+  function probe(bin: string, src: string) {
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => key !== 'COREPACK_ENABLE_DOWNLOAD_PROMPT'),
+    )
+    return execa('bash', ['-c', `source "$1" && pnpm_cmd && printf "%s\\n" "\${PNPM[@]}"`, 'bash', script], {
+      cwd: home.dir(),
+      env: { ...env, PATH: `${bin}:${env.PATH ?? ''}`, REMOTE_HARNESS_SRC: src },
+      extendEnv: false,
+      stdin: 'pipe',
+      timeout: 10_000,
+      reject: false,
+    })
+  }
+
+  test('probes pnpm inside the checkout with stdin closed and the Corepack prompt off', async () => {
+    // Answers the pinned version only from the checkout with the prompt disabled; else a wrong one.
+    const { src, bin } = await fakeShim(
+      'if [[ "$(pwd -P)" == "$(cd "$REMOTE_HARNESS_SRC" && pwd -P)" && "$COREPACK_ENABLE_DOWNLOAD_PROMPT" == 0 ]]; then echo 9.9.9; else echo 0.0.0; fi',
+    )
+    const result = await probe(bin, src)
+    expect(result.timedOut).toBe(false)
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout.trim().split('\n')).toEqual(['pnpm'])
+  })
+
+  test('falls back to npx when the local pnpm is another version', async () => {
+    const { src, bin } = await fakeShim('echo 1.2.3')
+    const result = await probe(bin, src)
+    expect(result.timedOut).toBe(false)
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout.trim().split('\n')).toEqual(['npx', '--yes', 'pnpm@9.9.9'])
   })
 })

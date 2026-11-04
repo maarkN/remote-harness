@@ -526,7 +526,7 @@ describe('updateConfigFile', () => {
     expect(await updateConfigFile({ push: 'off' })).toBe(true)
     expect(await updateConfigFile({ push: 'off' })).toBe(false)
     expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({ ...original, push: 'off' })
-    expect(JSON.parse(await readFile(`${path}.bak-claude-remote`, 'utf8'))).toEqual(original)
+    expect(JSON.parse(await readFile(`${path}.bak-remote-harness`, 'utf8'))).toEqual(original)
     expect((await loadConfig(silentLogger)).push).toBe('off')
     await expect(updateConfigFile({ push: 'maybe' })).rejects.toThrow()
   })
