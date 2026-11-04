@@ -30,7 +30,7 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
 
 ## Arquivo de configuração
 
-`~/.remote-harness/config.json` (instalações anteriores à mudança de nome continuam usando `~/.claude-remote`):
+`~/.remote-harness/config.json` (uma instalação anterior à mudança de nome é movida para lá pelo próximo `remote-harness update`, e `~/.claude-remote` vira um link para ela):
 
 ```json
 {
@@ -150,7 +150,7 @@ Cada perfil ganha um pequeno atalho em zsh em `~/.remote-harness/bin/<alias>` (a
 
 ## Serviço em segundo plano
 
-`remote-harness service install` mantém o daemon rodando depois que você fecha o terminal e o inicia no login: um LaunchAgent no macOS (aparece como item de login), uma unidade de usuário do systemd no Linux (`~/.config/systemd/user/claude-remote.service`). Em servidores Linux acessados por SSH, a instalação oferece `loginctl enable-linger`, para o serviço sobreviver ao logout; [Servidor na nuvem](/pt-br/docs/cloud-server/) explica como rodar o daemon numa VM na nuvem. Sem systemd (contêineres, alguns WSL) rode `remote-harness start` você mesmo, por exemplo numa janela do tmux. No WSL a instalação também pode criar uma tarefa agendada do Windows que inicia a distribuição no logon.
+`remote-harness service install` mantém o daemon rodando depois que você fecha o terminal e o inicia no login: um LaunchAgent no macOS (aparece como item de login), uma unidade de usuário do systemd no Linux (`~/.config/systemd/user/remote-harness.service`). Em servidores Linux acessados por SSH, a instalação oferece `loginctl enable-linger`, para o serviço sobreviver ao logout; [Servidor na nuvem](/pt-br/docs/cloud-server/) explica como rodar o daemon numa VM na nuvem. Sem systemd (contêineres, alguns WSL) rode `remote-harness start` você mesmo, por exemplo numa janela do tmux. No WSL a instalação também pode criar uma tarefa agendada do Windows que inicia a distribuição no logon.
 
 `remote-harness service status` mostra se está carregado; o menu da bandeja reinicia.
 

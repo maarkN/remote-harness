@@ -245,8 +245,8 @@ function Install-RemoteHarness {
     if ($LASTEXITCODE -ne 0) { Write-Fail ($T.UserFailed -f $LASTEXITCODE); return $false }
     $null = Invoke-Native 'wsl.exe' @('-d', $Name, '-u', 'root', '--', 'usermod', '-aG', 'sudo', $user)
     # No double quotes in the script: Windows PowerShell 5.1 does not escape them for native programs.
-    $script = 'set -e; f=/etc/wsl.conf; t=$f.claude-remote.tmp; touch $f; ' +
-      'if grep -qiE ''^[[:space:]]*default[[:space:]]*='' $f; then exit 0; fi; cp -p $f $f.bak-claude-remote; ' +
+    $script = 'set -e; f=/etc/wsl.conf; t=$f.remote-harness.tmp; touch $f; ' +
+      'if grep -qiE ''^[[:space:]]*default[[:space:]]*='' $f; then exit 0; fi; cp -p $f $f.bak-remote-harness; ' +
       'if grep -qiE ''^\[user\]'' $f; then sed -E ''/^\[user\]/I a default=''$1 $f > $t; ' +
       'else { cat $f; printf ''\n[user]\ndefault=%s\n'' $1; } > $t; fi; chmod 644 $t; mv -f $t $f'
     $result = Invoke-Native 'wsl.exe' @('-d', $Name, '-u', 'root', '--', 'sh', '-c', $script, 'sh', $user)

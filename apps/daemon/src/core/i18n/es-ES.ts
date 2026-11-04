@@ -290,6 +290,12 @@ export const esES = {
     hookSecretRotated: (path: string) =>
       `secreto de los hooks renovado (las versiones antiguas lo ponían en la línea de comandos de curl); curl ahora lo lee de ${path} — un daemon en ejecución y las sesiones abiertas lo usan cuando se reinicien`,
     tmuxConf: (path: string) => `configuración del servidor tmux en ${path}`,
+    tmuxSessionRenamed: (from: string, to: string) =>
+      `sesión tmux ${from} renombrada a ${to} (sus ventanas no cambian)`,
+    secretsMigrated: (count: number) =>
+      `${count} ${count === 1 ? 'secreto copiado' : 'secretos copiados'} a las entradas "remote-harness" del Keychain / Secret Service (las entradas "claude-remote" se conservan)`,
+    serviceRelabelled: (label: string) =>
+      `el servicio en segundo plano ahora se ejecuta como ${label}: macOS puede volver a pedir el acceso a las carpetas y a las notificaciones`,
     legacyTmuxSessions: (session: string) =>
       `las sesiones iniciadas antes de esta versión siguen en tu servidor tmux por defecto y ya no se gestionan: termínalas con \`tmux attach -t ${session}\`; las nuevas se abren en el servidor de Remote Harness (\`remote-harness tmux\`)`,
   },

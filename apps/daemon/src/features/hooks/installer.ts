@@ -19,7 +19,7 @@ import {
   removeOurHooks,
 } from './settings-hooks.ts'
 
-export const BACKUP_SUFFIX = '.bak-claude-remote'
+export const BACKUP_SUFFIX = '.bak-remote-harness'
 
 async function readText(path: string): Promise<string> {
   try {

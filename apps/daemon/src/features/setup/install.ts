@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Profile } from '@remote-harness/protocol'
-import { type Config, hookTimeoutSec } from '../../core/config.ts'
+import { type Config, hookTimeoutSec, LEGACY_TMUX_SESSION } from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
 import { expandHome, paths } from '../../core/paths.ts'
 import type { Executor } from '../../infra/exec.ts'
@@ -25,7 +25,12 @@ import {
   uninstallStatusLine,
 } from '../hooks/installer.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
-import { ensureTmuxConf, legacySessionsExist, tmuxServerOf } from '../tmux-server/conf.ts'
+import {
+  ensureTmuxConf,
+  legacySessionsExist,
+  renameLegacySession,
+  tmuxServerOf,
+} from '../tmux-server/conf.ts'
 
 /** One line of installer output: `done` = changed now, `skip` = already in place. */
 export type InstallLine = { status: 'done' | 'skip'; text: string }
@@ -72,6 +77,13 @@ export async function installAll(
   const tmuxServer = tmuxServerOf(config)
   const tmuxConf = await ensureTmuxConf(config)
   if (tmuxConf) lines.push({ status: tmuxConf.changed ? 'done' : 'skip', text: m.tmuxConf(tmuxConf.path) })
+  // The launchers' session of an install made before the rename keeps its windows: renamed once,
+  // unless config.json pins the old name itself.
+  if (
+    config.tmuxSession !== LEGACY_TMUX_SESSION &&
+    (await renameLegacySession(o.exec, tmuxBin, tmuxServer, LEGACY_TMUX_SESSION, config.tmuxSession))
+  )
+    lines.push({ status: 'done', text: m.tmuxSessionRenamed(LEGACY_TMUX_SESSION, config.tmuxSession) })
   const launchers = await installLaunchers(profiles, {
     binDir: paths.bin(),
     tmuxSession: config.tmuxSession,
@@ -113,8 +125,10 @@ export async function installAll(
     lines.push({ status: 'skip', text: m.geminiTrust })
   // Sessions started before the dedicated server stay on the default one, where the daemon no longer
   // looks: say how to reach them.
-  if (tmuxServer && (await legacySessionsExist(o.exec, tmuxBin, config.tmuxSession)))
-    lines.push({ status: 'skip', text: m.legacyTmuxSessions(config.tmuxSession) })
+  const legacy = tmuxServer
+    ? await legacySessionsExist(o.exec, tmuxBin, [config.tmuxSession, LEGACY_TMUX_SESSION])
+    : null
+  if (legacy) lines.push({ status: 'skip', text: m.legacyTmuxSessions(legacy) })
   return lines
 }
 

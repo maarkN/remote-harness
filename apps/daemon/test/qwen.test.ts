@@ -110,7 +110,7 @@ describe('qwen adapter', () => {
     )
     execFileSync('zsh', ['-n', '-c', script])
     expect(script).toContain("export QWEN_HOME='/Users/u/.qwen-work'")
-    expect(script).toMatch(/^QWEN_BIN=\$\{CLAUDE_REMOTE_QWEN_BIN:-qwen\}$/m)
+    expect(script).toMatch(/^QWEN_BIN=\$\{REMOTE_HARNESS_QWEN_BIN:-\$\{CLAUDE_REMOTE_QWEN_BIN:-qwen\}\}$/m)
     expect(qwen.resumeArgs('8b0e')).toEqual(['--resume', '8b0e'])
     expect(qwen.worktreeArgs('x')).toBeNull()
     expect(qwen.polish).toBeNull()

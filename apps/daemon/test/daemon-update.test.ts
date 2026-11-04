@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, readlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DaemonUpdateChannel, ServerMessage } from '@remote-harness/protocol'
@@ -327,6 +327,31 @@ describe('rollback pieces', () => {
     const result = await execaExecutor('bash', ['-c', 'source "$1" && type -t build_daemon', 'bash', script])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.trim().split('\n').at(-1)).toBe('function')
+  })
+
+  test('install.sh moves ~/.claude-remote to ~/.remote-harness once and links the old path', async () => {
+    const script = fileURLToPath(new URL('../../../install.sh', import.meta.url))
+    const h = join(home.dir(), 'h')
+    await mkdir(join(h, '.claude-remote'), { recursive: true })
+    await writeFile(join(h, '.claude-remote', 'config.json'), '{}')
+    const env: Record<string, string> = {}
+    for (const [key, value] of Object.entries(process.env))
+      if (value !== undefined && !/^(REMOTE_HARNESS|CLAUDE_REMOTE)_/.test(key)) env[key] = value
+    // The temp-home helper exports the data dir override; the script must see the real default.
+    env.HOME = h
+    env.REMOTE_HARNESS_HOME = ''
+    env.CLAUDE_REMOTE_HOME = ''
+    const run = () =>
+      execaExecutor('bash', ['-c', 'source "$1" && migrate_data_dir && echo "$DATA_DIR"', 'bash', script], {
+        env,
+      })
+    const first = await run()
+    expect(first.exitCode).toBe(0)
+    expect(first.stdout.trim().split('\n').at(-1)).toBe(join(h, '.remote-harness'))
+    expect(await readFile(join(h, '.remote-harness', 'config.json'), 'utf8')).toBe('{}')
+    expect(await readlink(join(h, '.claude-remote'))).toBe(join(h, '.remote-harness'))
+    const second = await run()
+    expect(second.stdout.trim()).toBe(join(h, '.remote-harness'))
   })
 })
 

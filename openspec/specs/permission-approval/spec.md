@@ -142,7 +142,7 @@ The daemon SHALL send every pending request to a client right after it accepts t
 
 #### Scenario: Hand-written rule deleted
 - **WHEN** a device sends `rules.delete` for `Bash(ls:*)` of a listed `settings.local.json`
-- **THEN** the rule is gone from the file, the previous file is kept as `settings.local.json.bak-claude-remote` and the other keys are unchanged
+- **THEN** the rule is gone from the file, the previous file is kept as `settings.local.json.bak-remote-harness` and the other keys are unchanged
 
 #### Scenario: Path outside the listing
 - **WHEN** a device sends `rules.delete` with `file: "/etc/hosts"`

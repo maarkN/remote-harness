@@ -51,5 +51,6 @@ export function isQuietMoment(
 
 /** Running under launchd (KeepAlive) or systemd (`Restart=always`): exiting restarts the daemon. */
 export function underServiceManager(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(env.XPC_SERVICE_NAME?.includes('claude-remote') || env.INVOCATION_ID)
+  const label = env.XPC_SERVICE_NAME
+  return Boolean((label && /remoteharness|remote-harness|claude-remote/.test(label)) || env.INVOCATION_ID)
 }

@@ -16,6 +16,8 @@ import {
   installService,
   LAUNCHD_LABEL,
   LaunchdService,
+  LEGACY_LAUNCHD_LABEL,
+  plistPath,
   renderAppInfoPlist,
   renderInfoPlistStrings,
   renderPlist,
@@ -25,6 +27,7 @@ import {
 } from '../src/features/service/launchd.ts'
 import type { ServiceManager } from '../src/features/service/service-manager.ts'
 import {
+  LEGACY_SYSTEMD_UNIT,
   parseShow,
   renderSystemdUnit,
   SYSTEMD_UNIT,
@@ -83,6 +86,37 @@ describe('launchd', () => {
     expect(exec.calls.map((c) => c.args[0])).toEqual(['bootout', 'print', 'bootstrap'])
     expect(exec.calls[2]?.args[2]).toBe(path)
     expect(readFileSync(path, 'utf8')).toContain('<string>/a:/b:/c</string>')
+  })
+
+  test('install boots out and removes the LaunchAgent of a version before the rename', async () => {
+    const legacy = plistPath(home.dir(), LEGACY_LAUNCHD_LABEL)
+    await mkdir(join(home.dir(), 'Library', 'LaunchAgents'), { recursive: true })
+    await writeFile(legacy, '<plist/>')
+    const exec = fakeExecutor((c) => (c.args[0] === 'print' ? { exitCode: 113 } : undefined))
+    await installService(exec, { ...options, logsDir: join(home.dir(), 'logs') }, home.dir(), async () => {})
+    const domain = `gui/${process.getuid?.() ?? 501}`
+    expect(exec.calls.map((c) => c.args.slice(0, 2).join(' '))).toEqual([
+      `bootout ${domain}/${LEGACY_LAUNCHD_LABEL}`,
+      `bootout ${domain}/${LAUNCHD_LABEL}`,
+      `print ${domain}/${LAUNCHD_LABEL}`,
+      `bootstrap ${domain}`,
+    ])
+    expect(existsSync(legacy)).toBe(false)
+    expect(existsSync(plistPath(home.dir()))).toBe(true)
+  })
+
+  test('status falls back to the legacy label while its plist is installed', async () => {
+    await mkdir(join(home.dir(), 'Library', 'LaunchAgents'), { recursive: true })
+    await writeFile(plistPath(home.dir(), LEGACY_LAUNCHD_LABEL), '<plist/>')
+    const exec = fakeExecutor((c) =>
+      c.args[1]?.endsWith(LEGACY_LAUNCHD_LABEL)
+        ? { stdout: 'state = running\n\tpid = 7\n' }
+        : { exitCode: 113 },
+    )
+    expect(await serviceStatus(exec, home.dir())).toEqual({
+      loaded: true,
+      detail: `running (pid 7), as ${LEGACY_LAUNCHD_LABEL}`,
+    })
   })
 
   test('install waits for the old job to unload and retries a failed bootstrap', async () => {
@@ -206,8 +240,13 @@ describe('launchd', () => {
 
   test('status parses launchctl print', async () => {
     const exec = fakeExecutor(() => ({ stdout: 'state = running\n\tpid = 4242\n' }))
-    expect(await serviceStatus(exec)).toEqual({ loaded: true, detail: 'running (pid 4242)' })
-    expect(await serviceStatus(fakeExecutor(() => ({ exitCode: 113 })))).toEqual({
+    expect(await serviceStatus(exec, home.dir())).toEqual({ loaded: true, detail: 'running (pid 4242)' })
+    expect(
+      await serviceStatus(
+        fakeExecutor(() => ({ exitCode: 113 })),
+        home.dir(),
+      ),
+    ).toEqual({
       loaded: false,
       detail: 'not loaded',
     })
@@ -291,7 +330,7 @@ describe('systemd user service', () => {
     const service = new SystemdUserService(exec, { home: home.dir(), user: 'me' })
     const path = await service.install({ ...unit, logsDir: join(home.dir(), 'logs') })
     expect(path).toBe(unitPath(home.dir()))
-    expect(path).toBe(join(home.dir(), '.config', 'systemd', 'user', 'claude-remote.service'))
+    expect(path).toBe(join(home.dir(), '.config', 'systemd', 'user', 'remote-harness.service'))
     expect(readFileSync(path, 'utf8')).toContain('Restart=always')
     expect(statSync(join(home.dir(), 'logs')).isDirectory()).toBe(true)
     expect(exec.calls.map((c) => [c.file, ...c.args].join(' '))).toEqual([
@@ -299,6 +338,23 @@ describe('systemd user service', () => {
       `systemctl --user enable --now ${SYSTEMD_UNIT}`,
       `systemctl --user restart ${SYSTEMD_UNIT}`,
     ])
+  })
+
+  test('install disables and removes the unit of a version before the rename', async () => {
+    const legacy = unitPath(home.dir(), LEGACY_SYSTEMD_UNIT)
+    await mkdir(join(home.dir(), '.config', 'systemd', 'user'), { recursive: true })
+    await writeFile(legacy, '[Unit]\n')
+    const exec = fakeExecutor()
+    const service = new SystemdUserService(exec, { home: home.dir(), user: 'me' })
+    await service.install({ ...unit, logsDir: join(home.dir(), 'logs') })
+    expect(exec.calls.map((c) => c.args.slice(1).join(' '))).toEqual([
+      `disable --now ${LEGACY_SYSTEMD_UNIT}`,
+      'daemon-reload',
+      `enable --now ${SYSTEMD_UNIT}`,
+      `restart ${SYSTEMD_UNIT}`,
+    ])
+    expect(existsSync(legacy)).toBe(false)
+    expect(existsSync(unitPath(home.dir()))).toBe(true)
   })
 
   test('install fails with the systemctl error', async () => {

@@ -4,7 +4,7 @@ import type { Config } from '../../core/config.ts'
 import { paths } from '../../core/paths.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { readTextFile, writeFileAtomic } from '../../infra/fs.ts'
-import type { TmuxServer } from '../../infra/tmux.ts'
+import { type TmuxServer, tmuxServerArgs } from '../../infra/tmux.ts'
 
 type TmuxConfig = Pick<Config, 'tmuxSocket' | 'tmuxConfig'>
 
@@ -65,14 +65,35 @@ export async function ensureTmuxConf(
 }
 
 /**
- * Whether the launchers' session exists on the user's default server: sessions started before the
+ * The first of `sessions` that exists on the user's default server: sessions started before the
  * dedicated server, which the daemon no longer sees. Asked by `install` to tell the user.
  */
 export async function legacySessionsExist(
   exec: Executor,
   tmuxBin: string,
-  session: string,
+  sessions: readonly string[],
+): Promise<string | null> {
+  for (const session of sessions) {
+    const result = await exec(tmuxBin, ['has-session', '-t', `=${session}`])
+    if (result.exitCode === 0) return session
+  }
+  return null
+}
+
+/**
+ * Renames the launchers' session of an install made before the rename (`from`) to the configured one
+ * (`to`) on the Remote Harness server, once: only while `to` does not exist and `from` does. Windows,
+ * panes and the registry's pane ids are untouched (#85).
+ */
+export async function renameLegacySession(
+  exec: Executor,
+  tmuxBin: string,
+  server: TmuxServer | null,
+  from: string,
+  to: string,
 ): Promise<boolean> {
-  const result = await exec(tmuxBin, ['has-session', '-t', `=${session}`])
-  return result.exitCode === 0
+  const tmux = (...args: string[]) => exec(tmuxBin, [...tmuxServerArgs(server), ...args])
+  if ((await tmux('has-session', '-t', `=${to}`)).exitCode === 0) return false
+  if ((await tmux('has-session', '-t', `=${from}`)).exitCode !== 0) return false
+  return (await tmux('rename-session', '-t', `=${from}`, to)).exitCode === 0
 }

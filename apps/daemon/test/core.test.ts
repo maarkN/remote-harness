@@ -16,6 +16,7 @@ import { paths } from '../src/core/paths.ts'
 import {
   FileTokenStore,
   KeychainTokenStore,
+  migrateLegacySecrets,
   SecretToolTokenStore,
   selectTokenStore,
   TOKEN_STORE_KINDS,
@@ -138,7 +139,7 @@ describe('token stores', () => {
     expect(exec.calls.map((c) => c.args[0])).toEqual(['find-generic-password', '-i', 'find-generic-password'])
     expect(exec.calls.flatMap((c) => c.args)).not.toContain(token)
     expect(exec.calls[1]?.options?.input).toContain(
-      'add-generic-password -U -s claude-remote -a daemon-identity',
+      'add-generic-password -U -s remote-harness -a daemon-identity',
     )
   })
 
@@ -167,13 +168,42 @@ describe('token stores', () => {
   })
 })
 
+describe('migrateLegacySecrets', () => {
+  test('copies the identity and the provider keys stored under the old service, once', async () => {
+    const stored = new Map([
+      ['claude-remote/daemon-identity', 'tok'],
+      ['claude-remote/provider-work', 'sk-or-v1-abc'],
+    ])
+    const exec = fakeExecutor((call) => {
+      if (call.args[0] === 'find-generic-password') {
+        const value = stored.get(`${call.args[2]}/${call.args[4]}`)
+        return value ? { stdout: `${value}\n` } : { exitCode: 44, stdout: '' }
+      }
+      if (call.args[0] === '-i') {
+        const added = /-s (\S+) -a (\S+) -w "([^"]+)"/.exec(call.options?.input ?? '')
+        if (added) stored.set(`${added[1]}/${added[2]}`, added[3] ?? '')
+      }
+      return undefined
+    })
+    expect(await migrateLegacySecrets('keychain', exec, ['work', 'other'])).toEqual([
+      'daemon-identity',
+      'provider-work',
+    ])
+    expect(stored.get('remote-harness/daemon-identity')).toBe('tok')
+    expect(stored.get('remote-harness/provider-work')).toBe('sk-or-v1-abc')
+    expect(stored.has('claude-remote/daemon-identity')).toBe(true)
+    expect(await migrateLegacySecrets('keychain', exec, ['work'])).toEqual([])
+    expect(await migrateLegacySecrets('file', fakeExecutor(), ['work'])).toEqual([])
+  })
+})
+
 describe('secret-tool token store', () => {
   test('stores the token on stdin, never in the arguments', async () => {
     const exec = fakeExecutor((c) => (c.args[0] === 'lookup' ? { exitCode: 1 } : undefined))
     const token = encodeIdentity(await ensureIdentity(new SecretToolTokenStore(exec)))
     expect(exec.calls.map((c) => [c.file, ...c.args].join(' '))).toEqual([
-      'secret-tool lookup service claude-remote account daemon-identity',
-      'secret-tool store --label=Remote Harness daemon identity service claude-remote account daemon-identity',
+      'secret-tool lookup service remote-harness account daemon-identity',
+      'secret-tool store --label=Remote Harness daemon identity service remote-harness account daemon-identity',
     ])
     expect(exec.calls[1]?.options?.input).toBe(token)
     for (const call of exec.calls) expect(call.args).not.toContain(token)

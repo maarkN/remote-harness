@@ -74,7 +74,7 @@ describe('LifecycleService', () => {
     expect(exec.calls[0]).toMatchObject({
       file: '/bin-dir/claudin',
       args: [],
-      options: { cwd: project, env: { CLAUDE_REMOTE_NO_ATTACH: '1' } },
+      options: { cwd: project, env: { REMOTE_HARNESS_NO_ATTACH: '1' } },
     })
     await service.start('claudin', project, { model: 'anthropic/claude-opus-5.5' })
     expect(exec.calls[1]?.args).toEqual(['--model', 'anthropic/claude-opus-5.5'])
@@ -87,10 +87,10 @@ describe('LifecycleService', () => {
     await service.start('claudin', project, { name: 'Review', prompt })
     expect(exec.calls[0]).toMatchObject({
       args: ['--name', 'Review'],
-      options: { env: { CLAUDE_REMOTE_NO_ATTACH: '1', CLAUDE_REMOTE_PROMPT: prompt } },
+      options: { env: { REMOTE_HARNESS_NO_ATTACH: '1', REMOTE_HARNESS_PROMPT: prompt } },
     })
     await service.start('claudin', project)
-    expect(exec.calls[1]?.options?.env).toEqual({ CLAUDE_REMOTE_NO_ATTACH: '1' })
+    expect(exec.calls[1]?.options?.env).toEqual({ REMOTE_HARNESS_NO_ATTACH: '1' })
     // Rejected before anything is launched.
     await expect(
       service.start('claudin', project, { prompt: 'x'.repeat(MAX_FIRST_PROMPT_BYTES + 1) }),
