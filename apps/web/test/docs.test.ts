@@ -103,31 +103,44 @@ describe('renderDoc', () => {
     expect(index.length).toBeGreaterThan(DOC_SLUGS.length)
   })
 
-  test('every internal link and anchor on every page resolves', () => {
-    const anchors = new Map<string, Set<string>>()
-    for (const { locale, slug } of pages) {
-      const doc = renderDocument(DOCS[locale][slug] ?? '')
-      anchors.set(docPath(locale, slug), new Set(doc.headings.map((h) => h.id)))
-    }
-    const broken: string[] = []
-    for (const { locale, slug } of pages) {
-      const own = docPath(locale, slug)
-      for (const href of links(renderDoc(locale, slug) ?? '')) {
-        const [path = '', hash] = href.split('#')
-        const target = path === '' ? own : path
-        const resolved = route(target)
-        if (resolved.kind === 'not-found' || (resolved.kind === 'doc' && !isDocSlug(resolved.slug))) {
-          broken.push(`${own} → ${href}`)
-          continue
-        }
-        if (hash !== undefined && hash !== 'main' && resolved.kind === 'doc') {
-          const ids = anchors.get(target.endsWith('/') ? target : `${target}/`)
-          if (!ids?.has(hash)) broken.push(`${own} → ${href}`)
+  /** Heading ids of every page in every language (links may cross languages), built once. */
+  let anchors: Map<string, Set<string>> | undefined
+  function anchorsOf(path: string): Set<string> | undefined {
+    anchors ??= new Map(
+      pages.map(({ locale, slug }) => [
+        docPath(locale, slug),
+        new Set(renderDocument(DOCS[locale][slug] ?? '').headings.map((h) => h.id)),
+      ]),
+    )
+    return anchors.get(path.endsWith('/') ? path : `${path}/`)
+  }
+
+  // One case per language: rendering every page of a language embeds the language's search index
+  // in each of them, which took more than vitest's 5 s for the three languages together on a CI
+  // runner with every package's tests running at once (#532).
+  test.each(WEB_LOCALES)(
+    'every internal link and anchor on every %s page resolves',
+    { timeout: 30_000 },
+    (locale) => {
+      const broken: string[] = []
+      for (const slug of DOC_SLUGS) {
+        const own = docPath(locale, slug)
+        for (const href of links(renderDoc(locale, slug) ?? '')) {
+          const [path = '', hash] = href.split('#')
+          const target = path === '' ? own : path
+          const resolved = route(target)
+          if (resolved.kind === 'not-found' || (resolved.kind === 'doc' && !isDocSlug(resolved.slug))) {
+            broken.push(`${own} → ${href}`)
+            continue
+          }
+          if (hash !== undefined && hash !== 'main' && resolved.kind === 'doc') {
+            if (!anchorsOf(target)?.has(hash)) broken.push(`${own} → ${href}`)
+          }
         }
       }
-    }
-    expect(broken).toEqual([])
-  })
+      expect(broken).toEqual([])
+    },
+  )
 
   test('previous / next follow the slug order; the index has no previous page', () => {
     const first = renderDoc('en-US', 'index') ?? ''
