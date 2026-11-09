@@ -39,13 +39,17 @@ Each docs page SHALL offer a search field that filters an embedded index of the 
 - **THEN** the sections whose heading or text mention it are listed, each linking to its page and anchor
 
 ### Requirement: Documentation links and checks
-The landing's Docs links, the app's Settings → App → Documentation and the tray's Documentation item SHALL open the docs; the sitemap SHALL list every docs page in every language; the README SHALL point to the docs. A test SHALL render every page in every language and verify that every internal link and anchor resolves.
+The landing's Docs links, the app's Settings → App → Documentation and the tray's Documentation item SHALL open the docs; the sitemap SHALL list every docs page in every language; the README SHALL point to the docs. A test SHALL render every page in every language and verify that every internal link and anchor resolves. The check SHALL run as one case per language, each with a time budget that covers rendering every page of that language on a loaded CI runner (the whole suite of every package running at once), so the check never fails for time alone; a broken link or anchor MUST still fail the case of its language.
 
 The docs SHALL be the only user guide. `README.md` SHALL keep what the project is (pitch, screenshots, status, features, how it works), a short security summary, the one-line install, links from each user topic (install per system, pairing, the app, the daemon and its config file, notifications, updates, security, troubleshooting, uninstall) to its docs page, development, contributing and license. `README.pt-BR.md` SHALL follow the same outline in Portuguese, linking `/pt-br/docs/`. Developer-only topics (building and signing the app, Makefile targets, Firebase for self-built apps, the push relay deploy, the connection relay deploy, over-the-air publishing, the website deploy) SHALL live in `CONTRIBUTING.md`. Texts elsewhere (docs pages, landing) MUST NOT send users to the README for a user topic.
 
 #### Scenario: Broken link
 - **WHEN** a page links to `/en/docs/missing/` or to an anchor no heading has
 - **THEN** the test suite fails naming the page and the link
+
+#### Scenario: Loaded CI runner
+- **WHEN** the test suite runs with every package's tests in parallel on a CI runner
+- **THEN** each language's link check finishes within its time budget and fails only for a broken link or anchor
 
 #### Scenario: Unknown page
 - **WHEN** a visitor opens `/docs/nothing-here/`
