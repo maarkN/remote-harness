@@ -22,7 +22,7 @@ Type in the composer and send. While the agent is busy the prompt is queued and 
 
 What you type is kept as the session's draft: leave the session, open another one or close the app, and it is there when you come back, photos included. The session list marks rows with a draft (**Draft:** and the start of the text). Sending clears it; emptying the field discards it. Drafts stay on the phone and expire after 7 days.
 
-- `@` completes files of the project, `/` completes Claude Code's slash commands.
+- `@` completes files of the project, `/` completes the agent's slash commands. For Claude Code the list has the built-in commands and the skills and commands of the project (`.claude/skills`, `.claude/commands`), of the session's profile (`skills/` and `commands/` in its config folder, which the **Profile** header names, such as `Profile · ~/.claude`; symlinked folders included) and of the profile's installed plugins. A profile with its own config folder has its own personal skills: a skill in `~/.claude/skills` is not in a session of a profile whose folder is `~/.claude-work`. Codex, Gemini CLI, Kimi CLI and Qwen Code list their CLI's own commands.
 - The camera button attaches photos; the microphone dictates on-device (set the language in Settings → Voice).
 - **Show keyboard shortcuts** (menu) adds a key bar with Esc, Ctrl+C, the arrows, Tab and Enter for the agent's own menus.
 

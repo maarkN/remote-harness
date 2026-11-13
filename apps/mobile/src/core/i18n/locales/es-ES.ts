@@ -816,6 +816,7 @@ const esES = {
       builtin: 'Nativos',
       project: 'Proyecto',
       profile: 'Perfil',
+      profileAt: 'Perfil · {{dir}}',
       plugin: 'Plugins',
     },
     source: {

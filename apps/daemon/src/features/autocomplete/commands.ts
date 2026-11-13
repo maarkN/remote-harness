@@ -1,4 +1,5 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
+import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { basename, join, relative } from 'node:path'
 import type { CommandItem, CommandSource } from '@remote-harness/protocol'
 import { parse as parseYaml } from 'yaml'
@@ -37,32 +38,61 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-/** Finds SKILL.md files up to `depth` levels below `dir` (skills may be grouped in folders). */
-async function findSkillFiles(dir: string, depth = 3): Promise<string[]> {
-  if (depth < 0) return []
-  let entries: import('node:fs').Dirent[]
+/**
+ * The entries of `dir` as directories and files, following symlinks: skill managers link skill
+ * folders into `skills/`, and Claude Code reads them (#538). Broken links are left out. A directory
+ * already walked (through a link loop, or two links to one folder) is skipped via `visited`.
+ */
+async function listEntries(dir: string, visited: Set<string>): Promise<{ dirs: string[]; files: string[] }> {
+  const empty = { dirs: [], files: [] }
+  try {
+    const real = await realpath(dir)
+    if (visited.has(real)) return empty
+    visited.add(real)
+  } catch {
+    return empty
+  }
+  let entries: Dirent[]
   try {
     entries = await readdir(dir, { withFileTypes: true })
   } catch {
-    return []
+    return empty
   }
-  const found: string[] = []
+  const dirs: string[] = []
+  const files: string[] = []
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    const sub = join(dir, entry.name)
+    const path = join(dir, entry.name)
+    let isDir = entry.isDirectory()
+    let isFile = entry.isFile()
+    if (entry.isSymbolicLink()) {
+      const target = await stat(path).catch(() => null)
+      isDir = target?.isDirectory() ?? false
+      isFile = target?.isFile() ?? false
+    }
+    if (isDir) dirs.push(path)
+    else if (isFile) files.push(path)
+  }
+  return { dirs, files }
+}
+
+/** Finds SKILL.md files up to `depth` levels below `dir` (skills may be grouped in folders). */
+async function findSkillFiles(dir: string, depth = 3, visited = new Set<string>()): Promise<string[]> {
+  if (depth < 0) return []
+  const found: string[] = []
+  for (const sub of (await listEntries(dir, visited)).dirs) {
     if (await exists(join(sub, 'SKILL.md'))) found.push(join(sub, 'SKILL.md'))
-    else found.push(...(await findSkillFiles(sub, depth - 1)))
+    else found.push(...(await findSkillFiles(sub, depth - 1, visited)))
   }
   return found
 }
 
-async function findCommandFiles(dir: string): Promise<string[]> {
-  try {
-    const entries = await readdir(dir, { recursive: true, withFileTypes: true })
-    return entries.filter((e) => e.isFile() && e.name.endsWith('.md')).map((e) => join(e.parentPath, e.name))
-  } catch {
-    return []
-  }
+/** Finds `*.md` command files below `dir`, nested folders included, up to `depth` levels. */
+async function findCommandFiles(dir: string, depth = 5, visited = new Set<string>()): Promise<string[]> {
+  if (depth < 0) return []
+  const { dirs, files } = await listEntries(dir, visited)
+  const found = files.filter((file) => file.endsWith('.md'))
+  for (const sub of dirs) found.push(...(await findCommandFiles(sub, depth - 1, visited)))
+  return found
 }
 
 async function readItems(root: string, source: CommandSource, prefix = ''): Promise<CommandItem[]> {

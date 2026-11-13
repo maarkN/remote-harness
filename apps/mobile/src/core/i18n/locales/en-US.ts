@@ -817,6 +817,7 @@ const enUS = {
       builtin: 'Built-in',
       project: 'Project',
       profile: 'Profile',
+      profileAt: 'Profile · {{dir}}',
       plugin: 'Plugins',
     },
     source: {

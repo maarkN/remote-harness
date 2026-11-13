@@ -78,6 +78,14 @@ describe('InputService', () => {
     expect(sleeps).toEqual([80])
   })
 
+  test('submits a skill with arguments as typed, with no key that could clear the / menu (#538)', async () => {
+    const { exec, service } = setup()
+    await service.sendText('abcdef123456', '/review-pr 42')
+    expect(exec.calls.map((c) => c.args[0])).toEqual(['load-buffer', 'paste-buffer', 'send-keys'])
+    expect(exec.calls[0]?.options?.input).toBe('/review-pr 42')
+    expect(exec.calls[2]?.args).toEqual(['send-keys', '-t', '%7', 'Enter'])
+  })
+
   test('type strategy uses backslash-newline and closes menus before Enter', async () => {
     const { exec, service } = setup('type')
     await service.sendText('abcdef123456', 'a\nb')
