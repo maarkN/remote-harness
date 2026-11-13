@@ -58,7 +58,10 @@ lint-fix: ## Biome with fixes
 	pnpm lint:fix
 
 openspec: ## Validate every OpenSpec spec and change
-	npx -y openspec validate --all --strict
+	@# The CLI is @fission-ai/openspec: the unscoped `openspec` npm package is an unrelated project.
+	@# Pinned to the 1.x the specs were written with; 2.x warns on requirements over 500 characters,
+	@# which --strict turns into failures on almost every spec.
+	npx -y @fission-ai/openspec@1.12.0 validate --all --strict
 
 ## Daemon
 
