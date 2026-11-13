@@ -4,21 +4,22 @@ import {
   type ImageStyle,
   Pressable,
   Text as RNText,
-  ScrollView,
   StyleSheet,
   type TextStyle,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native'
 import { MarkedTokenizer, Renderer, useMarkdown } from 'react-native-marked'
 import { fontSize, fonts, radius, space, type Theme, useTheme } from '@/core/theme'
-import { Text } from '@/ui'
+import { SideScroll, Text } from '@/ui'
 import { showCommandMenu } from '../../commands/command-menu'
 import { isShellBlock, shellCommandText } from '../../commands/logic'
 import { useRunCommand } from '../../commands/run-context'
 import { codeLabel, plainText } from '../copy'
 import { copyText } from '../copy-text'
 import { hasLinks, splitLinks, tagLinkTarget } from '../links'
+import { tableColumnWidths } from '../table-layout'
 import { CopyButton } from './CopyButton'
 import { LinkImage, LinkText } from './LinkText'
 
@@ -54,8 +55,6 @@ function markedOptions(theme: Theme) {
       blockquote: { borderLeftColor: colors.accent, borderLeftWidth: 3, paddingLeft: space.sm },
       li: { fontFamily: fonts.regular, fontSize: fontSize.md, color: colors.text },
       hr: { backgroundColor: colors.border },
-      table: { borderColor: colors.border },
-      tableCell: { padding: space.xs },
     }),
   }
 }
@@ -162,11 +161,58 @@ function CodeBlock({
         </Text>
         <CopyButton value={code} label={t('conversation.copy.code')} />
       </View>
-      <ScrollView horizontal>
-        {/* The View avoids "Cannot add a child that doesn't have a YogaNode" (react-native#18773). */}
-        <View>{children}</View>
-      </ScrollView>
+      <SideScroll>{children}</SideScroll>
     </Pressable>
+  )
+}
+
+/** Advance width of the conversation's monospaced font, as a share of its size. */
+const MONO_ADVANCE = 0.6
+
+/**
+ * A markdown table whose columns are as wide as their longest cell (clamped; longer cells wrap),
+ * on the code blocks' background, scrolling sideways with a fade only when still wider than the
+ * screen (#544).
+ */
+function MarkdownTable({ header, rows }: { header: ReactNode[][]; rows: ReactNode[][][] }) {
+  const { colors } = useTheme()
+  const { width } = useWindowDimensions()
+  const all = [header, ...rows]
+  const widths = tableColumnWidths(
+    all.map((row) => row.map((cell) => plainText(cell))),
+    {
+      charWidth: fontSize.md * MONO_ADVANCE,
+      padding: space.xs * 2 + 1,
+      min: 48,
+      max: Math.max(160, Math.round(width * 0.6)),
+    },
+  )
+  return (
+    <SideScroll>
+      <View style={[local.table, { borderColor: colors.border, backgroundColor: colors.background }]}>
+        {all.map((row, r) => (
+          <View
+            // biome-ignore lint/suspicious/noArrayIndexKey: rows of a parsed table have no id
+            key={r}
+            style={[local.tableRow, r > 0 && { borderTopWidth: 1, borderColor: colors.border }]}
+          >
+            {row.map((cell, c) => (
+              <View
+                // biome-ignore lint/suspicious/noArrayIndexKey: columns of a parsed table have no id
+                key={c}
+                style={[
+                  local.tableCell,
+                  { width: widths[c] ?? 48 },
+                  c > 0 && { borderLeftWidth: 1, borderColor: colors.border },
+                ]}
+              >
+                {cell}
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </SideScroll>
   )
 }
 
@@ -247,6 +293,10 @@ class LinkRenderer extends Renderer {
     )
   }
 
+  override table(header: ReactNode[][], rows: ReactNode[][][]): ReactNode {
+    return <MarkdownTable key={this.getKey()} header={header} rows={rows} />
+  }
+
   private block(children: string | ReactNode[], styles?: TextStyle): ReactNode {
     if (containsPressable(children)) {
       return (
@@ -290,4 +340,7 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
 
 const local = StyleSheet.create({
   codeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  table: { borderWidth: 1, borderRadius: radius.sm, marginVertical: space.xs },
+  tableRow: { flexDirection: 'row' },
+  tableCell: { padding: space.xs },
 })
