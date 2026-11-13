@@ -74,6 +74,20 @@ const enUS = {
     notFound: 'Not found: it may have been closed or removed.',
     disconnected: "Can't reach {{machine}}.",
     timeout: '{{Machine}} did not respond.',
+    badRequest: '{{Machine}} rejected the request.',
+    unknownType: '{{Machine}} does not know this request: update Remote Harness on it.',
+    unauthorized: 'This phone is not authorized on {{machine}}: pair it again.',
+    protocolMismatch: 'The app and {{machine}} run incompatible versions: update both.',
+    notControllable: 'Read-only session: it has no terminal on {{machine}}.',
+    invalidKey: "This key can't be sent to the session.",
+    tooLarge: 'Too large to send.',
+    unsupportedMedia: 'This file type is not supported.',
+    alreadyResolved: 'Already answered.',
+    modeForbidden: 'This mode is not allowed.',
+    modeUnreachable: "Couldn't switch to this mode.",
+    sessionBusy: 'The session is busy: try again when it finishes.',
+    commandsDisabled: 'Commands are off on {{machine}}.',
+    internal: 'Something went wrong on {{machine}}.',
   },
   time: {
     now: 'now',
@@ -1411,6 +1425,10 @@ const enUS = {
   },
   terminal: {
     space: 'space',
+    readOnly: {
+      title: 'No terminal',
+      body: 'This session no longer has a tmux pane on {{machine}}, so there is nothing to show here. Its conversation is kept.',
+    },
   },
   push: {
     channelName: 'Sessions',

@@ -69,6 +69,20 @@ const esES = {
     notFound: 'No encontrado: puede que se haya cerrado o eliminado.',
     disconnected: 'Sin conexión con {{machine}}.',
     timeout: '{{Machine}} no respondió.',
+    badRequest: '{{Machine}} rechazó la solicitud.',
+    unknownType: '{{Machine}} no conoce esta solicitud: actualiza Remote Harness en él.',
+    unauthorized: 'Este móvil no está autorizado en {{machine}}: vuelve a emparejarlo.',
+    protocolMismatch: 'La app y {{machine}} tienen versiones incompatibles: actualiza ambos.',
+    notControllable: 'Sesión de solo lectura: no tiene terminal en {{machine}}.',
+    invalidKey: 'Esta tecla no se puede enviar a la sesión.',
+    tooLarge: 'Demasiado grande para enviar.',
+    unsupportedMedia: 'Este tipo de archivo no es compatible.',
+    alreadyResolved: 'Ya respondido.',
+    modeForbidden: 'Este modo no está permitido.',
+    modeUnreachable: 'No se pudo cambiar a este modo.',
+    sessionBusy: 'La sesión está ocupada: inténtalo de nuevo cuando termine.',
+    commandsDisabled: 'Los comandos están desactivados en {{machine}}.',
+    internal: 'Algo salió mal en {{machine}}.',
   },
   time: {
     now: 'ahora',
@@ -1418,6 +1432,10 @@ const esES = {
   },
   terminal: {
     space: 'espacio',
+    readOnly: {
+      title: 'Sin terminal',
+      body: 'Esta sesión ya no tiene un panel de tmux en {{machine}}, así que no hay nada que mostrar aquí. Su conversación se conserva.',
+    },
   },
   push: {
     channelName: 'Sesiones',
