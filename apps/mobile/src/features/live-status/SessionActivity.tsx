@@ -8,6 +8,7 @@ import {
   frame,
   layoutPriority,
   lineLimit,
+  minimumScaleFactor,
   monospacedDigit,
   padding,
   progressViewStyle,
@@ -108,14 +109,17 @@ function SessionActivityLayout(props: LiveStatusProps) {
     foregroundStyle(stateColor),
   ]
   // Running: the turn; waiting (newer daemons): the wait. Ticks on its own. Ended: frozen at the
-  // turn's duration.
+  // turn's duration. A count-up `timerInterval` always reads `m:ss` / `h:mm:ss`: the `.timer` date
+  // style adapts to the room and turned into "6 minu…" on the lock screen (#543). It stops a week
+  // after the start, which no state lasts.
   const timerStart = waiting && labels && changedAt > 0 ? changedAt : props.startedAt
+  const timerWeek = 7 * 24 * 60 * 60 * 1000
   const timer = (size: number, maxWidth: number) =>
     !finished ? (
       <Text
-        date={new Date(timerStart)}
-        dateStyle="timer"
-        modifiers={[...timerStyle(size), frame({ maxWidth })]}
+        timerInterval={{ lower: new Date(timerStart), upper: new Date(timerStart + timerWeek) }}
+        countsDown={false}
+        modifiers={[...timerStyle(size), lineLimit(1), minimumScaleFactor(0.7), frame({ maxWidth })]}
       />
     ) : endedAt !== null ? (
       <Text modifiers={timerStyle(size)}>{duration(endedAt - props.startedAt)}</Text>
@@ -429,7 +433,8 @@ function SessionActivityLayout(props: LiveStatusProps) {
     // The island has about as little room as the card: no folder or progress bar (the counts keep
     // `☑ 3/5`), and while waiting only what is asked and the buttons.
     expandedBottom: (
-      <VStack alignment="leading" spacing={4}>
+      // Insets keep the last row clear of the island's rounded corners and bottom edge (#543).
+      <VStack alignment="leading" spacing={4} modifiers={[padding({ horizontal: 8, bottom: 8 })]}>
         {sessionTitle(15)}
         <HStack spacing={8}>
           {labels ? statePill : stateText}
