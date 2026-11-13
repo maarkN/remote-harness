@@ -42,3 +42,7 @@
 
 - [x] 9.1 `pnpm check` green (typecheck + tests + Biome) — all tests passing across daemon, mobile and protocol; typecheck and Biome clean in all three packages
 - [ ] 9.2 Manual check on the iPad simulator: portrait/landscape rotation, narrow↔wide Split View, Slide Over; and on the iPhone simulator: confirm navigation stays in a stack and in portrait, with no regression
+
+## Closing note (2026-11-13)
+
+Superseded, not archived into the specs. The iPad layout shipped with this change and was re-specified by later changes, now in the main specs: `app-shell` → "Tablet layout" (700 / 1100 pt classes, three columns with the inspector, from 64-tablet-inspector and 133-ipad-sidebar-menu), "Hardware keyboard shortcuts" and "Edge swipe for the tablet sidebar" (96-keyboard-navigation, 94-ipad-edge-swipe), `app-conversation` → "Keyboard hints" (Return sends with a hardware keyboard) and `autocomplete` → "Suggestions from the keyboard". Its own deltas are outdated (a 680 pt breakpoint, Enter inserting a newline with a hardware keyboard) and its MODIFIED blocks predate scenarios added since, so it is archived with `--skip-specs`: the specs keep the current behavior. Task 9.2 was never done as written; the later changes' own verification covers the layouts.

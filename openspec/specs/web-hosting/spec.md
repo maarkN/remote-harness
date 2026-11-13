@@ -1,7 +1,7 @@
 # web-hosting Specification
 
 ## Purpose
-TBD - created by archiving change 85-web-on-droplet. Update Purpose after archive.
+Runs `remoteharness.app` as one Node server built from `apps/web`, in Docker behind the server's Traefik, keeping the published updates and install links in a data directory that survives redeploys.
 
 ## Requirements
 

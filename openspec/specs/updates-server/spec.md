@@ -1,7 +1,7 @@
 # updates-server Specification
 
 ## Purpose
-TBD - created by archiving change 83-updates-server. Update Purpose after archive.
+Serves the app's over-the-air updates (Expo Updates protocol 1) from `remoteharness.app/api/updates/`: signed manifests per channel, platform and runtime version, immutable content-addressed assets, and token-authenticated publishing from the Makefile and CI.
 
 ## Requirements
 

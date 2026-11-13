@@ -1,7 +1,7 @@
 # project-domain Specification
 
 ## Purpose
-TBD - created by archiving change 38-remoteharness-domain. Update Purpose after archive.
+Makes `remoteharness.app` the fixed address of the project: the one-line installers per operating system, the install page for browsers and devices, the app's over-the-air updates and the device install links all live under that domain.
 
 ## Requirements
 
