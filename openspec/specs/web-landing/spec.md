@@ -1,7 +1,7 @@
 # web-landing Specification
 
 ## Purpose
-TBD - created by archiving change 68-landing-page. Update Purpose after archive.
+Presents Remote Harness at `remoteharness.app` in pt-BR, en-US and es-ES: a landing page in the product identity with the install commands, the hero carousel and the supported agents, discoverable by search engines and link previews, plus the branded fallbacks for every other path.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # push-relay Specification
 
 ## Purpose
-TBD - created by archiving change 37-push-relay. Update Purpose after archive.
+Sends push notifications and Live Activity updates for daemons that have no Firebase service account, through a relay that only accepts sealed per-device grants, so no Firebase credential is needed on the computer.
 
 ## Requirements
 

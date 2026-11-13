@@ -1,7 +1,7 @@
 # error-reports Specification
 
 ## Purpose
-TBD - created by archiving change 75-error-reports. Update Purpose after archive.
+Records the app's crashes, render errors and failed daemon requests in a scrubbed, size-capped log on the phone, and sends them (to Crashlytics, or as a "Report a problem" report) only with the user's consent, so problems can be diagnosed without leaking session content.
 
 ## Requirements
 
