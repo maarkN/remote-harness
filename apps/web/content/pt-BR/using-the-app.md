@@ -22,7 +22,7 @@ Digite no compositor e envie. Enquanto o agente está ocupado o prompt entra na 
 
 O que você digita fica como rascunho da sessão: saia da sessão, abra outra ou feche o app, e ele estará lá quando você voltar, com as fotos. A lista de sessões marca as linhas com rascunho (**Rascunho:** e o começo do texto). Enviar limpa o rascunho; esvaziar o campo o descarta. Os rascunhos ficam só no celular e expiram depois de 7 dias.
 
-- `@` completa arquivos do projeto, `/` completa os comandos de barra do Claude Code.
+- `@` completa arquivos do projeto, `/` completa os comandos de barra do agente. No Claude Code a lista traz os comandos nativos e as skills e comandos do projeto (`.claude/skills`, `.claude/commands`), do perfil da sessão (`skills/` e `commands/` na pasta de configuração dele, que o cabeçalho **Perfil** mostra, como `Perfil · ~/.claude`; pastas em symlink incluídas) e dos plugins instalados no perfil. Um perfil com pasta própria tem skills pessoais próprias: uma skill em `~/.claude/skills` não aparece numa sessão de um perfil cuja pasta é `~/.claude-work`. Codex, Gemini CLI, Kimi CLI e Qwen Code listam os comandos do próprio CLI.
 - O botão da câmera anexa fotos; o microfone dita no aparelho (escolha o idioma em Ajustes → Voz).
 - **Mostrar atalhos de teclado** (menu) acrescenta uma barra com Esc, Ctrl+C, as setas, Tab e Enter para os menus do próprio agente.
 

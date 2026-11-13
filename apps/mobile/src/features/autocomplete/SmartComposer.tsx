@@ -5,10 +5,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert, Platform, type TextInput } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
+import { selectProfiles, useConnectionStore } from '@/core/connection/connection-store'
 import { keys, useKeyCommand } from '@/core/keyboard/key-commands'
 import { useLayout } from '@/core/layout'
 import { useBackHandler } from '@/core/platform/use-back-handler'
 import { useKeyboardHeight } from '@/core/platform/use-keyboard-height'
+import { shortPath } from '@/core/utils/time'
 import { IconButton } from '@/ui'
 import { AttachmentChips } from '../attachments/components/AttachmentChips'
 import { remainingSlots } from '../attachments/limits'
@@ -81,6 +83,10 @@ export function SmartComposer({ sessionId, prompt, disabled, autoFocus, onTempla
   })
   const state = useSessionsStore((s) => s.sessions[sessionId]?.state)
   const profileId = useSessionsStore((s) => s.sessions[sessionId]?.profileId)
+  const profileDir = useConnectionStore((s) => {
+    const dir = selectProfiles(s).find((p) => p.id === profileId)?.configDir
+    return dir ? shortPath(dir) : null
+  })
   const pendingPermissions = usePermissionsStore(useShallow(selectPendingFor(sessionId))).length
   const queued = useQueueStore(selectQueueFor(sessionId)).length
   // Send holds the prompt while the agent is busy; the hint tells how to paste it mid-turn instead.
@@ -266,6 +272,7 @@ export function SmartComposer({ sessionId, prompt, disabled, autoFocus, onTempla
           <SuggestionList
             suggestions={suggestions}
             highlighted={submit ? rows[highlighted] : undefined}
+            profileDir={profileDir}
             onPickFile={(item) => insert(applySuggestion(prompt.text, trigger, { kind: 'file', item }))}
             onPickCommand={(item) => insert(applySuggestion(prompt.text, trigger, { kind: 'command', item }))}
           />

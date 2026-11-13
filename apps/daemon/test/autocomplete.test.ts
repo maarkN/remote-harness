@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { BUILTIN_COMMANDS } from '../src/features/autocomplete/builtin-commands.ts'
@@ -82,6 +82,48 @@ describe('commands', () => {
     expect(byName['front:build']).toMatchObject({ source: 'profile', description: 'Builda o front' })
     expect(byName['figma:implement']).toMatchObject({ source: 'plugin' })
     expect(byName.model).toMatchObject({ source: 'builtin', interactive: true })
+  })
+
+  test('follows symlinked skills and commands, skipping broken links and loops (#538)', async () => {
+    const cfg = join(home.dir(), 'cfg-links')
+    const cwd = join(home.dir(), 'proj-links')
+    const store = join(home.dir(), 'skill-store')
+    await write(join(store, 'review/SKILL.md'), '---\nname: review\ndescription: Revisa o código\n---\n')
+    await write(join(store, 'group/nested/SKILL.md'), '---\nname: nested\n---\n')
+    await write(join(store, 'deploy/SKILL.md'), '---\nname: ship\n---\n')
+    await write(join(store, 'cmds/fix.md'), '---\ndescription: Corrige bug\n---\n')
+    await write(join(store, 'cmd-group/build.md'), 'Builda o front\n')
+    await write(join(cfg, 'skills/real/SKILL.md'), '---\nname: real\n---\n')
+    await mkdir(join(cfg, 'commands'), { recursive: true })
+    await symlink(join(store, 'review'), join(cfg, 'skills/review'))
+    await symlink(join(store, 'group'), join(cfg, 'skills/group'))
+    await symlink(join(store, 'missing'), join(cfg, 'skills/gone'))
+    await symlink(join(cfg, 'skills'), join(cfg, 'skills/loop'))
+    await symlink(join(store, 'cmds/fix.md'), join(cfg, 'commands/fix.md'))
+    await symlink(join(store, 'cmd-group'), join(cfg, 'commands/front'))
+    await symlink(join(cfg, 'commands'), join(cfg, 'commands/again'))
+    await mkdir(join(cwd, '.claude/skills'), { recursive: true })
+    await symlink(join(store, 'deploy'), join(cwd, '.claude/skills/deploy'))
+    const pluginPath = join(cfg, 'plugins/cache/figma')
+    await mkdir(join(pluginPath, 'skills'), { recursive: true })
+    await symlink(join(store, 'review'), join(pluginPath, 'skills/review'))
+    await write(
+      join(cfg, 'plugins/installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'figma@official': [{ installPath: pluginPath }] } }),
+    )
+
+    const items = await loadCommands(cfg, cwd)
+    const byName = Object.fromEntries(items.map((i) => [i.name, i]))
+    expect(byName.review).toMatchObject({ source: 'profile', description: 'Revisa o código' })
+    expect(byName.nested).toMatchObject({ source: 'profile' })
+    expect(byName.real).toMatchObject({ source: 'profile' })
+    expect(byName.ship).toMatchObject({ source: 'project' })
+    expect(byName.fix).toMatchObject({ source: 'profile', description: 'Corrige bug' })
+    expect(byName['front:build']).toMatchObject({ source: 'profile', description: 'Builda o front' })
+    expect(byName['figma:review']).toMatchObject({ source: 'plugin' })
+    expect(byName.gone).toBeUndefined()
+    // The loops add nothing new: every name appears once.
+    expect(new Set(items.map((i) => i.name)).size).toBe(items.length)
   })
 
   test('signature changes when a skill is added', async () => {

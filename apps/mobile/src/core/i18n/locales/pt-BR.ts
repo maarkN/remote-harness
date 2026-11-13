@@ -816,6 +816,7 @@ const ptBR = {
       builtin: 'Nativos',
       project: 'Projeto',
       profile: 'Perfil',
+      profileAt: 'Perfil · {{dir}}',
       plugin: 'Plugins',
     },
     source: {

@@ -17,6 +17,7 @@ import { commandDescription } from './describe-command'
 import type { PickableRow } from './keyboard'
 import { suggestionListHeight } from './list-height'
 import { type CommandRow, type CommandSection, highlightRuns } from './ranking'
+import { sectionTitle } from './section-title'
 import type { Suggestions } from './use-suggestions'
 
 type Props = {
@@ -25,9 +26,17 @@ type Props = {
   onPickCommand: (item: CommandItem) => void
   /** Row Return / Tab would accept, drawn like a pressed row and kept in view. */
   highlighted?: PickableRow
+  /** The session's profile folder (`~/.claude-work`), named in the Profile header. */
+  profileDir?: string | null
 }
 
-export function SuggestionList({ suggestions, onPickFile, onPickCommand, highlighted }: Props) {
+export function SuggestionList({
+  suggestions,
+  onPickFile,
+  onPickCommand,
+  highlighted,
+  profileDir = null,
+}: Props) {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
@@ -105,7 +114,7 @@ export function SuggestionList({ suggestions, onPickFile, onPickCommand, highlig
           renderSectionHeader={({ section }) =>
             section.key === 'results' ? null : (
               <Text size="xs" color="textDim" weight="medium" style={styles.header}>
-                {t(`autocomplete.section.${section.key}`)}
+                {sectionTitle(section.key, t, profileDir)}
               </Text>
             )
           }

@@ -22,7 +22,7 @@ Escribe en el compositor y envía. Mientras el agente está ocupado el prompt en
 
 Lo que escribes se guarda como borrador de la sesión: sal de la sesión, abre otra o cierra la app, y seguirá ahí cuando vuelvas, con las fotos. La lista de sesiones marca las filas con borrador (**Borrador:** y el comienzo del texto). Enviar lo limpia; vaciar el campo lo descarta. Los borradores se quedan en el móvil y caducan a los 7 días.
 
-- `@` completa archivos del proyecto, `/` completa los comandos de barra de Claude Code.
+- `@` completa archivos del proyecto, `/` completa los comandos de barra del agente. En Claude Code la lista trae los comandos nativos y las skills y comandos del proyecto (`.claude/skills`, `.claude/commands`), del perfil de la sesión (`skills/` y `commands/` en su carpeta de configuración, que muestra la cabecera **Perfil**, como `Perfil · ~/.claude`; carpetas con enlace simbólico incluidas) y de los plugins instalados en el perfil. Un perfil con carpeta propia tiene sus propias skills personales: una skill en `~/.claude/skills` no aparece en una sesión de un perfil cuya carpeta es `~/.claude-work`. Codex, Gemini CLI, Kimi CLI y Qwen Code listan los comandos de su propio CLI.
 - El botón de la cámara adjunta fotos; el micrófono dicta en el dispositivo (elige el idioma en Ajustes → Voz).
 - **Mostrar atajos de teclado** (menú) añade una barra con Esc, Ctrl+C, las flechas, Tab e Intro para los menús del propio agente.
 
