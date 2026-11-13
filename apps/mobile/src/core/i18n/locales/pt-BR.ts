@@ -69,6 +69,20 @@ const ptBR = {
     notFound: 'Não encontrado: pode ter sido fechado ou removido.',
     disconnected: 'Sem conexão com {{machine}}.',
     timeout: '{{Machine}} não respondeu.',
+    badRequest: '{{Machine}} recusou o pedido.',
+    unknownType: '{{Machine}} não conhece este pedido: atualize o Remote Harness nele.',
+    unauthorized: 'Este celular não está autorizado em {{machine}}: pareie de novo.',
+    protocolMismatch: 'O app e {{machine}} estão em versões incompatíveis: atualize os dois.',
+    notControllable: 'Sessão só de leitura: ela não tem terminal em {{machine}}.',
+    invalidKey: 'Esta tecla não pode ser enviada para a sessão.',
+    tooLarge: 'Grande demais para enviar.',
+    unsupportedMedia: 'Este tipo de arquivo não é suportado.',
+    alreadyResolved: 'Já respondido.',
+    modeForbidden: 'Este modo não é permitido.',
+    modeUnreachable: 'Não foi possível mudar para este modo.',
+    sessionBusy: 'A sessão está ocupada: tente de novo quando ela terminar.',
+    commandsDisabled: 'Os comandos estão desligados em {{machine}}.',
+    internal: 'Algo deu errado em {{machine}}.',
   },
   time: {
     now: 'agora',
@@ -1411,6 +1425,10 @@ const ptBR = {
   },
   terminal: {
     space: 'espaço',
+    readOnly: {
+      title: 'Sem terminal',
+      body: 'Esta sessão não tem mais um painel do tmux em {{machine}}, então não há nada para mostrar aqui. A conversa dela continua guardada.',
+    },
   },
   push: {
     channelName: 'Sessões',
