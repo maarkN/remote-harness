@@ -23,7 +23,7 @@ curl -fsSL https://remoteharness.app/install | bash
 
 El instalador comprueba el sistema y Node, instala las herramientas que faltan (Homebrew en macOS; apt, dnf, pacman o zypper en Linux, con `sudo` tras explicar el motivo), deja el código en `~/.remote-harness/src`, compila el daemon y abre la instalación guiada (`remote-harness setup`), que:
 
-- encuentra tus cuentas de Claude Code (`~/.claude`, `~/.claude-*`) y te deja elegir cuáles controlar, o crea una nueva y abre Claude Code en ella para que inicies sesión;
+- encuentra tus cuentas de Claude Code (`~/.claude`, `~/.claude-*`) y te deja elegir cuáles controlar, o crea una nueva y abre Claude Code en ella para que inicies sesión. Una cuenta nueva puede empezar con [la configuración de `~/.claude`](/es/docs/daemon/#perfiles-nuevos-a-partir-de-claude);
 - pregunta el alias de cada una: el comando que abre esa cuenta dentro de tmux (por ejemplo `personal`, `trabajo`);
 - puede añadir un [perfil de OpenRouter](/es/docs/daemon/#perfiles-y-openrouter): Claude Code pagado con tu clave de OpenRouter, que comprueba y guarda en el almacén de secretos del sistema;
 - instala los lanzadores, la entrada en el `PATH` y los hooks (con copias de seguridad), y el servicio en segundo plano;
