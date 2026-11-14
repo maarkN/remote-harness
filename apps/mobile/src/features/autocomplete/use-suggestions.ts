@@ -1,6 +1,6 @@
 import type { CommandItem, FileItem } from '@remote-harness/protocol'
 import { useQuery } from '@tanstack/react-query'
-import { useDaemonClient, useIsConnected } from '@/core/connection'
+import { useComputerQueryKey, useDaemonClient, useIsConnected } from '@/core/connection'
 import { useDebounced } from '@/core/utils/use-debounced'
 import { useSessionsStore } from '../sessions/store'
 import { type CommandSection, rankCommands } from './ranking'
@@ -12,7 +12,7 @@ export function useCommands(sessionId: string) {
   const client = useDaemonClient()
   const connected = useIsConnected()
   return useQuery({
-    queryKey: ['commands', sessionId],
+    queryKey: useComputerQueryKey(['commands', sessionId]),
     enabled: Boolean(client) && connected,
     staleTime: 30_000,
     queryFn: async (): Promise<CommandItem[]> => {
@@ -37,7 +37,7 @@ export function useSuggestions(sessionId: string, trigger: Trigger | null): Sugg
   const recents = useCommandRecentsStore((s) => (profileId ? s.recents[profileId] : undefined))
 
   const files = useQuery({
-    queryKey: ['files', sessionId, fileQuery],
+    queryKey: useComputerQueryKey(['files', sessionId, fileQuery]),
     enabled: Boolean(client) && connected && fileQuery !== null,
     staleTime: 10_000,
     placeholderData: (previous) => previous,

@@ -8,14 +8,14 @@ import { space, useTheme } from '@/core/theme'
 import { useMachineName } from '@/features/settings/machine-store'
 import { Text } from '@/ui'
 import type { StateFilter } from '../filter'
-import { listSummary } from '../summary'
+import { listSummary, statsLine } from '../summary'
 import { ComputerSwitcherSheet } from './ComputerSwitcherSheet'
 
 /**
- * Under the header: connection dot, machine name (opens the computer switcher), "via relay" when
- * that is the path, session counts (total, running, waiting, tasks) and, on the right, distinct
- * agents and how many have a running session. Tapping "running" or "waiting" applies the matching
- * state filter.
+ * Under the header, two lines (#555). First: the computer switcher (connection dot, machine name,
+ * chevron), "via relay" when that is the path, and the session counts (total, running, waiting);
+ * the counts wrap to a new line before the switcher is squeezed. Second: background tasks and the
+ * distinct agents (and how many are running). Tapping "running" or "waiting" toggles that filter.
  */
 export function MachineLine({
   sessions,
@@ -24,7 +24,7 @@ export function MachineLine({
 }: {
   sessions: readonly Session[]
   stateFilter?: StateFilter
-  onToggleState?: (state: 'active' | 'ended') => void
+  onToggleState?: (state: Exclude<StateFilter, 'all'>) => void
 }) {
   const { t } = useTranslation()
   const { colors } = useTheme()
@@ -34,55 +34,49 @@ export function MachineLine({
   const machine = useMachineName() ?? t('machine.generic')
   const summary = listSummary(sessions)
   const dot = status === 'open' ? colors.success : status === 'unauthorized' ? colors.danger : colors.warning
+  const stats = statsLine(summary, t)
   return (
-    <View style={styles.line} accessibilityLabel={`${machine} · ${t(`connection.status.${status}`)}`}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('computers.switchLabel', { name: machine })}
-        onPress={() => setSwitching(true)}
-        hitSlop={6}
-        style={({ pressed }) => [styles.machine, pressed ? { opacity: 0.6 } : null]}
-      >
-        <View style={[styles.dot, { backgroundColor: dot }]} />
-        <Text size="xs" numberOfLines={1} style={styles.host}>
-          {machine}
-        </Text>
-        <ChevronDown size={12} color={colors.textMuted} />
-      </Pressable>
-      {path === 'relay' ? (
+    <View style={styles.block} accessibilityLabel={`${machine} · ${t(`connection.status.${status}`)}`}>
+      <View style={styles.line}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('computers.switchLabel', { name: machine })}
+          onPress={() => setSwitching(true)}
+          hitSlop={6}
+          style={({ pressed }) => [styles.machine, pressed ? { opacity: 0.6 } : null]}
+        >
+          <View style={[styles.dot, { backgroundColor: dot }]} />
+          <Text size="xs" numberOfLines={1} style={styles.host}>
+            {machine}
+          </Text>
+          <ChevronDown size={12} color={colors.textMuted} />
+        </Pressable>
+        {path === 'relay' ? (
+          <Text size="xs" color="textMuted" numberOfLines={1}>
+            · {t('connection.path.relay')}
+          </Text>
+        ) : null}
         <Text size="xs" color="textMuted" numberOfLines={1}>
-          · {t('connection.path.relay')}
+          · {t('sessions.count', { count: summary.sessions })}
         </Text>
-      ) : null}
-      <Text size="xs" color="textMuted" numberOfLines={1}>
-        · {t('sessions.count', { count: summary.sessions })}
-      </Text>
-      {summary.running > 0 ? (
-        <CountPart
-          label={t('sessions.runningCount', { count: summary.running })}
-          onPress={onToggleState ? () => onToggleState('active') : undefined}
-          active={stateFilter === 'active'}
-        />
-      ) : null}
-      {summary.waiting > 0 ? (
-        <CountPart
-          label={t('sessions.waitingCount', { count: summary.waiting })}
-          onPress={onToggleState ? () => onToggleState('active') : undefined}
-          active={stateFilter === 'active'}
-        />
-      ) : null}
-      {summary.tasks > 0 ? (
+        {summary.running > 0 ? (
+          <CountPart
+            label={t('sessions.runningCount', { count: summary.running })}
+            onPress={onToggleState ? () => onToggleState('running') : undefined}
+            active={stateFilter === 'running'}
+          />
+        ) : null}
+        {summary.waiting > 0 ? (
+          <CountPart
+            label={t('sessions.waitingCount', { count: summary.waiting })}
+            onPress={onToggleState ? () => onToggleState('waiting') : undefined}
+            active={stateFilter === 'waiting'}
+          />
+        ) : null}
+      </View>
+      {stats ? (
         <Text size="xs" color="textMuted" numberOfLines={1}>
-          · {t('sessions.tasksCount', { count: summary.tasks })}
-        </Text>
-      ) : null}
-      <View style={styles.spacer} />
-      {summary.agents > 0 ? (
-        <Text size="xs" color="textMuted" numberOfLines={1}>
-          {t('sessions.agents', { count: summary.agents })}
-          {summary.agentsRunning > 0
-            ? ` · ${t('sessions.runningCount', { count: summary.agentsRunning })}`
-            : ''}
+          {stats}
         </Text>
       ) : null}
       <ComputerSwitcherSheet visible={switching} onClose={() => setSwitching(false)} />
@@ -104,17 +98,26 @@ function CountPart({ label, onPress, active }: { label: string; onPress?: () => 
   )
 }
 
+/** The switcher never gets narrower than its dot, a few letters of the name and the chevron. */
+const SWITCHER_MIN_WIDTH = 96
+
 const styles = StyleSheet.create({
-  line: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
+  block: {
+    gap: space.xxs,
     paddingHorizontal: space.lg,
     paddingTop: space.xs,
     paddingBottom: space.sm,
   },
+  // Wraps: counts that do not fit move to the next line instead of squeezing the switcher.
+  line: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.sm },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  machine: { flexDirection: 'row', alignItems: 'center', gap: space.xs, flexShrink: 1 },
+  machine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    minWidth: SWITCHER_MIN_WIDTH,
+    maxWidth: '100%',
+    flexShrink: 1,
+  },
   host: { flexShrink: 1 },
-  spacer: { flex: 1 },
 })
