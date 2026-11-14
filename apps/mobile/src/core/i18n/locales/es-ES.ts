@@ -177,6 +177,8 @@ const esES = {
     compactTrigger: { manual: 'manualmente', auto: 'automáticamente' },
     compactSummary: 'Resumen (toca para ver)',
     interrupted: 'Interrumpido',
+    emptyFirstPrompt: 'Escribe tu primer prompt para empezar…',
+    emptyNoMessages: 'Todavía no hay mensajes',
     loading: 'cargando conversación…',
     newMessages: '↓ mensajes nuevos',
     thinking: '✻ pensando…',

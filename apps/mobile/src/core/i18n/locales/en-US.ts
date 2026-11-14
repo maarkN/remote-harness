@@ -181,6 +181,8 @@ const enUS = {
     compactTrigger: { manual: 'manually', auto: 'automatically' },
     compactSummary: 'Summary (tap to see)',
     interrupted: 'Interrupted',
+    emptyFirstPrompt: 'Type your first prompt to start…',
+    emptyNoMessages: 'No messages yet',
     loading: 'loading conversation…',
     newMessages: '↓ new messages',
     thinking: '✻ thinking…',
