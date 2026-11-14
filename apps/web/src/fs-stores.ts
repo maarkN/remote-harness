@@ -5,10 +5,11 @@
  */
 import { randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import type { BuildsStore, StoredFile } from './app.ts'
+import type { ReportsStore } from './reports.ts'
 import type { Platform } from './updates/protocol.ts'
 import {
   keys,
@@ -125,9 +126,50 @@ export class FsBuildsStore implements BuildsStore {
 }
 
 /** Both stores under one data directory. */
-export function fsStores(dataDir: string): { updates: FsUpdatesStore; builds: FsBuildsStore } {
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/** Problem reports under `<data>/reports/<YYYY-MM-DD>/<id>.zip` (ADR 0008). */
+export class FsReportsStore implements ReportsStore {
+  constructor(private readonly root: string) {}
+
+  async put(day: string, id: string, data: Uint8Array): Promise<void> {
+    const path = DAY.test(day) ? pathIn(this.root, join(day, `${id}.zip`)) : null
+    if (!path) throw new Error(`report outside the reports folder: ${day}/${id}`)
+    await writeAtomic(path, data)
+  }
+
+  private async days(): Promise<string[]> {
+    return (await readdir(this.root).catch(() => [] as string[])).filter((name) => DAY.test(name))
+  }
+
+  async usage(): Promise<number> {
+    let total = 0
+    for (const day of await this.days()) {
+      for (const name of await readdir(join(this.root, day)).catch(() => [] as string[]))
+        total += (await sizeOf(join(this.root, day, name)))?.size ?? 0
+    }
+    return total
+  }
+
+  async sweep(cutoffDay: string): Promise<number> {
+    let removed = 0
+    for (const day of await this.days()) {
+      if (day >= cutoffDay) continue
+      await rm(join(this.root, day), { recursive: true, force: true })
+      removed++
+    }
+    return removed
+  }
+}
+
+export function fsStores(dataDir: string): {
+  updates: FsUpdatesStore
+  builds: FsBuildsStore
+  reportFiles: FsReportsStore
+} {
   return {
     updates: new FsUpdatesStore(join(dataDir, 'updates')),
     builds: new FsBuildsStore(join(dataDir, 'app')),
+    reportFiles: new FsReportsStore(join(dataDir, 'reports')),
   }
 }

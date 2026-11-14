@@ -111,7 +111,7 @@ Un perfil también puede ejecutar **Qwen Code** (insignia `qw`, violeta): sus se
 - **Notificaciones**: push para este móvil, prueba, estado en vivo, los perfiles y sesiones silenciados.
 - **Voz**: el idioma de la transcripción.
 - **App**: versión, actualizaciones over-the-air y su canal, **Buscar actualizaciones**, **Documentación**.
-- **Informes de errores**: enviar automáticamente, preguntar cada vez (predeterminado) o nunca, e **Informar de un problema** (describe el fallo, mira exactamente lo que se enviará y envíalo, compártelo o abre una issue en GitHub). Los informes nunca llevan el contenido de tus sesiones; consulta la [política de privacidad](/es/docs/privacy/).
+- **Informes de errores**: enviar automáticamente, preguntar cada vez (predeterminado) o nunca, e **Informar de un problema** (describe el fallo, adjunta una captura, fotos, vídeos, un audio y, si quieres, los logs del ordenador ya limpios, mira exactamente lo que se enviará y envíalo, compártelo o abre una issue en GitHub). **Agitar para informar de un problema** (activado por defecto) muestra un botón unos segundos cuando agitas el móvil; abre el informe con una captura de la pantalla en la que estabas. Los informes de errores nunca llevan el contenido de tus sesiones (lo que adjuntas a un informe de problema puede mostrarlo); consulta la [política de privacidad](/es/docs/privacy/).
 
 ## iPad y teclados
 

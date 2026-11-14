@@ -8,9 +8,11 @@ Remote Harness es software autoalojado: el daemon se ejecuta en tu ordenador, la
 
 ## Qué recopilamos
 
-Solo los informes de errores y los datos de rendimiento que aceptes enviar. No hay cuenta ni analítica, y la app, el daemon y este sitio no recopilan nada más. Los mantenedores nunca reciben tus conversaciones, tus archivos, tus prompts, tus tokens ni tus claves.
+Solo los informes de errores, los datos de rendimiento y los informes de problemas que aceptes enviar. No hay cuenta ni analítica, y la app, el daemon y este sitio no recopilan nada más. Los mantenedores nunca reciben tus conversaciones, tus archivos, tus prompts, tus tokens ni tus claves.
 
 **Informes de errores (opcionales).** La app guarda en el móvil un pequeño registro de sus propios errores. Los envía a Firebase Crashlytics (Google) solo como elijas en Ajustes → Informes de errores: tras preguntarte, que es lo predeterminado, automáticamente, o nunca. Un informe contiene la hora y el tipo de error, el nombre del error, el mensaje y la pila ya filtrados, el tipo de la petición que falló y el código de error, el patrón de ruta de la pantalla, y las versiones de la app, de la actualización, del sistema y del daemon; Crashlytics añade el modelo del dispositivo y un id de instalación. Los informes nunca incluyen prompts, conversación, salida del terminal, comandos, rutas de archivos, nombres de proyectos o sesiones, tokens ni datos de emparejamiento. En Ajustes → Informar de un problema también puedes compartir un informe o publicarlo como issue en GitHub. El tratamiento de los datos de Crashlytics por parte de Google se rige por la política de privacidad de Google.
+
+**Informes de problemas (solo cuando envías uno).** Ajustes → Informar de un problema, o el botón que aparece al agitar el móvil (Ajustes → Informes de errores → Agitar para informar de un problema, activado por defecto; la app solo lee el acelerómetro para notar la sacudida, en el propio móvil), muestra el informe entero antes de que salga nada: tu descripción, el registro de errores de la app de arriba, las peticiones rechazadas recientes del ordenador y lo que elijas adjuntar: una captura de la pantalla en la que estabas, fotos y vídeos, un audio y, solo si lo activas, los archivos de log del ordenador, sin secretos, tokens, correos ni direcciones IP, quitados en el propio ordenador y mostrados antes. Las capturas, los vídeos y el audio pueden mostrar lo que había en tu pantalla, conversaciones incluidas: quita lo que sea privado antes de enviar. **Enviar** lo sube como un archivo, por HTTPS, al servidor de este sitio, que lo guarda 30 días y después lo borra, no ofrece forma de leerlo en la web y solo lo leen los mantenedores; muestra un ID del informe que puedes citar en una issue de GitHub. Enviar se oculta cuando los informes de errores están en Nunca.
 
 **Datos de rendimiento (opcionales, desactivados por defecto).** Con Ajustes → Informes de errores → Enviar datos de rendimiento activado, la app envía a Firebase Performance Monitoring (Google) cuánto tarda en arrancar y en llegar a tu ordenador, sus fotogramas lentos y congelados, con qué frecuencia y durante cuánto tiempo se bloquea su JavaScript (con la clase de diseño: móvil, tableta o ancho) y, en iOS, el tiempo de sus propias peticiones al relay de push y al servidor de actualizaciones. Firebase añade el modelo del dispositivo, las versiones del sistema y de la app, el país y un id de instalación. Estos datos nunca incluyen tus sesiones, prompts, rutas, nombres ni la dirección de tu ordenador. Desactivar la opción detiene el envío en ese móvil.
 
@@ -31,8 +33,8 @@ Borrar la app y ejecutar `remote-harness uninstall` lo elimina todo.
 
 ## Permisos que pide la app
 
-- **Cámara**: para escanear el código de emparejamiento y adjuntar fotos a un prompt.
-- **Micrófono y reconocimiento de voz**: para dictar prompts; la transcripción se hace en el dispositivo.
+- **Cámara**: para escanear el código de emparejamiento, adjuntar fotos a un prompt y añadir fotos o vídeos a un informe de problema.
+- **Micrófono y reconocimiento de voz**: para dictar prompts, con la transcripción en el dispositivo, y grabar el audio de un informe de problema.
 - **Notificaciones**: para el push y el estado en vivo, que puedes desactivar cuando quieras.
 
 ## Cómo se protegen tus datos
@@ -43,6 +45,7 @@ El tráfico entre el móvil y el ordenador va cifrado de extremo a extremo con e
 
 - Desactiva los informes de errores y los datos de rendimiento cuando quieras en Ajustes → Informes de errores; no se envía nada más desde ese móvil.
 - Borra lo que se queda en tus dispositivos olvidando la máquina en la app, borrando la app y ejecutando `remote-harness uninstall`.
+- Para borrar un informe de problema antes de sus 30 días, escribe a [privacy@remoteharness.app](mailto:privacy@remoteharness.app) con su ID.
 - Para acceder a los informes de errores y datos de rendimiento ya enviados a Firebase o borrarlos, escribe a [privacy@remoteharness.app](mailto:privacy@remoteharness.app). No llevan nombre ni cuenta, así que indícanos la fecha aproximada y el modelo del dispositivo, y borramos los datos correspondientes. Firebase también los borra por sí mismo tras su plazo de retención ([privacidad de Firebase](https://firebase.google.com/support/privacy)).
 
 ## Menores

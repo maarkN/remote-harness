@@ -1,0 +1,11 @@
+---
+status: accepted
+---
+
+# Problem reports upload to remoteharness.app
+
+"Report a problem" could only send text: Crashlytics and the prefilled GitHub issue take no files, and sharing a file leaves it in whatever app the user picks. Shake to report (#557) adds screenshots, images, videos, an audio note and the computer's logs, so the report needs somewhere that takes files. We decided that the app uploads each report as one zip (`report.json`, `computer-logs.txt` when included, the attachments) to `POST https://remoteharness.app/api/reports`, on the site's own server, and shows the report ID, which the GitHub issue link then carries. The server keeps the zip under its data folder (`reports/<date>/<id>.zip`) for 30 days and deletes it after; no route reads or lists reports, so the maintainer copies them from the server. It takes only zips of at most 25 MB, at most 5 an hour from one address, and nothing while the folder holds 2 GB.
+
+Nothing is collected in the background: a report leaves the phone only when the user taps Send on a screen that shows it whole, with every attachment removable and the computer's logs opt-in (off by default) and printed before sending. The device log keeps its scrubbing, and the daemon scrubs its logs before they leave the computer (secret-named keys, tokens, emails, IPs, long token-like runs, the home folder); the daemon never logs session content or `command.run` input or output to begin with. Attachments are the user's own choice and may show session content, which the screen says next to Send. Send stays hidden with the "Never" error-report preference, as Crashlytics' Send was; crash reports still go through Crashlytics.
+
+We rejected a zip in the share sheet, which needs no server but scatters reports across mail and chat apps where they are hard to match with an issue; and sealing the zip to the maintainer's public key, which would keep the server from reading it but adds a private key to keep and a decrypt tool for a server the maintainer runs and a single reader. The cost is a public upload endpoint to keep within its limits and personal content (screenshots) held on the server for up to 30 days, which the privacy policy states.

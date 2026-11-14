@@ -111,7 +111,7 @@ Um perfil também pode rodar o **Qwen Code** (selo `qw`, violeta): as sessões d
 - **Notificações**: push para este celular, teste, status ao vivo, os perfis e sessões silenciados.
 - **Voz**: o idioma da transcrição.
 - **App**: versão, atualizações over-the-air e o canal delas, **Verificar atualizações**, **Documentação**.
-- **Relatórios de erro**: enviar automaticamente, perguntar sempre (padrão) ou nunca, e **Relatar um problema** (descreva o bug, veja exatamente o que será enviado e envie, compartilhe ou abra uma issue no GitHub). Os relatórios nunca levam o conteúdo das suas sessões; veja a [política de privacidade](/pt-br/docs/privacy/).
+- **Relatórios de erro**: enviar automaticamente, perguntar sempre (padrão) ou nunca, e **Relatar um problema** (descreva o bug, anexe um print, fotos, vídeos, um áudio e, se quiser, os logs do computador já limpos, veja exatamente o que será enviado e envie, compartilhe ou abra uma issue no GitHub). **Balançar para relatar um problema** (ligado por padrão) mostra um botão por alguns segundos quando você balança o celular; ele abre o relato com um print da tela em que você estava. Os relatórios de erro nunca levam o conteúdo das suas sessões (o que você anexa a um relato de problema pode mostrar); veja a [política de privacidade](/pt-br/docs/privacy/).
 
 ## iPad e teclados
 

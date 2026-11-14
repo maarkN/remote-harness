@@ -111,7 +111,7 @@ A profile can also run **Qwen Code** (`qw` badge, violet): its sessions show she
 - **Notifications**: push for this phone, test, live status, the muted profiles and sessions.
 - **Voice**: the transcription language.
 - **App**: version, over-the-air updates and their channel, **Check for updates**, **Documentation**.
-- **Error reports**: send automatically, ask each time (default) or never, and **Report a problem** (describe the bug, preview exactly what is sent, then send, share or open a GitHub issue). Reports never carry the content of your sessions; see the [privacy policy](/en/docs/privacy/).
+- **Error reports**: send automatically, ask each time (default) or never, and **Report a problem** (describe the bug, attach a screenshot, photos, videos, an audio note and, if you want, the computer's scrubbed logs, preview exactly what is sent, then send, share or open a GitHub issue). **Shake to report a problem** (on by default) shows a button for a few seconds when you shake the phone; it opens the report with a screenshot of the screen you were on. Error reports never carry the content of your sessions (what you attach to a problem report can show it); see the [privacy policy](/en/docs/privacy/).
 
 ## iPad and keyboards
 

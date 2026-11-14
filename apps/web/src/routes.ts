@@ -1,6 +1,7 @@
 import { APP_FILES, LEGACY_PAGE } from './app-link.ts'
 import { type Locale, localeFromPath } from './i18n/locale.ts'
 import { type InstallScriptName, parseRef } from './install.ts'
+import { REPORTS_PATH } from './reports.ts'
 import { OG_IMAGE_PATH } from './site.ts'
 
 /** The Expo Updates server (updates/handler.ts); builds embed `<this>/manifest`, so it never moves. */
@@ -22,6 +23,8 @@ export const PRIVACY_PATH = '/privacy'
 export type Route =
   /** `path` is what follows `/api/updates/`. */
   | { kind: 'updates'; path: string }
+  /** `POST /api/reports`: a problem report from the app (reports.ts). */
+  | { kind: 'reports' }
   /** The install page of a token folder (`prefix` + token: the folder in R2). */
   | { kind: 'app-page'; token: string }
   /** A build file in R2 (`<token>/<name>`). */
@@ -52,6 +55,7 @@ function docSlug(segment: string | undefined): string | null {
 
 /** Where a request to remoteharness.app goes, from its path and query. */
 export function route(pathname: string, search = ''): Route {
+  if (pathname === REPORTS_PATH || pathname === `${REPORTS_PATH}/`) return { kind: 'reports' }
   if (pathname.startsWith(UPDATES_PATH)) {
     const rest = pathname.slice(UPDATES_PATH.length)
     if (!rest || rest.includes('..')) return { kind: 'not-found' }

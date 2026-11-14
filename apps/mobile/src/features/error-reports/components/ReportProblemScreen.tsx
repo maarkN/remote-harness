@@ -5,13 +5,16 @@ import { Linking, Platform, ScrollView, Share, Switch, TextInput, View } from 'r
 import { useDaemonClient } from '@/core/connection'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { Button, Screen, Text } from '@/ui'
+import { bundleReport, type ComputerLog } from '../bundle'
 import { currentContext } from '../capture'
 import { canSend } from '../consent'
-import { crashlyticsReady, sendReport } from '../crashlytics'
-import { buildReport, githubIssueUrl, reportJson } from '../format'
+import { clearDraft, useReportDraft } from '../draft-store'
+import { buildReport, githubIssueUrl, ISSUES_URL, reportJson } from '../format'
 import { recentEntries } from '../log'
 import { writeReportFile } from '../storage'
 import { useErrorReportsStore } from '../store'
+import { readAttachment, uploadReport } from '../upload'
+import { AttachmentsSection } from './AttachmentsSection'
 import { ReportPreview } from './ReportPreview'
 
 type DaemonDiagnostics = { version: string; errors: RejectedRequest[] }
@@ -38,7 +41,52 @@ function useDaemonDiagnostics(): DaemonDiagnostics | null {
   return diagnostics
 }
 
-/** Settings → Report a problem: description, preview, and Send / Share / GitHub issue. */
+type LogsState =
+  | { status: 'off' }
+  | { status: 'loading' }
+  | { status: 'ready'; files: ComputerLog[] }
+  | { status: 'failed' }
+
+/** The computer's scrubbed log files, fetched when the user turns them on (#557). */
+function useComputerLogs(include: boolean): LogsState {
+  const client = useDaemonClient()
+  const [state, setState] = useState<LogsState>({ status: 'off' })
+  useEffect(() => {
+    if (!include) {
+      setState({ status: 'off' })
+      return
+    }
+    if (!client) {
+      setState({ status: 'failed' })
+      return
+    }
+    let active = true
+    setState({ status: 'loading' })
+    client
+      .request({ type: 'diagnostics.logs' })
+      .then((reply) => {
+        if (!active) return
+        setState(
+          reply.type === 'diagnostics.logs.result'
+            ? { status: 'ready', files: reply.files }
+            : { status: 'failed' },
+        )
+      })
+      // Older daemons answer `unknown_type`; offline requests fail.
+      .catch(() => active && setState({ status: 'failed' }))
+    return () => {
+      active = false
+    }
+  }, [client, include])
+  return state
+}
+
+type SendResult = { status: 'sent'; id: string } | { status: 'failed' } | null
+
+/**
+ * Settings → Report a problem (or a shake): description, attachments, the computer's errors and,
+ * opt-in, its logs; Send uploads it all as one zip (ADR 0008), Share and the GitHub issue stay.
+ */
 export function ReportProblemScreen() {
   const { t } = useTranslation()
   const { colors } = useTheme()
@@ -48,8 +96,13 @@ export function ReportProblemScreen() {
   const daemon = useDaemonDiagnostics()
   const [description, setDescription] = useState('')
   const [includeComputer, setIncludeComputer] = useState(true)
+  const [includeLogs, setIncludeLogs] = useState(false)
+  const logs = useComputerLogs(includeLogs)
+  const attachments = useReportDraft((s) => s.attachments)
   const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<'sent' | 'failed' | null>(null)
+  const [result, setResult] = useState<SendResult>(null)
+  // The attachments belong to this report only.
+  useEffect(() => clearDraft, [])
 
   const report = useMemo(
     () =>
@@ -65,11 +118,23 @@ export function ReportProblemScreen() {
   )
   const json = useMemo(() => reportJson(report), [report])
 
+  const logsReady = !includeLogs || logs.status === 'ready'
   const send = async () => {
     setSending(true)
-    setResult((await sendReport(report)) ? 'sent' : 'failed')
-    setSending(false)
+    try {
+      const files = await Promise.all(
+        attachments.map(async (attachment) => ({ attachment, bytes: await readAttachment(attachment) })),
+      )
+      const zip = bundleReport({ report, logs: logs.status === 'ready' ? logs.files : null, files })
+      const upload = await uploadReport(zip)
+      setResult(upload.ok ? { status: 'sent', id: upload.id } : { status: 'failed' })
+    } catch {
+      setResult({ status: 'failed' })
+    } finally {
+      setSending(false)
+    }
   }
+  const sentId = result?.status === 'sent' ? result.id : undefined
 
   const share = () => {
     const uri =
@@ -106,30 +171,70 @@ export function ReportProblemScreen() {
             />
           </View>
         ) : null}
+        <AttachmentsSection disabled={sending || result?.status === 'sent'} />
+        {daemon ? (
+          <View style={styles.row}>
+            <View style={styles.flex}>
+              <Text size="sm">{t('errorReports.problem.includeLogs')}</Text>
+              <Text size="xs" color="textMuted">
+                {t('errorReports.problem.includeLogsHint')}
+              </Text>
+            </View>
+            <Switch
+              value={includeLogs}
+              onValueChange={setIncludeLogs}
+              accessibilityLabel={t('errorReports.problem.includeLogs')}
+              trackColor={{ true: colors.accent, false: colors.borderStrong }}
+            />
+          </View>
+        ) : null}
+        {logs.status === 'loading' ? (
+          <Text size="xs" color="textMuted">
+            {t('errorReports.problem.logsLoading')}
+          </Text>
+        ) : null}
+        {logs.status === 'failed' ? (
+          <Text size="xs" color="warning">
+            {t('errorReports.problem.logsUnavailable')}
+          </Text>
+        ) : null}
+        {logs.status === 'ready' ? (
+          <ReportPreview
+            text={logs.files.map((f) => `== ${f.name} ==\n${f.text}`).join('\n')}
+            maxHeight={240}
+          />
+        ) : null}
         <Text size="xs" color="textMuted">
           {t('errorReports.problem.preview')}
         </Text>
         <ReportPreview text={json} maxHeight={320} />
         {result ? (
-          <Text size="sm" color={result === 'sent' ? 'success' : 'warning'}>
-            {t(`errorReports.problem.${result}`)}
+          <Text size="sm" color={result.status === 'sent' ? 'success' : 'warning'}>
+            {result.status === 'sent'
+              ? t('errorReports.problem.sentWithId', { id: result.id })
+              : t('errorReports.problem.failed')}
           </Text>
         ) : null}
         <View style={styles.actions}>
-          {canSend(preference, crashlyticsReady()) ? (
-            <Button
-              label={t('errorReports.problem.send')}
-              variant="primary"
-              loading={sending}
-              disabled={result === 'sent'}
-              onPress={() => void send()}
-            />
+          {canSend(preference, true) ? (
+            <>
+              <Text size="xs" color="textMuted">
+                {t('errorReports.problem.sendHint')}
+              </Text>
+              <Button
+                label={t('errorReports.problem.send')}
+                variant="primary"
+                loading={sending}
+                disabled={result?.status === 'sent' || !logsReady}
+                onPress={() => void send()}
+              />
+            </>
           ) : null}
           <Button label={t('errorReports.problem.share')} onPress={share} />
           <Button
             label={t('errorReports.problem.github')}
             variant="ghost"
-            onPress={() => void Linking.openURL(githubIssueUrl(report))}
+            onPress={() => void Linking.openURL(githubIssueUrl(report, ISSUES_URL, sentId))}
           />
         </View>
       </ScrollView>

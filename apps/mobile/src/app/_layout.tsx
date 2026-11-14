@@ -27,6 +27,7 @@ import { bindDrafts } from '@/features/drafts/persistence'
 import { installErrorCapture, setRoute } from '@/features/error-reports/capture'
 import { CrashPromptSheet } from '@/features/error-reports/components/CrashPromptSheet'
 import { ErrorFallback } from '@/features/error-reports/components/ErrorFallback'
+import { restoreShakeSetting } from '@/features/error-reports/shake-store'
 import { HandsFreeRunner } from '@/features/hands-free/HandsFreeRunner'
 import { restoreOpenAfterCreateSettings } from '@/features/lifecycle/open-after-create-store'
 import { restoreLiveStatusSetting } from '@/features/live-status/settings-store'
@@ -82,6 +83,7 @@ export default function RootLayout() {
   useEffect(() => {
     void restoreLanguagePreference()
     void restorePerformanceSetting()
+    void restoreShakeSetting()
     void restoreThemePreference()
     void restoreAppIconPreference()
     void restoreSessionSort()
