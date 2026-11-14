@@ -1,10 +1,14 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { CommandItem } from '@remote-harness/protocol'
+import { foldersUpToRepoRoot, mergeCommands, pathsSignature, readSkills } from './command-files.ts'
 
 const item = (name: string, description: string, interactive = false): CommandItem => ({
   name,
   description,
   source: 'builtin',
   interactive,
+  prefix: '/',
 })
 
 /**
@@ -37,3 +41,43 @@ export const CODEX_COMMANDS: CommandItem[] = [
   item('export', 'Export the conversation as markdown'),
   item('feedback', 'Send logs to the maintainers', true),
 ]
+
+/** The folders Codex reads skills from (codex 0.166): repository first, then personal. */
+async function codexSkillDirs(configDir: string, cwd: string, home: string) {
+  const user = [join(configDir, 'skills'), join(home, '.agents', 'skills')]
+  const repo = (await foldersUpToRepoRoot(cwd))
+    .flatMap((dir) => [join(dir, '.agents', 'skills'), join(dir, '.codex', 'skills')])
+    // A session in the home folder: its `.agents/skills` is the personal one.
+    .filter((dir) => !user.includes(dir))
+  return { repo, user }
+}
+
+/**
+ * Built-ins plus the Codex skills: `.agents/skills` or `.codex/skills` from the session's folder up
+ * to the repository root, the profile's `skills/` and `~/.agents/skills`, and the bundled
+ * `skills/.system`. A skill runs from a `$name` mention, so they carry the `$` prefix.
+ */
+export async function loadCodexCommands(
+  configDir: string,
+  cwd: string,
+  home = homedir(),
+): Promise<CommandItem[]> {
+  const dirs = await codexSkillDirs(configDir, cwd, home)
+  const lists: CommandItem[][] = []
+  for (const dir of dirs.repo)
+    lists.push(await readSkills(dir, { source: 'project', prefix: '$', skipHidden: true }))
+  for (const dir of dirs.user)
+    lists.push(await readSkills(dir, { source: 'profile', prefix: '$', skipHidden: true }))
+  lists.push(CODEX_COMMANDS)
+  lists.push(await readSkills(join(configDir, 'skills', '.system'), { source: 'builtin', prefix: '$' }))
+  return mergeCommands(lists)
+}
+
+export async function codexCommandsSignature(
+  configDir: string,
+  cwd: string,
+  home = homedir(),
+): Promise<string> {
+  const dirs = await codexSkillDirs(configDir, cwd, home)
+  return pathsSignature([...dirs.repo, ...dirs.user, join(configDir, 'skills', '.system')])
+}
