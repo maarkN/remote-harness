@@ -107,6 +107,33 @@ describe('transcript store', () => {
     expect(f.requests.at(-1)).toMatchObject({ type: 'session.unsubscribe' })
   })
 
+  test('an empty first page marks the stream loaded; the first entry fills it (#554)', async () => {
+    const f = fakeClient()
+    f.reply(page([], false))
+    const off = subscribeTranscript(f.client, 's')
+    expect(selectStream('s')(useTranscriptStore.getState()).loaded).toBe(false)
+    await tick()
+    let state = selectStream('s')(useTranscriptStore.getState())
+    expect(state.loaded).toBe(true)
+    expect(state.entries).toEqual([])
+    f.emit({ type: 'transcript.entries', sessionId: 's', entries: [entry(1)] })
+    await frame()
+    state = selectStream('s')(useTranscriptStore.getState())
+    expect(state.entries.map((e) => e.cursor)).toEqual([1])
+    expect(state.loaded).toBe(true)
+    off()
+  })
+
+  test('a failed subscription keeps the error and is not loaded', async () => {
+    const f = fakeClient()
+    const off = subscribeTranscript(f.client, 's')
+    await tick()
+    const state = selectStream('s')(useTranscriptStore.getState())
+    expect(state.error).toBeInstanceOf(Error)
+    expect(state.loaded).toBe(false)
+    off()
+  })
+
   test('loads older pages before the oldest entry', async () => {
     const f = fakeClient()
     f.reply(page([entry(50)], true), page([entry(10), entry(20)], false))
