@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { resumeArgs } from '@remote-harness/protocol'
 import { GEMINI_COMMANDS } from '../autocomplete/gemini-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import { extractGeminiMeta, geminiTranscript, isGeminiSessionFile } from '../transcript/gemini-format.ts'
@@ -111,7 +112,7 @@ export const gemini: AgentAdapter = {
   defaultConfigDir: '~/.gemini',
   configDirEnvValue: (configDir) => dirname(configDir),
   acceptsConfigDir: (configDir) => basename(configDir.replace(/\/+$/, '')) === '.gemini',
-  resumeArgs: (sessionId) => ['--resume', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('gemini', sessionId),
   // Worktrees need an experimental setting; names have no command.
   worktreeArgs: () => null,
   nameArgs: () => null,

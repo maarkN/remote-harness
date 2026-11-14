@@ -1,4 +1,4 @@
-import type { Profile, Session } from '@remote-harness/protocol'
+import { type Profile, resumeArgs, type Session } from '@remote-harness/protocol'
 import type { TFunction } from '../../core/i18n/create'
 import { relativeTime } from '../../core/utils/time'
 import { codexPermissionsLabel, hasSwitchableModes } from '../mode/modes'
@@ -15,9 +15,10 @@ export type SessionDetailKey =
   | 'access'
   | 'pane'
   | 'id'
+  | 'resume'
   | 'updated'
 
-type CopyKey = Extract<SessionDetailKey, 'folder' | 'worktree' | 'id'>
+type CopyKey = Extract<SessionDetailKey, 'folder' | 'worktree' | 'id' | 'resume'>
 
 /** One label/value row of the session details sheet; rows with a `copyLabel` get a Copy action. */
 export type SessionDetail = { key: SessionDetailKey; label: string; value: string; copyLabel: string | null }
@@ -37,6 +38,20 @@ type DetailsSession = Pick<
   | 'updatedAt'
   | 'checkout'
 >
+
+/** The value as one shell word: as is when it only has safe characters, else single-quoted. */
+function shellWord(value: string): string {
+  return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`
+}
+
+/**
+ * The command that reopens the session in a terminal on the computer: from its folder, the profile's
+ * alias (its launcher) with the agent's resume arguments, the ones the daemon runs for Resume.
+ */
+export function resumeCommand(session: Pick<Session, 'cwd' | 'profileId' | 'agent' | 'id'>): string {
+  const args = resumeArgs(session.agent ?? 'claude', session.id).map(shellWord)
+  return `cd ${shellWord(session.cwd)} && ${shellWord(session.profileId)} ${args.join(' ')}`
+}
 
 /** Claude Code's permission mode, or Codex's permission profile with its approval policy. */
 function modeText(session: DetailsSession, t: TFunction): string {
@@ -82,6 +97,7 @@ export function sessionDetails(
     row('access', session.controllable ? t('sessionDetails.controllable') : t('common.readOnly')),
     ...(session.paneId ? [row('pane', session.paneId)] : []),
     copyable('id', session.id),
+    copyable('resume', resumeCommand(session)),
     row('updated', updatedText(session.updatedAt, t, locale, now)),
   ]
 }

@@ -1,5 +1,6 @@
 import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import { resumeArgs } from '@remote-harness/protocol'
 import { CODEX_COMMANDS } from '../autocomplete/codex-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import {
@@ -91,7 +92,7 @@ export const codex: AgentAdapter = {
   command: 'codex',
   configDirEnv: 'CODEX_HOME',
   defaultConfigDir: '~/.codex',
-  resumeArgs: (sessionId) => ['resume', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('codex', sessionId),
   // Codex creates and names its own worktree (under CODEX_HOME/worktrees) from HEAD.
   worktreeArgs: () => ['--worktree'],
   nameArgs: () => null,
