@@ -1,5 +1,6 @@
 import { copyFile, mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { checkbox, confirm, input, password, select } from '@inquirer/prompts'
 import {
   LOCALE_NAMES,
@@ -23,6 +24,7 @@ import type { ServiceManager } from '../service/service-manager.ts'
 import type { WslHost } from '../wsl/host.ts'
 import { box, type Paint, renderLogo, renderWelcome } from './banner.ts'
 import { displayPaths, type InstallLine, type InstallOptions, installAll, removeProfiles } from './install.ts'
+import { COPY_ITEMS, type CopyItem, type CopyOutcome, copyMainProfile } from './profile-copy.ts'
 import {
   detectConfigDirs,
   mergeConfig,
@@ -335,6 +337,7 @@ async function createProviderProfile(
     })
   ).trim()
   await mkdir(expandHome(dir), { recursive: true })
+  await offerMainProfileCopy(o, dir)
   const model = (await input({ message: tp.model, theme })).trim()
   const profile: Profile = {
     ...suggestion,
@@ -424,6 +427,51 @@ async function saveProviderKeys(
   printLines(o.paint, lines, o.home)
 }
 
+const LINK_CHOICE = 'link'
+
+function outcomeLine(o: Ctx, outcome: CopyOutcome): InstallLine {
+  const t = o.m.setup.copyMain
+  const done = outcome.status === 'copied' || outcome.status === 'linked' || outcome.status === 'merged'
+  return { status: done ? 'done' : 'skip', text: t.status[outcome.status](t.items[outcome.item]) }
+}
+
+/**
+ * Offers to bring the main profile's configuration (`~/.claude`) into the folder of a profile setup
+ * just created, as a checklist; a last, unchecked item links skills, commands and agents instead of
+ * copying them (#556, ADR 0007). Nothing when `~/.claude` is missing or is that folder.
+ */
+async function offerMainProfileCopy(o: Ctx, dir: string): Promise<void> {
+  const home = o.home ?? homedir()
+  const main = join(home, '.claude')
+  const target = expandHome(dir)
+  if (target === main || !(await isDirectory(main))) return
+  const t = o.m.setup.copyMain
+  const mainLabel = tildify(main, home)
+  console.log(o.paint('muted', t.note(mainLabel)))
+  const picked = await checkbox<CopyItem | typeof LINK_CHOICE>({
+    message: t.question(mainLabel, tildify(target, home)),
+    choices: [
+      ...COPY_ITEMS.map((item) => ({ name: t.items[item], value: item, checked: true })),
+      { name: t.link(mainLabel), value: LINK_CHOICE, checked: false },
+    ],
+    theme: themeFor(o.paint, o.m),
+  })
+  const items = new Set(picked.filter((p): p is CopyItem => p !== LINK_CHOICE))
+  if (items.size === 0) {
+    console.log(o.paint('muted', `  ${t.declined}`))
+    return
+  }
+  const outcomes = await copyMainProfile({ dir: main, json: join(home, '.claude.json') }, target, {
+    items,
+    link: picked.includes(LINK_CHOICE),
+  })
+  printLines(
+    o.paint,
+    outcomes.map((outcome) => outcomeLine(o, outcome)),
+    o.home,
+  )
+}
+
 /**
  * Creates the folder of a new account and opens Claude Code there so the user logs in.
  * Returns the folder to add, or null when the user gives up.
@@ -447,6 +495,7 @@ async function createAccount(o: Ctx, taken: readonly string[]): Promise<string |
     console.log(`  ${o.paint('success', '✓')} ${t.alreadyLoggedIn(tilde, already)}`)
     return tilde
   }
+  await offerMainProfileCopy(o, dir)
   console.log(o.paint('muted', t.instructions(tilde)))
   for (;;) {
     await input({ message: t.pressEnter, theme })

@@ -78,6 +78,12 @@ O comando antigo `claude-remote` e as variáveis `CLAUDE_REMOTE_*` continuam fun
 
 Mudanças no arquivo valem quando o daemon reinicia (`remote-harness service install` de novo, ou reiniciar pela bandeja).
 
+## Perfis novos a partir do ~/.claude
+
+Quando o setup cria um perfil do Claude Code (**Criar uma conta nova**, ou um perfil OpenRouter) e o `~/.claude` existe, ele pergunta o que trazer de lá, com tudo marcado: configurações (`settings.json`, sem os hooks do daemon, que o perfil novo recebe por conta própria), memória (`CLAUDE.md`), skills, comandos, agentes, plugins (a lista instalada; eles continuam usando o cache de plugins do perfil principal) e servidores MCP (o `mcpServers` do `~/.claude.json`). A cópia acontece uma vez, antes do login, e nunca traz o login, as credenciais, o histórico nem o estado por projeto; nada que a pasta já tenha é substituído (um arquivo mesclado guarda um backup `.bak-remote-harness`), e rodar de novo não muda nada. Desmarque tudo para começar vazio.
+
+O último item, desmarcado por padrão, **linka** skills, comandos e agentes ao `~/.claude` em vez de copiar: eles ficam em sincronia, então uma skill adicionada (ou apagada) em qualquer um dos perfis aparece (ou some) nos dois. Configurações e servidores MCP são sempre copiados, porque ficam ao lado do login e dos hooks de cada perfil.
+
 ## Perfis e OpenRouter
 
 Um perfil pode rotear o Claude Code pelo OpenRouter em vez da conta Anthropic. O jeito mais fácil é `remote-harness setup` → "Adicionar um perfil OpenRouter": ele pergunta o nome, o alias, a pasta (`~/.claude-openrouter`), um modelo padrão opcional e a chave (oculta), confere a chave com o OpenRouter e mostra os créditos restantes quando a chave consegue lê-los. Rodar o setup de novo lista esses perfis e deixa manter, trocar a chave ou remover o perfil (o atalho, os hooks e a chave; a pasta fica).
