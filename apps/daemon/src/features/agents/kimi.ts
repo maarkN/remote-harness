@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { resumeArgs } from '@remote-harness/protocol'
 import { KIMI_COMMANDS } from '../autocomplete/kimi-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import { kimiFirstPrompt, kimiTranscript } from '../transcript/kimi-format.ts'
@@ -123,7 +124,7 @@ export const kimi: AgentAdapter = {
   configDirEnv: 'KIMI_SHARE_DIR',
   defaultConfigDir: '~/.kimi',
   transcriptPath: kimiTranscriptPath,
-  resumeArgs: (sessionId) => ['--session', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('kimi', sessionId),
   worktreeArgs: () => null,
   nameArgs: () => null,
   renameCommand: () => null,
