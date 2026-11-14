@@ -369,6 +369,9 @@ export class DemoDaemon {
         }
       case 'diagnostics.errors':
         return { type: 'diagnostics.result', daemonVersion: this.options.daemonVersion, errors: [] }
+      // The demo computer has no log files.
+      case 'diagnostics.logs':
+        return { type: 'diagnostics.logs.result', files: [] }
       case 'machine.permissions':
         return {
           type: 'machine.permissions.results',

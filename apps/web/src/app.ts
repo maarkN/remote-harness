@@ -14,6 +14,7 @@ import {
 } from './install.ts'
 import { renderInstallPage } from './install-page.ts'
 import { renderLanding, renderNotFound } from './landing.ts'
+import { handleReport, type ReportDeps } from './reports.ts'
 import { route } from './routes.ts'
 import { faviconSvg, robotsTxt, type SiteConfig, sitemapXml } from './site.ts'
 import type { PublishTokens } from './updates/auth.ts'
@@ -34,7 +35,14 @@ export interface BuildsStore {
 }
 
 /** What the site needs from its host: the two stores, the publish tokens and its environment. */
-export type AppDeps = { updates: UpdatesStore; builds: BuildsStore; tokens: PublishTokens; site?: SiteConfig }
+export type AppDeps = {
+  updates: UpdatesStore
+  builds: BuildsStore
+  tokens: PublishTokens
+  site?: SiteConfig
+  /** Problem report uploads; the path answers 404 without it. */
+  reports?: ReportDeps
+}
 
 /** A build file of an install link, with the content type of its name. */
 async function appFile(request: Request, builds: BuildsStore, key: string, name: string): Promise<Response> {
@@ -135,11 +143,14 @@ export function createApp({
   builds,
   tokens,
   site = {},
+  reports,
 }: AppDeps): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url)
     const target = route(url.pathname, url.search)
     if (target.kind === 'updates') return handleUpdates(request, target.path, updates, tokens)
+    if (target.kind === 'reports')
+      return reports ? handleReport(request, reports) : new Response('Not found', { status: 404 })
     if (target.kind === 'app-file') return appFile(request, builds, target.key, target.name)
     if (target.kind === 'app-page') return appPage(request, builds, url, target.token)
     if (target.kind === 'bad-ref') {

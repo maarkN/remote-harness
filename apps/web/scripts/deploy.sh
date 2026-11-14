@@ -22,7 +22,7 @@ echo "▸ vite build"
 pnpm exec vite build --logLevel warn
 
 echo "▸ copy to $host:$dir"
-ssh "$host" "mkdir -p '$dir/data/updates' '$dir/data/app'"
+ssh "$host" "mkdir -p '$dir/data/updates' '$dir/data/app' '$dir/data/reports'"
 scp -q deploy/Dockerfile deploy/compose.yml dist/server.js "$host:$dir/"
 
 echo "▸ docker compose up"
