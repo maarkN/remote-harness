@@ -1,7 +1,13 @@
 import type { ServerMessageOf } from '@remote-harness/protocol'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { create } from 'zustand'
-import { DaemonRequestError, useConnectionStore, useDaemonClient, useIsConnected } from '@/core/connection'
+import {
+  DaemonRequestError,
+  useComputerQueryKey,
+  useConnectionStore,
+  useDaemonClient,
+  useIsConnected,
+} from '@/core/connection'
 
 export type DirectoryRequest = { path: string; prefix?: string; hidden?: boolean; limit?: number }
 /** The daemon's reply plus the request it answers (a kept previous listing may be for older text). */
@@ -24,7 +30,7 @@ export function useDirectories(request: DirectoryRequest | null, { keepPrevious 
   const supported = useDirectoriesSupported()
   const version = useConnectionStore((s) => s.hello?.daemonVersion ?? null)
   return useQuery({
-    queryKey: ['directories', version, request],
+    queryKey: useComputerQueryKey(['directories', version, request]),
     enabled: Boolean(client && connected && supported && request),
     retry: false,
     staleTime: 10_000,

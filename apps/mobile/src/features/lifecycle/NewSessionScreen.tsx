@@ -24,7 +24,13 @@ import {
   View,
 } from 'react-native'
 import { useShallow } from 'zustand/react/shallow'
-import { selectProfiles, useConnectionStore, useDaemonClient, useIsConnected } from '@/core/connection'
+import {
+  selectProfiles,
+  useComputerQueryKey,
+  useConnectionStore,
+  useDaemonClient,
+  useIsConnected,
+} from '@/core/connection'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { AGENT_NAMES } from '@/core/theme/agents'
@@ -117,7 +123,7 @@ export function NewSessionScreen() {
   }, [profileId, profiles])
 
   const projects = useQuery({
-    queryKey: ['projects', profileId],
+    queryKey: useComputerQueryKey(['projects', profileId]),
     enabled: Boolean(client && connected && profileId),
     queryFn: async () => {
       const reply = await client!.request({ type: 'projects.list', profileId: profileId! })
@@ -133,7 +139,7 @@ export function NewSessionScreen() {
     return reply.type === 'checkout.info' ? reply : null
   }
   const inspection = useQuery({
-    queryKey: ['checkout', profileId, inspectedCwd],
+    queryKey: useComputerQueryKey(['checkout', profileId, inspectedCwd]),
     enabled: Boolean(client && connected && profileId && inspectedCwd),
     retry: false,
     queryFn: () => inspect(inspectedCwd),

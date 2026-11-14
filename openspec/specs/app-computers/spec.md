@@ -13,11 +13,15 @@ The app SHALL keep every paired computer (daemon ID, daemon key, this device's k
 - **THEN** both are listed, the desktop is active and the laptop keeps its keys
 
 ### Requirement: Computer switcher
-The machine line at the top of the session list SHALL open a switcher with the paired computers (name, active one marked) and "Add a computer" (the pairing screen); picking a computer SHALL close the current connection and connect to it, and the session list SHALL show only that computer's sessions.
+The machine line at the top of the session list SHALL open a switcher with the paired computers (name, active one marked) and "Add a computer" (the pairing screen); picking a computer SHALL close the current connection and connect to it, and the session list SHALL show only that computer's sessions. Data fetched from a computer (models, provider info, recent projects, folders, checkout details, commands and file suggestions) SHALL be kept per computer, so none of the previous computer's data shows after a switch.
 
 #### Scenario: Switch
 - **WHEN** the user picks the desktop in the switcher
 - **THEN** the app disconnects from the laptop, connects to the desktop and lists the desktop's sessions
+
+#### Scenario: No models of the previous computer
+- **WHEN** the user opened New session on the laptop, switches to the desktop within ten seconds and opens New session again
+- **THEN** the projects and models shown are the desktop's (or loading), never the laptop's
 
 ### Requirement: Path selection
 For the active computer the app SHALL try its direct addresses first (a short timeout each), then its home relay and then the other relays in its list, by daemon ID, except that after a connection drops it SHALL start with the address or relay that last completed `auth` and then try the others in that order; a relay that answers 4004 SHALL be followed by the next relay. While connected through a relay it SHALL probe the direct addresses every 30 s and when the app returns to the foreground, and move to a direct connection that completes the handshake and `auth`, re-subscribing from the last cursors so no conversation state is lost. `daemon.paths` SHALL update the saved addresses, home relay and relay list. The connection state SHALL show whether the direct path or the relay is in use. While connected, when nothing has been received for 30 s the app SHALL send `ping`; when no reply arrives within 10 s it SHALL drop that connection at once (without waiting for a close handshake), fail its pending requests as disconnected and reconnect, without reporting the heartbeat as a request error.

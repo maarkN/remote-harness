@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { useDaemonClient, useIsConnected } from '@/core/connection'
+import { useComputerQueryKey, useDaemonClient, useIsConnected } from '@/core/connection'
 
 /** `models.list` of a profile (`null` disables). The daemon caches the catalog, so a long stale time is fine. */
 export function useModels(profileId: string | null) {
   const client = useDaemonClient()
   const connected = useIsConnected()
   return useQuery({
-    queryKey: ['models', profileId],
+    queryKey: useComputerQueryKey(['models', profileId]),
     enabled: Boolean(client && connected && profileId),
     retry: false,
     staleTime: 5 * 60_000,
@@ -26,7 +26,7 @@ export function useProviderStatus(profileId: string | null) {
   const client = useDaemonClient()
   const connected = useIsConnected()
   return useQuery({
-    queryKey: ['provider', profileId],
+    queryKey: useComputerQueryKey(['provider', profileId]),
     enabled: Boolean(client && connected && profileId),
     retry: false,
     staleTime: 60_000,
