@@ -43,7 +43,7 @@ export function applySuggestion(
   const insertion =
     suggestion.kind === 'file'
       ? `@${suggestion.item.path}${suggestion.item.kind === 'dir' ? '' : ' '}`
-      : `/${suggestion.item.name} `
+      : `${suggestion.item.prefix}${suggestion.item.name} `
   const after = text.slice(trigger.end).replace(/^ /, '')
   const next = `${text.slice(0, trigger.start)}${insertion}${after}`
   return { text: next, cursor: trigger.start + insertion.length }

@@ -1,10 +1,13 @@
+import { join } from 'node:path'
 import type { CommandItem } from '@remote-harness/protocol'
+import { mergeCommands, pathsSignature, readTomlCommands } from './command-files.ts'
 
 const item = (name: string, description: string, interactive = false): CommandItem => ({
   name,
   description,
   source: 'builtin',
   interactive,
+  prefix: '/',
 })
 
 /**
@@ -35,3 +38,21 @@ export const GEMINI_COMMANDS: CommandItem[] = [
   item('about', 'Show version information', true),
   item('help', 'Show help', true),
 ]
+
+/**
+ * Built-ins plus the custom commands (`commands/**` TOML files) of the project's `.gemini/` and the
+ * profile's config folder. Gemini skills are left out: the model activates them, no slash command does.
+ */
+export async function loadGeminiCommands(configDir: string, cwd: string): Promise<CommandItem[]> {
+  const project = join(cwd, '.gemini', 'commands')
+  return mergeCommands([
+    // A session in the home folder: its `.gemini` is the profile's.
+    project === join(configDir, 'commands') ? [] : await readTomlCommands(project, { source: 'project' }),
+    await readTomlCommands(join(configDir, 'commands'), { source: 'profile' }),
+    GEMINI_COMMANDS,
+  ])
+}
+
+export async function geminiCommandsSignature(configDir: string, cwd: string): Promise<string> {
+  return pathsSignature([join(cwd, '.gemini', 'commands'), join(configDir, 'commands')])
+}

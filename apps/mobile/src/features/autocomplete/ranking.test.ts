@@ -7,6 +7,7 @@ const cmd = (name: string, source: CommandSource = 'builtin', description = ''):
   description,
   source,
   interactive: false,
+  prefix: '/',
 })
 
 const names = (sections: ReturnType<typeof rankCommands>) =>

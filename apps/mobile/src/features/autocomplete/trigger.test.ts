@@ -13,9 +13,9 @@ describe('triggerKey', () => {
 })
 
 const commands: CommandItem[] = [
-  { name: 'model', description: 'Escolhe o modelo', source: 'builtin', interactive: true },
-  { name: 'compact', description: 'Compacta', source: 'builtin', interactive: false },
-  { name: 'deploy', description: 'Deploy do projeto', source: 'project', interactive: false },
+  { name: 'model', description: 'Escolhe o modelo', source: 'builtin', interactive: true, prefix: '/' },
+  { name: 'compact', description: 'Compacta', source: 'builtin', interactive: false, prefix: '/' },
+  { name: 'deploy', description: 'Deploy do projeto', source: 'project', interactive: false, prefix: '/' },
 ]
 
 describe('findTrigger', () => {
@@ -50,6 +50,21 @@ describe('applySuggestion', () => {
   test('inserts commands', () => {
     const t = findTrigger('/mo', 3)!
     expect(applySuggestion('/mo', t, { kind: 'command', item: commands[0]! }).text).toBe('/model ')
+  })
+
+  test('inserts a Codex skill with its $ prefix', () => {
+    const t = findTrigger('/hat', 4)!
+    const skill: CommandItem = {
+      name: 'hatch-pet',
+      description: '',
+      source: 'profile',
+      interactive: false,
+      prefix: '$',
+    }
+    expect(applySuggestion('/hat', t, { kind: 'command', item: skill })).toEqual({
+      text: '$hatch-pet ',
+      cursor: 11,
+    })
   })
 })
 

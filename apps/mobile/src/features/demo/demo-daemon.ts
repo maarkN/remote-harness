@@ -260,18 +260,21 @@ export class DemoDaemon {
               description: 'Clear the conversation history',
               source: 'builtin',
               interactive: false,
+              prefix: '/',
             },
             {
               name: 'compact',
               description: 'Summarize the conversation to free context',
               source: 'builtin',
               interactive: false,
+              prefix: '/',
             },
             {
               name: 'review',
               description: 'Review the current changes',
               source: 'project',
               interactive: false,
+              prefix: '/',
             },
           ],
         }

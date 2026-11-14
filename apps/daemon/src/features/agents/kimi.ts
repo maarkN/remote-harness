@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { KIMI_COMMANDS } from '../autocomplete/kimi-commands.ts'
+import { kimiCommandsSignature, loadKimiCommands } from '../autocomplete/kimi-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import { kimiFirstPrompt, kimiTranscript } from '../transcript/kimi-format.ts'
 import type { AgentAdapter, ApprovalDialog, TranscriptLocation } from './types.ts'
@@ -132,8 +132,8 @@ export const kimi: AgentAdapter = {
   transcript: kimiTranscript,
   findTranscripts: findKimiTranscripts,
   readSummary: readKimiSummary,
-  commands: async () => KIMI_COMMANDS,
-  commandsSignature: async () => 'builtin',
+  commands: (configDir, cwd) => loadKimiCommands(configDir, cwd),
+  commandsSignature: (configDir, cwd) => kimiCommandsSignature(configDir, cwd),
   // prompt_toolkit: Ctrl-J adds a line; a stray Esc would cancel a running turn.
   input: { minEnterDelayMs: 100, newline: { keys: ['C-j'] }, beforeSubmit: [] },
   hooks: { style: 'kimi-toml', file: (configDir) => join(configDir, 'config.toml') },

@@ -754,6 +754,8 @@ export const CommandItemSchema = z.object({
   description: z.string(),
   source: CommandSourceSchema,
   interactive: z.boolean().default(false),
+  /** Typed before the name to run it: `/` for slash commands, `$` for a Codex skill mention. */
+  prefix: z.enum(['/', '$']).default('/'),
 })
 export type CommandItem = z.infer<typeof CommandItemSchema>
 
