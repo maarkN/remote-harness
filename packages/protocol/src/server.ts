@@ -214,6 +214,12 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     applied: z.boolean(),
   }),
   z.object({
+    type: z.literal('diagnostics.logs.result'),
+    replyTo,
+    /** One per log file present, each the scrubbed tail of the file. */
+    files: z.array(z.object({ name: z.string(), text: z.string(), truncated: z.boolean() })),
+  }),
+  z.object({
     type: z.literal('diagnostics.result'),
     replyTo,
     daemonVersion: z.string(),

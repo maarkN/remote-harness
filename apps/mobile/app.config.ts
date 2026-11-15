@@ -72,7 +72,8 @@ const SYSTEM_PROMPTS = {
     NSPhotoLibraryUsageDescription:
       'Photos you pick are sent with the prompt to the coding agent on your computer.',
     NSLocalNetworkUsageDescription: 'Remote Harness connects to your computer over your private network.',
-    NSMicrophoneUsageDescription: 'The microphone is used to record voice messages for the prompt.',
+    NSMicrophoneUsageDescription:
+      'The microphone is used to record voice messages for the prompt and audio notes for problem reports.',
     NSSpeechRecognitionUsageDescription:
       'Speech recognition turns your voice messages into text, on this device.',
     NSFaceIDUsageDescription: 'Face ID confirms that it is you before a permission rule is deleted.',
@@ -83,7 +84,8 @@ const SYSTEM_PROMPTS = {
     NSPhotoLibraryUsageDescription:
       'As fotos escolhidas são enviadas com o prompt ao agente de código no seu computador.',
     NSLocalNetworkUsageDescription: 'O Remote Harness se conecta ao seu computador pela sua rede privada.',
-    NSMicrophoneUsageDescription: 'O microfone é usado para gravar mensagens de voz do prompt.',
+    NSMicrophoneUsageDescription:
+      'O microfone é usado para gravar mensagens de voz do prompt e áudios para relatar problemas.',
     NSSpeechRecognitionUsageDescription:
       'O reconhecimento de voz transforma suas mensagens de voz em texto, neste aparelho.',
     NSFaceIDUsageDescription: 'O Face ID confirma que é você antes de apagar uma regra de permissão.',
@@ -94,7 +96,8 @@ const SYSTEM_PROMPTS = {
     NSPhotoLibraryUsageDescription:
       'Las fotos que elijas se envían con el mensaje al agente de código en tu ordenador.',
     NSLocalNetworkUsageDescription: 'Remote Harness se conecta a tu ordenador por tu red privada.',
-    NSMicrophoneUsageDescription: 'El micrófono se usa para grabar mensajes de voz del mensaje.',
+    NSMicrophoneUsageDescription:
+      'El micrófono se usa para grabar mensajes de voz del mensaje y audios para informar de problemas.',
     NSSpeechRecognitionUsageDescription:
       'El reconocimiento de voz convierte tus mensajes de voz en texto, en este dispositivo.',
     NSFaceIDUsageDescription: 'Face ID confirma que eres tú antes de borrar una regla de permiso.',
@@ -1006,6 +1009,8 @@ const appConfig = (config: ConfigContext['config']): ExpoConfig => ({
         speechRecognitionPermission: SYSTEM_PROMPTS.en.NSSpeechRecognitionUsageDescription,
       },
     ],
+    // The audio note of "Report a problem" (#557); same microphone text as the plugins above.
+    ['expo-audio', { microphonePermission: SYSTEM_PROMPTS.en.NSMicrophoneUsageDescription }],
     [
       'expo-notifications',
       {

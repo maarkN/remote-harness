@@ -8,9 +8,11 @@ Remote Harness is self-hosted software: the daemon runs on your computer, the ap
 
 ## What we collect
 
-Only the error reports and the performance data you agree to send. There is no account and no analytics, and nothing else is collected by the app, the daemon or this website. The maintainers never receive your conversations, your files, your prompts, your tokens or your keys.
+Only the error reports, the performance data and the problem reports you agree to send. There is no account and no analytics, and nothing else is collected by the app, the daemon or this website. The maintainers never receive your conversations, your files, your prompts, your tokens or your keys.
 
 **Error reports (opt-in).** The app keeps a small log of its own errors on the phone. It sends them to Firebase Crashlytics (Google) only as you choose in Settings → Error reports: after asking you, which is the default, automatically, or never. A report holds the time and kind of error, the error name, a scrubbed message and stack, the failed request type and error code, the screen's route pattern, and the app, update, OS and daemon versions; Crashlytics adds the device model and an installation id. Reports never include prompts, conversation, terminal output, commands, file paths, project or session names, tokens or pairing data. Settings → Report a problem also lets you share a report yourself or post it as a GitHub issue. Google's handling of Crashlytics data is covered by Google's privacy policy.
+
+**Problem reports (only when you send one).** Settings → Report a problem, or the button that appears when you shake the phone (Settings → Error reports → Shake to report a problem, on by default; the app only reads the accelerometer to notice the shake, on the phone), shows the whole report before anything leaves it: your description, the app's error log above, the computer's recent rejected requests, and what you choose to attach: a screenshot of the screen you were on, photos and videos, an audio note and, only if you turn it on, the computer's log files, with secrets, tokens, emails and IP addresses removed on the computer and shown to you first. Screenshots, videos and audio can show what was on your screen, conversations included: remove anything private before sending. **Send** uploads it as one file over HTTPS to this website's server, which keeps it for 30 days and then deletes it, offers no way to read it on the web, and is only read by the maintainers; it shows a report ID you can quote in a GitHub issue. Send is hidden when error reports are set to Never.
 
 **Performance data (opt-in, off by default).** With Settings → Error reports → Send performance data on, the app sends Firebase Performance Monitoring (Google) how long it takes to start and to reach your computer, its slow and frozen frames, how often and how long its JavaScript stalls (with the layout class: phone, tablet or wide), and on iOS the timing of its own requests to the push relay and the update server. Firebase adds the device model, OS and app versions, country and an installation id. This data never includes your sessions, prompts, paths, names or your computer's address. Turning the switch off stops it on that phone.
 
@@ -31,8 +33,8 @@ Deleting the app and running `remote-harness uninstall` remove them.
 
 ## Permissions the app asks for
 
-- **Camera**: to scan the pairing code and attach photos to a prompt.
-- **Microphone and speech recognition**: to dictate prompts; the transcription runs on the device.
+- **Camera**: to scan the pairing code, attach photos to a prompt and add photos or videos to a problem report.
+- **Microphone and speech recognition**: to dictate prompts, where the transcription runs on the device, and to record the audio note of a problem report.
 - **Notifications**: for push and the live status, which you can turn off at any time.
 
 ## How your data is protected
@@ -43,6 +45,7 @@ Traffic between the phone and the computer is encrypted end to end with the Nois
 
 - Turn error reports and performance data off at any time in Settings → Error reports; nothing more is sent from that phone.
 - Delete what stays on your devices by forgetting the machine in the app, deleting the app and running `remote-harness uninstall`.
+- To delete a problem report before its 30 days, write to [privacy@remoteharness.app](mailto:privacy@remoteharness.app) with its report ID.
 - To access or delete the error reports and performance data already sent to Firebase, write to [privacy@remoteharness.app](mailto:privacy@remoteharness.app). They carry no name or account, so tell us the approximate date and the device model, and we delete the matching data. Firebase also deletes it on its own after its retention period ([Firebase privacy](https://firebase.google.com/support/privacy)).
 
 ## Children

@@ -154,6 +154,7 @@ describe('demo daemon', () => {
       { type: 'daemon.update.check' },
       { type: 'daemon.update.start', channel: 'main' },
       { type: 'diagnostics.errors' },
+      { type: 'diagnostics.logs' },
       { type: 'machine.permissions' },
       { type: 'machine.openSettingsPane', pane: 'accessibility' },
       { type: 'command.run', sessionId: IDLE.id, command: 'ls' },

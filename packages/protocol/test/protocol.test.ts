@@ -166,6 +166,7 @@ const clientSamples: ClientMessage[] = [
   { type: 'directories.list', id: '1', path: '~', limit: 200 },
   { type: 'directories.list', id: '1', path: '~/work', prefix: 'ap', hidden: true, limit: 20 },
   { type: 'diagnostics.errors', id: '1' },
+  { type: 'diagnostics.logs', id: '1' },
   { type: 'machine.permissions', id: '1' },
   { type: 'machine.openSettingsPane', id: '1', pane: 'fullDiskAccess' },
   { type: 'machine.openSettingsPane', id: '1', pane: 'accessibility' },
@@ -573,6 +574,11 @@ const serverSamples: ServerMessage[] = [
     errors: [{ at: '2026-10-19T12:00:00.000Z', type: 'session.start', code: 'invalid_cwd' }],
   },
   { type: 'diagnostics.result', replyTo: '1', daemonVersion: '0.12.0', errors: [] },
+  {
+    type: 'diagnostics.logs.result',
+    replyTo: '1',
+    files: [{ name: 'daemon.log', text: '{"msg":"daemon started"}\n', truncated: true }],
+  },
   { type: 'mute.updated', muted: { profiles: ['claudin'], sessions: [] } },
   {
     type: 'schedules.result',

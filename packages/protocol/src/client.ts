@@ -233,6 +233,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('daemon.update.start'), id, channel: DaemonUpdateChannelSchema }),
   /** The daemon's recent rejected requests (type and code only), for "Report a problem". */
   z.object({ type: z.literal('diagnostics.errors'), id }),
+  /** The daemon's log files, scrubbed ("Report a problem" → include the computer's logs). */
+  z.object({ type: z.literal('diagnostics.logs'), id }),
   /** Status of the computer-side permissions shown on the Permissions screen. */
   z.object({ type: z.literal('machine.permissions'), id }),
   /** Opens a System Settings pane for a denied computer permission (macOS; a no-op elsewhere). */
