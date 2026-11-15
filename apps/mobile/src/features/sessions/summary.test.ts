@@ -1,6 +1,7 @@
 import type { Session } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
-import { isWorktreePath, listSummary } from './summary'
+import { createI18n } from '@/core/i18n/create'
+import { isWorktreePath, listSummary, statsLine } from './summary'
 
 const session = (id: string, patch: Partial<Session> = {}) =>
   ({ id, state: 'idle', backgroundTasks: 0, subagents: [], ...patch }) as Session
@@ -71,6 +72,18 @@ describe('listSummary', () => {
       agents: 2,
       agentsRunning: 1,
     })
+  })
+})
+
+describe('statsLine', () => {
+  const en = createI18n('en-US').t
+  test('tasks and agents for the second line of the machine line (#555)', () => {
+    expect(statsLine(EMPTY, en)).toBeNull()
+    expect(statsLine({ ...EMPTY, tasks: 3, agents: 2, agentsRunning: 1 }, en)).toBe(
+      '+3 tasks · 2 agents · 1 running',
+    )
+    expect(statsLine({ ...EMPTY, agents: 1 }, en)).toBe('1 agent')
+    expect(statsLine({ ...EMPTY, tasks: 1 }, en)).toBe('+1 task')
   })
 })
 

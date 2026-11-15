@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native'
 import { useDaemonClient } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
+import type { TFunction } from '@/core/i18n/create'
 import { keyboardBehavior } from '@/core/platform/platform'
 import { makeStyles, maxContentWidth, radius, space, useTheme } from '@/core/theme'
 import { DemoBanner } from '@/features/demo/components/DemoBanner'
@@ -31,6 +32,7 @@ import {
 import { OfflineCopyNotice } from './components/OfflineCopyNotice'
 import { PromptHistorySheet } from './components/PromptHistorySheet'
 import { ToolCallCard } from './components/ToolCallCard'
+import { type EmptyConversation, emptyConversation } from './empty-state'
 import { useFollowStore } from './follow-store'
 import { useKeyBarStore } from './key-bar-store'
 import { useKeyboardToolbarStore } from './keyboard-toolbar-store'
@@ -67,6 +69,20 @@ function renderItem({ item }: { item: TimelineItem }) {
       )
     case 'unknown':
       return <UnknownEntry raw={item.raw} />
+  }
+}
+
+/** The text of an empty conversation: its error, loading, or the empty state (#554). */
+function emptyText(state: EmptyConversation, error: unknown, t: TFunction): string {
+  switch (state) {
+    case 'error':
+      return errorMessage(error, t)
+    case 'loading':
+      return t('conversation.loading')
+    case 'firstPrompt':
+      return t('conversation.emptyFirstPrompt')
+    case 'noMessages':
+      return t('conversation.emptyNoMessages')
   }
 }
 
@@ -193,7 +209,11 @@ export function ConversationScreen({
                     ListHeaderComponent={<View style={styles.top} />}
                     ListEmptyComponent={
                       <Text color="textMuted" style={styles.empty}>
-                        {stream.error != null ? errorMessage(stream.error, t) : t('conversation.loading')}
+                        {emptyText(
+                          emptyConversation(stream, composer != null && controllable),
+                          stream.error,
+                          t,
+                        )}
                       </Text>
                     }
                     contentContainerStyle={styles.content}

@@ -1,5 +1,6 @@
 import { readdir, stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
+import { resumeArgs } from '@remote-harness/protocol'
 import { commandsSignature, loadCommands } from '../autocomplete/commands.ts'
 import { readTranscriptMeta } from '../sessions/transcript-meta.ts'
 import { claudeTranscript } from '../transcript/parser.ts'
@@ -46,7 +47,7 @@ export const claudeCode: AgentAdapter = {
   command: 'claude',
   configDirEnv: 'CLAUDE_CONFIG_DIR',
   defaultConfigDir: '~/.claude',
-  resumeArgs: (sessionId) => ['--resume', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('claude', sessionId),
   worktreeArgs: (name) => ['--worktree', name],
   nameArgs: (name) => ['--name', name],
   renameCommand: () => null,
