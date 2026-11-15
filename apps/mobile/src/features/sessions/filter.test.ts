@@ -84,6 +84,15 @@ describe('matchesFilter', () => {
     expect(matchesFilter(ended, { ...NO_FILTER, state: 'ended' })).toBe(true)
   })
 
+  test('running and waiting filters keep only that state (#555)', () => {
+    const at = (state: Session['state']) => ({ ...session, state })
+    expect(matchesFilter(at('running'), { ...NO_FILTER, state: 'running' })).toBe(true)
+    expect(matchesFilter(at('waiting'), { ...NO_FILTER, state: 'running' })).toBe(false)
+    expect(matchesFilter(at('waiting'), { ...NO_FILTER, state: 'waiting' })).toBe(true)
+    expect(matchesFilter(at('idle'), { ...NO_FILTER, state: 'waiting' })).toBe(false)
+    expect(isFiltering({ ...NO_FILTER, state: 'waiting' })).toBe(true)
+  })
+
   test('searches title and folder, ignoring case and accents, every word', () => {
     expect(matchesFilter(session, { ...NO_FILTER, query: 'SESSAO' })).toBe(true)
     expect(matchesFilter(session, { ...NO_FILTER, query: 'remote' })).toBe(true)
