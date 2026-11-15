@@ -520,7 +520,7 @@ const serverSamples: ServerMessage[] = [
   {
     type: 'commands.results',
     replyTo: '1',
-    items: [{ name: 'clear', description: '', source: 'builtin', interactive: false }],
+    items: [{ name: 'clear', description: '', source: 'builtin', interactive: false, prefix: '/' }],
   },
   {
     type: 'projects.results',
@@ -1010,6 +1010,21 @@ describe('server messages', () => {
   test.each(serverSamples)('parses $type', (msg) => {
     const result = parseServerMessage(JSON.stringify(msg))
     expect(result.ok).toBe(true)
+  })
+
+  test('commands without a prefix (older daemons) run with "/"', () => {
+    const result = parseServerMessage({
+      type: 'commands.results',
+      replyTo: '1',
+      items: [
+        { name: 'clear', description: '', source: 'builtin' },
+        { name: 'hatch-pet', description: '', source: 'profile', prefix: '$' },
+      ],
+    })
+    expect(result.ok && result.value.type === 'commands.results' && result.value.items).toEqual([
+      { name: 'clear', description: '', source: 'builtin', interactive: false, prefix: '/' },
+      { name: 'hatch-pet', description: '', source: 'profile', interactive: false, prefix: '$' },
+    ])
   })
 
   test('transcript entries without images (older daemons) get an empty list', () => {

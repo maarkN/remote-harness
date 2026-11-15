@@ -250,7 +250,7 @@ An expanded tool call SHALL show its details in three tabs: **Output** (the diff
 - **THEN** each top-level input key is listed with its value, objects as compact JSON
 
 ### Requirement: Session details
-Tapping the session title in the header, or the folder in the row below it, SHALL open a "Session details" sheet. The title MUST be exposed as a button with a localized accessibility label. The sheet SHALL list the full folder path, the git branch and worktree root when the folder is in git, the profile name, alias and config dir, the state, the permission mode, whether the session is controllable or read-only, the tmux pane when there is one, the session id and the last update. Values MUST wrap instead of being cut and MUST be selectable. The folder, the worktree root and the session id SHALL have a Copy action that puts the full value on the clipboard. The sheet MUST scroll when a drag starts anywhere on its content (labels, values, gaps between rows), and the sheet itself MUST NOT capture the touch. The sheet MUST close with its Close button, by tapping outside and with the Android back button; a tap inside it MUST NOT close it. All texts MUST be translated.
+Tapping the session title in the header, or the folder in the row below it, SHALL open a "Session details" sheet. The title MUST be exposed as a button with a localized accessibility label. The sheet SHALL list the full folder path, the git branch and worktree root when the folder is in git, the profile name, alias and config dir, the state, the permission mode, whether the session is controllable or read-only, the tmux pane when there is one, the session id, the command that resumes the session on the computer and the last update. The resume command SHALL be `cd <folder> && <alias> <resume arguments>`: the session's full folder (single-quoted when it has characters a shell would read, a quote inside it escaped), the alias of the session's profile, and the resume arguments of the session's agent from the shared protocol table (`--resume <id>` for Claude Code, Gemini CLI and Qwen Code, `resume <id>` for Codex, `--session <id>` for Kimi CLI), the same ones the daemon runs to resume it. Values MUST wrap instead of being cut and MUST be selectable. The folder, the worktree root, the session id and the resume command SHALL have a Copy action that puts the full value on the clipboard. The sheet MUST scroll when a drag starts anywhere on its content (labels, values, gaps between rows), and the sheet itself MUST NOT capture the touch. The sheet MUST close with its Close button, by tapping outside and with the Android back button; a tap inside it MUST NOT close it. All texts MUST be translated.
 
 #### Scenario: Long folder
 - **WHEN** the user taps the title of a session whose folder is longer than the screen width
@@ -259,6 +259,14 @@ Tapping the session title in the header, or the folder in the row below it, SHAL
 #### Scenario: Copy the folder
 - **WHEN** the user taps Copy on the folder row
 - **THEN** the full path is on the clipboard and the row briefly shows "Copied"
+
+#### Scenario: Resume on the computer
+- **WHEN** the user opens the details of a Claude Code session of the profile `work` in `/Users/me/repo/.claude/worktrees/fix-login` with id `abc`
+- **THEN** a "Resume on the computer" row reads `cd /Users/me/repo/.claude/worktrees/fix-login && work --resume abc`, and its Copy action puts that command on the clipboard
+
+#### Scenario: Folder with spaces
+- **WHEN** the session's folder is `/Users/me/My Projects/app` and its agent is Codex, profile `cdx`
+- **THEN** the command reads `cd '/Users/me/My Projects/app' && cdx resume <id>`
 
 #### Scenario: Read-only session
 - **WHEN** the session has no tmux pane
@@ -579,3 +587,26 @@ A `Workflow` tool call SHALL be shown as a **workflow card** instead of the tool
 #### Scenario: Older daemon
 - **WHEN** the daemon sends a `Workflow` tool call without a `workflow` field
 - **THEN** the conversation shows the ordinary tool card for it
+
+### Requirement: Empty conversation
+While a conversation has no entries, its list SHALL say why: the subscription's error when it failed; "loading conversation…" only until the first page of the conversation arrived (from the daemon's reply to the subscription or from the history cache on the device); and, once it arrived empty, an empty state instead of the loading text. The empty state of a conversation with a prompt composer SHALL invite the first prompt ("Type your first prompt to start…"); a read-only conversation (no composer, such as a subagent's) SHALL say "No messages yet". The empty state SHALL go away when the first entry arrives. All texts MUST be translated (pt-BR, en-US, es-ES).
+
+#### Scenario: New session without a prompt
+- **WHEN** the user starts a session from the app with no first prompt and the daemon answers the subscription with no entries
+- **THEN** the conversation shows "Type your first prompt to start…" instead of "loading conversation…"
+
+#### Scenario: First prompt sent
+- **WHEN** the empty state is shown and the first entry of the conversation arrives
+- **THEN** the empty state goes away and the entry is shown
+
+#### Scenario: Still loading
+- **WHEN** the conversation is open and the daemon has not answered the subscription yet, with nothing cached
+- **THEN** it shows "loading conversation…"
+
+#### Scenario: Subscription failed
+- **WHEN** the subscription fails
+- **THEN** the conversation shows the error, not the loading text or the empty state
+
+#### Scenario: Empty subagent
+- **WHEN** a subagent's conversation is open and its first page arrived empty
+- **THEN** it shows "No messages yet"
