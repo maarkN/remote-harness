@@ -3,8 +3,9 @@ import { describe, expect, test } from 'vitest'
 import { parseRecents, RECENTS_PER_PROFILE, recentNames, recordUse, sentCommand } from './recents'
 
 const commands: CommandItem[] = [
-  { name: 'compact', description: '', source: 'builtin', interactive: false },
-  { name: 'figma:implement', description: '', source: 'plugin', interactive: false },
+  { name: 'compact', description: '', source: 'builtin', interactive: false, prefix: '/' },
+  { name: 'figma:implement', description: '', source: 'plugin', interactive: false, prefix: '/' },
+  { name: 'hatch-pet', description: '', source: 'profile', interactive: false, prefix: '$' },
 ]
 
 describe('recents', () => {
@@ -36,6 +37,12 @@ describe('recents', () => {
     expect(sentCommand('  /figma:implement', commands)).toBe('figma:implement')
     expect(sentCommand('/unknown', commands)).toBeNull()
     expect(sentCommand('run /compact', commands)).toBeNull()
+  })
+
+  test('sentCommand matches each command by its own prefix', () => {
+    expect(sentCommand('$hatch-pet make a cat', commands)).toBe('hatch-pet')
+    expect(sentCommand('/hatch-pet', commands)).toBeNull()
+    expect(sentCommand('$compact', commands)).toBeNull()
   })
 
   test('parseRecents drops malformed data', () => {
