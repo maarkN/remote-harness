@@ -371,6 +371,30 @@ export const ptBR = {
       name: 'Nome exibido no app:',
       nameRequired: 'Dê um nome para reconhecer a conta no app.',
     },
+    copyMain: {
+      question: (main: string, dir: string) => `Trazer a configuração de ${main} para ${dir}?`,
+      note: (main: string) =>
+        `  Espaço marca e desmarca, Enter confirma. Copiado uma vez de ${main}, sem o login, as credenciais nem o histórico; nada que a pasta já tenha é substituído.`,
+      items: {
+        settings: 'Configurações (settings.json)',
+        memory: 'Memória (CLAUDE.md)',
+        skills: 'Skills',
+        commands: 'Comandos',
+        agents: 'Agentes',
+        plugins: 'Plugins (a lista instalada)',
+        mcp: 'Servidores MCP',
+      },
+      link: (main: string) =>
+        `Linkar skills, comandos e agentes a ${main} em vez de copiar (ficam em sincronia)`,
+      declined: 'Nada copiado: a pasta começa vazia.',
+      status: {
+        copied: (item: string) => `${item}: copiado`,
+        linked: (item: string) => `${item}: linkado`,
+        merged: (item: string) => `${item}: somado ao que a pasta já tinha`,
+        kept: (item: string) => `${item}: já estava lá, mantido`,
+        missing: (item: string) => `${item}: não existe no perfil principal`,
+      },
+    },
     newAccount: {
       folder: 'Pasta da nova conta:',
       alreadyLoggedIn: (dir: string, login: string) => `${dir} já está logada (${login})`,

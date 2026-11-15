@@ -78,6 +78,12 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
 
 Edits to the file take effect when the daemon restarts (`remote-harness service install` again, or restart from the tray).
 
+## New profiles from ~/.claude
+
+When setup creates a Claude Code profile (**Create a new account**, or an OpenRouter profile) and `~/.claude` exists, it asks what to bring from it, every item checked: settings (`settings.json`, without the daemon's hooks, which the new profile gets on its own), memory (`CLAUDE.md`), skills, commands, agents, plugins (the installed list; they keep using the main profile's plugin cache) and MCP servers (the `mcpServers` of `~/.claude.json`). The copy happens once, before the login, and never brings the login, credentials, history or per-project state; nothing the folder already has is replaced (a merged file keeps a `.bak-remote-harness` backup), and running it again changes nothing. Uncheck everything to start empty.
+
+The last item, unchecked by default, **links** skills, commands and agents to `~/.claude` instead of copying them: they stay in sync, so a skill added (or deleted) in either profile shows (or goes) in both. Settings and MCP servers are always copied, since they sit next to each profile's own login and hooks.
+
 ## Profiles and OpenRouter
 
 A profile can route Claude Code through OpenRouter instead of the Anthropic account. The easiest way is `remote-harness setup` → "Add an OpenRouter profile": it asks the name, the alias, the folder (`~/.claude-openrouter`), an optional default model and the key (hidden), checks the key with OpenRouter and shows the credits left when the key can read them. Running the setup again lists these profiles and lets you keep them, replace the key or remove the profile (its launcher, hooks and key; the folder stays).
