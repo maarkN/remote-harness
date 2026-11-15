@@ -61,7 +61,7 @@ A render error SHALL show a themed fallback screen with a "Try again" action ins
 - **THEN** the fallback appears and the log gains an entry with source `render`
 
 ### Requirement: Shake to report
-In release builds, while the app is in the foreground and the "Shake to report a problem" setting is on (the default), shaking the phone (three accelerations above 2.3 g within one second) SHALL show a floating "Report a problem" button for 6 seconds, once per 3 seconds at most. Tapping it SHALL hide it, capture the current screen and open "Report a problem" with that screenshot attached. Development builds MUST NOT listen (the shake opens React Native's dev menu there), and neither may a device whose accelerometer is unavailable. The setting SHALL be in Settings next to "Report a problem", which stays the way in without shaking. All texts MUST be translated.
+In release builds, while the app is in the foreground and the "Shake to report a problem" setting is on (the default), shaking the phone (three accelerations above 2.3 g within one second) SHALL show a floating "Report a problem" button for 6 seconds, once per 3 seconds at most. Tapping it SHALL hide it, capture the current screen and open "Report a problem" with that screenshot attached. Development builds MUST NOT listen (the shake opens React Native's dev menu there), and neither may a device whose accelerometer is unavailable. The shake SHALL be read from the accelerometer only, which needs no permission; the Android app MUST NOT declare `android.permission.ACTIVITY_RECOGNITION`, which the sensors library declares for its pedometer. The setting SHALL be in Settings next to "Report a problem", which stays the way in without shaking. All texts MUST be translated.
 
 #### Scenario: Shake
 - **WHEN** a release build is in the foreground on a conversation and the user shakes the phone
@@ -74,6 +74,10 @@ In release builds, while the app is in the foreground and the "Shake to report a
 #### Scenario: Walking
 - **WHEN** the accelerometer reports one peak above 2.3 g
 - **THEN** no button appears
+
+#### Scenario: No activity recognition permission
+- **WHEN** the Android release bundle is built
+- **THEN** its merged manifest does not ask for `android.permission.ACTIVITY_RECOGNITION`, and the app asks for no permission to detect the shake
 
 ### Requirement: Computer logs
 The daemon SHALL answer `diagnostics.logs` with the tail of its log files (the last 256 KB of `daemon.log` and the last 32 KB of `daemon.err.log` and `update.log`, each under a header with its name, cut at a line start) after scrubbing them: in JSON log lines the values of keys naming secrets, tokens, keys, passwords, codes, authorization, cookies, prompts, text, input, output, commands or content are replaced by `[redacted]`; in every line emails, bearer and API tokens, IP addresses and runs of 32 or more token characters are replaced by placeholders, and the home folder by `~`. Missing files are skipped. The logs MUST NOT leave the computer except as this reply to the connection that asked, and MUST NOT carry session content or `command.run` input or output (which the daemon never logs).
