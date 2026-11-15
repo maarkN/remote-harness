@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { QWEN_COMMANDS } from '../autocomplete/qwen-commands.ts'
+import { resumeArgs } from '@remote-harness/protocol'
+import { loadQwenCommands, qwenCommandsSignature } from '../autocomplete/qwen-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import { extractQwenMeta, qwenSessionId, qwenTranscript } from '../transcript/qwen-format.ts'
 import type { AgentAdapter, TranscriptLocation } from './types.ts'
@@ -55,7 +56,7 @@ export const qwen: AgentAdapter = {
   command: 'qwen',
   configDirEnv: 'QWEN_HOME',
   defaultConfigDir: '~/.qwen',
-  resumeArgs: (sessionId) => ['--resume', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('qwen', sessionId),
   // `--worktree` opens an exit dialog and `/rename` was not tried: neither is offered yet.
   worktreeArgs: () => null,
   nameArgs: () => null,
@@ -65,8 +66,8 @@ export const qwen: AgentAdapter = {
   transcript: qwenTranscript,
   findTranscripts: findQwenTranscripts,
   readSummary: readQwenSummary,
-  commands: async () => QWEN_COMMANDS,
-  commandsSignature: async () => 'builtin',
+  commands: (configDir, cwd) => loadQwenCommands(configDir, cwd),
+  commandsSignature: (configDir, cwd) => qwenCommandsSignature(configDir, cwd),
   // Ink takes an Enter right after a paste as part of it; Ctrl+J adds a line.
   input: { minEnterDelayMs: 250, newline: { keys: ['C-j'] }, beforeSubmit: [] },
   hooks: { style: 'qwen-settings', file: (configDir) => join(configDir, 'settings.json') },

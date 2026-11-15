@@ -149,14 +149,14 @@ function CommandRowView({
     <Pressable
       onPress={() => onPick(item)}
       accessibilityRole="button"
-      accessibilityLabel={`/${item.name}${description ? `, ${description}` : ''}`}
+      accessibilityLabel={`${item.prefix}${item.name}${description ? `, ${description}` : ''}`}
       accessibilityHint={item.interactive ? t('autocomplete.interactive') : undefined}
       style={({ pressed }) => [styles.row, styles.commandRow, (pressed || highlighted) && styles.pressed]}
     >
       <Terminal size={14} color={colors.accentText} />
       <View style={styles.flex}>
         <Text size="sm" weight="medium" numberOfLines={1}>
-          /
+          {item.prefix}
           {highlightRuns(item.name, row.indices).map((run, i) =>
             run.hit ? (
               // biome-ignore lint/suspicious/noArrayIndexKey: runs are positional and never reorder

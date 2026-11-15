@@ -2,7 +2,8 @@ import { isLiveSession, type Session, type SessionState } from '@remote-harness/
 
 const STATE_ORDER: Record<SessionState, number> = { waiting: 0, running: 1, idle: 2, ended: 3 }
 
-export type StateFilter = 'all' | 'active' | 'ended'
+/** `running` and `waiting` come from the machine line's counts; the chips offer `active` and `ended`. */
+export type StateFilter = 'all' | 'active' | 'ended' | 'running' | 'waiting'
 
 export type SessionFilter = {
   /** Only this profile; null for every profile. */
@@ -32,6 +33,8 @@ export function matchesFilter(session: Session, filter: SessionFilter): boolean 
   if (filter.profileId && session.profileId !== filter.profileId) return false
   if (filter.state === 'active' && session.state === 'ended') return false
   if (filter.state === 'ended' && session.state !== 'ended') return false
+  if ((filter.state === 'running' || filter.state === 'waiting') && session.state !== filter.state)
+    return false
   const words = normalizeSearch(filter.query).split(/\s+/).filter(Boolean)
   if (words.length === 0) return true
   const haystack = normalizeSearch(`${session.title} ${session.cwd}`)

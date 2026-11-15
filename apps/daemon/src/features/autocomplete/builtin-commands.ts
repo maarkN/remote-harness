@@ -5,6 +5,7 @@ const item = (name: string, description: string, interactive = false): CommandIt
   description,
   source: 'builtin',
   interactive,
+  prefix: '/',
 })
 
 /**

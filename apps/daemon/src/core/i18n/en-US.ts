@@ -365,6 +365,30 @@ export const enUS = {
       name: 'Name shown in the app:',
       nameRequired: 'Give it a name to recognize the account in the app.',
     },
+    copyMain: {
+      question: (main: string, dir: string) => `Bring the configuration of ${main} into ${dir}?`,
+      note: (main: string) =>
+        `  Space toggles, Enter confirms. Copied once from ${main}, without the login, credentials or history; nothing the folder already has is replaced.`,
+      items: {
+        settings: 'Settings (settings.json)',
+        memory: 'Memory (CLAUDE.md)',
+        skills: 'Skills',
+        commands: 'Commands',
+        agents: 'Agents',
+        plugins: 'Plugins (the installed list)',
+        mcp: 'MCP servers',
+      },
+      link: (main: string) =>
+        `Link skills, commands and agents to ${main} instead of copying them (they stay in sync)`,
+      declined: 'Nothing copied: the folder starts empty.',
+      status: {
+        copied: (item: string) => `${item}: copied`,
+        linked: (item: string) => `${item}: linked`,
+        merged: (item: string) => `${item}: added to what the folder had`,
+        kept: (item: string) => `${item}: already there, kept`,
+        missing: (item: string) => `${item}: not in the main profile`,
+      },
+    },
     newAccount: {
       folder: 'Folder for the new account:',
       alreadyLoggedIn: (dir: string, login: string) => `${dir} is already logged in (${login})`,

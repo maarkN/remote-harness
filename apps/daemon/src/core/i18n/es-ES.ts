@@ -374,6 +374,30 @@ export const esES = {
       name: 'Nombre que se muestra en la app:',
       nameRequired: 'Ponle un nombre para reconocer la cuenta en la app.',
     },
+    copyMain: {
+      question: (main: string, dir: string) => `¿Traer la configuración de ${main} a ${dir}?`,
+      note: (main: string) =>
+        `  Espacio marca y desmarca, Enter confirma. Se copia una vez desde ${main}, sin el inicio de sesión, las credenciales ni el historial; no se reemplaza nada que la carpeta ya tenga.`,
+      items: {
+        settings: 'Ajustes (settings.json)',
+        memory: 'Memoria (CLAUDE.md)',
+        skills: 'Skills',
+        commands: 'Comandos',
+        agents: 'Agentes',
+        plugins: 'Plugins (la lista instalada)',
+        mcp: 'Servidores MCP',
+      },
+      link: (main: string) =>
+        `Enlazar skills, comandos y agentes a ${main} en lugar de copiarlos (se mantienen sincronizados)`,
+      declined: 'No se copió nada: la carpeta empieza vacía.',
+      status: {
+        copied: (item: string) => `${item}: copiado`,
+        linked: (item: string) => `${item}: enlazado`,
+        merged: (item: string) => `${item}: añadido a lo que la carpeta ya tenía`,
+        kept: (item: string) => `${item}: ya estaba, se mantiene`,
+        missing: (item: string) => `${item}: no está en el perfil principal`,
+      },
+    },
     newAccount: {
       folder: 'Carpeta de la nueva cuenta:',
       alreadyLoggedIn: (dir: string, login: string) => `${dir} ya tiene la sesión iniciada (${login})`,

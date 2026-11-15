@@ -1,7 +1,7 @@
 import type { Session } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
-import { sessionDetails } from './details'
+import { resumeCommand, sessionDetails } from './details'
 
 const en = createI18n('en-US').t
 const pt = createI18n('pt-BR').t
@@ -43,6 +43,7 @@ describe('sessionDetails', () => {
       'access',
       'pane',
       'id',
+      'resume',
       'updated',
     ])
     expect(rows[0]).toEqual({
@@ -51,7 +52,7 @@ describe('sessionDetails', () => {
       value: '/Users/me/workspaces/a/very/long/path/to/the/project',
       copyLabel: 'Copy folder',
     })
-    expect(rows.filter((r) => r.copyLabel).map((r) => r.key)).toEqual(['folder', 'id'])
+    expect(rows.filter((r) => r.copyLabel).map((r) => r.key)).toEqual(['folder', 'id', 'resume'])
     const value = (key: string) => rows.find((r) => r.key === key)?.value
     expect(value('profile')).toBe('Work')
     expect(value('alias')).toBe('claudin')
@@ -61,6 +62,32 @@ describe('sessionDetails', () => {
     expect(value('access')).toBe('controllable (tmux)')
     expect(value('pane')).toBe('%12')
     expect(value('updated')).toMatch(/^5 min · /)
+  })
+
+  test("resume on the computer: the alias with the agent's resume arguments, from the folder", () => {
+    const worktree = '/Users/me/repo/.claude/worktrees/fix-login'
+    const rows = sessionDetails(session({ cwd: worktree, profileId: 'work', id: 'abc' }), profile, en, opts)
+    expect(rows.find((r) => r.key === 'resume')).toEqual({
+      key: 'resume',
+      label: 'Resume on the computer',
+      value: `cd ${worktree} && work --resume abc`,
+      copyLabel: 'Copy the command to resume on the computer',
+    })
+    expect(sessionDetails(session(), undefined, pt, opts).find((r) => r.key === 'resume')?.label).toBe(
+      'Retomar no computador',
+    )
+  })
+
+  test("resumeCommand quotes folders a shell would read and uses each agent's arguments", () => {
+    expect(
+      resumeCommand({ cwd: '/Users/me/My Projects/app', profileId: 'cdx', agent: 'codex', id: 'r1' }),
+    ).toBe("cd '/Users/me/My Projects/app' && cdx resume r1")
+    expect(resumeCommand({ cwd: "/tmp/it's", profileId: 'k', agent: 'kimi', id: 's' })).toBe(
+      "cd '/tmp/it'\\''s' && k --session s",
+    )
+    expect(resumeCommand({ cwd: '/a/b_c-d.e@1+2', profileId: 'q', agent: undefined, id: 'x' })).toBe(
+      'cd /a/b_c-d.e@1+2 && q --resume x',
+    )
   })
 
   test('adds branch and worktree (copyable) inside git', () => {
