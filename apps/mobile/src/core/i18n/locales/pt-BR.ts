@@ -177,6 +177,8 @@ const ptBR = {
     compactTrigger: { manual: 'manualmente', auto: 'automaticamente' },
     compactSummary: 'Resumo (toque para ver)',
     interrupted: 'Interrompido',
+    emptyFirstPrompt: 'Digite seu primeiro prompt para começar…',
+    emptyNoMessages: 'Nenhuma mensagem ainda',
     loading: 'carregando conversa…',
     newMessages: '↓ novas mensagens',
     thinking: '✻ pensando…',
