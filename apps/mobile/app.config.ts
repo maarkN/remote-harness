@@ -138,12 +138,18 @@ const ANDROID_PERMISSIONS = [
   'android.permission.INTERNET',
   'android.permission.VIBRATE',
 ]
-/** Added by the template or by libraries but not needed (no audio, files, overlays or scheduled alarms). */
-const ANDROID_BLOCKED_PERMISSIONS = [
+/**
+ * Added by the template or by libraries but not needed (no files, overlays or scheduled alarms).
+ * `expo-sensors` declares ACTIVITY_RECOGNITION for its pedometer; Shake to report reads only the
+ * accelerometer, which needs no permission, and Google Play treats that one as a Health Connect
+ * permission that needs a health-use declaration.
+ */
+export const ANDROID_BLOCKED_PERMISSIONS = [
   'android.permission.READ_EXTERNAL_STORAGE',
   'android.permission.WRITE_EXTERNAL_STORAGE',
   'android.permission.SYSTEM_ALERT_WINDOW',
   'android.permission.RECEIVE_BOOT_COMPLETED',
+  'android.permission.ACTIVITY_RECOGNITION',
 ]
 
 /** RNFirebase refuses SPM + static frameworks; resolve the Firebase SDK through CocoaPods instead. */
@@ -876,7 +882,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.2.0'
+const APP_VERSION = '1.2.1'
 
 /**
  * Android `versionCode` from the version: MAJOR × 1 000 000 + MINOR × 1 000 + PATCH, so 1.1.1 is
