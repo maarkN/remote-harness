@@ -882,7 +882,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return firebase.ios || firebase.android ? withFirebase(expo) : expo
 }
 
-const APP_VERSION = '1.2.0'
+const APP_VERSION = '1.2.1'
 
 /**
  * Android `versionCode` from the version: MAJOR × 1 000 000 + MINOR × 1 000 + PATCH, so 1.1.1 is
