@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { CODEX_COMMANDS } from '../autocomplete/codex-commands.ts'
+import { resumeArgs } from '@remote-harness/protocol'
+import { codexCommandsSignature, loadCodexCommands } from '../autocomplete/codex-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import {
   codexTranscript,
@@ -91,7 +92,7 @@ export const codex: AgentAdapter = {
   command: 'codex',
   configDirEnv: 'CODEX_HOME',
   defaultConfigDir: '~/.codex',
-  resumeArgs: (sessionId) => ['resume', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('codex', sessionId),
   // Codex creates and names its own worktree (under CODEX_HOME/worktrees) from HEAD.
   worktreeArgs: () => ['--worktree'],
   nameArgs: () => null,
@@ -102,8 +103,8 @@ export const codex: AgentAdapter = {
   transcript: codexTranscript,
   findTranscripts: findCodexTranscripts,
   readSummary: readCodexSummary,
-  commands: async () => CODEX_COMMANDS,
-  commandsSignature: async () => 'builtin',
+  commands: (configDir, cwd) => loadCodexCommands(configDir, cwd),
+  commandsSignature: (configDir, cwd) => codexCommandsSignature(configDir, cwd),
   // Typed bursts followed by Enter within 120 ms count as a paste in Codex: the Enter would be a newline.
   input: { minEnterDelayMs: 250, newline: { keys: ['C-j'] }, beforeSubmit: [] },
   hooks: { style: 'codex-hooks', file: (configDir) => join(configDir, 'hooks.json') },

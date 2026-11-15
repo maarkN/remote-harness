@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { GEMINI_COMMANDS } from '../autocomplete/gemini-commands.ts'
+import { resumeArgs } from '@remote-harness/protocol'
+import { geminiCommandsSignature, loadGeminiCommands } from '../autocomplete/gemini-commands.ts'
 import { oneLine, readSlice } from '../sessions/transcript-meta.ts'
 import { extractGeminiMeta, geminiTranscript, isGeminiSessionFile } from '../transcript/gemini-format.ts'
 import type { AgentAdapter, ApprovalDialog, TranscriptLocation } from './types.ts'
@@ -111,7 +112,7 @@ export const gemini: AgentAdapter = {
   defaultConfigDir: '~/.gemini',
   configDirEnvValue: (configDir) => dirname(configDir),
   acceptsConfigDir: (configDir) => basename(configDir.replace(/\/+$/, '')) === '.gemini',
-  resumeArgs: (sessionId) => ['--resume', sessionId],
+  resumeArgs: (sessionId) => resumeArgs('gemini', sessionId),
   // Worktrees need an experimental setting; names have no command.
   worktreeArgs: () => null,
   nameArgs: () => null,
@@ -121,8 +122,8 @@ export const gemini: AgentAdapter = {
   transcript: geminiTranscript,
   findTranscripts: findGeminiTranscripts,
   readSummary: readGeminiSummary,
-  commands: async () => GEMINI_COMMANDS,
-  commandsSignature: async () => 'builtin',
+  commands: (configDir, cwd) => loadGeminiCommands(configDir, cwd),
+  commandsSignature: (configDir, cwd) => geminiCommandsSignature(configDir, cwd),
   // An Enter within 40 ms of a paste (30 ms of a typed key) becomes a line break; Ctrl+J adds one.
   input: { minEnterDelayMs: 250, newline: { keys: ['C-j'] }, beforeSubmit: [] },
   hooks: { style: 'gemini-hooks', file: (configDir) => join(configDir, 'settings.json') },

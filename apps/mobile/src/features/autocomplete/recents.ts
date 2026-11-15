@@ -19,11 +19,11 @@ export function recentNames(list: readonly CommandRecent[] | undefined): string[
   return [...(list ?? [])].sort((a, b) => b.at - a.at).map((r) => r.name)
 }
 
-/** The listed command a prompt runs (`/name …` at the start), if any. */
+/** The listed command a prompt runs (`/name …`, or `$name …` for a Codex skill, at the start), if any. */
 export function sentCommand(text: string, commands: readonly CommandItem[]): string | null {
-  const match = /^\/([\w:.-]+)/.exec(text.trim())
-  const name = match?.[1]
-  return name && commands.some((c) => c.name === name) ? name : null
+  const match = /^([/$])([\w:.-]+)/.exec(text.trim())
+  const [, prefix, name] = match ?? []
+  return name && commands.some((c) => c.prefix === prefix && c.name === name) ? name : null
 }
 
 /** Reads the stored recents, dropping anything malformed. */
