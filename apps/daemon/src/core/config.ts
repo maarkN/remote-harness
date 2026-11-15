@@ -52,7 +52,7 @@ export const ConfigSchema = z
     inputStrategy: z.enum(['paste', 'type']).default('paste'),
     pasteEnterDelayMs: z.number().int().nonnegative().default(80),
     recentDays: z.number().int().positive().default(7),
-    tmuxSession: z.string().min(1).default('claude-remote'),
+    tmuxSession: z.string().min(1).default('remote-harness'),
     /**
      * The tmux server (`tmux -L <name>`) the launchers and the daemon use, apart from the user's own
      * tmux and its config; `null` = the user's default server, as before the dedicated one existed.
@@ -147,7 +147,9 @@ export function configuredLocaleSync(path = paths.config(), env = process.env): 
 }
 
 /** Same suffix as the backups of the user's files. */
-const CONFIG_BACKUP_SUFFIX = '.bak-claude-remote'
+const CONFIG_BACKUP_SUFFIX = '.bak-remote-harness'
+/** Default tmux session of installs made before the rename; renamed once by the installer (#85). */
+export const LEGACY_TMUX_SESSION = 'claude-remote'
 
 export class ConfigError extends Error {
   override name = 'ConfigError'

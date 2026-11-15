@@ -7,8 +7,9 @@ import { Button, Card, Text } from '@/ui'
 import { firebaseInBuild } from '../crashlytics'
 import { useErrorReportsStore } from '../store'
 import { PreferenceChoice } from './PreferenceChoice'
+import { ShakeSwitch } from './ShakeSwitch'
 
-/** Settings → Error reports: the consent choice and "Report a problem". */
+/** Settings → Error reports: the consent choice, "Shake to report" and "Report a problem". */
 export function ErrorReportsCard() {
   const { t } = useTranslation()
   const count = useErrorReportsStore((s) => s.entries.length)
@@ -33,6 +34,7 @@ export function ErrorReportsCard() {
         <Text size="xs" color="textDim">
           {t('errorReports.recorded', { count })}
         </Text>
+        <ShakeSwitch />
         <Button label={t('settings.reportProblem')} onPress={() => router.push('/report')} />
       </View>
     </Card>

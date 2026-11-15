@@ -1,6 +1,7 @@
 import type { ServerMessageOf, ServerMessageType } from '@remote-harness/protocol'
 import { useEffect, useRef } from 'react'
 import { useConnectionStore } from './connection-store'
+import { computerQueryKey } from './query-key'
 
 export function useDaemonClient() {
   return useConnectionStore((s) => s.client)
@@ -22,4 +23,10 @@ export function useDaemonEvent<T extends ServerMessageType>(
 
 export function useIsConnected() {
   return useConnectionStore((s) => s.status === 'open')
+}
+
+/** `key` scoped to the active computer (see `computerQueryKey`). */
+export function useComputerQueryKey(key: readonly unknown[]): unknown[] {
+  const activeId = useConnectionStore((s) => s.activeId)
+  return computerQueryKey(activeId, key)
 }

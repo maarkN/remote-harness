@@ -22,6 +22,8 @@ const clientSamples: ClientMessage[] = [
   { type: 'pairing.create', id: '1' },
   { type: 'permissions.list', id: '1' },
   { type: 'changes.list', id: '1', sessionId: 's' },
+  { type: 'transcript.search', id: '1', query: 'connection pool', limit: 20 },
+  { type: 'transcript.search', id: '1', query: 'pool', sessionId: 's', limit: 1, cursor: 's:3.0' },
   { type: 'changes.diff', id: '1', sessionId: 's', path: 'src/a.ts' },
   { type: 'changes.commit', id: '1', sessionId: 's', paths: ['src/a.ts'], message: 'fix: a' },
   {
@@ -164,6 +166,7 @@ const clientSamples: ClientMessage[] = [
   { type: 'directories.list', id: '1', path: '~', limit: 200 },
   { type: 'directories.list', id: '1', path: '~/work', prefix: 'ap', hidden: true, limit: 20 },
   { type: 'diagnostics.errors', id: '1' },
+  { type: 'diagnostics.logs', id: '1' },
   { type: 'machine.permissions', id: '1' },
   { type: 'machine.openSettingsPane', id: '1', pane: 'fullDiskAccess' },
   { type: 'machine.openSettingsPane', id: '1', pane: 'accessibility' },
@@ -275,6 +278,29 @@ const serverSamples: ServerMessage[] = [
     ],
   },
   { type: 'transcript.page', replyTo: '1', sessionId: 's', entries: [], hasMore: false, lineCount: 0 },
+  {
+    type: 'transcript.searchResult',
+    replyTo: '1',
+    hits: [
+      {
+        sessionId: 's',
+        key: 'u1:0',
+        cursor: 3,
+        index: 0,
+        kind: 'user',
+        timestamp: null,
+        snippet: 'check the connection pool',
+        cutStart: true,
+        cutEnd: false,
+        ranges: [
+          { start: 10, end: 20 },
+          { start: 21, end: 25 },
+        ],
+      },
+    ],
+    nextCursor: 's:3.0',
+    scanned: 1,
+  },
   { type: 'pane.frame', sessionId: 's', text: '>', cols: 80, rows: 24 },
   { type: 'pane.diff', sessionId: 's', cols: 80, rows: 24, lineCount: 2, lines: [[1, '$ ls']] },
   { type: 'session.changed', sessionId: 's', set: { state: 'running' }, unset: ['statusLine'] },
@@ -495,7 +521,7 @@ const serverSamples: ServerMessage[] = [
   {
     type: 'commands.results',
     replyTo: '1',
-    items: [{ name: 'clear', description: '', source: 'builtin', interactive: false }],
+    items: [{ name: 'clear', description: '', source: 'builtin', interactive: false, prefix: '/' }],
   },
   {
     type: 'projects.results',
@@ -548,6 +574,11 @@ const serverSamples: ServerMessage[] = [
     errors: [{ at: '2026-10-19T12:00:00.000Z', type: 'session.start', code: 'invalid_cwd' }],
   },
   { type: 'diagnostics.result', replyTo: '1', daemonVersion: '0.12.0', errors: [] },
+  {
+    type: 'diagnostics.logs.result',
+    replyTo: '1',
+    files: [{ name: 'daemon.log', text: '{"msg":"daemon started"}\n', truncated: true }],
+  },
   { type: 'mute.updated', muted: { profiles: ['claudin'], sessions: [] } },
   {
     type: 'schedules.result',
@@ -728,6 +759,16 @@ describe('client messages', () => {
     expect(
       parseClientMessage({ type: 'session.input', id: '1', sessionId: 's', text: 'hi', mode: 'later' }).ok,
     ).toBe(false)
+  })
+
+  test('transcript.search defaults its page size and bounds the query', () => {
+    const parsed = parseClientMessage({ type: 'transcript.search', id: '1', query: 'pool' })
+    expect(parsed.ok && parsed.value.type === 'transcript.search' ? parsed.value.limit : null).toBe(20)
+    expect(parseClientMessage({ type: 'transcript.search', id: '1', query: '' }).ok).toBe(false)
+    expect(parseClientMessage({ type: 'transcript.search', id: '1', query: 'a'.repeat(201) }).ok).toBe(false)
+    expect(parseClientMessage({ type: 'transcript.search', id: '1', query: 'pool', limit: 51 }).ok).toBe(
+      false,
+    )
   })
 
   test('worktree actions are a closed set', () => {
@@ -975,6 +1016,21 @@ describe('server messages', () => {
   test.each(serverSamples)('parses $type', (msg) => {
     const result = parseServerMessage(JSON.stringify(msg))
     expect(result.ok).toBe(true)
+  })
+
+  test('commands without a prefix (older daemons) run with "/"', () => {
+    const result = parseServerMessage({
+      type: 'commands.results',
+      replyTo: '1',
+      items: [
+        { name: 'clear', description: '', source: 'builtin' },
+        { name: 'hatch-pet', description: '', source: 'profile', prefix: '$' },
+      ],
+    })
+    expect(result.ok && result.value.type === 'commands.results' && result.value.items).toEqual([
+      { name: 'clear', description: '', source: 'builtin', interactive: false, prefix: '/' },
+      { name: 'hatch-pet', description: '', source: 'profile', interactive: false, prefix: '$' },
+    ])
   })
 
   test('transcript entries without images (older daemons) get an empty list', () => {

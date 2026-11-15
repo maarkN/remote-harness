@@ -283,6 +283,12 @@ export const enUS = {
     hookSecretRotated: (path: string) =>
       `hooks secret replaced (older versions put it on curl's command line); curl now reads it from ${path} — a running daemon and the open sessions use it once restarted`,
     tmuxConf: (path: string) => `tmux server config ${path}`,
+    tmuxSessionRenamed: (from: string, to: string) =>
+      `tmux session ${from} renamed to ${to} (its windows are untouched)`,
+    secretsMigrated: (count: number) =>
+      `${count} ${count === 1 ? 'secret' : 'secrets'} copied to the "remote-harness" entries of the Keychain / Secret Service (the "claude-remote" entries stay)`,
+    serviceRelabelled: (label: string) =>
+      `the background service now runs as ${label}: macOS may ask again for folder access and notifications`,
     legacyTmuxSessions: (session: string) =>
       `sessions started before this version are still on your default tmux server and are no longer managed: finish them with \`tmux attach -t ${session}\`; new sessions open on the Remote Harness server (\`remote-harness tmux\`)`,
   },
@@ -358,6 +364,30 @@ export const enUS = {
         `\`${alias}\` already exists at ${path}. The launcher will take precedence in PATH. Use it anyway?`,
       name: 'Name shown in the app:',
       nameRequired: 'Give it a name to recognize the account in the app.',
+    },
+    copyMain: {
+      question: (main: string, dir: string) => `Bring the configuration of ${main} into ${dir}?`,
+      note: (main: string) =>
+        `  Space toggles, Enter confirms. Copied once from ${main}, without the login, credentials or history; nothing the folder already has is replaced.`,
+      items: {
+        settings: 'Settings (settings.json)',
+        memory: 'Memory (CLAUDE.md)',
+        skills: 'Skills',
+        commands: 'Commands',
+        agents: 'Agents',
+        plugins: 'Plugins (the installed list)',
+        mcp: 'MCP servers',
+      },
+      link: (main: string) =>
+        `Link skills, commands and agents to ${main} instead of copying them (they stay in sync)`,
+      declined: 'Nothing copied: the folder starts empty.',
+      status: {
+        copied: (item: string) => `${item}: copied`,
+        linked: (item: string) => `${item}: linked`,
+        merged: (item: string) => `${item}: added to what the folder had`,
+        kept: (item: string) => `${item}: already there, kept`,
+        missing: (item: string) => `${item}: not in the main profile`,
+      },
     },
     newAccount: {
       folder: 'Folder for the new account:',

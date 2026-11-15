@@ -10,7 +10,7 @@ A profile with `agent: "qwen"` SHALL run Qwen Code: its `configDir` is the Qwen 
 
 #### Scenario: Launcher
 - **WHEN** `remote-harness install` runs with a Qwen profile `qw-work` whose `configDir` is `~/.qwen-work`
-- **THEN** `~/.claude-remote/bin/qw-work` exports `QWEN_HOME=~/.qwen-work` and opens `qwen` in a new tmux window
+- **THEN** `~/.remote-harness/bin/qw-work` exports `QWEN_HOME=~/.qwen-work` and opens `qwen` in a new tmux window
 
 #### Scenario: Resume
 - **WHEN** the app resumes Qwen session `8b0e…`
@@ -53,11 +53,15 @@ A Qwen `PermissionRequest` hook SHALL be held open and offered on the phone with
 - **THEN** the hook answers `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}`
 
 ### Requirement: Qwen input and commands
-Prompts SHALL be pasted into a Qwen pane as one bracketed paste and submitted with Enter at least 250 ms later; with the `type` strategy, line breaks SHALL be sent as `C-j`. Built-in Qwen slash commands SHALL be offered for Qwen sessions, with menus marked interactive and without commands that change the approval mode.
+Prompts SHALL be pasted into a Qwen pane as one bracketed paste and submitted with Enter at least 250 ms later; with the `type` strategy, line breaks SHALL be sent as `C-j`. Built-in Qwen slash commands SHALL be offered for Qwen sessions, with menus marked interactive and without commands that change the approval mode. The custom commands and skills SHALL be offered too, as `/<name>`: commands are `commands/**/*.md` (or the older `*.toml`) named by their path with `:`, in the profile's config folder (`source: "profile"`) and the project's `.qwen/` (`source: "project"`); skills are `skills/<name>/SKILL.md` one level deep, in the profile's config folder and `~/.agents/skills/` (`source: "profile"`) and in the project's `.qwen/skills/` and `.agents/skills/` (`source: "project"`).
 
 #### Scenario: Submit after paste
 - **WHEN** the app sends "continue" to a Qwen session with `pasteEnterDelayMs` 80
 - **THEN** the daemon pastes the text and presses Enter 250 ms later
+
+#### Scenario: Personal command and skill
+- **WHEN** the profile's config folder has `commands/test.md` and `skills/pdf/SKILL.md`
+- **THEN** the session's list contains `/test` and `/pdf`, both with `source: "profile"`
 
 ### Requirement: Qwen setup detection
 `remote-harness setup` SHALL offer `~/.qwen` as an account when it holds `settings.json`, `installation_id`, `oauth_creds.json` or `projects`, suggesting a Qwen profile (`agent: qwen`, alias `qw`, name `Qwen Code`, the Qwen color).

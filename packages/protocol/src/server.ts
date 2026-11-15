@@ -34,6 +34,7 @@ import {
   SessionStateSchema,
   SubagentInfoSchema,
   TranscriptEntrySchema,
+  TranscriptSearchHitSchema,
   WireProfileSchema,
   WorktreeCopySchema,
   WorktreeInfoSchema,
@@ -124,6 +125,15 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     /** Total number of lines known for the transcript when the page was built. */
     lineCount: z.number().int().nonnegative(),
   }),
+  /** Reply to `transcript.search`: this page's hits and where the next page starts (`null` at the end). */
+  z.object({
+    type: z.literal('transcript.searchResult'),
+    replyTo,
+    hits: z.array(TranscriptSearchHitSchema),
+    nextCursor: z.string().nullable(),
+    /** Transcripts read for this page. */
+    scanned: z.number().int().nonnegative(),
+  }),
   z.object({
     type: z.literal('pane.frame'),
     sessionId: z.string(),
@@ -202,6 +212,12 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     text: z.string(),
     /** `false` when polishing was unsupported, failed, timed out, or left the text unchanged. */
     applied: z.boolean(),
+  }),
+  z.object({
+    type: z.literal('diagnostics.logs.result'),
+    replyTo,
+    /** One per log file present, each the scrubbed tail of the file. */
+    files: z.array(z.object({ name: z.string(), text: z.string(), truncated: z.boolean() })),
   }),
   z.object({
     type: z.literal('diagnostics.result'),

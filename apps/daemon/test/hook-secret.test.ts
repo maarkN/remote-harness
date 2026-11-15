@@ -18,9 +18,9 @@ useTempHome()
 describe('hook secret files', () => {
   test('the curl config is one header line, quoted for curl', () => {
     expect(renderCurlConfig('abc')).toMatch(
-      /^# Remote Harness: [^\n]+\nheader = "x-claude-remote-secret: abc"\n$/,
+      /^# Remote Harness: [^\n]+\nheader = "x-remote-harness-secret: abc"\n$/,
     )
-    expect(renderCurlConfig('a"b\\c')).toContain('header = "x-claude-remote-secret: a\\"b\\\\c"')
+    expect(renderCurlConfig('a"b\\c')).toContain('header = "x-remote-harness-secret: a\\"b\\\\c"')
   })
 
   test('a fresh install creates both files with mode 0600', async () => {

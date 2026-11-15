@@ -287,6 +287,12 @@ export const ptBR = {
     hookSecretRotated: (path: string) =>
       `segredo dos hooks trocado (versões antigas o punham na linha de comando do curl); o curl agora o lê de ${path} — um daemon rodando e as sessões abertas passam a usá-lo quando reiniciarem`,
     tmuxConf: (path: string) => `configuração do servidor tmux em ${path}`,
+    tmuxSessionRenamed: (from: string, to: string) =>
+      `sessão tmux ${from} renomeada para ${to} (as janelas continuam as mesmas)`,
+    secretsMigrated: (count: number) =>
+      `${count} ${count === 1 ? 'segredo copiado' : 'segredos copiados'} para as entradas "remote-harness" do Keychain / Secret Service (as entradas "claude-remote" ficam)`,
+    serviceRelabelled: (label: string) =>
+      `o serviço em segundo plano agora roda como ${label}: o macOS pode pedir de novo o acesso às pastas e às notificações`,
     legacyTmuxSessions: (session: string) =>
       `sessões iniciadas antes desta versão continuam no seu servidor tmux padrão e não são mais gerenciadas: termine-as com \`tmux attach -t ${session}\`; as novas abrem no servidor do Remote Harness (\`remote-harness tmux\`)`,
   },
@@ -364,6 +370,30 @@ export const ptBR = {
         `\`${alias}\` já existe em ${path}. O launcher terá prioridade no PATH. Usar mesmo assim?`,
       name: 'Nome exibido no app:',
       nameRequired: 'Dê um nome para reconhecer a conta no app.',
+    },
+    copyMain: {
+      question: (main: string, dir: string) => `Trazer a configuração de ${main} para ${dir}?`,
+      note: (main: string) =>
+        `  Espaço marca e desmarca, Enter confirma. Copiado uma vez de ${main}, sem o login, as credenciais nem o histórico; nada que a pasta já tenha é substituído.`,
+      items: {
+        settings: 'Configurações (settings.json)',
+        memory: 'Memória (CLAUDE.md)',
+        skills: 'Skills',
+        commands: 'Comandos',
+        agents: 'Agentes',
+        plugins: 'Plugins (a lista instalada)',
+        mcp: 'Servidores MCP',
+      },
+      link: (main: string) =>
+        `Linkar skills, comandos e agentes a ${main} em vez de copiar (ficam em sincronia)`,
+      declined: 'Nada copiado: a pasta começa vazia.',
+      status: {
+        copied: (item: string) => `${item}: copiado`,
+        linked: (item: string) => `${item}: linkado`,
+        merged: (item: string) => `${item}: somado ao que a pasta já tinha`,
+        kept: (item: string) => `${item}: já estava lá, mantido`,
+        missing: (item: string) => `${item}: não existe no perfil principal`,
+      },
     },
     newAccount: {
       folder: 'Pasta da nova conta:',

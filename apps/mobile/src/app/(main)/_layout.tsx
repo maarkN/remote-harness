@@ -11,6 +11,7 @@ import { edgeSwipeEnabled, inspectorMode, sidebarMode, useLayout } from '@/core/
 import { space, useTheme } from '@/core/theme'
 import { useAssistantSessions } from '@/features/assistant/use-assistant-sessions'
 import { isScreenshotBuild } from '@/features/demo/demo-mode'
+import { ShakeToReport } from '@/features/error-reports/components/ShakeToReport'
 import { InspectorPane } from '@/features/inspector/InspectorPane'
 import { setInspectorOpen, useInspectorStore } from '@/features/inspector/store'
 import { useLiveFollow } from '@/features/live-status/use-live-follow'
@@ -188,6 +189,7 @@ export default function MainLayout() {
       </Stack>
       <NoticeBanner />
       <KeyboardShortcutsSheet />
+      <ShakeToReport />
     </MasterDetailLayout>
   )
 }

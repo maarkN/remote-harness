@@ -30,7 +30,7 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
 
 ## Configuration file
 
-`~/.remote-harness/config.json` (installs made before the rename keep using `~/.claude-remote`):
+`~/.remote-harness/config.json` (an install made before the rename is moved there by the next `remote-harness update`, and `~/.claude-remote` becomes a link to it):
 
 ```json
 {
@@ -77,6 +77,12 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
 - `shellCommands`: `enabled` (off by default; change it with `remote-harness commands on|off`), `timeoutSec` (300) and `maxOutputKb` (1024) for the commands run from the app.
 
 Edits to the file take effect when the daemon restarts (`remote-harness service install` again, or restart from the tray).
+
+## New profiles from ~/.claude
+
+When setup creates a Claude Code profile (**Create a new account**, or an OpenRouter profile) and `~/.claude` exists, it asks what to bring from it, every item checked: settings (`settings.json`, without the daemon's hooks, which the new profile gets on its own), memory (`CLAUDE.md`), skills, commands, agents, plugins (the installed list; they keep using the main profile's plugin cache) and MCP servers (the `mcpServers` of `~/.claude.json`). The copy happens once, before the login, and never brings the login, credentials, history or per-project state; nothing the folder already has is replaced (a merged file keeps a `.bak-remote-harness` backup), and running it again changes nothing. Uncheck everything to start empty.
+
+The last item, unchecked by default, **links** skills, commands and agents to `~/.claude` instead of copying them: they stay in sync, so a skill added (or deleted) in either profile shows (or goes) in both. Settings and MCP servers are always copied, since they sit next to each profile's own login and hooks.
 
 ## Profiles and OpenRouter
 
@@ -150,7 +156,7 @@ Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added
 
 ## Background service
 
-`remote-harness service install` keeps the daemon running after you close the terminal and starts it at login: a LaunchAgent on macOS (shown as a Login Item), a systemd user unit on Linux (`~/.config/systemd/user/claude-remote.service`). On Linux servers you reach over SSH, the setup offers `loginctl enable-linger`, so the service survives logout; [Cloud server](/en/docs/cloud-server/) covers running the daemon on a cloud VM. Without systemd (containers, some WSL setups) run `remote-harness start` yourself, for example in a tmux window. On WSL the setup can also create a Windows scheduled task that starts the distribution at logon.
+`remote-harness service install` keeps the daemon running after you close the terminal and starts it at login: a LaunchAgent on macOS (shown as a Login Item), a systemd user unit on Linux (`~/.config/systemd/user/remote-harness.service`). On Linux servers you reach over SSH, the setup offers `loginctl enable-linger`, so the service survives logout; [Cloud server](/en/docs/cloud-server/) covers running the daemon on a cloud VM. Without systemd (containers, some WSL setups) run `remote-harness start` yourself, for example in a tmux window. On WSL the setup can also create a Windows scheduled task that starts the distribution at logon.
 
 `remote-harness service status` shows whether it is loaded; the tray menu can restart it.
 

@@ -1,4 +1,5 @@
 import type { RejectedRequest } from '@remote-harness/protocol'
+import { issueBodyNote } from './bundle'
 import type { ErrorEntry, ReportContext } from './scrub'
 
 export const ISSUES_URL = 'https://github.com/maarkN/remote-harness/issues/new'
@@ -51,12 +52,16 @@ export const reportJson = (report: Report) => JSON.stringify(report, null, 2)
 const firstFrames = (stack: string | null, count: number) =>
   stack ? stack.split('\n').slice(0, count).join('\n') : null
 
-/** Prefilled "new issue" link; entries are dropped (oldest first) until the body fits. */
-export function githubIssueUrl(report: Report, base = ISSUES_URL): string {
+/**
+ * Prefilled "new issue" link; entries are dropped (oldest first) until the body fits. After an
+ * upload, the body starts with the report ID so the issue and the uploaded files can be matched.
+ */
+export function githubIssueUrl(report: Report, base = ISSUES_URL, reportId?: string): string {
   const latest = report.entries[0]
   const title = report.description?.split('\n')[0]?.slice(0, 80) || `App error: ${latest?.name ?? 'report'}`
   let entries = report.entries.map((e) => ({ ...e, stack: firstFrames(e.stack, 5) }))
-  const body = () => ['```json', reportJson({ ...report, entries }), '```'].join('\n')
+  const note = reportId ? [issueBodyNote(reportId), ''] : []
+  const body = () => [...note, '```json', reportJson({ ...report, entries }), '```'].join('\n')
   while (entries.length > 0 && body().length > ISSUE_BODY_LIMIT) entries = entries.slice(0, -1)
   const text = body().slice(0, ISSUE_BODY_LIMIT)
   return `${base}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`

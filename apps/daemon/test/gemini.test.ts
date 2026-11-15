@@ -78,7 +78,7 @@ describe('gemini settings.json hooks', () => {
     expect(await installHooks(profile, options)).toBe(true)
     expect(await installHooks(profile, options)).toBe(false)
     expect(await hasOurHooks(profile)).toBe(true)
-    expect(await readFile(`${path}.bak-claude-remote`, 'utf8')).toContain('say done')
+    expect(await readFile(`${path}.bak-remote-harness`, 'utf8')).toContain('say done')
     await uninstallHooks(profile)
     expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({ hooks: { AfterAgent: [userHook] } })
   })
@@ -101,7 +101,9 @@ describe('gemini launcher', () => {
     )
     execFileSync('zsh', ['-n', '-c', script])
     expect(script).toContain("export GEMINI_CLI_HOME='/Users/u/work'")
-    expect(script).toMatch(/^GEMINI_BIN=\$\{CLAUDE_REMOTE_GEMINI_BIN:-gemini\}$/m)
+    expect(script).toMatch(
+      /^GEMINI_BIN=\$\{REMOTE_HARNESS_GEMINI_BIN:-\$\{CLAUDE_REMOTE_GEMINI_BIN:-gemini\}\}$/m,
+    )
     expect(script).toContain('-e "GEMINI_CLI_HOME=$GEMINI_CLI_HOME"')
     expect(script).not.toContain('CLAUDE_CONFIG_DIR')
     expect(script).not.toContain('read_provider_key')

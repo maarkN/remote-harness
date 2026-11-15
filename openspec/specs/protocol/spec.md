@@ -130,7 +130,7 @@ The protocol SHALL define the client messages `session.close { sessionId, worktr
 - **THEN** the parser returns a `bad_request` error
 
 ### Requirement: Daemon diagnostics
-The daemon SHALL log every rejected WS request with its message type and error code and without its payload or message, keep the last 50 rejections in memory as `{ at, type, code }`, and answer `diagnostics.errors` with `diagnostics.result { daemonVersion, errors }`, most recent first.
+The daemon SHALL log every rejected WS request with its message type and error code and without its payload or message, keep the last 50 rejections in memory as `{ at, type, code }`, and answer `diagnostics.errors` with `diagnostics.result { daemonVersion, errors }`, most recent first. It SHALL answer `diagnostics.logs` with `diagnostics.logs.result { files }`, one `{ name, text, truncated }` per log file present, scrubbed as error-reports "Computer logs" says.
 
 #### Scenario: Recent rejections
 - **WHEN** a `session.start` was rejected with `invalid_cwd` and the app sends `diagnostics.errors`
@@ -139,6 +139,10 @@ The daemon SHALL log every rejected WS request with its message type and error c
 #### Scenario: Older daemon
 - **WHEN** the daemon does not know `diagnostics.errors`
 - **THEN** it answers `unknown_type` and the app hides the option to include the computer's errors
+
+#### Scenario: Logs
+- **WHEN** the app sends `diagnostics.logs` and the daemon has `daemon.log` and `update.log`
+- **THEN** it answers `diagnostics.logs.result` with those two files, scrubbed
 
 ### Requirement: Agent mode on sessions
 `Session` SHALL carry `approvalPolicy`: the Codex approval policy of the session (`on-request`, `never`, `untrusted`, `granular`, or another value Codex reports), `null` for Claude Code sessions and until known; and `permissionProfile`: the Codex permission profile (`:read-only`, `:workspace`, `:danger-full-access` or a named profile), `null` for Claude Code sessions and until known. Both MUST default to `null` so messages from older daemons stay valid. `permissionMode` keeps describing Claude Code sessions. The protocol SHALL define the Codex presets the app may request with `session.setMode`: `read-only` and `workspace`; full access is never one of them.

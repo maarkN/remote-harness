@@ -15,6 +15,11 @@ export type StreamState = {
   lastCursor: number | null
   hasMore: boolean
   loadingOlder: boolean
+  /**
+   * A first page arrived (the daemon's reply to the subscription, or the history cache): an empty
+   * stream is then empty for real, not still loading (#554).
+   */
+  loaded: boolean
   /** Last subscription failure (rendered with `errorMessage`), null when fine. */
   error: unknown
 }
@@ -25,6 +30,7 @@ const EMPTY: StreamState = {
   lastCursor: null,
   hasMore: false,
   loadingOlder: false,
+  loaded: false,
   error: null,
 }
 
@@ -126,6 +132,7 @@ async function hydrate(key: string, target: HistoryTarget | null): Promise<void>
     timeline: extendTimeline(EMPTY_TIMELINE, page.entries),
     lastCursor: page.lastCursor,
     hasMore: page.hasMore,
+    loaded: true,
   }))
 }
 
@@ -200,6 +207,7 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
           timeline: extendTimeline(EMPTY_TIMELINE, entries),
           lastCursor: maxCursor(entries, lastCursor),
           hasMore: true,
+          loaded: true,
           error: null,
         }))
         persist(await target, key, {
@@ -210,7 +218,11 @@ export function subscribeTranscript(client: DaemonClient, sessionId: string, age
         })
         return
       }
-      applyEntries(key, reply.entries, lastCursor === null ? { hasMore: reply.hasMore } : {})
+      applyEntries(
+        key,
+        reply.entries,
+        lastCursor === null ? { hasMore: reply.hasMore, loaded: true } : { loaded: true },
+      )
       persist(
         await target,
         key,

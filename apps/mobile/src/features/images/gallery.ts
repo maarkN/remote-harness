@@ -3,13 +3,20 @@ export const SWIPE_FRACTION = 0.25
 /** Points per second: a flick past this changes image whatever the distance. */
 export const SWIPE_VELOCITY = 500
 
+/*
+ * The three helpers are worklets: the viewer's Pan gesture calls them on the UI runtime, where a
+ * plain JS function throws and a release build aborts (#541). They still run on the JS thread too.
+ */
+
 /** The index after `index`, clamped (no wrap-around). */
 export function nextIndex(index: number, count: number): number {
+  'worklet'
   return Math.min(Math.max(0, count - 1), index + 1)
 }
 
 /** The index before `index`, clamped. */
 export function previousIndex(index: number, count: number): number {
+  'worklet'
   return Math.max(0, Math.min(index - 1, count - 1))
 }
 
@@ -25,6 +32,7 @@ export function swipeTarget(
   count: number,
   stageWidth: number,
 ): number {
+  'worklet'
   if (count <= 1 || stageWidth <= 0) return index
   const far = Math.abs(translationX) >= stageWidth * SWIPE_FRACTION
   const fast = Math.abs(velocityX) >= SWIPE_VELOCITY

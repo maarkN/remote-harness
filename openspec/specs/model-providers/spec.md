@@ -1,7 +1,7 @@
 # model-providers Specification
 
 ## Purpose
-TBD - created by archiving change 67-openrouter-provider. Update Purpose after archive.
+Lets a profile run Claude Code through a model gateway (OpenRouter): the daemon keeps the provider key in the OS secret store, lists the gateway's models with their prices and capabilities, reports the key and the credits, and the app picks the model of new sessions.
 
 ## Requirements
 

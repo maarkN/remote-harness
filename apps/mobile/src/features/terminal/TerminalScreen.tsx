@@ -8,7 +8,9 @@ import { errorMessage } from '@/core/connection/error-message'
 import type { TFunction } from '@/core/i18n/create'
 import { space } from '@/core/theme'
 import { DemoBanner } from '@/features/demo/components/DemoBanner'
-import { ConnectionBanner, Screen, Text } from '@/ui'
+import { ResumeBanner } from '@/features/lifecycle/ResumeBanner'
+import { useStableSession } from '@/features/sessions/use-stable-session'
+import { ConnectionBanner, EmptyState, Screen, Text } from '@/ui'
 import { DEFAULT_KEYS, KeyBar, type KeySpec } from '../conversation/components/KeyBar'
 import { TerminalView, type TerminalViewHandle } from './TerminalView'
 
@@ -35,6 +37,8 @@ function useAppActive(): boolean {
  * Live mirror of the session's tmux pane, for TUI menus and dialogs the transcript can't show. Frames
  * stream only while it can be seen: its screen (or the session screen holding the tablet inspector)
  * is focused and the app is in the foreground. `wrapKeys` shows every key at once (the inspector).
+ * A session without a pane (ended) is never subscribed: it shows a read-only state with Resume and
+ * no key bar, and subscribes once resumed (#545).
  */
 export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: string; wrapKeys?: boolean }) {
   const { t } = useTranslation()
@@ -47,6 +51,9 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
   const focused = useIsFocused()
   const active = useAppActive()
   const visible = focused && active
+  const session = useStableSession(sessionId)
+  // Unknown sessions still try: the daemon's answer is translated.
+  const readOnly = session?.controllable === false
 
   useDaemonEvent('pane.frame', (frame) => {
     if (frame.sessionId !== sessionId) return
@@ -67,7 +74,8 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
   }, [ready])
 
   useEffect(() => {
-    if (!client || !visible) return
+    if (!client || !visible || readOnly) return
+    setError(null)
     const subscribe = () => {
       client.request({ type: 'pane.subscribe', sessionId }).then(
         () => setError(null),
@@ -80,7 +88,22 @@ export function TerminalScreen({ sessionId, wrapKeys = false }: { sessionId: str
       off()
       client.send({ type: 'pane.unsubscribe', sessionId })
     }
-  }, [client, sessionId, t, visible])
+  }, [client, sessionId, t, visible, readOnly])
+
+  if (readOnly && session) {
+    return (
+      <Screen>
+        <ConnectionBanner />
+        <DemoBanner />
+        <ResumeBanner session={session} />
+        <EmptyState title={t('terminal.readOnly.title')}>
+          <Text size="sm" color="textMuted">
+            {t('terminal.readOnly.body')}
+          </Text>
+        </EmptyState>
+      </Screen>
+    )
+  }
 
   return (
     <Screen>

@@ -153,7 +153,7 @@ describe('status line script', () => {
     const received: Array<{ body: unknown; pane: unknown }> = []
     const app = createHooksServer({ secret: 'top secret', logger: silentLogger })
     app.post(STATUS_LINE_ROUTE, async (request, reply) => {
-      received.push({ body: request.body, pane: request.headers['x-claude-remote-pane'] })
+      received.push({ body: request.body, pane: request.headers['x-remote-harness-pane'] })
       return reply.code(204).send()
     })
     await app.listen({ host: '127.0.0.1', port: 0 })

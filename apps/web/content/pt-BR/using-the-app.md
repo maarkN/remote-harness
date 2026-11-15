@@ -22,7 +22,11 @@ Digite no compositor e envie. Enquanto o agente está ocupado o prompt entra na 
 
 O que você digita fica como rascunho da sessão: saia da sessão, abra outra ou feche o app, e ele estará lá quando você voltar, com as fotos. A lista de sessões marca as linhas com rascunho (**Rascunho:** e o começo do texto). Enviar limpa o rascunho; esvaziar o campo o descarta. Os rascunhos ficam só no celular e expiram depois de 7 dias.
 
-- `@` completa arquivos do projeto, `/` completa os comandos de barra do Claude Code.
+- `@` completa arquivos do projeto, `/` completa os comandos de barra do agente. No Claude Code a lista traz os comandos nativos e as skills e comandos do projeto (`.claude/skills`, `.claude/commands`), do perfil da sessão (`skills/` e `commands/` na pasta de configuração dele, que o cabeçalho **Perfil** mostra, como `Perfil · ~/.claude`; pastas em symlink incluídas) e dos plugins instalados no perfil. Um perfil com pasta própria tem skills pessoais próprias: uma skill em `~/.claude/skills` não aparece numa sessão de um perfil cuja pasta é `~/.claude-work`. Os outros agentes somam aos comandos nativos as próprias skills e comandos, das pastas que o CLI deles lê (*projeto* é a pasta da sessão):
+  - **Codex**: skills em `skills/` da pasta do perfil (`~/.codex`), em `~/.agents/skills` e em `.agents/skills` ou `.codex/skills` do projeto, até a raiz do repositório. O Codex roda uma skill a partir de uma menção, então a lista insere `$nome` em vez de `/nome`.
+  - **Gemini CLI**: comandos personalizados (`*.toml`) em `commands/` da pasta do perfil e em `.gemini/commands` do projeto, nomeados pela pasta (`git/commit.toml` vira `/git:commit`). As skills do Gemini não entram na lista: o próprio modelo as escolhe.
+  - **Kimi CLI**: skills como `/skill:nome` (uma skill de fluxo também como `/flow:nome`), de `~/.kimi/skills`, `~/.claude/skills`, `~/.codex/skills` e `~/.config/agents/skills` (ou `~/.agents/skills`), e das mesmas pastas na raiz do projeto.
+  - **Qwen Code**: comandos personalizados (`*.md`, ou o antigo `*.toml`) e skills em `commands/` e `skills/` da pasta do perfil (`~/.qwen`), em `~/.agents/skills` e em `.qwen/` e `.agents/skills` do projeto.
 - O botão da câmera anexa fotos; o microfone dita no aparelho (escolha o idioma em Ajustes → Voz).
 - **Mostrar atalhos de teclado** (menu) acrescenta uma barra com Esc, Ctrl+C, as setas, Tab e Enter para os menus do próprio agente.
 
@@ -55,6 +59,8 @@ Enquanto o agente delega trabalho, o menu do cabeçalho mostra **Subagentes (N �
 **Nova sessão** (o botão `+`) pede o perfil, o modelo quando o perfil tem um provedor, e o diretório: digite com autocompletar, navegue pelas pastas ou escolha uma recente (com a branch e quantas vezes foi usada na semana). Ative **Cópia isolada (git worktree)** para abrir o Claude Code com `--worktree`: ele trabalha numa branch própria em `<repo>/.claude/worktrees/<nome>`, e duas sessões podem dividir um repositório sem se tocar. A cópia mantém as permissões locais do projeto: o Claude Code lê no worktree o `.claude/settings.local.json` do checkout principal (ou o copia), e copia os arquivos ignorados pelo git listados em `.worktreeinclude` na raiz do repositório (sintaxe do gitignore, ex.: `.env`). A tela lista sob a chave o que vai junto. Abrir num checkout que outra sessão ao vivo já usa pede confirmação antes. Um **Nome** opcional (com a branch e nomes de sessões recentes como sugestões) vira o título da sessão na hora, o `--name` do Claude Code e o nome do worktree quando a cópia isolada está ligada.
 
 **Retomar** reabre uma sessão encerrada ou somente leitura dentro do tmux, com o mesmo histórico. **Encerrar** termina a sessão; quando ela rodou num worktree, o app oferece apagar só se estiver limpo e enviado, fazer commit e push antes, ou descartar o trabalho, perguntando duas vezes antes de descartar qualquer coisa.
+
+**Retomar no computador**: uma sessão aberta pelo app é uma sessão comum do agente, então dá para continuá-la num terminal do computador depois que o primeiro prompt foi enviado (antes disso o agente ainda não gravou nenhuma conversa para reabrir). Use o alias do perfil da sessão, na pasta da sessão ou, numa sessão de worktree, na raiz do repositório: `work --resume` abre o seletor daquele perfil. O `claude -r` puro só enxerga o perfil padrão (`~/.claude`); a sessão de um perfil com pasta própria só aparece pelo alias dele. Os **Detalhes da sessão** trazem o comando exato, `cd <pasta> && <alias> --resume <id>` (com os argumentos de cada agente), com um botão Copiar.
 
 ## Prompts agendados
 
@@ -111,7 +117,7 @@ Um perfil também pode rodar o **Qwen Code** (selo `qw`, violeta): as sessões d
 - **Notificações**: push para este celular, teste, status ao vivo, os perfis e sessões silenciados.
 - **Voz**: o idioma da transcrição.
 - **App**: versão, atualizações over-the-air e o canal delas, **Verificar atualizações**, **Documentação**.
-- **Relatórios de erro**: enviar automaticamente, perguntar sempre (padrão) ou nunca, e **Relatar um problema** (descreva o bug, veja exatamente o que será enviado e envie, compartilhe ou abra uma issue no GitHub). Os relatórios nunca levam o conteúdo das suas sessões; veja a [política de privacidade](/pt-br/docs/privacy/).
+- **Relatórios de erro**: enviar automaticamente, perguntar sempre (padrão) ou nunca, e **Relatar um problema** (descreva o bug, anexe um print, fotos, vídeos, um áudio e, se quiser, os logs do computador já limpos, veja exatamente o que será enviado e envie, compartilhe ou abra uma issue no GitHub). **Balançar para relatar um problema** (ligado por padrão) mostra um botão por alguns segundos quando você balança o celular; ele abre o relato com um print da tela em que você estava. Os relatórios de erro nunca levam o conteúdo das suas sessões (o que você anexa a um relato de problema pode mostrar); veja a [política de privacidade](/pt-br/docs/privacy/).
 
 ## iPad e teclados
 

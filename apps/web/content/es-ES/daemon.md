@@ -30,7 +30,7 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
 
 ## Archivo de configuración
 
-`~/.remote-harness/config.json` (las instalaciones anteriores al cambio de nombre siguen usando `~/.claude-remote`):
+`~/.remote-harness/config.json` (una instalación anterior al cambio de nombre se mueve allí con el siguiente `remote-harness update`, y `~/.claude-remote` pasa a ser un enlace a ella):
 
 ```json
 {
@@ -77,6 +77,12 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
 - `shellCommands`: `enabled` (desactivado por defecto; cámbialo con `remote-harness commands on|off`), `timeoutSec` (300) y `maxOutputKb` (1024) para los comandos ejecutados desde la app.
 
 Los cambios en el archivo se aplican cuando el daemon se reinicia (`remote-harness service install` de nuevo, o reiniciar desde la bandeja).
+
+## Perfiles nuevos a partir de ~/.claude
+
+Cuando el setup crea un perfil de Claude Code (**Crear una cuenta nueva**, o un perfil de OpenRouter) y `~/.claude` existe, pregunta qué traer de ahí, con todo marcado: ajustes (`settings.json`, sin los hooks del daemon, que el perfil nuevo recibe por su cuenta), memoria (`CLAUDE.md`), skills, comandos, agentes, plugins (la lista instalada; siguen usando la caché de plugins del perfil principal) y servidores MCP (el `mcpServers` de `~/.claude.json`). La copia se hace una vez, antes del inicio de sesión, y nunca trae el inicio de sesión, las credenciales, el historial ni el estado por proyecto; no se reemplaza nada que la carpeta ya tenga (un archivo combinado guarda una copia `.bak-remote-harness`), y ejecutarla otra vez no cambia nada. Desmarca todo para empezar vacío.
+
+El último elemento, desmarcado por defecto, **enlaza** skills, comandos y agentes a `~/.claude` en lugar de copiarlos: se mantienen sincronizados, así que una skill añadida (o borrada) en cualquiera de los perfiles aparece (o desaparece) en los dos. Los ajustes y los servidores MCP siempre se copian, porque están junto al inicio de sesión y los hooks de cada perfil.
 
 ## Perfiles y OpenRouter
 
@@ -150,7 +156,7 @@ Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>
 
 ## Servicio en segundo plano
 
-`remote-harness service install` mantiene el daemon en marcha después de cerrar el terminal y lo inicia al iniciar sesión: un LaunchAgent en macOS (aparece como elemento de inicio), una unidad de usuario de systemd en Linux (`~/.config/systemd/user/claude-remote.service`). En servidores Linux a los que llegas por SSH, la instalación ofrece `loginctl enable-linger`, para que el servicio sobreviva al cierre de sesión; [Servidor en la nube](/es/docs/cloud-server/) explica cómo ejecutar el daemon en una VM en la nube. Sin systemd (contenedores, algunos WSL) ejecuta `remote-harness start` tú mismo, por ejemplo en una ventana de tmux. En WSL la instalación también puede crear una tarea programada de Windows que inicie la distribución al iniciar sesión.
+`remote-harness service install` mantiene el daemon en marcha después de cerrar el terminal y lo inicia al iniciar sesión: un LaunchAgent en macOS (aparece como elemento de inicio), una unidad de usuario de systemd en Linux (`~/.config/systemd/user/remote-harness.service`). En servidores Linux a los que llegas por SSH, la instalación ofrece `loginctl enable-linger`, para que el servicio sobreviva al cierre de sesión; [Servidor en la nube](/es/docs/cloud-server/) explica cómo ejecutar el daemon en una VM en la nube. Sin systemd (contenedores, algunos WSL) ejecuta `remote-harness start` tú mismo, por ejemplo en una ventana de tmux. En WSL la instalación también puede crear una tarea programada de Windows que inicie la distribución al iniciar sesión.
 
 `remote-harness service status` muestra si está cargado; el menú de la bandeja lo reinicia.
 

@@ -2,7 +2,9 @@ import { timingSafeEqual } from 'node:crypto'
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify'
 import type { Logger } from '../core/logger.ts'
 
-export const SECRET_HEADER = 'x-claude-remote-secret'
+export const SECRET_HEADER = 'x-remote-harness-secret'
+/** Header of the hooks installed before the rename, accepted while those sessions run (#85). */
+export const LEGACY_SECRET_HEADER = 'x-claude-remote-secret'
 
 function secretMatches(expected: string, received: unknown): boolean {
   if (typeof received !== 'string') return false
@@ -22,7 +24,9 @@ export function createHooksServer(options: { secret: string; logger: Logger }): 
     bodyLimit: 5 * 1024 * 1024,
   }) as unknown as FastifyInstance
   app.addHook('onRequest', async (request, reply) => {
-    if (!secretMatches(options.secret, request.headers[SECRET_HEADER])) {
+    if (
+      !secretMatches(options.secret, request.headers[SECRET_HEADER] ?? request.headers[LEGACY_SECRET_HEADER])
+    ) {
       await reply.code(401).send({ error: 'unauthorized' })
     }
   })

@@ -260,18 +260,21 @@ export class DemoDaemon {
               description: 'Clear the conversation history',
               source: 'builtin',
               interactive: false,
+              prefix: '/',
             },
             {
               name: 'compact',
               description: 'Summarize the conversation to free context',
               source: 'builtin',
               interactive: false,
+              prefix: '/',
             },
             {
               name: 'review',
               description: 'Review the current changes',
               source: 'project',
               interactive: false,
+              prefix: '/',
             },
           ],
         }
@@ -369,6 +372,9 @@ export class DemoDaemon {
         }
       case 'diagnostics.errors':
         return { type: 'diagnostics.result', daemonVersion: this.options.daemonVersion, errors: [] }
+      // The demo computer has no log files.
+      case 'diagnostics.logs':
+        return { type: 'diagnostics.logs.result', files: [] }
       case 'machine.permissions':
         return {
           type: 'machine.permissions.results',
@@ -423,6 +429,9 @@ export class DemoDaemon {
         throw new DemoError('commands_disabled', this.options.labels.unavailable)
       case 'transcript.image':
         throw new DemoError('not_found', 'image not found')
+      // The demo's conversations are not searched yet (#372, app half): every search is empty.
+      case 'transcript.search':
+        return { type: 'transcript.searchResult', hits: [], nextCursor: null, scanned: this.sessions.size }
       // Not simulated: starting or resuming sessions, attachments, the queue, shell commands, commit
       // and push, follows, rules edits, adding or removing devices, updating the daemon.
       case 'attachment.upload':

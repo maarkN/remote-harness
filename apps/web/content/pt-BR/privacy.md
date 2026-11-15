@@ -8,9 +8,11 @@ O Remote Harness é um software self-hosted: o daemon roda no seu computador, o 
 
 ## O que coletamos
 
-Só os relatórios de erro e os dados de desempenho que você aceitar enviar. Não há conta nem analytics, e nada mais é coletado pelo app, pelo daemon ou por este site. Os mantenedores nunca recebem as suas conversas, os seus arquivos, os seus prompts, os seus tokens ou as suas chaves.
+Só os relatórios de erro, os dados de desempenho e os relatos de problema que você aceitar enviar. Não há conta nem analytics, e nada mais é coletado pelo app, pelo daemon ou por este site. Os mantenedores nunca recebem as suas conversas, os seus arquivos, os seus prompts, os seus tokens ou as suas chaves.
 
 **Relatórios de erro (opcionais).** O app guarda no celular um pequeno registro dos próprios erros. Ele os envia ao Firebase Crashlytics (Google) só como você escolher em Configurações → Relatórios de erro: depois de perguntar, que é o padrão, automaticamente, ou nunca. Um relatório tem a hora e o tipo do erro, o nome do erro, a mensagem e a pilha já filtradas, o tipo da requisição que falhou e o código do erro, o padrão da rota da tela, e as versões do app, da atualização, do sistema e do daemon; o Crashlytics acrescenta o modelo do aparelho e um id de instalação. Os relatórios nunca incluem prompts, conversa, saída do terminal, comandos, caminhos de arquivos, nomes de projetos ou sessões, tokens ou dados de pareamento. Em Configurações → Relatar um problema você também pode compartilhar um relatório ou abri-lo como issue no GitHub. O tratamento dos dados do Crashlytics pelo Google é coberto pela política de privacidade do Google.
+
+**Relatos de problema (só quando você envia um).** Ajustes → Relatar um problema, ou o botão que aparece quando você balança o celular (Ajustes → Relatórios de erro → Balançar para relatar um problema, ligado por padrão; o app só lê o acelerômetro para perceber o balanço, no próprio celular), mostra o relatório inteiro antes de qualquer coisa sair: a sua descrição, o log de erros do app acima, os pedidos recusados recentes do computador e o que você escolher anexar: um print da tela em que você estava, fotos e vídeos, um áudio e, só se você ligar, os arquivos de log do computador, sem segredos, tokens, e-mails e endereços IP, removidos no próprio computador e mostrados a você antes. Prints, vídeos e áudio podem mostrar o que estava na sua tela, conversas incluídas: tire o que for privado antes de enviar. **Enviar** sobe tudo como um arquivo, por HTTPS, para o servidor deste site, que o guarda por 30 dias e depois apaga, não oferece nenhum jeito de lê-lo pela web e só é lido pelos mantenedores; ele mostra um ID do relatório que você pode citar numa issue do GitHub. Enviar fica escondido quando os relatórios de erro estão em Nunca.
 
 **Dados de desempenho (opcionais, desligados por padrão).** Com Configurações → Relatórios de erro → Enviar dados de desempenho ligado, o app envia ao Firebase Performance Monitoring (Google) quanto tempo leva para abrir e para chegar ao seu computador, seus quadros lentos e congelados, com que frequência e por quanto tempo o JavaScript dele trava (com a classe de layout: celular, tablet ou largo) e, no iOS, o tempo das próprias requisições ao relay de push e ao servidor de atualizações. O Firebase acrescenta o modelo do aparelho, as versões do sistema e do app, o país e um id de instalação. Esses dados nunca incluem suas sessões, prompts, caminhos, nomes ou o endereço do seu computador. Desligar a opção interrompe o envio naquele celular.
 
@@ -31,8 +33,8 @@ Apagar o app e rodar `remote-harness uninstall` remove tudo isso.
 
 ## Permissões que o app pede
 
-- **Câmera**: para escanear o código de pareamento e anexar fotos a um prompt.
-- **Microfone e reconhecimento de fala**: para ditar prompts; a transcrição roda no aparelho.
+- **Câmera**: para escanear o código de pareamento, anexar fotos a um prompt e adicionar fotos ou vídeos a um relato de problema.
+- **Microfone e reconhecimento de fala**: para ditar prompts, com a transcrição rodando no aparelho, e gravar o áudio de um relato de problema.
 - **Notificações**: para o push e o status ao vivo, que você pode desligar quando quiser.
 
 ## Como os seus dados são protegidos
@@ -43,6 +45,7 @@ O tráfego entre o celular e o computador é criptografado de ponta a ponta com 
 
 - Desligue os relatórios de erro e os dados de desempenho quando quiser em Configurações → Relatórios de erro; nada mais é enviado daquele celular.
 - Apague o que fica nos seus aparelhos esquecendo a máquina no app, apagando o app e rodando `remote-harness uninstall`.
+- Para apagar um relato de problema antes dos 30 dias, escreva para [privacy@remoteharness.app](mailto:privacy@remoteharness.app) com o ID do relatório.
 - Para acessar ou apagar os relatórios de erro e os dados de desempenho já enviados ao Firebase, escreva para [privacy@remoteharness.app](mailto:privacy@remoteharness.app). Eles não têm nome nem conta, então diga a data aproximada e o modelo do aparelho, e apagamos os dados correspondentes. O Firebase também os apaga sozinho depois do prazo de retenção dele ([privacidade do Firebase](https://firebase.google.com/support/privacy)).
 
 ## Crianças

@@ -46,7 +46,7 @@ The installer SHALL merge into each profile's `settings.json` `command` hooks fo
 
 #### Scenario: Backup
 - **WHEN** the installer changes a `settings.json`
-- **THEN** a copy `settings.json.bak-claude-remote` is written first
+- **THEN** a copy `settings.json.bak-remote-harness` is written first
 
 ### Requirement: Uninstall
 `uninstall` SHALL remove only the hooks, the `~/.zshrc` block and the launchers created by the installer.

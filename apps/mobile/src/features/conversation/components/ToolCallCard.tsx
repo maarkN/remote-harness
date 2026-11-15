@@ -4,13 +4,14 @@ import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pressable, ScrollView, View } from 'react-native'
 import { makeStyles, radius, space, useTheme } from '@/core/theme'
-import { Text } from '@/ui'
+import { SideScroll, Text } from '@/ui'
 import { showCommandMenu } from '../../commands/command-menu'
 import { useRunCommand } from '../../commands/run-context'
 import { ImageStrip } from '../../images/ImageStrip'
 import { toolTabCopyText } from '../copy'
 import { copyText } from '../copy-text'
 import { cachedDiffForTool, type diffForTool } from '../diff'
+import { outputWraps } from '../output-layout'
 import { summarizeTool } from '../summarize-tool'
 import { cutText, TOOL_TABS, type ToolTab, tabFor, toolCallJson, toolInputFields } from '../tool-details'
 import { saveToolTab, useToolTabStore } from '../tool-tab-store'
@@ -166,6 +167,7 @@ function ToolDetails({
               {result.content || result.images.length === 0 ? (
                 <LongText
                   text={result.content || t('conversation.noOutput')}
+                  wrap={outputWraps(use?.name)}
                   color={result.isError ? 'danger' : 'text'}
                   truncated={result.truncated}
                   showAll={showAll}
@@ -185,6 +187,7 @@ function ToolDetails({
       {tab === 'json' ? (
         <LongText
           text={toolCallJson(use, result)}
+          wrap={false}
           color="textMuted"
           truncated={false}
           showAll={showAll}
@@ -228,15 +231,20 @@ function InputFields({ name, input }: { name: string; input: Use['input'] }) {
   )
 }
 
-/** Monospace block cut at `TEXT_LIMIT` characters, with "Show more". */
+/**
+ * Monospace block cut at `TEXT_LIMIT` characters, with "Show more". Prose wraps to the card; output
+ * whose columns matter keeps its lines and scrolls sideways, showing that it does (#544).
+ */
 function LongText({
   text,
+  wrap,
   color,
   truncated,
   showAll,
   onShowAll,
 }: {
   text: string
+  wrap: boolean
   color: 'text' | 'textMuted' | 'danger'
   truncated: boolean
   showAll: boolean
@@ -245,14 +253,15 @@ function LongText({
   const { t } = useTranslation()
   const styles = useStyles()
   const cut = showAll ? { text, hidden: false } : cutText(text)
+  const body = (
+    <LinkifiedText size="xs" color={color} selectable>
+      {`${cut.text}${cut.hidden ? '…' : truncated ? `\n${t('conversation.truncated')}` : ''}`}
+    </LinkifiedText>
+  )
   return (
     <View>
       <ScrollView style={styles.block} nestedScrollEnabled>
-        <ScrollView horizontal nestedScrollEnabled>
-          <LinkifiedText size="xs" color={color} selectable>
-            {`${cut.text}${cut.hidden ? '…' : truncated ? `\n${t('conversation.truncated')}` : ''}`}
-          </LinkifiedText>
-        </ScrollView>
+        {wrap ? body : <SideScroll nestedScrollEnabled>{body}</SideScroll>}
       </ScrollView>
       {cut.hidden ? (
         <Pressable onPress={onShowAll} style={styles.more} accessibilityRole="button">

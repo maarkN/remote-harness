@@ -6,11 +6,19 @@ Shows a session's conversation in real time and allows sending prompts and contr
 ## Requirements
 
 ### Requirement: Entry rendering
-The screen SHALL show user messages, assistant text in markdown, collapsed thinking, collapsible tool calls with a one-line summary, and results; tool errors MUST appear in red. The assistant's leading dot SHALL take the session agent's color (Claude Code's until the protocol carries the agent); user messages keep the accent `>`.
+The screen SHALL show user messages, assistant text in markdown, collapsed thinking, collapsible tool calls with a one-line summary, and results; tool errors MUST appear in red. The assistant's leading dot SHALL take the session agent's color (Claude Code's until the protocol carries the agent); user messages keep the accent `>`. Markdown tables SHALL size each column from its content (between a minimum and a maximum width, longer cells wrapping inside their column) so a short table fits the screen; content that is still wider than the screen (a long table, a code block) SHALL scroll sideways and show that it does, with a fade at the right edge while more lies beyond it and the scroll indicator flashed when it first overflows.
 
 #### Scenario: Tool call
 - **WHEN** a `tool_use` entry for `Bash` arrives with `command` "pnpm test"
 - **THEN** a collapsed "Bash(pnpm test)" line appears that expands to show the result
+
+#### Scenario: Short table on a small phone
+- **WHEN** an assistant message has the table `| Screen | Before | After |` with two short rows, on an iPhone SE
+- **THEN** all three columns are visible without scrolling
+
+#### Scenario: Wide table
+- **WHEN** a table's columns together are wider than the screen
+- **THEN** it scrolls sideways, a fade at its right edge shows there is more, and the fade goes away once scrolled to the end
 
 #### Scenario: Unknown entry
 - **WHEN** an `unknown` entry arrives
@@ -211,11 +219,19 @@ The session header SHALL have a "More options" button that opens a menu with "Vi
 - **THEN** older prompts are added to the end of the list
 
 ### Requirement: Tool call details
-An expanded tool call SHALL show its details in three tabs: **Output** (the diff for `Edit`, `MultiEdit` and `Write`, then the tool result, or a running indicator while there is none), **Input** (the tool input as labeled fields formatted per tool, with the top-level keys as fallback for unknown tools) and **JSON** (the raw tool name, input and result). A result with no matching tool call MUST show only Output and JSON. The app MUST remember the last tab chosen per tool type, with every MCP tool counted as one type, across app restarts; a tool type never chosen MUST open on Output. Outputs and JSON longer than 4,000 characters MUST be cut with a "Show more" control that reveals the full text. Texts in the tabs MUST be selectable. Tab names and field labels SHALL be translated (pt-BR, en-US, es-ES).
+An expanded tool call SHALL show its details in three tabs: **Output** (the diff for `Edit`, `MultiEdit` and `Write`, then the tool result, or a running indicator while there is none), **Input** (the tool input as labeled fields formatted per tool, with the top-level keys as fallback for unknown tools) and **JSON** (the raw tool name, input and result). A result with no matching tool call MUST show only Output and JSON. The app MUST remember the last tab chosen per tool type, with every MCP tool counted as one type, across app restarts; a tool type never chosen MUST open on Output. Output that is prose (subagent results, fetched pages, web searches, MCP and other tool results) SHALL wrap to the card's width; output whose columns matter (shell commands, searches, file contents, file lists, patches) and the JSON tab SHALL keep their lines and scroll sideways, showing that they do as the conversation's wide content does. Outputs and JSON longer than 4,000 characters MUST be cut with a "Show more" control that reveals the full text. Texts in the tabs MUST be selectable. Tab names and field labels SHALL be translated (pt-BR, en-US, es-ES).
 
 #### Scenario: Bash call
 - **WHEN** the user expands a `Bash` call with `command` "pnpm test" that has finished
 - **THEN** the Output tab is selected and shows the command output, and the Input tab shows a "Command" field with "pnpm test"
+
+#### Scenario: Prose output wraps
+- **WHEN** the user expands a finished `Task` or `WebFetch` call whose result has lines longer than the card
+- **THEN** the Output tab wraps them to the card's width, with no sideways scroll
+
+#### Scenario: Command output keeps its columns
+- **WHEN** the user expands a `Bash` or `Grep` call whose output has lines longer than the card
+- **THEN** the lines are kept whole, scroll sideways, and a fade at the right edge shows there is more
 
 #### Scenario: Read range
 - **WHEN** the user opens the Input tab of a `Read` call with `offset` 10 and `limit` 50
@@ -234,7 +250,7 @@ An expanded tool call SHALL show its details in three tabs: **Output** (the diff
 - **THEN** each top-level input key is listed with its value, objects as compact JSON
 
 ### Requirement: Session details
-Tapping the session title in the header, or the folder in the row below it, SHALL open a "Session details" sheet. The title MUST be exposed as a button with a localized accessibility label. The sheet SHALL list the full folder path, the git branch and worktree root when the folder is in git, the profile name, alias and config dir, the state, the permission mode, whether the session is controllable or read-only, the tmux pane when there is one, the session id and the last update. Values MUST wrap instead of being cut and MUST be selectable. The folder, the worktree root and the session id SHALL have a Copy action that puts the full value on the clipboard. The sheet MUST scroll when a drag starts anywhere on its content (labels, values, gaps between rows), and the sheet itself MUST NOT capture the touch. The sheet MUST close with its Close button, by tapping outside and with the Android back button; a tap inside it MUST NOT close it. All texts MUST be translated.
+Tapping the session title in the header, or the folder in the row below it, SHALL open a "Session details" sheet. The title MUST be exposed as a button with a localized accessibility label. The sheet SHALL list the full folder path, the git branch and worktree root when the folder is in git, the profile name, alias and config dir, the state, the permission mode, whether the session is controllable or read-only, the tmux pane when there is one, the session id, the command that resumes the session on the computer and the last update. The resume command SHALL be `cd <folder> && <alias> <resume arguments>`: the session's full folder (single-quoted when it has characters a shell would read, a quote inside it escaped), the alias of the session's profile, and the resume arguments of the session's agent from the shared protocol table (`--resume <id>` for Claude Code, Gemini CLI and Qwen Code, `resume <id>` for Codex, `--session <id>` for Kimi CLI), the same ones the daemon runs to resume it. Values MUST wrap instead of being cut and MUST be selectable. The folder, the worktree root, the session id and the resume command SHALL have a Copy action that puts the full value on the clipboard. The sheet MUST scroll when a drag starts anywhere on its content (labels, values, gaps between rows), and the sheet itself MUST NOT capture the touch. The sheet MUST close with its Close button, by tapping outside and with the Android back button; a tap inside it MUST NOT close it. All texts MUST be translated.
 
 #### Scenario: Long folder
 - **WHEN** the user taps the title of a session whose folder is longer than the screen width
@@ -243,6 +259,14 @@ Tapping the session title in the header, or the folder in the row below it, SHAL
 #### Scenario: Copy the folder
 - **WHEN** the user taps Copy on the folder row
 - **THEN** the full path is on the clipboard and the row briefly shows "Copied"
+
+#### Scenario: Resume on the computer
+- **WHEN** the user opens the details of a Claude Code session of the profile `work` in `/Users/me/repo/.claude/worktrees/fix-login` with id `abc`
+- **THEN** a "Resume on the computer" row reads `cd /Users/me/repo/.claude/worktrees/fix-login && work --resume abc`, and its Copy action puts that command on the clipboard
+
+#### Scenario: Folder with spaces
+- **WHEN** the session's folder is `/Users/me/My Projects/app` and its agent is Codex, profile `cdx`
+- **THEN** the command reads `cd '/Users/me/My Projects/app' && cdx resume <id>`
 
 #### Scenario: Read-only session
 - **WHEN** the session has no tmux pane
@@ -261,7 +285,7 @@ Tapping the session title in the header, or the folder in the row below it, SHAL
 - **THEN** the sheet stays open; tapping the dimmed area above it closes it
 
 ### Requirement: Images in the conversation
-The conversation SHALL show the images of user prompts and tool results as thumbnails of fixed size, below the prompt text and in the tool call (collapsed and in the Output tab). Image data MUST be fetched only when a thumbnail is about to be shown, with at most two fetches at a time, the newest first, fetches dropped when their thumbnail goes away before they start, and a size-capped cache, and a placeholder MUST keep the thumbnail's size while loading so the list does not move. Tapping a thumbnail SHALL open a full-screen viewer with pinch zoom, pan and double tap, closed with a close button, a single tap while not zoomed or the Android back button. The viewer SHALL be a gallery of the message's images: a horizontal swipe while not zoomed (a zoomed image keeps panning), a tap on a thumbnail or the Previous / Next buttons (reachable by VoiceOver / TalkBack) move to the previous or next image, the "N of M" counter follows, zoom resets on the change, and a thumbnail strip at the bottom shows the message's images with the current one highlighted, hidden when the message has one image; its thumbnails come from the same cache and fetch queue as the conversation's. The viewer SHALL decode the image at its own resolution, capped at about 16 megapixels, and fit it to the screen, so zoom shows the image's pixels up to its source resolution instead of magnified screen pixels. An image that fails to load SHALL show a localized message and retry when tapped; while the daemon is disconnected it SHALL wait and load once the connection is back. An image over the size limit SHALL show a localized message with its size. All texts and accessibility labels MUST be translated.
+The conversation SHALL show the images of user prompts and tool results as thumbnails of fixed size, below the prompt text and in the tool call (collapsed and in the Output tab). Image data MUST be fetched only when a thumbnail is about to be shown, with at most two fetches at a time, the newest first, fetches dropped when their thumbnail goes away before they start, and a size-capped cache, and a placeholder MUST keep the thumbnail's size while loading so the list does not move. Tapping a thumbnail SHALL open a full-screen viewer with pinch zoom, pan and double tap, closed with a close button, a single tap while not zoomed or the Android back button. The viewer SHALL be a gallery of the message's images: a horizontal swipe while not zoomed (a zoomed image keeps panning), a tap on a thumbnail or the Previous / Next buttons (reachable by VoiceOver / TalkBack) move to the previous or next image, the "N of M" counter follows, zoom resets on the change, a swipe MUST never close the app (in development and release builds alike, on iOS and Android), and a thumbnail strip at the bottom shows the message's images with the current one highlighted, hidden when the message has one image; its thumbnails come from the same cache and fetch queue as the conversation's. The viewer SHALL decode the image at its own resolution, capped at about 16 megapixels, and fit it to the screen, so zoom shows the image's pixels up to its source resolution instead of magnified screen pixels. An image that fails to load SHALL show a localized message and retry when tapped; while the daemon is disconnected it SHALL wait and load once the connection is back. An image over the size limit SHALL show a localized message with its size. All texts and accessibility labels MUST be translated.
 
 #### Scenario: Screenshot in a tool result
 - **WHEN** a tool result with an image is shown in the conversation
@@ -274,6 +298,10 @@ The conversation SHALL show the images of user prompts and tool results as thumb
 #### Scenario: Swipe to the next image
 - **WHEN** a message has five images, the viewer shows the second at 1× and the user swipes left
 - **THEN** the third image shows, the counter reads "3 of 5" and the third thumbnail is highlighted; a swipe while zoomed pans instead
+
+#### Scenario: Swipe in a release build
+- **WHEN** a message has three images and, in a release build at 1×, the user swipes left twice, then right three times, then makes a short swipe
+- **THEN** the viewer shows the second and the third image, then the second and the first, stays on the first at the last swipe to the right, snaps back after the short swipe, and the app keeps running throughout
 
 #### Scenario: Single image
 - **WHEN** the viewer opens the only image of a message
@@ -559,3 +587,26 @@ A `Workflow` tool call SHALL be shown as a **workflow card** instead of the tool
 #### Scenario: Older daemon
 - **WHEN** the daemon sends a `Workflow` tool call without a `workflow` field
 - **THEN** the conversation shows the ordinary tool card for it
+
+### Requirement: Empty conversation
+While a conversation has no entries, its list SHALL say why: the subscription's error when it failed; "loading conversation…" only until the first page of the conversation arrived (from the daemon's reply to the subscription or from the history cache on the device); and, once it arrived empty, an empty state instead of the loading text. The empty state of a conversation with a prompt composer SHALL invite the first prompt ("Type your first prompt to start…"); a read-only conversation (no composer, such as a subagent's) SHALL say "No messages yet". The empty state SHALL go away when the first entry arrives. All texts MUST be translated (pt-BR, en-US, es-ES).
+
+#### Scenario: New session without a prompt
+- **WHEN** the user starts a session from the app with no first prompt and the daemon answers the subscription with no entries
+- **THEN** the conversation shows "Type your first prompt to start…" instead of "loading conversation…"
+
+#### Scenario: First prompt sent
+- **WHEN** the empty state is shown and the first entry of the conversation arrives
+- **THEN** the empty state goes away and the entry is shown
+
+#### Scenario: Still loading
+- **WHEN** the conversation is open and the daemon has not answered the subscription yet, with nothing cached
+- **THEN** it shows "loading conversation…"
+
+#### Scenario: Subscription failed
+- **WHEN** the subscription fails
+- **THEN** the conversation shows the error, not the loading text or the empty state
+
+#### Scenario: Empty subagent
+- **WHEN** a subagent's conversation is open and its first page arrived empty
+- **THEN** it shows "No messages yet"

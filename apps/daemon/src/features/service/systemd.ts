@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Executor } from '../../infra/exec.ts'
@@ -10,10 +11,12 @@ import {
   type ServiceStatus,
 } from './service-manager.ts'
 
-export const SYSTEMD_UNIT = 'claude-remote.service'
+export const SYSTEMD_UNIT = 'remote-harness.service'
+/** Unit of installs made before the rename: disabled and removed when the service is (re)installed (#85). */
+export const LEGACY_SYSTEMD_UNIT = 'claude-remote.service'
 
-export function unitPath(home: string): string {
-  return join(home, '.config', 'systemd', 'user', SYSTEMD_UNIT)
+export function unitPath(home: string, unit = SYSTEMD_UNIT): string {
+  return join(home, '.config', 'systemd', 'user', unit)
 }
 
 /** Quoted value for unit files: escapes `\\`, `"` and specifiers (`%`). */
@@ -99,6 +102,7 @@ export class SystemdUserService implements ServiceManager {
   async install(options: ServiceInstallOptions): Promise<string> {
     const path = unitPath(this.o.home)
     await mkdir(options.logsDir, { recursive: true })
+    await this.removeLegacyUnit()
     await writeFileAtomic(path, renderSystemdUnit({ ...options, home: this.o.home }))
     for (const args of [['daemon-reload'], ['enable', '--now', SYSTEMD_UNIT], ['restart', SYSTEMD_UNIT]]) {
       const result = await this.systemctl(...args)
@@ -112,19 +116,35 @@ export class SystemdUserService implements ServiceManager {
     await this.systemctl('stop', SYSTEMD_UNIT)
     await this.systemctl('disable', SYSTEMD_UNIT)
     await rm(unitPath(this.o.home), { force: true })
+    await this.removeLegacyUnit()
     await this.systemctl('daemon-reload')
   }
 
-  async status(): Promise<ServiceStatus> {
-    const result = await this.systemctl(
-      'show',
-      SYSTEMD_UNIT,
-      '--property=LoadState,ActiveState,SubState,MainPID',
-    )
+  /** Disables and removes the unit of a version before the rename, when it is installed (#85). */
+  private async removeLegacyUnit(): Promise<void> {
+    const legacy = unitPath(this.o.home, LEGACY_SYSTEMD_UNIT)
+    if (!existsSync(legacy)) return
+    await this.systemctl('disable', '--now', LEGACY_SYSTEMD_UNIT)
+    await rm(legacy, { force: true })
+  }
+
+  private async showUnit(unit: string): Promise<ServiceStatus | null> {
+    const result = await this.systemctl('show', unit, '--property=LoadState,ActiveState,SubState,MainPID')
     const props = parseShow(result.stdout)
-    if (result.exitCode !== 0 || props.LoadState !== 'loaded') return { loaded: false, detail: 'not loaded' }
+    if (result.exitCode !== 0 || props.LoadState !== 'loaded') return null
     const state = props.SubState || props.ActiveState || 'unknown'
     const pid = props.MainPID && props.MainPID !== '0' ? props.MainPID : undefined
     return { loaded: true, detail: pid ? `${state} (pid ${pid})` : state }
+  }
+
+  /** The current unit, else the legacy one while its file is still installed (so an update replaces it). */
+  async status(): Promise<ServiceStatus> {
+    const current = await this.showUnit(SYSTEMD_UNIT)
+    if (current) return current
+    if (existsSync(unitPath(this.o.home, LEGACY_SYSTEMD_UNIT))) {
+      const legacy = await this.showUnit(LEGACY_SYSTEMD_UNIT)
+      if (legacy) return { loaded: true, detail: `${legacy.detail}, as ${LEGACY_SYSTEMD_UNIT}` }
+    }
+    return { loaded: false, detail: 'not loaded' }
   }
 }

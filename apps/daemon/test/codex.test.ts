@@ -161,7 +161,9 @@ describe('codex launcher', () => {
     )
     execFileSync('zsh', ['-n', '-c', script])
     expect(script).toContain("export CODEX_HOME='/Users/u/.codex-work'")
-    expect(script).toMatch(/^CODEX_BIN=\$\{CLAUDE_REMOTE_CODEX_BIN:-codex\}$/m)
+    expect(script).toMatch(
+      /^CODEX_BIN=\$\{REMOTE_HARNESS_CODEX_BIN:-\$\{CLAUDE_REMOTE_CODEX_BIN:-codex\}\}$/m,
+    )
     expect(script).toContain('cmd=("$CODEX_BIN" "$@")')
     expect(script).toContain('-e "CODEX_HOME=$CODEX_HOME"')
     expect(script).not.toContain('CLAUDE_CONFIG_DIR')

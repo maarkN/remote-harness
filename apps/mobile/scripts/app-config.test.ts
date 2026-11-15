@@ -1,14 +1,49 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  ANDROID_PROGUARD_RULES,
   addShortcutsMetaData,
   androidVersionCode,
   appIntentFiles,
   copyMainActivityFiltersToAliases,
+  KEPT_ANDROID_RESOURCES,
+  resourceKeepXml,
   USER_LEAVE_HINT_EVENT,
   widgetGalleryStrings,
   widgetPickerStrings,
 } from '../app.config.ts'
 import { USER_LEAVE_HINT_EVENT as APP_ICON_EVENT } from '../src/features/settings/app-icon.ts'
+
+describe('R8 keep rules', () => {
+  it('keeps the headless app loader Expo resolves from the manifest', () => {
+    expect(ANDROID_PROGUARD_RULES).toContain(
+      '-keep class * implements expo.modules.apploader.HeadlessAppLoader',
+    )
+  })
+
+  it('writes the keep file the resource shrinker reads', () => {
+    expect(resourceKeepXml(['@drawable/notification_icon', '@raw/ping'])).toBe(
+      '<?xml version="1.0" encoding="utf-8"?>\n' +
+        '<resources xmlns:tools="http://schemas.android.com/tools"\n' +
+        '    tools:keep="@drawable/notification_icon,@raw/ping" />\n',
+    )
+  })
+
+  it('lists every resource the native modules look up by name', () => {
+    const modules = fileURLToPath(new URL('../modules', import.meta.url))
+    const lookups = readdirSync(modules, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.kt'))
+      .flatMap((file) =>
+        [
+          ...readFileSync(join(modules, file), 'utf8').matchAll(/getIdentifier\(\s*"([^"]+)",\s*"([^"]+)"/g),
+        ].map((match) => `@${match[2]}/${match[1]}`),
+      )
+    expect(lookups).toContain('@drawable/notification_icon')
+    for (const resource of lookups) expect(KEPT_ANDROID_RESOURCES).toContain(resource)
+  })
+})
 
 describe('androidVersionCode', () => {
   it('grows with the version and stays above the codes Google Play already has', () => {

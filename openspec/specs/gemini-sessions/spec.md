@@ -10,7 +10,7 @@ A profile with `agent: "gemini"` SHALL run Google's Gemini CLI: its `configDir` 
 
 #### Scenario: Launcher
 - **WHEN** `remote-harness install` runs with a Gemini profile `gem-work` whose `configDir` is `~/work/.gemini`
-- **THEN** `~/.claude-remote/bin/gem-work` exports `GEMINI_CLI_HOME=~/work` and opens `gemini` in a new tmux window
+- **THEN** `~/.remote-harness/bin/gem-work` exports `GEMINI_CLI_HOME=~/work` and opens `gemini` in a new tmux window
 
 #### Scenario: Default folder
 - **WHEN** the Gemini profile's `configDir` is `~/.gemini`
@@ -77,11 +77,19 @@ When a Gemini session is about to show its tool approval dialog (the `Notificati
 - **THEN** no key is pressed and the app is told the request was already resolved
 
 ### Requirement: Gemini input and commands
-Prompts SHALL be pasted into a Gemini pane as one bracketed paste and submitted with Enter at least 250 ms later; with the `type` strategy, line breaks SHALL be sent as `C-j`. Built-in Gemini slash commands SHALL be offered for Gemini sessions, with menus (`/model`, `/resume`, `/settings`, …) marked interactive.
+Prompts SHALL be pasted into a Gemini pane as one bracketed paste and submitted with Enter at least 250 ms later; with the `type` strategy, line breaks SHALL be sent as `C-j`. Built-in Gemini slash commands SHALL be offered for Gemini sessions, with menus (`/model`, `/resume`, `/settings`, …) marked interactive. The custom commands SHALL be offered too: `commands/**/*.toml` in the profile's config folder (`source: "profile"`) and in the project's `.gemini/` (`source: "project"`), named by their path with `:` and described by their `description` field (else the first line of their `prompt`). Gemini skills MUST NOT be listed: the model activates them, and no slash command runs one.
 
 #### Scenario: Submit after paste
 - **WHEN** the app sends "continue" to a Gemini session with `pasteEnterDelayMs` 80
 - **THEN** the daemon pastes the text and presses Enter 250 ms later
+
+#### Scenario: Namespaced project command
+- **WHEN** the project has `.gemini/commands/git/commit.toml` with `description = "Write the commit"`
+- **THEN** the session's list contains `/git:commit` described "Write the commit", with `source: "project"`
+
+#### Scenario: Skill left out
+- **WHEN** the profile's config folder has `skills/review/SKILL.md`
+- **THEN** the list has no `review`
 
 ### Requirement: Gemini setup detection
 `remote-harness setup` SHALL offer `~/.gemini` as an account when it holds `settings.json`, `oauth_creds.json`, `projects.json` or `tmp`, suggesting a Gemini profile (`agent: gemini`, alias `gem`, name `Gemini`, the Gemini color).

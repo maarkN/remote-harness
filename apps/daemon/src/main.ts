@@ -44,6 +44,7 @@ import { registerPushFeature } from './features/push/index.ts'
 import type { PushSender } from './features/push/sender.ts'
 import { registerQueueFeature } from './features/queue/index.ts'
 import { registerSchedulesFeature } from './features/schedules/index.ts'
+import { registerSearchFeature } from './features/search/index.ts'
 import { registerSessionsFeature } from './features/sessions/index.ts'
 import { justEnded } from './features/sessions/state.ts'
 import { registerShellFeature } from './features/shell/index.ts'
@@ -363,6 +364,7 @@ async function registerFeatures(
   registerProvidersFeature(ctx, { key: ctx.providerKey })
   const checkout = registerCheckoutFeature(ctx, sessions.store)
   registerChangesFeature(ctx, sessions.store)
+  registerSearchFeature(ctx, sessions.store)
   const lifecycle = registerLifecycleFeature(
     ctx,
     sessions.store,

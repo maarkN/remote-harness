@@ -1,10 +1,20 @@
-import type { CommandItem } from '@remote-harness/protocol'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import type { CommandItem, CommandSource } from '@remote-harness/protocol'
+import {
+  mergeCommands,
+  pathsSignature,
+  readMarkdownCommands,
+  readSkills,
+  readTomlCommands,
+} from './command-files.ts'
 
 const item = (name: string, description: string, interactive = false): CommandItem => ({
   name,
   description,
   source: 'builtin',
   interactive,
+  prefix: '/',
 })
 
 /**
@@ -35,3 +45,48 @@ export const QWEN_COMMANDS: CommandItem[] = [
   item('btw', 'Ask a side question without changing the conversation'),
   item('help', 'Show help', true),
 ]
+
+/** Custom commands (Markdown, or the older TOML) and one-level skills of a `.qwen`-shaped folder. */
+async function readQwenFolder(root: string, source: CommandSource): Promise<CommandItem[]> {
+  const commands = join(root, 'commands')
+  return [
+    ...(await readMarkdownCommands(commands, { source })),
+    ...(await readTomlCommands(commands, { source })),
+    ...(await readSkills(join(root, 'skills'), { source, depth: 0 })),
+  ]
+}
+
+/** Built-ins plus the commands and skills of the project (`.qwen/`, `.agents/skills`) and the profile. */
+export async function loadQwenCommands(
+  configDir: string,
+  cwd: string,
+  home = homedir(),
+): Promise<CommandItem[]> {
+  // A session in the home folder: its `.qwen` and `.agents` are the personal ones.
+  const projectQwen = join(cwd, '.qwen')
+  const projectAgents = join(cwd, '.agents', 'skills')
+  return mergeCommands([
+    projectQwen === configDir ? [] : await readQwenFolder(projectQwen, 'project'),
+    projectAgents === join(home, '.agents', 'skills')
+      ? []
+      : await readSkills(projectAgents, { source: 'project', depth: 0 }),
+    await readQwenFolder(configDir, 'profile'),
+    await readSkills(join(home, '.agents', 'skills'), { source: 'profile', depth: 0 }),
+    QWEN_COMMANDS,
+  ])
+}
+
+export async function qwenCommandsSignature(
+  configDir: string,
+  cwd: string,
+  home = homedir(),
+): Promise<string> {
+  return pathsSignature([
+    join(cwd, '.qwen', 'commands'),
+    join(cwd, '.qwen', 'skills'),
+    join(cwd, '.agents', 'skills'),
+    join(configDir, 'commands'),
+    join(configDir, 'skills'),
+    join(home, '.agents', 'skills'),
+  ])
+}

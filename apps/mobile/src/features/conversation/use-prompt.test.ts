@@ -15,7 +15,10 @@ describe('promptErrorMessage', () => {
     expect(promptErrorMessage(new DaemonRequestError('disconnected', 'x'), t)).toBe(
       'Sem conexão com sua máquina.',
     )
-    expect(promptErrorMessage(new DaemonRequestError('internal', 'boom'), t)).toBe('boom')
+    // A known code is never shown with the daemon's English message (#545).
+    expect(promptErrorMessage(new DaemonRequestError('internal', 'boom'), t)).toBe(
+      'Algo deu errado em sua máquina.',
+    )
     expect(promptErrorMessage(new Error('e'), t)).toBe('e')
   })
 

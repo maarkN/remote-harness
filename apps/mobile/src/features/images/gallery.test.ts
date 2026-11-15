@@ -28,3 +28,15 @@ describe('gallery indexes', () => {
     expect(swipeTarget(-30, 900, 1, 5, 400)).toBe(1)
   })
 })
+
+describe('gallery helpers on the UI runtime', () => {
+  // The Pan gesture calls them from a worklet; a plain JS function called there throws, and a
+  // release build aborts on it (#541). The directive survives transpiling as a string statement.
+  test.each([
+    ['swipeTarget', swipeTarget],
+    ['nextIndex', nextIndex],
+    ['previousIndex', previousIndex],
+  ])('%s is a worklet', (_name, helper) => {
+    expect(helper.toString()).toMatch(/^[^{]*\{\s*['"]worklet['"]/)
+  })
+})

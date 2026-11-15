@@ -6,11 +6,11 @@ import { fakeExecutor } from './helpers.ts'
 test('stopping the service keeps it installed: bootout on macOS, stop on Linux', async () => {
   expect(stopServiceCommand('darwin', 501)).toEqual({
     command: 'launchctl',
-    args: ['bootout', 'gui/501/tech.doctorx.claude-remote'],
+    args: ['bootout', 'gui/501/com.alvyntech.remoteharness.daemon'],
   })
   expect(stopServiceCommand('linux', 1000)).toEqual({
     command: 'systemctl',
-    args: ['--user', 'stop', 'claude-remote.service'],
+    args: ['--user', 'stop', 'remote-harness.service'],
   })
   expect(stopServiceCommand('win32', 0)).toBeNull()
   const exec = fakeExecutor(() => ({ exitCode: 1, stderr: 'no such job' }))

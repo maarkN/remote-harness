@@ -1,0 +1,4 @@
+# Code owners: GitHub requests a review from them on every pull request, and the branch rulesets
+# ("Protect main", "Protect development") require a code-owner approval before merging.
+# Syntax: https://docs.github.com/articles/about-code-owners
+*       @maarkN

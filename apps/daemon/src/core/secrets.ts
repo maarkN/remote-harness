@@ -18,8 +18,9 @@ export interface SecretStore extends TokenStore {
 }
 
 /** Keychain service / Secret Service attribute shared by every secret of ours (the launchers read it too). */
-export const SECRET_SERVICE = 'claude-remote'
-const SERVICE = SECRET_SERVICE
+export const SECRET_SERVICE = 'remote-harness'
+/** Service attribute of the entries written before the rename; read once to copy them (`migrateLegacySecrets`). */
+export const LEGACY_SECRET_SERVICE = 'claude-remote'
 const ACCOUNT = 'daemon-identity'
 
 /** Stores a secret (the daemon identity by default) in the macOS login Keychain via the `security` CLI. */
@@ -27,13 +28,14 @@ export class KeychainTokenStore implements SecretStore {
   constructor(
     private readonly exec: Executor,
     private readonly account = ACCOUNT,
+    private readonly service = SECRET_SERVICE,
   ) {}
 
   async get(): Promise<string | null> {
     const result = await this.exec('security', [
       'find-generic-password',
       '-s',
-      SERVICE,
+      this.service,
       '-a',
       this.account,
       '-w',
@@ -49,7 +51,7 @@ export class KeychainTokenStore implements SecretStore {
    */
   async set(token: string): Promise<void> {
     if (!/^[\w-]+$/.test(token)) throw new Error('keychain write failed: unexpected token format')
-    const command = `add-generic-password -U -s ${SERVICE} -a ${this.account} -w "${token}"\n`
+    const command = `add-generic-password -U -s ${this.service} -a ${this.account} -w "${token}"\n`
     const result = await this.exec('security', ['-i'], { input: command })
     if (result.exitCode !== 0 || (await this.get()) !== token)
       throw new Error(`keychain write failed: ${result.stderr.trim()}`)
@@ -57,7 +59,13 @@ export class KeychainTokenStore implements SecretStore {
 
   /** Exit 44 is "the specified item could not be found". */
   async delete(): Promise<void> {
-    const result = await this.exec('security', ['delete-generic-password', '-s', SERVICE, '-a', this.account])
+    const result = await this.exec('security', [
+      'delete-generic-password',
+      '-s',
+      this.service,
+      '-a',
+      this.account,
+    ])
     if (result.exitCode !== 0 && result.exitCode !== 44)
       throw new Error(`keychain delete failed: ${result.stderr.trim()}`)
   }
@@ -72,10 +80,17 @@ export class SecretToolTokenStore implements SecretStore {
     private readonly exec: Executor,
     private readonly account = ACCOUNT,
     private readonly label = 'Remote Harness daemon identity',
+    private readonly service = SECRET_SERVICE,
   ) {}
 
   async get(): Promise<string | null> {
-    const result = await this.exec('secret-tool', ['lookup', 'service', SERVICE, 'account', this.account])
+    const result = await this.exec('secret-tool', [
+      'lookup',
+      'service',
+      this.service,
+      'account',
+      this.account,
+    ])
     if (result.exitCode === 0) return result.stdout.trim() || null
     // Not found is a silent exit 1; anything on stderr means the Secret Service itself failed, and
     // answering null would make the caller generate (and lose) a new token.
@@ -86,14 +101,14 @@ export class SecretToolTokenStore implements SecretStore {
   async set(token: string): Promise<void> {
     const result = await this.exec(
       'secret-tool',
-      ['store', `--label=${this.label}`, 'service', SERVICE, 'account', this.account],
+      ['store', `--label=${this.label}`, 'service', this.service, 'account', this.account],
       { input: token },
     )
     if (result.exitCode !== 0) throw new Error(`secret-tool store failed: ${result.stderr.trim()}`)
   }
 
   async delete(): Promise<void> {
-    const result = await this.exec('secret-tool', ['clear', 'service', SERVICE, 'account', this.account])
+    const result = await this.exec('secret-tool', ['clear', 'service', this.service, 'account', this.account])
     if (result.exitCode !== 0 && result.stderr.trim())
       throw new Error(`secret-tool clear failed: ${result.stderr.trim()}`)
   }
@@ -182,10 +197,44 @@ export function createSecretStore(
   account: string,
   file: string,
   label?: string,
+  service = SECRET_SERVICE,
 ): SecretStore {
-  if (kind === 'keychain') return new KeychainTokenStore(exec, account)
-  if (kind === 'secret-tool') return new SecretToolTokenStore(exec, account, label)
+  if (kind === 'keychain') return new KeychainTokenStore(exec, account, service)
+  if (kind === 'secret-tool') return new SecretToolTokenStore(exec, account, label, service)
   return new FileTokenStore(file)
+}
+
+/** Label of a profile's provider key in the Secret Service. */
+function providerKeyLabel(profileId: string): string {
+  return `Remote Harness provider key (${profileId})`
+}
+
+/**
+ * Copies the secrets an install made before the rename stored under the service `claude-remote` to
+ * `remote-harness` (#85): the daemon identity and each profile's provider key, only where the new
+ * service has no entry yet. The legacy entries stay. The file store has nothing to copy (its folder
+ * moved with the data directory). Returns the accounts copied.
+ */
+export async function migrateLegacySecrets(
+  kind: TokenStoreKind,
+  exec: Executor,
+  profileIds: readonly string[],
+): Promise<string[]> {
+  if (kind === 'file') return []
+  const entries = [
+    { account: ACCOUNT, label: undefined },
+    ...profileIds.map((id) => ({ account: providerKeyAccount(id), label: providerKeyLabel(id) })),
+  ]
+  const copied: string[] = []
+  for (const { account, label } of entries) {
+    const current = createSecretStore(kind, exec, account, '', label)
+    if (await current.get()) continue
+    const value = await createSecretStore(kind, exec, account, '', label, LEGACY_SECRET_SERVICE).get()
+    if (!value) continue
+    await current.set(value)
+    copied.push(account)
+  }
+  return copied
 }
 
 /** The provider key of a profile: read by the daemon for credits, written by `remote-harness provider key` and the setup. */
@@ -195,7 +244,7 @@ export function providerKeyStore(kind: TokenStoreKind, exec: Executor, profileId
     exec,
     providerKeyAccount(profileId),
     paths.providerKey(profileId),
-    `Remote Harness provider key (${profileId})`,
+    providerKeyLabel(profileId),
   )
 }
 
@@ -214,7 +263,7 @@ async function readChoice(path: string): Promise<TokenStoreKind | null> {
  */
 async function probeLinux(exec: Executor, tokenFile: string): Promise<TokenStoreKind> {
   if ((await exec('which', ['secret-tool'])).exitCode !== 0) return 'file'
-  const lookup = await exec('secret-tool', ['lookup', 'service', SERVICE, 'account', ACCOUNT])
+  const lookup = await exec('secret-tool', ['lookup', 'service', SECRET_SERVICE, 'account', ACCOUNT])
   if (lookup.exitCode === 0 && lookup.stdout.trim()) return 'secret-tool'
   if (await new FileTokenStore(tokenFile).get()) return 'file'
   return lookup.exitCode === 0 || !lookup.stderr.trim() ? 'secret-tool' : 'file'

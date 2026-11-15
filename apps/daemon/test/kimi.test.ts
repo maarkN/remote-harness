@@ -118,7 +118,7 @@ command = "say done"
   test('the command survives TOML escaping', () => {
     const once = mergeKimiHooks('', options) ?? ''
     const line = once.split('\n').find((l) => l.startsWith('command = ')) ?? ''
-    expect(tomlString(line.slice('command = '.length))).toContain(`x-claude-remote-pane: $TMUX_PANE`)
+    expect(tomlString(line.slice('command = '.length))).toContain(`x-remote-harness-pane: $TMUX_PANE`)
   })
 
   test('found again after Kimi rewrote the file (comments gone, literal strings)', () => {
@@ -147,7 +147,7 @@ command = "say done"
     expect(await installHooks(profile, options)).toBe(true)
     expect(await installHooks(profile, options)).toBe(false)
     expect(await hasOurHooks(profile)).toBe(true)
-    expect(await readFile(`${path}.bak-claude-remote`, 'utf8')).toBe(user)
+    expect(await readFile(`${path}.bak-remote-harness`, 'utf8')).toBe(user)
     await uninstallHooks(profile)
     expect(await readFile(path, 'utf8')).toBe(user)
   })
@@ -161,7 +161,7 @@ describe('kimi adapter', () => {
     )
     execFileSync('zsh', ['-n', '-c', script])
     expect(script).toContain("export KIMI_SHARE_DIR='/Users/u/.kimi-work'")
-    expect(script).toMatch(/^KIMI_BIN=\$\{CLAUDE_REMOTE_KIMI_BIN:-kimi\}$/m)
+    expect(script).toMatch(/^KIMI_BIN=\$\{REMOTE_HARNESS_KIMI_BIN:-\$\{CLAUDE_REMOTE_KIMI_BIN:-kimi\}\}$/m)
     const own = renderLauncher(
       { id: 'km', name: 'K', configDir: '/Users/u/.kimi', color: '', agent: 'kimi' },
       { tmuxSession: 's', tmuxBin: 'tmux', home: '/Users/u' },

@@ -2,10 +2,13 @@ import { Button, HStack, Image, Link, ProgressView, Spacer, Text, VStack } from 
 import {
   activityBackgroundTint,
   clipShape,
+  controlSize,
   font,
   foregroundStyle,
   frame,
+  layoutPriority,
   lineLimit,
+  minimumScaleFactor,
   monospacedDigit,
   padding,
   progressViewStyle,
@@ -106,14 +109,17 @@ function SessionActivityLayout(props: LiveStatusProps) {
     foregroundStyle(stateColor),
   ]
   // Running: the turn; waiting (newer daemons): the wait. Ticks on its own. Ended: frozen at the
-  // turn's duration.
+  // turn's duration. A count-up `timerInterval` always reads `m:ss` / `h:mm:ss`: the `.timer` date
+  // style adapts to the room and turned into "6 minu…" on the lock screen (#543). It stops a week
+  // after the start, which no state lasts.
   const timerStart = waiting && labels && changedAt > 0 ? changedAt : props.startedAt
+  const timerWeek = 7 * 24 * 60 * 60 * 1000
   const timer = (size: number, maxWidth: number) =>
     !finished ? (
       <Text
-        date={new Date(timerStart)}
-        dateStyle="timer"
-        modifiers={[...timerStyle(size), frame({ maxWidth })]}
+        timerInterval={{ lower: new Date(timerStart), upper: new Date(timerStart + timerWeek) }}
+        countsDown={false}
+        modifiers={[...timerStyle(size), lineLimit(1), minimumScaleFactor(0.7), frame({ maxWidth })]}
       />
     ) : endedAt !== null ? (
       <Text modifiers={timerStyle(size)}>{duration(endedAt - props.startedAt)}</Text>
@@ -144,7 +150,7 @@ function SessionActivityLayout(props: LiveStatusProps) {
           {donePhrase}
         </Text>
       ) : (
-        timer(30, 140)
+        timer(26, 140)
       )}
       {donePhrase ? null : small(timerLabel)}
       <Spacer />
@@ -180,11 +186,13 @@ function SessionActivityLayout(props: LiveStatusProps) {
         {`↳ ${doing}`}
       </Text>
     ) : null
-  const sessionName = props.session ? (
-    <Text modifiers={[font({ size: 16, weight: 'bold' }), foregroundStyle(text), lineLimit(1)]}>
-      {props.session}
-    </Text>
-  ) : null
+  const sessionTitle = (size: number) =>
+    props.session ? (
+      <Text modifiers={[font({ size, weight: 'bold' }), foregroundStyle(text), lineLimit(1)]}>
+        {props.session}
+      </Text>
+    ) : null
+  const sessionName = sessionTitle(16)
   const folder = props.path ? (
     <Text
       modifiers={[
@@ -202,22 +210,23 @@ function SessionActivityLayout(props: LiveStatusProps) {
       {stateLine}
     </Text>
   )
+  const currentStep = current ? (
+    <Text
+      modifiers={[
+        font({ size: 12, design: 'monospaced' }),
+        foregroundStyle(text),
+        lineLimit(1),
+        truncationMode('middle'),
+      ]}
+    >
+      {current}
+    </Text>
+  ) : null
   // What runs now on the left, the progress and counts on the right.
   const detailRow =
     current || meta ? (
       <HStack spacing={8}>
-        {current ? (
-          <Text
-            modifiers={[
-              font({ size: 12, design: 'monospaced' }),
-              foregroundStyle(text),
-              lineLimit(1),
-              truncationMode('middle'),
-            ]}
-          >
-            {current}
-          </Text>
-        ) : null}
+        {currentStep}
         <Spacer />
         {meta ? (
           <Text
@@ -259,11 +268,16 @@ function SessionActivityLayout(props: LiveStatusProps) {
   const actions = pending ? (
     <HStack spacing={10}>
       {/* biome-ignore lint/a11y/useValidAriaRole: SwiftUI button role, not an ARIA role */}
-      <Button label={pending.deny} role="destructive" target={`deny:${pending.requestId}`} />
+      <Button
+        label={pending.deny}
+        role="destructive"
+        target={`deny:${pending.requestId}`}
+        modifiers={[controlSize('small')]}
+      />
       <Button
         label={pending.allow}
         target={`allow:${pending.requestId}`}
-        modifiers={[foregroundStyle(success)]}
+        modifiers={[controlSize('small'), foregroundStyle(success)]}
       />
       {labels && link ? (
         <Link label={labels.open} destination={link} modifiers={[foregroundStyle(textMuted)]} />
@@ -280,32 +294,75 @@ function SessionActivityLayout(props: LiveStatusProps) {
     ) : null
   const stateDot = <Text modifiers={[font({ size: 10 }), foregroundStyle(stateColor)]}>●</Text>
 
-  // Newer daemons: header with the state pill, times row, phrase; older ones keep the first layout.
+  const headerText = (size: number) => (
+    <Text
+      modifiers={[
+        font({ size, weight: 'semibold' }),
+        foregroundStyle(textMuted),
+        lineLimit(1),
+        layoutPriority(1),
+      ]}
+    >
+      {header}
+    </Text>
+  )
+  // Under the session name: `Personal · studio · ~/code/app`, the folder giving way first.
+  const placeLine = props.session ? (
+    <HStack spacing={4}>
+      {headerText(11)}
+      {props.path ? small('·') : null}
+      {props.path ? (
+        <Text
+          modifiers={[
+            font({ size: 11, design: 'monospaced' }),
+            foregroundStyle(textMuted),
+            lineLimit(1),
+            truncationMode('head'),
+          ]}
+        >
+          {props.path}
+        </Text>
+      ) : null}
+    </HStack>
+  ) : (
+    folder
+  )
+  // While working: the phrase with the latest steps' glyphs beside it.
+  const doingRow = doingLine ? (
+    <HStack spacing={8}>
+      {doingLine}
+      <Spacer />
+      {glyphRow}
+    </HStack>
+  ) : (
+    glyphRow
+  )
+
+  // Newer daemons. iOS gives a Live Activity 160 pt on the lock screen and clips the rest (#542), so
+  // the rows are few and tight: header row, place line, times, (working) phrase and glyphs, current
+  // step, then the progress bar, the buttons (waiting) or the hint (closed). Older daemons keep the
+  // first layout, which is short.
   const card = labels ? (
     <VStack
       alignment="leading"
-      spacing={6}
+      spacing={4}
       modifiers={[
-        padding({ all: 14 }),
+        padding({ horizontal: 14, vertical: 10 }),
         activityBackgroundTint(background),
         strokeBorder({ content: stateColor, style: { lineWidth: 2 }, shape: 'containerRelativeShape' }),
       ]}
     >
-      <HStack spacing={10}>
-        {mark(24)}
-        <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(textMuted), lineLimit(1)]}>
-          {header}
-        </Text>
+      <HStack spacing={8}>
+        {mark(20)}
+        {props.session ? sessionTitle(15) : headerText(12)}
         <Spacer />
         {statePill}
       </HStack>
-      {sessionName}
-      {folder}
+      {placeLine}
       {timesRow}
-      {doingLine}
+      {working ? doingRow : null}
       {detailRow}
       {progressBar}
-      {glyphRow}
       {hintText}
       {actions}
     </VStack>
@@ -373,26 +430,20 @@ function SessionActivityLayout(props: LiveStatusProps) {
       </HStack>
     ),
     expandedTrailing: timer(16, 76),
+    // The island has about as little room as the card: no folder or progress bar (the counts keep
+    // `☑ 3/5`), and while waiting only what is asked and the buttons.
     expandedBottom: (
-      <VStack alignment="leading" spacing={4}>
-        {sessionName}
-        {folder}
-        {labels ? (
-          <HStack spacing={8}>
-            {statePill}
-            <Spacer />
-            {glyphRow}
-          </HStack>
-        ) : (
-          <HStack spacing={8}>
-            {stateText}
-            <Spacer />
-            {glyphRow}
-          </HStack>
-        )}
-        {doingLine}
-        {detailRow}
-        {progressBar}
+      // Insets keep the last row clear of the island's rounded corners and bottom edge (#543).
+      <VStack alignment="leading" spacing={4} modifiers={[padding({ horizontal: 8, bottom: 8 })]}>
+        {sessionTitle(15)}
+        <HStack spacing={8}>
+          {labels ? statePill : stateText}
+          {waiting ? currentStep : null}
+          <Spacer />
+          {waiting ? null : glyphRow}
+        </HStack>
+        {waiting ? null : doingLine}
+        {waiting ? null : detailRow}
         {hintText}
         {actions}
       </VStack>
