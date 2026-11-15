@@ -1,15 +1,12 @@
 /**
  * Entry of `dist/server.js` (the container's command). Environment: `PORT` (8080), `DATA_DIR`
- * (`./data`), `UPDATES_TOKEN` and `UPDATES_DEV_TOKEN` (publishing is off without them),
- * `APP_INSTALL_URL` (the install link the landing's iPhone & iPad card opens, `/app/<token>/`;
- * the card points to the docs without it).
+ * (`./data`), `UPDATES_TOKEN` and `UPDATES_DEV_TOKEN` (publishing is off without them).
  */
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fsStores } from './fs-stores.ts'
 import { RateLimiter, REPORTS_PER_HOUR, retentionCutoff, SWEEP_INTERVAL_MS } from './reports.ts'
 import { closeServer, createSiteServer } from './server.ts'
-import { siteConfig } from './site.ts'
 
 const port = Number(process.env.PORT ?? 8080)
 const dataDir = resolve(process.env.DATA_DIR ?? 'data')
@@ -31,7 +28,6 @@ const server = createSiteServer({
     token: process.env.UPDATES_TOKEN || undefined,
     devToken: process.env.UPDATES_DEV_TOKEN || undefined,
   },
-  site: siteConfig(process.env),
 })
 server.listen(port, () => console.log(`remoteharness.app on :${port}, data in ${dataDir}`))
 

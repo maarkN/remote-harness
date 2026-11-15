@@ -55,14 +55,14 @@ node apps/daemon/dist/cli.js setup
 
 ## Instalar o app
 
-- **iPhone e iPad**: instale pelo ar a partir do cartão **Baixar o app** em [remoteharness.app](/pt-br/#app) (abra no Safari; iOS 17+). É um build ad-hoc, então só instala em aparelhos cadastrados no time de desenvolvedor: veja [Cadastrar um iPhone ou iPad](#cadastrar-um-iphone-ou-ipad). Ou compile a partir do código: com o Xcode num Mac, `cd apps/mobile && pnpm ios` roda no simulador ou num aparelho conectado; `make install-ios` faz um release build num iPhone ou iPad conectado. O [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) tem os detalhes de assinatura.
-- **Android**: pelo [Google Play (teste)](https://play.google.com/apps/test/com.alvyntech.remoteharness): entre no teste e instale pela Play Store; ou o APK dos [Releases no GitHub](https://github.com/maarkN/remote-harness/releases) (permita instalar pelo navegador quando pedir), ou `pnpm android` e `pnpm build:android` a partir do repositório.
+- **iPhone e iPad**: pelo [TestFlight](https://testflight.apple.com/join/Vkh3K19G) (iOS 17+): abra o link no iPhone ou iPad, instale o app TestFlight se ele pedir, aceite o convite e instale. Aparelhos cadastrados no time de desenvolvedor também podem instalar o build ad-hoc por um link de instalação: veja [Cadastrar um iPhone ou iPad](#cadastrar-um-iphone-ou-ipad). Ou compile a partir do código: com o Xcode num Mac, `cd apps/mobile && pnpm ios` roda no simulador ou num aparelho conectado; `make install-ios` faz um release build num iPhone ou iPad conectado. O [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) tem os detalhes de assinatura.
+- **Android**: pelo [Google Play (teste)](https://play.google.com/apps/test/com.alvyntech.remoteharness/10): entre no teste e instale pela Play Store; ou o APK dos [Releases no GitHub](https://github.com/maarkN/remote-harness/releases) (permita instalar pelo navegador quando pedir), ou `pnpm android` e `pnpm build:android` a partir do repositório.
 
 Nada mais vai no celular: não precisa de VPN. Em casa o app alcança o computador direto pela rede de casa; fora dela, passa pelo relay de conexão, que só repassa tráfego criptografado de ponta a ponta que não consegue ler.
 
 ### Cadastrar um iPhone ou iPad
 
-Enquanto o app não está no TestFlight, a Apple só deixa o build pelo ar instalar em aparelhos cujo identificador (UDID) está no perfil de provisionamento do time de desenvolvedor. Em qualquer outro aparelho a instalação falha. Para incluir o seu:
+Fora do TestFlight, a Apple só deixa o build pelo ar (ad-hoc) instalar em aparelhos cujo identificador (UDID) está no perfil de provisionamento do time de desenvolvedor. Em qualquer outro aparelho a instalação falha. Para incluir o seu:
 
 1. Ache o UDID: conecte o iPhone ou iPad num Mac, selecione-o no Finder e clique na linha abaixo do nome até o UDID aparecer (Control-clique para copiar). O Xcode também mostra, em Window → Devices and Simulators.
 2. Mande-o em particular para o mantenedor, pelo contato em [maarkn.dev](https://maarkn.dev), não numa issue pública.

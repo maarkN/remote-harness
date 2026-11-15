@@ -301,12 +301,7 @@ export const enUS = {
       'claude, codex, gemini, kimi or qwen on PATH',
     ],
     appTitle: 'Get the app',
-    ios: {
-      title: 'iPhone & iPad',
-      detail: 'Install over the air · registered devices · iOS 17+',
-      source: 'Build from source today · TestFlight soon · iOS 17+',
-      note: 'The iPhone & iPad build installs only on registered devices: [how to get yours added](/en/docs/getting-started/#registering-an-iphone-or-ipad), or build it from source.',
-    },
+    ios: { title: 'iPhone & iPad', detail: 'TestFlight (beta) · iOS 17+' },
     android: { title: 'Android', detail: 'Google Play (testing) · Android 10+' },
     appNote:
       'Nothing else to install on the phone. Installed the app first? Its pairing screen walks you through the machine setup.',

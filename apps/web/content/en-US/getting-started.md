@@ -55,14 +55,14 @@ node apps/daemon/dist/cli.js setup
 
 ## Install the app
 
-- **iPhone and iPad**: install it over the air from the **Get the app** card on [remoteharness.app](/en/#app) (open it in Safari; iOS 17+). It is an ad-hoc build, so it installs only on devices registered in the developer team: see [Registering an iPhone or iPad](#registering-an-iphone-or-ipad). Or build it from source: with Xcode on a Mac, `cd apps/mobile && pnpm ios` runs it on the simulator or a connected device; `make install-ios` makes a release build for a connected iPhone or iPad. [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) has the signing details.
-- **Android**: from [Google Play (testing)](https://play.google.com/apps/test/com.alvyntech.remoteharness): join the test, then install it from the Play Store; or the APK from [GitHub Releases](https://github.com/maarkN/remote-harness/releases) (allow installs from your browser when asked), or `pnpm android` and `pnpm build:android` from the repository.
+- **iPhone and iPad**: from [TestFlight](https://testflight.apple.com/join/Vkh3K19G) (iOS 17+): open the link on the iPhone or iPad, get the TestFlight app if asked, then accept the invitation and install. Devices registered in the developer team can also install the ad-hoc build from an install link: see [Registering an iPhone or iPad](#registering-an-iphone-or-ipad). Or build it from source: with Xcode on a Mac, `cd apps/mobile && pnpm ios` runs it on the simulator or a connected device; `make install-ios` makes a release build for a connected iPhone or iPad. [CONTRIBUTING.md](https://github.com/maarkN/remote-harness/blob/main/CONTRIBUTING.md#building-and-releasing) has the signing details.
+- **Android**: from [Google Play (testing)](https://play.google.com/apps/test/com.alvyntech.remoteharness/10): join the test, then install it from the Play Store; or the APK from [GitHub Releases](https://github.com/maarkN/remote-harness/releases) (allow installs from your browser when asked), or `pnpm android` and `pnpm build:android` from the repository.
 
 Nothing else goes on the phone: no VPN is needed. At home the app reaches the computer directly over the home network; elsewhere it goes through the connection relay, which only forwards end-to-end encrypted traffic it cannot read.
 
 ### Registering an iPhone or iPad
 
-Until the app is on TestFlight, Apple lets the over-the-air build install only on devices whose identifier (UDID) is in the developer team's provisioning profile. On any other device the installation fails. To have yours added:
+Outside TestFlight, Apple lets the over-the-air (ad-hoc) build install only on devices whose identifier (UDID) is in the developer team's provisioning profile. On any other device the installation fails. To have yours added:
 
 1. Find the UDID: connect the iPhone or iPad to a Mac, select it in Finder and click the line under its name until the UDID shows (Control-click to copy it). Xcode shows it too, in Window → Devices and Simulators.
 2. Send it privately to the maintainer, through the contact on [maarkn.dev](https://maarkn.dev), not in a public issue.
