@@ -16,7 +16,7 @@ import { renderInstallPage } from './install-page.ts'
 import { renderLanding, renderNotFound } from './landing.ts'
 import { handleReport, type ReportDeps } from './reports.ts'
 import { route } from './routes.ts'
-import { faviconSvg, robotsTxt, type SiteConfig, sitemapXml } from './site.ts'
+import { faviconSvg, robotsTxt, sitemapXml } from './site.ts'
 import type { PublishTokens } from './updates/auth.ts'
 import { handleUpdates } from './updates/handler.ts'
 import type { UpdatesStore } from './updates/store.ts'
@@ -34,12 +34,11 @@ export interface BuildsStore {
   get(key: string): Promise<StoredFile | null>
 }
 
-/** What the site needs from its host: the two stores, the publish tokens and its environment. */
+/** What the site needs from its host: the two stores, the publish tokens and the report uploads. */
 export type AppDeps = {
   updates: UpdatesStore
   builds: BuildsStore
   tokens: PublishTokens
-  site?: SiteConfig
   /** Problem report uploads; the path answers 404 without it. */
   reports?: ReportDeps
 }
@@ -142,7 +141,6 @@ export function createApp({
   updates,
   builds,
   tokens,
-  site = {},
   reports,
 }: AppDeps): (request: Request) => Promise<Response> {
   return async (request) => {
@@ -180,7 +178,7 @@ export function createApp({
     }
     if (target.kind === 'page') {
       const locale = target.locale ?? negotiated
-      const html = renderLanding(locale, target.locale ? undefined : '/', site)
+      const html = renderLanding(locale, target.locale ? undefined : '/')
       return page(html, 200, locale, target.locale === null)
     }
     if (target.kind === 'doc') {

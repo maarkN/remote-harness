@@ -293,12 +293,7 @@ export const ptBR: WebMessages = {
       'claude, codex, gemini, kimi ou qwen no PATH',
     ],
     appTitle: 'Baixar o app',
-    ios: {
-      title: 'iPhone e iPad',
-      detail: 'Instale pelo ar · aparelhos cadastrados · iOS 17+',
-      source: 'Compile do código por enquanto · TestFlight em breve · iOS 17+',
-      note: 'O build de iPhone e iPad só instala em aparelhos cadastrados: [como incluir o seu](/pt-br/docs/getting-started/#cadastrar-um-iphone-ou-ipad), ou compile a partir do código.',
-    },
+    ios: { title: 'iPhone e iPad', detail: 'TestFlight (beta) · iOS 17+' },
     android: { title: 'Android', detail: 'Google Play (teste) · Android 10+' },
     appNote:
       'Nada mais para instalar no celular. Instalou o app primeiro? A tela de pareamento guia a instalação na máquina.',

@@ -301,12 +301,7 @@ export const esES: WebMessages = {
       'claude, codex, gemini, kimi o qwen en el PATH',
     ],
     appTitle: 'Descargar la app',
-    ios: {
-      title: 'iPhone y iPad',
-      detail: 'Instalación inalámbrica · dispositivos registrados · iOS 17+',
-      source: 'Compílala desde el código por ahora · TestFlight pronto · iOS 17+',
-      note: 'El build de iPhone y iPad solo se instala en dispositivos registrados: [cómo añadir el tuyo](/es/docs/getting-started/#registrar-un-iphone-o-ipad), o compílala desde el código.',
-    },
+    ios: { title: 'iPhone y iPad', detail: 'TestFlight (beta) · iOS 17+' },
     android: { title: 'Android', detail: 'Google Play (prueba) · Android 10+' },
     appNote:
       'No hace falta nada más en el móvil. ¿Instalaste primero la app? Su pantalla de emparejamiento te guía en la instalación de la máquina.',
