@@ -40,6 +40,7 @@ import { useLiveStatusSettings } from '../live-status/settings-store'
 import { followSession, unfollowSession } from '../live-status/use-live-follow'
 import { setMuted, useMuteStore } from '../mute/store'
 import { WaitingStrip } from '../permissions/components/WaitingStrip'
+import { SubagentsSheet } from '../subagents/SubagentsSheet'
 import { sessionActions } from './actions'
 import { sharedCheckoutCounts } from './checkout'
 import { COMPACT_MARK_SIZE, MARK_GLYPH_SIZE, type MarkTransform, markTransform, slotIn } from './collapse'
@@ -117,6 +118,11 @@ export function SessionsScreen({
   const [filtersSheetOpen, setFiltersSheetOpen] = useState(false)
   // The last hidden session, while its Undo bar shows; `id` tells two hides of one session apart.
   const [undoHide, setUndoHide] = useState<{ id: string; sessionId: string } | null>(null)
+  // The session whose subagent icons were tapped (#562); its subagents are read live from the store.
+  const [subagentsFor, setSubagentsFor] = useState<string | null>(null)
+  const subagentsOf = useSessionsStore((s) =>
+    subagentsFor ? s.sessions[subagentsFor]?.subagents : undefined,
+  )
   const listRef = useRef<FlashListRef<Session>>(null)
 
   // A new filter is a new list: start from the top.
@@ -308,6 +314,10 @@ export function SessionsScreen({
     }
   })
   const openActions = useStableCallback((session: Session) => setActionsFor(session))
+  const openSubagents = useStableCallback((session: Session) => {
+    closeOpenRow()
+    setSubagentsFor(session.id)
+  })
 
   // Rows re-render only when their own props change (`SessionListItem` is memoized); the list as a
   // whole re-renders its visible rows when one of these inputs changes.
@@ -328,12 +338,14 @@ export function SessionsScreen({
           keyboardFocused={session.id === keyboardCursor}
           onAction={act}
           onLongPress={openActions}
+          onSubagents={openSubagents}
         />
       )
     },
     [
       act,
       openActions,
+      openSubagents,
       followSupported,
       liveEnabled,
       followed,
@@ -513,6 +525,14 @@ export function SessionsScreen({
           onAction={() => void setHidden(undoHide.sessionId, false)}
           onDismiss={() => setUndoHide(null)}
           inset={fab ? NEW_SESSION_FAB_SPACE : undefined}
+        />
+      ) : null}
+      {subagentsFor ? (
+        <SubagentsSheet
+          sessionId={subagentsFor}
+          subagents={subagentsOf ?? []}
+          visible
+          onClose={() => setSubagentsFor(null)}
         />
       ) : null}
       <SessionFiltersSheet

@@ -13,7 +13,6 @@ import {
 } from 'lucide-react-native'
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { NestedSubagents } from '../../subagents/SubagentList'
 import { type SessionAction, swipeSides } from '../actions'
 import { SessionRow } from './SessionRow'
 import { closeOpenRow, type SwipeAction, SwipeableRow, type SwipeTone } from './SwipeableRow'
@@ -50,11 +49,13 @@ type Props = {
   onAction: (session: Session, action: SwipeKey) => void
   /** Stable across renders. */
   onLongPress: (session: Session) => void
+  /** Stable across renders: opens the session's Subagents sheet. */
+  onSubagents: (session: Session) => void
 }
 
 /**
- * One row of the session list (swipe actions, the row, its nested subagents). Memoized on plain
- * props, so an update of one session re-renders only its own row.
+ * One row of the session list (swipe actions and the row, whose card shows its subagents as
+ * icons). Memoized on plain props, so an update of one session re-renders only its own row.
  */
 export const SessionListItem = memo(function SessionListItem({
   session,
@@ -68,6 +69,7 @@ export const SessionListItem = memo(function SessionListItem({
   keyboardFocused,
   onAction,
   onLongPress,
+  onSubagents,
 }: Props) {
   const { t } = useTranslation()
   const { start, end } = useMemo(() => {
@@ -87,23 +89,22 @@ export const SessionListItem = memo(function SessionListItem({
     },
     [session, onLongPress],
   )
+  const subagentsPress = useMemo(() => () => onSubagents(session), [session, onSubagents])
   return (
-    <>
-      <SwipeableRow start={start} end={end}>
-        <SessionRow
-          session={session}
-          profile={profile}
-          muted={muted}
-          pinned={pinned}
-          following={following}
-          pendingPermissions={pendingPermissions}
-          sharedCheckout={sharedCheckout}
-          selected={selected}
-          keyboardFocused={keyboardFocused}
-          onLongPress={longPress}
-        />
-      </SwipeableRow>
-      <NestedSubagents sessionId={session.id} subagents={session.subagents} />
-    </>
+    <SwipeableRow start={start} end={end}>
+      <SessionRow
+        session={session}
+        profile={profile}
+        muted={muted}
+        pinned={pinned}
+        following={following}
+        pendingPermissions={pendingPermissions}
+        sharedCheckout={sharedCheckout}
+        selected={selected}
+        keyboardFocused={keyboardFocused}
+        onLongPress={longPress}
+        onSubagents={subagentsPress}
+      />
+    </SwipeableRow>
   )
 })

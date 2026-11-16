@@ -43,7 +43,7 @@ export const SUBAGENT_TONES = {
   stopped: 'warning',
 } as const satisfies Record<SubagentStatus, string>
 
-/** Text color of the nested rows in the list, per status. */
+/** Color of the state icons on a session's card in the list, per status. */
 export const SUBAGENT_TEXT_COLORS = {
   running: 'accentText',
   done: 'success',
@@ -72,4 +72,40 @@ export function subagentElapsed(
   const end = sub.state === 'running' ? now : Date.parse(sub.updatedAt)
   if (Number.isNaN(started) || Number.isNaN(end)) return null
   return Math.max(0, end - started)
+}
+
+/** Subagents a session card shows as icons; the rest is a "+N". */
+export const CARD_SUBAGENTS = 3
+
+export type CardSubagents = {
+  /** Running first, then the most recently updated. */
+  shown: { agentId: string; status: SubagentStatus }[]
+  hidden: number
+  /** Running among the hidden ones only (#562: the old line counted the shown ones too). */
+  hiddenRunning: number
+}
+
+/** What a session card in the list shows of its subagents (#562). */
+export function cardSubagents(list: readonly SubagentInfo[]): CardSubagents {
+  const sorted = sortSubagents(list)
+  const rest = sorted.slice(CARD_SUBAGENTS)
+  return {
+    shown: sorted
+      .slice(0, CARD_SUBAGENTS)
+      .map((sub) => ({ agentId: sub.agentId, status: subagentStatus(sub) })),
+    hidden: rest.length,
+    hiddenRunning: rest.filter((sub) => sub.state === 'running').length,
+  }
+}
+
+const STATUS_ORDER: readonly SubagentStatus[] = ['running', 'done', 'failed', 'stopped']
+
+/** How many subagents are in each state, in the badge order, leaving out the empty ones. */
+export function subagentStateCounts(
+  list: readonly Pick<SubagentInfo, 'state' | 'outcome'>[],
+): [SubagentStatus, number][] {
+  return STATUS_ORDER.map((status): [SubagentStatus, number] => [
+    status,
+    list.filter((sub) => subagentStatus(sub) === status).length,
+  ]).filter(([, count]) => count > 0)
 }

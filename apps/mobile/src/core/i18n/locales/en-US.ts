@@ -1048,8 +1048,6 @@ const enUS = {
     agents_other: '{{count}} agents',
     filters: 'Filters',
     worktree: 'worktree',
-    subagents_one: '+{{count}} subagent',
-    subagents_other: '+{{count}} subagents',
     muted: 'muted',
     sort: { recent: 'Recent', state: 'By state', label: 'Sort' },
     density: { compact: 'Compact', expanded: 'Expanded', label: 'List density' },
@@ -1182,8 +1180,21 @@ const enUS = {
     tools_other: '{{count}} tools',
     state: { running: 'running', done: '✓ done', failed: '× failed', stopped: '■ stopped' },
     unnamed: 'Subagent #{{n}}',
-    more_one: '+{{count}} subagent ({{running}} running)',
-    more_other: '+{{count}} subagents ({{running}} running)',
+    /** The state icons on a session's card in the list: overflow, label (summary + counts per state) and hint. */
+    overflow: '+{{count}}',
+    overflowRunning: '+{{count}} ({{running}} running)',
+    cardLabel: '{{summary}}: {{states}}',
+    cardHint: 'Shows the subagents',
+    stateCount: {
+      running_one: '{{count}} running',
+      running_other: '{{count}} running',
+      done_one: '{{count}} done',
+      done_other: '{{count}} done',
+      failed_one: '{{count}} failed',
+      failed_other: '{{count}} failed',
+      stopped_one: '{{count}} stopped',
+      stopped_other: '{{count}} stopped',
+    },
   },
   workflow: {
     /** The card's title when the script declares no name. */
