@@ -19,6 +19,7 @@ import {
   SettingsPaneSchema,
   TRANSCRIPT_SEARCH_LIMIT,
   WorktreeActionSchema,
+  wireAppBuild,
 } from './domain.ts'
 
 const id = z.string().min(1)
@@ -30,6 +31,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     id,
     protocolVersion: z.number().int(),
     client: z.string().optional(),
+    /** The app build that connects (#591); older apps send none. */
+    app: wireAppBuild,
   }),
   z.object({ type: z.literal('ping'), id }),
   z.object({ type: z.literal('sessions.list'), id }),
