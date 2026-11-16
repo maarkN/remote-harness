@@ -36,8 +36,9 @@ export function noiseConnect(
   target: number | string,
   handshake: DeviceHandshake,
   deviceKey: KeyPair,
+  options?: WebSocket.ClientOptions,
 ): NoiseClient {
-  const ws = new WebSocket(typeof target === 'number' ? `ws://127.0.0.1:${target}` : target)
+  const ws = new WebSocket(typeof target === 'number' ? `ws://127.0.0.1:${target}` : target, options)
   const queue: ServerMessage[] = []
   const waiters: Array<(message: ServerMessage) => void> = []
   let session: ChannelSession | null = null

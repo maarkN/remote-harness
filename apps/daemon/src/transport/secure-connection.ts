@@ -19,6 +19,9 @@ import type { MessageRouter } from './router.ts'
 
 export const AUTH_TIMEOUT_MS = 5_000
 
+/** How a link ended; `byDaemon` when the daemon ended it below the connection (a dead socket). */
+export type LinkClose = { code: number; reason: string; byDaemon?: boolean }
+
 /**
  * One device's byte pipe to the daemon: a WebSocket on the direct path, a relay channel on the
  * relay path. Every message is binary except what an old app may send as text.
@@ -27,7 +30,8 @@ export interface Link {
   send(data: Uint8Array): void
   close(code: number, reason: string): void
   onMessage(fn: (data: Uint8Array, isBinary: boolean) => void): void
-  onClose(fn: () => void): void
+  /** The link ended: its close code and reason (as the WebSocket or the relay's CLOSE frame gave them). */
+  onClose(fn: (close: LinkClose) => void): void
 }
 
 export type PairingResult = { ok: true } | { ok: false; code: number; reason: string }
@@ -51,6 +55,8 @@ export type SecureConnectionDeps = {
   hello: () => Omit<ServerMessageOf<'auth.ok'>, 'type' | 'replyTo'>
   authTimeoutMs?: number
   onAuthenticated?: (connection: Connection) => void
+  /** The clock for how long a connection stayed open (tests). */
+  now?: () => number
 }
 
 class SecureConnection implements Connection {
@@ -58,6 +64,8 @@ class SecureConnection implements Connection {
   foreground = false
   deviceId: string | undefined
   session: ChannelSession | null = null
+  /** The code and reason the daemon closed the connection with, when it did. */
+  closing: { code: number; reason: string } | null = null
   private readonly closeHandlers: Array<() => void> = []
   private closed = false
 
@@ -81,6 +89,7 @@ class SecureConnection implements Connection {
   }
 
   close(code = 1000, reason = ''): void {
+    this.closing ??= { code, reason }
     this.link.close(code, reason)
   }
 }
@@ -97,15 +106,35 @@ export function acceptSecureConnection(
   const connection = new SecureConnection(link, meta.path)
   const log = deps.logger.child({ conn: connection.id.slice(0, 8), ...meta })
   const handshake = new DaemonHandshake(noiseCrypto, deps.staticKey, deps.hooks)
+  const now = deps.now ?? Date.now
   let stage: 'first' | 'finish' | 'auth' | 'open' | 'closed' = 'first'
+  /** How far the connection got, kept after it closes for the close line. */
+  let reached: 'handshake' | 'auth' | 'open' = 'handshake'
+  let authenticatedAt = 0
   // Messages are handled one at a time: recording a pairing is async.
   let queue = Promise.resolve()
+
+  // One line per connection that ends, so the log shows how long each phone stayed (#590).
+  link.onClose((close) => {
+    const byDaemon = connection.closing !== null || close.byDaemon === true
+    const { code, reason } = connection.closing ?? close
+    log.info(
+      {
+        ...(connection.deviceId ? { device: connection.deviceId } : {}),
+        code,
+        reason,
+        by: byDaemon ? 'daemon' : 'device',
+        ...(reached === 'open' ? { openMs: now() - authenticatedAt } : { closedDuring: reached }),
+      },
+      'connection closed',
+    )
+  })
 
   const refuse = (code: number, reason: string) => {
     if (stage === 'closed') return
     stage = 'closed'
     log.warn({ code, reason }, 'connection refused')
-    link.close(code, reason)
+    connection.close(code, reason)
   }
 
   const timer = setTimeout(() => {
@@ -133,6 +162,7 @@ export function acceptSecureConnection(
       connection.session = step.session
       connection.deviceId = deviceIdOf(step.session.remoteStatic)
       stage = 'auth'
+      reached = 'auth'
     } else {
       stage = 'finish'
     }
@@ -154,6 +184,7 @@ export function acceptSecureConnection(
     connection.session = step.session
     connection.deviceId = deviceIdOf(step.session.remoteStatic)
     stage = 'auth'
+    reached = 'auth'
   }
 
   const handleFrame = (data: Uint8Array) => {
@@ -192,6 +223,8 @@ export function acceptSecureConnection(
         return refuse(CHANNEL_CLOSE.protocolMismatch, 'protocol mismatch')
       }
       stage = 'open'
+      reached = 'open'
+      authenticatedAt = now()
       clearTimeout(timer)
       deps.hooks.seen?.(session.remoteStatic)
       deps.hub.add(connection)

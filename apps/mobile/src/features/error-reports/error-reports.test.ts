@@ -13,6 +13,7 @@ import { appendEntry, isDuplicate, LOG_LIMIT, parseLog, pendingCrashes, recentEn
 import {
   buildEntry,
   type ErrorEntry,
+  invalidMessageError,
   MESSAGE_LIMIT,
   type ReportContext,
   scrubMessage,
@@ -122,6 +123,25 @@ describe('buildEntry', () => {
       requestType: 'session.start',
       code: 'invalid_cwd',
       message: null,
+      stack: null,
+    })
+  })
+
+  test('daemon messages that fail validation keep their type, parse code and scrubbed reason, no stack', () => {
+    const entry = buildEntry({
+      at,
+      source: 'message',
+      error: invalidMessageError('sessionId: Invalid input: expected string, received number'),
+      requestType: 'session.changed',
+      code: 'bad_request',
+      context,
+    })
+    expect(entry).toMatchObject({
+      source: 'message',
+      name: 'InvalidDaemonMessage',
+      requestType: 'session.changed',
+      code: 'bad_request',
+      message: 'sessionId: Invalid input: expected string, received number',
       stack: null,
     })
   })
