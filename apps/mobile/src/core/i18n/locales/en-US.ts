@@ -338,6 +338,21 @@ const enUS = {
     /** `n` is a plain number in parentheses, so no plural form applies. */
     subagents: 'Subagents ({{n}})',
     subagentsRunning: 'Subagents ({{n}} · {{running}} running)',
+    /** Under each icon of the session sheet's grid; the full labels above stay its accessible labels. */
+    short: {
+      terminal: 'Terminal',
+      runCommand: 'Command',
+      model: 'Model',
+      subagents: 'Subagents',
+      toggleKeyBar: 'Shortcuts',
+      toggleHandsFree: 'Hands-free',
+      templates: 'Templates',
+      schedule: 'Schedule',
+      history: 'History',
+      changes: 'Changes',
+      toggleFollow: 'Follow',
+      toggleLiveFollow: 'Live status',
+    },
   },
   sessionActions: {
     close: 'Close session',
@@ -454,8 +469,8 @@ const enUS = {
   },
   sessionDetails: {
     title: 'Session details',
-    open: 'Session details: {{title}}',
-    openHint: 'Shows the full folder, profile and session ID',
+    open: '{{title}}: details and actions',
+    openHint: "Opens the session's actions and details",
     openFolder: 'Folder {{folder}}. Session details',
     copy: 'Copy',
     copied: 'Copied',
