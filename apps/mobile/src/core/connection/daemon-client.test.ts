@@ -16,6 +16,7 @@ import {
   DaemonRequestError,
   DIRECT_PROBE_INTERVAL_MS,
   daemonUrl,
+  HANDSHAKE_DEADLINE_MS,
   HEARTBEAT_MS,
   HEARTBEAT_TIMEOUT_MS,
   orderTargets,
@@ -33,6 +34,8 @@ const sameKey = (a: Uint8Array, b: Uint8Array) => bytesToBase64Url(a) === bytesT
 /** A socket with a fake daemon behind it: it runs the Noise responder and decrypts what it gets. */
 class FakeSocket implements SocketLike {
   static instances: FakeSocket[] = []
+  /** A daemon that never answers the handshake (the reply was lost on the way). */
+  static silent = false
   readyState = 0
   binaryType = ''
   sent: Record<string, unknown>[] = []
@@ -52,6 +55,7 @@ class FakeSocket implements SocketLike {
     FakeSocket.instances.push(this)
   }
   send(data: ArrayBuffer) {
+    if (FakeSocket.silent) return
     const bytes = new Uint8Array(data)
     if (this.stage === 'first') {
       this.mode = bytes[3] === 1 ? 'pair' : 'reconnect'
@@ -132,6 +136,7 @@ function authenticate(socket: FakeSocket) {
 
 beforeEach(() => {
   FakeSocket.instances = []
+  FakeSocket.silent = false
   paired.splice(0, paired.length, deviceKey.publicKey)
   codes.clear()
   vi.useFakeTimers()
@@ -568,6 +573,120 @@ describe('DaemonClient unreachable computer', () => {
     expect(client.unreachable).toBe(false)
     expect(client.status).toBe('closed')
     expect(FakeSocket.instances).toHaveLength(1)
+  })
+})
+
+describe('DaemonClient stuck while authenticating (#589)', () => {
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+  }
+
+  test('a handshake the daemon never answers is dropped at the deadline and retried', async () => {
+    FakeSocket.silent = true
+    const client = makeClient()
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(client.status).toBe('authenticating')
+    vi.advanceTimersByTime(HANDSHAKE_DEADLINE_MS - 1)
+    expect(client.status).toBe('authenticating')
+    vi.advanceTimersByTime(1)
+    await settle()
+    expect(socket.readyState).toBe(3)
+    expect(client.status).toBe('reconnecting')
+    expect(client.lastError).toBe('handshake timeout')
+    vi.advanceTimersByTime(1_000)
+    expect(FakeSocket.instances).toHaveLength(2)
+    client.close()
+  })
+
+  test('an `auth` the daemon never answers is dropped at the same deadline, not reported as a request error', async () => {
+    const client = makeClient()
+    const errors = vi.fn()
+    client.onRequestError(errors)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(socket.last().type).toBe('auth')
+    vi.advanceTimersByTime(HANDSHAKE_DEADLINE_MS)
+    await settle()
+    expect(socket.readyState).toBe(3)
+    expect(client.status).toBe('reconnecting')
+    vi.advanceTimersByTime(1_000)
+    const next = FakeSocket.instances[1]!
+    authenticate(next)
+    await settle()
+    expect(client.status).toBe('open')
+    expect(errors).not.toHaveBeenCalled()
+    client.close()
+  })
+
+  test('the deadline ends with `auth.ok`', async () => {
+    const client = makeClient()
+    client.connect()
+    authenticate(FakeSocket.instances[0]!)
+    await settle()
+    vi.advanceTimersByTime(HANDSHAKE_DEADLINE_MS * 2)
+    await settle()
+    expect(client.status).toBe('open')
+    expect(FakeSocket.instances).toHaveLength(1)
+    client.close()
+  })
+
+  test('an `auth.ok` that does not validate ends the attempt with a visible error', async () => {
+    const client = makeClient()
+    const invalid = vi.fn()
+    client.onInvalidMessage(invalid)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    socket.receive({ type: 'auth.ok', replyTo: socket.last().id, protocolVersion: 'two' })
+    await settle()
+    expect(client.status).toBe('unauthorized')
+    expect(client.closeCode).toBe(CHANNEL_CLOSE.protocolMismatch)
+    expect(client.lastError).toMatch(/auth\.ok/)
+    expect(socket.readyState).toBe(3)
+    expect(invalid).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth.ok', code: 'bad_request' }))
+    expect(client.invalidMessages).toBe(1)
+    vi.advanceTimersByTime(60_000)
+    expect(FakeSocket.instances).toHaveLength(1)
+  })
+
+  test('other messages that do not validate are counted and reported, and the connection stays', async () => {
+    const client = makeClient()
+    const invalid = vi.fn()
+    client.onInvalidMessage(invalid)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    authenticate(socket)
+    await settle()
+    socket.receive({ type: 'session.changed', sessionId: 42 })
+    socket.receive({ type: 'session.renamed.v9', sessionId: 's' })
+    expect(client.invalidMessages).toBe(2)
+    expect(invalid).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ type: 'session.changed', code: 'bad_request' }),
+    )
+    expect(invalid).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ type: 'session.renamed.v9', code: 'unknown_type' }),
+    )
+    expect(client.status).toBe('open')
+    client.close()
+  })
+
+  test('back in the foreground while still authenticating: the attempt is dropped and a new one starts at once', () => {
+    FakeSocket.silent = true
+    const client = makeClient()
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(client.status).toBe('authenticating')
+    client.resumeNow()
+    expect(socket.readyState).toBe(3)
+    expect(FakeSocket.instances).toHaveLength(2)
+    expect(client.status).toBe('connecting')
+    client.close()
   })
 })
 

@@ -4,7 +4,8 @@
  * prompts, transcript, terminal output, paths, names, tokens — never reaches a report.
  */
 
-export type ErrorSource = 'fatal' | 'error' | 'rejection' | 'render' | 'request'
+/** `message`: a daemon message the protocol schemas rejected (dropped by the client). */
+export type ErrorSource = 'fatal' | 'error' | 'rejection' | 'render' | 'request' | 'message'
 
 export type ReportContext = {
   appVersion: string | null
@@ -130,6 +131,13 @@ const isCodedError = (error: unknown): error is Error & CodedError =>
   error.name === 'DaemonRequestError' &&
   typeof (error as { code?: unknown }).code === 'string'
 
+/** The error recorded for a daemon message that failed validation (its parse reason). */
+export function invalidMessageError(reason: string): Error {
+  const error = new Error(reason)
+  error.name = 'InvalidDaemonMessage'
+  return error
+}
+
 export type EntryInput = {
   at: Date
   source: ErrorSource
@@ -153,6 +161,8 @@ export function buildEntry(input: EntryInput): ErrorEntry {
         ? 'Error'
         : 'NonError'
   const withText = input.source !== 'request' && !coded
+  // Request and message entries describe the daemon's side: a stack would only show the client.
+  const withStack = input.source !== 'request' && input.source !== 'message'
   const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : null
   const rawCode = input.code ?? (coded ? error.code : undefined)
   return {
@@ -160,8 +170,7 @@ export function buildEntry(input: EntryInput): ErrorEntry {
     source: input.source,
     name,
     message: withText && rawMessage ? scrubMessage(rawMessage) : null,
-    stack:
-      input.source !== 'request' && error instanceof Error && error.stack ? scrubStack(error.stack) : null,
+    stack: withStack && error instanceof Error && error.stack ? scrubStack(error.stack) : null,
     requestType: input.requestType && REQUEST_TYPE.test(input.requestType) ? input.requestType : null,
     code: rawCode && CODE.test(rawCode) ? rawCode : null,
     route: input.route ? scrubRoute(input.route) : null,

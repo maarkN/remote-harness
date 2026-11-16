@@ -54,6 +54,8 @@ type ConnectionState = {
   client: DaemonClient | null
   status: ConnectionStatus
   error: string | undefined
+  /** The close code of the last connection the daemon refused (4001, 4002…). */
+  closeCode: number | undefined
   /** The last attempt got no answer: the computer may be asleep or offline. */
   unreachable: boolean
   /** Direct or relay, while connected. */
@@ -118,6 +120,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         path: null,
         hello: null,
         error: undefined,
+        closeCode: undefined,
         unreachable: false,
       })
       return
@@ -129,10 +132,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       ...(appBuild ? { appBuild } : {}),
       // The demo's sockets live in memory: no relay to race, and a busy start-up (first launch on
       // a slow device) must not drop a handshake that is only waiting for the JavaScript thread.
-      ...(demo ? { socketFactory: demo.socketFactory, directTimeoutMs: 30_000 } : {}),
+      ...(demo
+        ? { socketFactory: demo.socketFactory, directTimeoutMs: 30_000, handshakeTimeoutMs: 30_000 }
+        : {}),
     })
     client.onStatus((status, error) => {
-      set({ status, error, unreachable: client.unreachable })
+      set({ status, error, closeCode: client.closeCode, unreachable: client.unreachable })
       // This device was revoked from another one: that computer is gone for it.
       if (
         status === 'unauthorized' &&
@@ -160,6 +165,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       path: null,
       hello: null,
       error: undefined,
+      closeCode: undefined,
       unreachable: false,
     })
     client.connect()
@@ -176,6 +182,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     client: null,
     status: 'idle',
     error: undefined,
+    closeCode: undefined,
     unreachable: false,
     path: null,
     hello: null,
