@@ -4,7 +4,10 @@ import { acceptSecureConnection, type Link, type SecureConnectionDeps } from './
 
 export { AUTH_TIMEOUT_MS } from './secure-connection.ts'
 
+/** The WebSocket ping interval; a socket that has not answered the previous ping is dead. */
 const HEARTBEAT_MS = 30_000
+/** The close reason logged for a socket the ping/pong found dead (`socket.terminate()` gives 1006). */
+export const DEAD_CONNECTION_REASON = 'no pong (dead connection)'
 /**
  * One WebSocket message is one Noise message (at most 65,535 bytes) or, first, the preface plus
  * the first handshake message; protocol messages up to 8 MB arrive in several.
@@ -14,6 +17,8 @@ export const MAX_PAYLOAD_BYTES = MAX_NOISE_MESSAGE + 4 + PAIRING_ID_LENGTH
 export type WsServerOptions = SecureConnectionDeps & {
   host: string
   port: number
+  /** The WebSocket ping interval (`HEARTBEAT_MS`); shorter in tests. */
+  heartbeatMs?: number
 }
 
 function toBytes(data: RawData): Uint8Array {
@@ -21,14 +26,22 @@ function toBytes(data: RawData): Uint8Array {
   return data instanceof ArrayBuffer ? new Uint8Array(data) : data
 }
 
-function wsLink(socket: WebSocket): Link {
+/** `dead`: whether the ping/pong terminated the socket (its close event then only says 1006). */
+function wsLink(socket: WebSocket, dead: () => boolean): Link {
   return {
     send: (data) => {
       if (socket.readyState === socket.OPEN) socket.send(data, { binary: true })
     },
     close: (code, reason) => socket.close(code, reason),
     onMessage: (fn) => socket.on('message', (data, isBinary) => fn(toBytes(data), isBinary)),
-    onClose: (fn) => socket.on('close', fn),
+    onClose: (fn) =>
+      socket.on('close', (code, reason) =>
+        fn(
+          dead()
+            ? { code, reason: DEAD_CONNECTION_REASON, byDaemon: true }
+            : { code, reason: reason.toString() },
+        ),
+      ),
   }
 }
 
@@ -41,23 +54,29 @@ export async function startWsServer(options: WsServerOptions): Promise<WebSocket
     perMessageDeflate: false,
   })
   const alive = new WeakMap<WebSocket, boolean>()
+  const dead = new WeakSet<WebSocket>()
 
   wss.on('connection', (socket, request) => {
     alive.set(socket, true)
     socket.on('pong', () => alive.set(socket, true))
-    acceptSecureConnection(wsLink(socket), options, { remote: request.socket.remoteAddress, path: 'direct' })
+    acceptSecureConnection(
+      wsLink(socket, () => dead.has(socket)),
+      options,
+      { remote: request.socket.remoteAddress, path: 'direct' },
+    )
   })
 
   const heartbeat = setInterval(() => {
     for (const socket of wss.clients) {
       if (alive.get(socket) === false) {
+        dead.add(socket)
         socket.terminate()
         continue
       }
       alive.set(socket, false)
       socket.ping()
     }
-  }, HEARTBEAT_MS)
+  }, options.heartbeatMs ?? HEARTBEAT_MS)
   wss.on('close', () => clearInterval(heartbeat))
 
   await new Promise<void>((resolve, reject) => {
