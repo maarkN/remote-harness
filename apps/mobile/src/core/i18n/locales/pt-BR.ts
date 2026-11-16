@@ -351,6 +351,9 @@ const ptBR = {
     cleanupDetail_other: '{{path}} · {{count}} alterações',
     copyPath: 'Copiar caminho da pasta',
     hide: 'Ocultar da lista',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Sessão oculta',
+    undo: 'Desfazer',
     followLive: 'Acompanhar status ao vivo',
     unfollowLive: 'Parar de acompanhar status ao vivo',
     failed: 'Não foi possível concluir a ação',

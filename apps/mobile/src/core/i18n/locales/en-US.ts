@@ -352,6 +352,9 @@ const enUS = {
     cleanupDetail_other: '{{path}} · {{count}} changes',
     copyPath: 'Copy folder path',
     hide: 'Hide from list',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Session hidden',
+    undo: 'Undo',
     followLive: 'Follow live status',
     unfollowLive: 'Stop following live status',
     failed: "Couldn't complete the action",

@@ -33,6 +33,7 @@ import {
   Mark,
   Screen,
   Text,
+  UndoBar,
 } from '@/ui'
 import { useLiveFollowStore } from '../live-status/follow-store'
 import { useLiveStatusSettings } from '../live-status/settings-store'
@@ -114,6 +115,8 @@ export function SessionsScreen({
   const [actionsFor, setActionsFor] = useState<Session | null>(null)
   const [closing, setClosing] = useState<{ session: Session; mode: 'close' | 'cleanup' } | null>(null)
   const [filtersSheetOpen, setFiltersSheetOpen] = useState(false)
+  // The last hidden session, while its Undo bar shows; `id` tells two hides of one session apart.
+  const [undoHide, setUndoHide] = useState<{ id: string; sessionId: string } | null>(null)
   const listRef = useRef<FlashListRef<Session>>(null)
 
   // A new filter is a new list: start from the top.
@@ -288,6 +291,8 @@ export function SessionsScreen({
         break
       case 'hide':
         void setHidden(session.id, true)
+        // A full swipe hides at once: the bar offers the way back (#559).
+        setUndoHide({ id: `${session.id}:${Date.now()}`, sessionId: session.id })
         break
       case 'copyPath':
         void Clipboard.setStringAsync(session.cwd)
@@ -500,6 +505,16 @@ export function SessionsScreen({
         <CloseSessionSheet session={closing.session} mode={closing.mode} onDone={() => setClosing(null)} />
       ) : null}
       {fab ? <NewSessionFab /> : null}
+      {undoHide ? (
+        <UndoBar
+          id={undoHide.id}
+          message={t('sessionActions.hidden')}
+          actionLabel={t('sessionActions.undo')}
+          onAction={() => void setHidden(undoHide.sessionId, false)}
+          onDismiss={() => setUndoHide(null)}
+          inset={fab ? NEW_SESSION_FAB_SPACE : undefined}
+        />
+      ) : null}
       <SessionFiltersSheet
         visible={filtersSheetOpen}
         profiles={profiles}
