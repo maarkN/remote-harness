@@ -138,6 +138,11 @@ function Shell({ ready }: { ready: boolean }) {
                 {/* The first-launch language step draws its own title and cannot be dismissed. */}
                 <Stack.Screen name="language" options={{ headerShown: false, gestureEnabled: false }} />
                 <Stack.Screen name="pair" options={{ title: t('nav.pair'), presentation: 'modal' }} />
+                {/* Right after pairing: the name the computer lists this device by (#592). */}
+                <Stack.Screen
+                  name="name-device"
+                  options={{ title: t('nav.nameDevice'), presentation: 'modal' }}
+                />
                 <Stack.Screen
                   name="setup-guide"
                   options={{ title: t('nav.setupGuide'), presentation: 'modal' }}

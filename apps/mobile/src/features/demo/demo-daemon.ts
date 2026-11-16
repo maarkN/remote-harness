@@ -449,6 +449,7 @@ export class DemoDaemon {
       case 'daemon.update.start':
       case 'command.cancel':
       case 'devices.revoke':
+      case 'devices.rename':
       case 'pairing.create':
       case 'changes.commit':
       case 'changes.push':

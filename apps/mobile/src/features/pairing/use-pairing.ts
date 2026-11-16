@@ -83,7 +83,8 @@ export function usePairing() {
       await addComputer(computerFromCode(pending.code, pending.deviceKey))
       setBusy(false)
       setPending(null)
-      router.replace('/')
+      // Before the session list: the name the computer lists this device by (#592).
+      router.replace('/name-device')
       return true
     },
     [addComputer, message, pending, t],

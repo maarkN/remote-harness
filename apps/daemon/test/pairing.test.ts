@@ -207,6 +207,19 @@ describe('paired devices', () => {
     expect(devices.devices()[0]?.app).toBeUndefined()
   })
 
+  test('renames a device and keeps the name across a reload (#592)', async () => {
+    const path = join(home.dir(), 'renamed.json')
+    const devices = new PairedDevices(path)
+    await devices.load()
+    const phone = key()
+    await devices.add(phone, { name: 'iPhone', platform: 'ios' })
+    expect(await devices.rename(deviceIdOf(phone), "Hanna's iPhone")).toBe(true)
+    expect(await devices.rename('ffffffffffffffff', 'Ghost')).toBe(false)
+    const reloaded = new PairedDevices(path)
+    await reloaded.load()
+    expect(reloaded.devices().map((d) => d.name)).toEqual(["Hanna's iPhone"])
+  })
+
   test('a corrupt file is an empty list', async () => {
     const { writeFile } = await import('node:fs/promises')
     const path = join(home.dir(), 'broken.json')

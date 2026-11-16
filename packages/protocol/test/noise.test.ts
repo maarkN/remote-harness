@@ -13,6 +13,7 @@ import {
   type DaemonHandshakeStep,
   DeviceHandshake,
   decodePreface,
+  deviceIdOf,
   formatConfirmationCode,
   formatPairingCode,
   generateConfirmationCode,
@@ -28,6 +29,14 @@ import {
 import { NOISE_TEST_VECTORS, runNoiseVector } from '../src/noise/test-vectors.ts'
 
 const crypto = createNoiseCrypto(nodeCrypto as unknown as NodeLikeCrypto)
+
+describe('device IDs (#592)', () => {
+  test('the first 8 bytes of SHA-256 of the static key, in hex, as the daemon names devices', () => {
+    const key = new Uint8Array(32).fill(7)
+    const expected = nodeCrypto.createHash('sha256').update(key).digest('hex').slice(0, 16)
+    expect(deviceIdOf(crypto, key)).toBe(expected)
+  })
+})
 
 describe('official Noise vectors', () => {
   test.each(NOISE_TEST_VECTORS.map((v) => [v.protocol_name, v] as const))('%s', (_name, vector) => {

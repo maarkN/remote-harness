@@ -520,6 +520,7 @@ export async function registerUpdatesFeature(
       connection.onClose(scheduleRefresh)
     })
     ctx.bus.on('device.revoked', scheduleRefresh)
+    ctx.bus.on('device.renamed', scheduleRefresh)
     // The tray's QR was presented: its confirmation code appears under it (ADR-0009).
     ctx.bus.on('pairing.presented', scheduleRefresh)
     ctx.bus.on('pairing.locked', scheduleRefresh)
