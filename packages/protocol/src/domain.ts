@@ -460,6 +460,9 @@ export type ApprovalEntry = z.infer<typeof ApprovalEntrySchema>
 export const DevicePlatformSchema = z.enum(['ios', 'android'])
 export type DevicePlatform = z.infer<typeof DevicePlatformSchema>
 
+/** Longest device name (`devices.rename`, the pairing payload). */
+export const DEVICE_NAME_MAX = 64
+
 /** A device paired with the daemon, as `devices.list` shows it (times as ISO strings). */
 export const PairedDeviceInfoSchema = z.object({
   id: z.string(),

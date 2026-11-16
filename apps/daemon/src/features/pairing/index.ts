@@ -107,6 +107,16 @@ export async function registerPairingFeature(o: PairingOptions): Promise<Pairing
     type: 'devices.result',
     devices: devices.devices().map((d) => deviceInfoOf(d, connection.deviceId)),
   }))
+  o.router.register('devices.rename', async (msg, connection) => {
+    if (!(await devices.rename(msg.deviceId, msg.name)))
+      throw new DaemonError('not_found', `no device ${msg.deviceId}`)
+    o.bus.emit('device.renamed', { deviceId: msg.deviceId })
+    o.logger.info({ device: msg.deviceId }, 'device renamed')
+    return {
+      type: 'devices.result',
+      devices: devices.devices().map((d) => deviceInfoOf(d, connection.deviceId)),
+    }
+  })
   o.router.register('devices.revoke', async (msg) => {
     if (!(await revoke(msg.deviceId))) throw new DaemonError('not_found', `no device ${msg.deviceId}`)
     return undefined

@@ -15,6 +15,8 @@ export type DaemonEvents = {
   'account.limits': Pick<AccountLimits, 'profileId' | 'fiveHour' | 'sevenDay'>
   /** A paired device was revoked (from a device or the CLI): its connections and push go with it. */
   'device.revoked': { deviceId: string }
+  /** A device got a new name (`devices.rename`): the tray's device list follows. */
+  'device.renamed': { deviceId: string }
   /** These FCM tokens no longer belong to a paired device: nothing may be sent to them. */
   'push.tokens.dropped': { tokens: string[] }
 }

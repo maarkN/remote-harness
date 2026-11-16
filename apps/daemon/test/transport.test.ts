@@ -279,6 +279,32 @@ describe('devices', () => {
     phone.close()
   })
 
+  test('a device renames itself and another one; the list shows it at once (#592)', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    const tablet = await authedClient(daemon)
+    tablet.send({ type: 'devices.list', id: 'l' })
+    const tabletId = (await tablet.until('devices.result')).devices.find((d) => d.current)?.id as string
+    phone.send({ type: 'devices.list', id: 'l' })
+    const phoneId = (await phone.until('devices.result')).devices.find((d) => d.current)?.id as string
+    phone.send({ type: 'devices.rename', id: 'r1', deviceId: phoneId, name: "  Hanna's iPhone " })
+    const renamed = await phone.until('devices.result')
+    expect(renamed).toMatchObject({ replyTo: 'r1' })
+    expect(renamed.devices.find((d) => d.current)).toMatchObject({ id: phoneId, name: "Hanna's iPhone" })
+    phone.send({ type: 'devices.rename', id: 'r2', deviceId: tabletId, name: 'Kitchen iPad' })
+    await phone.until('devices.result')
+    expect(
+      daemon.pairing.devices
+        .devices()
+        .map((d) => d.name)
+        .sort(),
+    ).toEqual(["Hanna's iPhone", 'Kitchen iPad'])
+    phone.send({ type: 'devices.rename', id: 'r3', deviceId: 'ffffffffffffffff', name: 'Ghost' })
+    expect(await phone.until('error')).toMatchObject({ replyTo: 'r3', code: 'not_found' })
+    phone.close()
+    tablet.close()
+  })
+
   test('a paired device gets a pairing code for another one', async () => {
     const { daemon } = await boot()
     const phone = await authedClient(daemon)

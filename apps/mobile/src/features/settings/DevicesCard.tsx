@@ -1,22 +1,33 @@
 import type { PairedDeviceInfo } from '@remote-harness/protocol'
 import * as Clipboard from 'expo-clipboard'
-import { Smartphone, Tablet } from 'lucide-react-native'
+import { Pencil, Smartphone, Tablet } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native'
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useConnectionStore, useDaemonClient } from '@/core/connection'
 import { errorMessage } from '@/core/connection/error-message'
-import { makeStyles, radius, space, useTheme } from '@/core/theme'
+import { keyboardBehavior } from '@/core/platform/platform'
+import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { relativeTime } from '@/core/utils/time'
 import { Badge, Button, Card, Text } from '@/ui'
+import { cleanDeviceName } from '../pairing/device-name'
 import { QrCode } from './QrCode'
 
 type Code = { url: string; expiresAt: string }
 
 /**
  * Settings → Devices: the phones and tablets paired with the active computer, "Add device" (a
- * single-use code shown as a QR) and revoke.
+ * single-use code shown as a QR), rename (#592) and revoke.
  */
 export function DevicesCard() {
   const { t } = useTranslation()
@@ -26,6 +37,7 @@ export function DevicesCard() {
   const [devices, setDevices] = useState<PairedDeviceInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [code, setCode] = useState<Code | null>(null)
+  const [renaming, setRenaming] = useState<PairedDeviceInfo | null>(null)
 
   const refresh = useCallback(() => {
     if (!client || status !== 'open') return
@@ -82,7 +94,10 @@ export function DevicesCard() {
               <Icon size={18} color={colors.textMuted} />
               <View style={layout.flex}>
                 <View style={layout.title}>
-                  <Text numberOfLines={1}>{device.name || device.platform}</Text>
+                  {/* A long name is cut, so the badge never runs into the rename action. */}
+                  <Text numberOfLines={1} style={layout.name}>
+                    {device.name || device.platform}
+                  </Text>
                   {device.current ? <Badge label={t('devices.thisDevice')} tone="success" /> : null}
                 </View>
                 <Text size="xs" color="textMuted" numberOfLines={1}>
@@ -91,6 +106,14 @@ export function DevicesCard() {
                     : t('devices.neverSeen')}
                 </Text>
               </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('devices.rename')}: ${device.name || device.platform}`}
+                hitSlop={8}
+                onPress={() => setRenaming(device)}
+              >
+                <Pencil size={16} color={colors.textMuted} />
+              </Pressable>
               <Button label={t('devices.revoke')} variant="ghost" compact onPress={() => revoke(device)} />
             </View>
           )
@@ -99,7 +122,93 @@ export function DevicesCard() {
         <Button label={t('devices.add')} compact onPress={add} disabled={status !== 'open'} />
       </View>
       <AddDeviceSheet code={code} onClose={() => setCode(null)} />
+      <RenameDeviceSheet
+        device={renaming}
+        onClose={() => setRenaming(null)}
+        onRenamed={(list) => {
+          setDevices(list)
+          setRenaming(null)
+        }}
+      />
     </Card>
+  )
+}
+
+/** Edits one device's name and sends `devices.rename`; the reply is the updated list (#592). */
+function RenameDeviceSheet(props: {
+  device: PairedDeviceInfo | null
+  onClose: () => void
+  onRenamed: (devices: PairedDeviceInfo[]) => void
+}) {
+  const { device, onClose, onRenamed } = props
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const styles = useStyles()
+  const insets = useSafeAreaInsets()
+  const client = useDaemonClient()
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setName(device?.name ?? '')
+    setError(null)
+    setBusy(false)
+  }, [device])
+
+  const save = () => {
+    if (!device || !client) return
+    const clean = cleanDeviceName(name)
+    if (!clean) {
+      setError(t('devices.nameInvalid'))
+      return
+    }
+    setBusy(true)
+    client.request({ type: 'devices.rename', deviceId: device.id, name: clean }).then(
+      (reply) => {
+        setBusy(false)
+        if (reply.type === 'devices.result') onRenamed(reply.devices)
+      },
+      (e: unknown) => {
+        setBusy(false)
+        setError(errorMessage(e, t))
+      },
+    )
+  }
+
+  return (
+    <Modal visible={device !== null} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={keyboardBehavior(Platform.OS)} style={layout.fill}>
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + space.md }]}>
+            <Text weight="bold" accessibilityRole="header">
+              {t('devices.renameTitle', { name: device?.name || device?.platform || '' })}
+            </Text>
+            <TextInput
+              value={name}
+              onChangeText={(text) => {
+                setName(text)
+                setError(null)
+              }}
+              accessibilityLabel={t('devices.renameLabel')}
+              maxLength={64}
+              autoFocus
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={save}
+              selectTextOnFocus
+              placeholderTextColor={colors.textDim}
+              style={styles.input}
+            />
+            {error ? <Text color="danger">{error}</Text> : null}
+            <View style={layout.actions}>
+              <Button label={t('common.cancel')} variant="ghost" onPress={onClose} disabled={busy} />
+              <Button label={t('devices.save')} variant="primary" onPress={save} loading={busy} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
   )
 }
 
@@ -146,8 +255,10 @@ const layout = StyleSheet.create({
   gap: { gap: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   title: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  name: { flexShrink: 1 },
   flex: { flex: 1, gap: 2 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space.sm },
+  fill: { flex: 1 },
 })
 
 const useStyles = makeStyles((theme) => ({
@@ -162,4 +273,15 @@ const useStyles = makeStyles((theme) => ({
     borderColor: theme.colors.border,
   },
   qr: { alignItems: 'center', paddingVertical: space.sm },
+  input: {
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    color: theme.colors.text,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.md,
+  },
 }))

@@ -28,6 +28,7 @@ const ptBR = {
     genericSentence: 'Sua máquina',
   },
   nav: {
+    nameDevice: 'Nome do aparelho',
     pair: 'Parear',
     setupGuide: 'Primeira configuração',
     settings: 'Configurações',
@@ -104,6 +105,11 @@ const ptBR = {
       'Este aparelho foi removido de {{name}} por outro aparelho. Pareie de novo com um código novo para usá-lo.',
   },
   devices: {
+    rename: 'Renomear',
+    renameTitle: 'Renomear {{name}}',
+    renameLabel: 'Nome',
+    save: 'Salvar',
+    nameInvalid: 'Use de 1 a 64 caracteres.',
     title: 'Aparelhos',
     loading: 'carregando…',
     offline: 'Conecte ao computador para ver os aparelhos dele.',
@@ -123,6 +129,15 @@ const ptBR = {
     copyLink: 'Copiar link',
   },
   pairing: {
+    name: {
+      title: 'Dê um nome a este aparelho',
+      body: '{{Machine}} lista os aparelhos pareados pelo nome: em Configurações → Aparelhos, na bandeja e em `remote-harness devices list`. Com um nome, dá para diferenciar seus celulares.',
+      label: 'Nome do aparelho',
+      save: 'Salvar',
+      skip: 'Pular',
+      connecting: 'Conectando a {{machine}}…',
+      failed: 'O nome não foi salvo: {{error}}',
+    },
     title: 'Parear com o computador',
     intro: 'No computador, rode <cmd>remote-harness pair</cmd> e aponte a câmera para o QR code.',
     guideTitle: 'Primeira vez? Configure o computador',

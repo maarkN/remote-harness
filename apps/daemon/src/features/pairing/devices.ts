@@ -99,6 +99,15 @@ export class PairedDevices {
     await this.save()
   }
 
+  /** Gives a device a new name (already trimmed and checked by the protocol); false for an unknown ID. */
+  async rename(id: string, name: string): Promise<boolean> {
+    const device = this.list.find((d) => d.id === id)
+    if (!device) return false
+    device.name = name
+    await this.save()
+    return true
+  }
+
   /** Removes a device; its key is refused from then on. Null when no device has that ID. */
   async revoke(id: string): Promise<PairedDevice | null> {
     const device = this.list.find((d) => d.id === id)
