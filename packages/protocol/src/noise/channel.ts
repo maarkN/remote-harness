@@ -16,9 +16,19 @@ import {
 /** Preface version: the first byte after `RH` in every connection. */
 export const PREFACE_VERSION = 2
 const MAGIC = [0x52, 0x48] as const
-const MODE_PAIR = 0x01
+/** Pairing without a confirmation code: what apps before ADR-0009 send; the daemon refuses it. */
+const MODE_PAIR_LEGACY = 0x01
 const MODE_RECONNECT = 0x02
+/** "A device is pairing with this code": the daemon shows the confirmation code and closes (4011). */
+const MODE_ANNOUNCE = 0x03
+/** Pairing with the confirmation code mixed into the PSK. */
+const MODE_PAIR = 0x04
 export const PAIRING_ID_LENGTH = 16
+/** Digits of a confirmation code (ADR-0009). */
+export const CONFIRMATION_CODE_LENGTH = 6
+const CONFIRMATION_CONTEXT = utf8Encode('remote-harness pairing confirmation\0')
+/** The largest multiple of 10^6 below 2^32: draws at or above it are thrown away. */
+const CONFIRMATION_DRAW_LIMIT = 4_294_000_000
 export const PAIRING_SECRET_LENGTH = 32
 const PROLOGUE_CONTEXT = utf8Encode('remote-harness noise v1\0')
 const PAIRING_ID_CONTEXT = utf8Encode('remote-harness pairing id\0')
@@ -38,6 +48,12 @@ export const CHANNEL_CLOSE = {
   deviceLimit: 4006,
   revoked: 4007,
   handshakeTimeout: 4008,
+  /** The announce worked: the computer now shows the confirmation code. */
+  confirmationShown: 4011,
+  /** The pairing used another confirmation code than the one the computer shows. */
+  wrongConfirmation: 4012,
+  /** Too many wrong confirmation codes: the pairing code is burned. */
+  confirmationLocked: 4013,
   tooBig: 1009,
 } as const
 
@@ -57,11 +73,24 @@ export function normalizeChannelClose(code: number): number {
   return code > 4100 && code < 4200 ? code - RELAY_CLOSE_OFFSET : code
 }
 
-export type Preface = { mode: 'pair'; pairingId: Uint8Array } | { mode: 'reconnect' }
+/**
+ * `legacy-pair`: an app without confirmation codes (refused); `announce`: show the confirmation
+ * code; `pair`: pair with it; `reconnect`: a paired device.
+ */
+export type Preface =
+  | { mode: 'pair' | 'announce' | 'legacy-pair'; pairingId: Uint8Array }
+  | { mode: 'reconnect' }
+
+const MODE_BYTES = {
+  'legacy-pair': MODE_PAIR_LEGACY,
+  reconnect: MODE_RECONNECT,
+  announce: MODE_ANNOUNCE,
+  pair: MODE_PAIR,
+} as const
 
 export function encodePreface(preface: Preface): Uint8Array {
-  const head = Uint8Array.of(...MAGIC, PREFACE_VERSION, preface.mode === 'pair' ? MODE_PAIR : MODE_RECONNECT)
-  return preface.mode === 'pair' ? concatBytes(head, preface.pairingId) : head
+  const head = Uint8Array.of(...MAGIC, PREFACE_VERSION, MODE_BYTES[preface.mode])
+  return preface.mode === 'reconnect' ? head : concatBytes(head, preface.pairingId)
 }
 
 export type DecodedPreface =
@@ -80,16 +109,47 @@ export function decodePreface(message: Uint8Array): DecodedPreface {
       prefaceBytes: message.subarray(0, 4),
       rest: message.subarray(4),
     }
-  if (message[3] === MODE_PAIR && message.length >= 4 + PAIRING_ID_LENGTH) {
-    const end = 4 + PAIRING_ID_LENGTH
+  const mode =
+    message[3] === MODE_PAIR
+      ? 'pair'
+      : message[3] === MODE_ANNOUNCE
+        ? 'announce'
+        : message[3] === MODE_PAIR_LEGACY
+          ? 'legacy-pair'
+          : null
+  const end = 4 + PAIRING_ID_LENGTH
+  // An announce is the preface alone; the pairing modes carry the first handshake message after it.
+  if (mode && message.length >= end && (mode !== 'announce' || message.length === end)) {
     return {
       ok: true,
-      preface: { mode: 'pair', pairingId: Uint8Array.from(message.subarray(4, end)) },
+      preface: { mode, pairingId: Uint8Array.from(message.subarray(4, end)) },
       prefaceBytes: message.subarray(0, end),
       rest: message.subarray(end),
     }
   }
   return { ok: false, reason: 'malformed' }
+}
+
+/** The first and only message of an announce: "a device is pairing with this code". */
+export function announcePreface(crypto: NoiseCrypto, secret: Uint8Array): Uint8Array {
+  return encodePreface({ mode: 'announce', pairingId: pairingIdOf(crypto, secret) })
+}
+
+/** The XXpsk3 PSK of a pairing: the code's secret and the confirmation code shown on the computer. */
+export function confirmationPsk(crypto: NoiseCrypto, secret: Uint8Array, confirmation: string): Uint8Array {
+  if (!new RegExp(`^\\d{${CONFIRMATION_CODE_LENGTH}}$`).test(confirmation))
+    throw new NoiseError('bad confirmation code')
+  return crypto.hmacSha256(secret, concatBytes(CONFIRMATION_CONTEXT, utf8Encode(confirmation)))
+}
+
+/** Six random digits, drawn without modulo bias. */
+export function generateConfirmationCode(crypto: Pick<NoiseCrypto, 'randomBytes'>): string {
+  for (;;) {
+    const bytes = crypto.randomBytes(4)
+    const value = new DataView(bytes.buffer, bytes.byteOffset, 4).getUint32(0)
+    if (value < CONFIRMATION_DRAW_LIMIT)
+      return String(value % 10 ** CONFIRMATION_CODE_LENGTH).padStart(CONFIRMATION_CODE_LENGTH, '0')
+  }
 }
 
 /** Binds the preface to the handshake: altering it makes the handshake fail. */
@@ -214,7 +274,7 @@ export class DeviceHandshake {
   ) {
     this.prefaceBytes = encodePreface(preface)
     this.state = new HandshakeState(crypto, {
-      pattern: preface.mode === 'pair' ? 'XXpsk3' : 'IK',
+      pattern: preface.mode === 'reconnect' ? 'IK' : 'XXpsk3',
       initiator: true,
       prologue: channelPrologue(this.prefaceBytes),
       staticKey: options.deviceKey,
@@ -224,15 +284,32 @@ export class DeviceHandshake {
     })
   }
 
+  /**
+   * Pairs with the code's secret and the confirmation code the computer shows (ADR-0009). Without
+   * `confirmation` it speaks the old mode `0x01`, which daemons with confirmation codes refuse.
+   */
   static pair(
     crypto: NoiseCrypto,
-    options: { deviceKey: KeyPair; daemonKey: Uint8Array; secret: Uint8Array; info: DeviceInfo },
+    options: {
+      deviceKey: KeyPair
+      daemonKey: Uint8Array
+      secret: Uint8Array
+      info: DeviceInfo
+      confirmation?: string
+    },
   ): DeviceHandshake {
     if (options.secret.length !== PAIRING_SECRET_LENGTH) throw new NoiseError('bad pairing secret')
+    const pairingId = pairingIdOf(crypto, options.secret)
+    const { confirmation } = options
     return new DeviceHandshake(
       crypto,
-      { mode: 'pair', pairingId: pairingIdOf(crypto, options.secret) },
-      { deviceKey: options.deviceKey, daemonKey: options.daemonKey, psk: options.secret },
+      { mode: confirmation === undefined ? 'legacy-pair' : 'pair', pairingId },
+      {
+        deviceKey: options.deviceKey,
+        daemonKey: options.daemonKey,
+        psk:
+          confirmation === undefined ? options.secret : confirmationPsk(crypto, options.secret, confirmation),
+      },
       options.daemonKey,
       options.info,
     )
@@ -263,8 +340,13 @@ export class DeviceHandshake {
 }
 
 export type DaemonHandshakeHooks = {
-  /** The PSK of a live pairing code, or null when the code is unknown, used or expired. */
+  /** The secret of a live pairing code, or null when the code is unknown, used or expired. */
   pairingSecret(pairingId: Uint8Array): Uint8Array | null
+  /**
+   * The confirmation code shown for a live pairing code, or null while no device announced it.
+   * Absent (tests that never pair): every pairing is an announce, so none completes.
+   */
+  pairingConfirmation?(pairingId: Uint8Array): string | null
   /** True when the key belongs to a paired device. */
   isPaired(deviceKey: Uint8Array): boolean
 }
@@ -272,6 +354,10 @@ export type DaemonHandshakeHooks = {
 export type DaemonHandshakeStep =
   | { kind: 'send'; send: Uint8Array; session?: ChannelSession }
   | { kind: 'paired'; session: ChannelSession; pairingId: Uint8Array; device: DeviceInfo }
+  /** A device presented a live code: show its confirmation code and close with 4011. */
+  | { kind: 'announce'; pairingId: Uint8Array }
+  /** The third message did not decrypt: another confirmation code (an attempt to count). */
+  | { kind: 'wrong-confirmation'; pairingId: Uint8Array }
   | { kind: 'refused'; code: number; reason: string }
 
 /** The daemon's side (responder): created from the device's first message. */
@@ -289,17 +375,28 @@ export class DaemonHandshake {
   start(first: Uint8Array, ephemeral?: KeyPair): DaemonHandshakeStep {
     const decoded = decodePreface(first)
     if (!decoded.ok) return { kind: 'refused', code: CHANNEL_CLOSE.protocolMismatch, reason: decoded.reason }
-    this.preface = decoded.preface
+    const preface = decoded.preface
+    this.preface = preface
+    if (preface.mode === 'legacy-pair')
+      return {
+        kind: 'refused',
+        code: CHANNEL_CLOSE.protocolMismatch,
+        reason: 'pairing needs a confirmation code: update the app',
+      }
     let psk: Uint8Array | undefined
-    if (decoded.preface.mode === 'pair') {
-      const secret = this.hooks.pairingSecret(decoded.preface.pairingId)
+    if (preface.mode === 'pair' || preface.mode === 'announce') {
+      const secret = this.hooks.pairingSecret(preface.pairingId)
       if (!secret)
         return { kind: 'refused', code: CHANNEL_CLOSE.pairingRefused, reason: 'unknown pairing code' }
-      psk = secret
+      const confirmation = this.hooks.pairingConfirmation?.(preface.pairingId) ?? null
+      // Nothing to type yet: this presentation is what shows the code on the computer.
+      if (preface.mode === 'announce' || confirmation === null)
+        return { kind: 'announce', pairingId: preface.pairingId }
+      psk = confirmationPsk(this.crypto, secret, confirmation)
     }
     try {
       this.state = new HandshakeState(this.crypto, {
-        pattern: decoded.preface.mode === 'pair' ? 'XXpsk3' : 'IK',
+        pattern: preface.mode === 'pair' ? 'XXpsk3' : 'IK',
         initiator: false,
         prologue: channelPrologue(decoded.prefaceBytes),
         staticKey: this.staticKey,
@@ -307,7 +404,7 @@ export class DaemonHandshake {
         ...(ephemeral ? { ephemeral } : {}),
       })
       this.state.readMessage(decoded.rest)
-      if (decoded.preface.mode === 'reconnect') {
+      if (preface.mode === 'reconnect') {
         const device = this.state.remoteStatic
         if (!device || !this.hooks.isPaired(device))
           return { kind: 'refused', code: CHANNEL_CLOSE.unauthorized, reason: 'unknown device' }
@@ -336,7 +433,9 @@ export class DaemonHandshake {
         device: decodeDeviceInfo(payload),
       }
     } catch {
-      return { kind: 'refused', code: CHANNEL_CLOSE.pairingRefused, reason: 'pairing handshake failed' }
+      // The secret matched the pairing ID, so a third message that does not decrypt was sealed
+      // with another confirmation code (or tampered with): either way, one attempt.
+      return { kind: 'wrong-confirmation', pairingId: preface.pairingId }
     }
   }
 }

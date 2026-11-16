@@ -22,6 +22,14 @@ export const ptBR = {
         ` (emulador Android: também \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Escaneie com o app Remote Harness. Não compartilhe este código.',
       singleUse: (minutes: number) => `Ele pareia um celular e expira em ${minutes} minutos.`,
+      waiting: 'Esperando o celular escanear… (Ctrl+C para parar de esperar)',
+      confirm: (code: string) =>
+        `Um aparelho está pareando: digite ${code} nele. Não foi você? Ignore: sem este código nada é pareado.`,
+      paired: 'Aparelho pareado.',
+      locked:
+        'Códigos errados demais: este código de pareamento não funciona mais. Rode `remote-harness pair` para um novo.',
+      expired: 'O código de pareamento expirou. Rode `remote-harness pair` para um novo.',
+      lost: 'O daemon parou de responder; este código de pareamento pode não funcionar mais.',
     },
     setup: {
       description: 'assistente: escolhe contas e aliases, instala hooks, serviço e pareia o celular',
@@ -640,6 +648,7 @@ export const ptBR = {
       pairMenu: 'Parear um celular',
       pairInTerminal: 'Mostrar o pareamento no terminal',
       pairNote: 'Uso único · expira em 5 minutos',
+      pairConfirm: (code: string) => `No celular, digite ${code}`,
       prefsMenu: 'Preferências',
       prefPermissions: 'Mostrar pedidos de permissão aqui',
       keepAwake: 'Manter o computador acordado',

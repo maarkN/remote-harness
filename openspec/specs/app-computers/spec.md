@@ -51,7 +51,7 @@ For the active computer the app SHALL try its direct addresses first (a short ti
 - **THEN** the next attempt goes to that relay first instead of waiting on each direct address
 
 ### Requirement: Devices settings
-Settings → Devices SHALL list the devices paired with the active computer (name, platform, last seen, this device marked), offer "Add device", which asks for `pairing.create` and shows the code as a QR and a link with its expiry, and "Revoke" on each device after a confirmation. When this device is revoked (close code 4007), the app SHALL forget that computer and say so.
+Settings → Devices SHALL list the devices paired with the active computer (name, platform, last seen, this device marked), offer "Add device", which asks for `pairing.create` and shows the code as a QR and a link with its expiry and then, from `pairing.progress`, the confirmation code to type on the other device once it scans the QR, that it paired (refreshing the list) or that wrong codes burned the QR, and "Revoke" on each device after a confirmation. When this device is revoked (close code 4007), the app SHALL forget that computer and say so.
 
 #### Scenario: Add a tablet from the phone
 - **WHEN** the user taps "Add device" on the phone and scans the QR with the tablet
@@ -60,6 +60,10 @@ Settings → Devices SHALL list the devices paired with the active computer (nam
 #### Scenario: Revoked elsewhere
 - **WHEN** the tablet is revoked from the phone
 - **THEN** the tablet forgets that computer and shows that it was removed
+
+#### Scenario: Code for the tablet
+- **WHEN** the tablet scans the QR shown on the phone
+- **THEN** the phone's sheet shows "A device is pairing: enter this code on it" with the six digits, and once the tablet pairs the sheet says so and the list shows the tablet
 
 ### Requirement: Computers settings
 Settings → Computers SHALL list the paired computers with their name and the active one marked, rename one (an alias kept on this device) and forget one after a confirmation, which deletes its keys and alias and, for the active computer, its drafts; forgetting the last computer SHALL open the pairing screen.

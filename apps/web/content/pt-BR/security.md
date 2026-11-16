@@ -17,7 +17,7 @@ O daemon pode digitar nas suas sessões do Claude Code e aprovar chamadas de fer
 ## Chaves e pareamento
 
 - Toda conexão é uma sessão do protocolo Noise (X25519, ChaCha20-Poly1305) criptografada de ponta a ponta entre o celular e o daemon. As chaves do daemon ficam no Keychain do macOS, no Secret Service do Linux (`secret-tool`) ou num arquivo `0600`; cada celular cria o seu par de chaves ao parear e o guarda no armazenamento seguro, só naquele aparelho.
-- Um código de pareamento (`remote-harness pair`, a instalação ou a bandeja) funciona uma vez e só por 5 minutos. O daemon guarda as chaves públicas dos celulares pareados (no máximo 10) e derruba qualquer conexão cuja chave não conhece, antes de enviar qualquer coisa.
+- Um código de pareamento (`remote-harness pair`, a instalação ou a bandeja) funciona uma vez, só por 5 minutos e só com o seu código de confirmação: 6 dígitos que o computador mostra onde está o QR quando um celular o escaneia, nunca parte do QR nem do link. Três códigos errados queimam o código de pareamento, e um código de confirmação inesperado na sua tela quer dizer que outra pessoa está usando o seu QR. O daemon guarda as chaves públicas dos celulares pareados (no máximo 10) e derruba qualquer conexão cuja chave não conhece, antes de enviar qualquer coisa.
 - Chaves de provedor (OpenRouter) ficam no mesmo cofre, numa conta própria. Nunca são gravadas em `config.json`, `settings.json`, arquivos do shell ou atalhos, nunca vão para o log e nunca são enviadas ao celular: o atalho lê a chave dentro da janela do tmux, e o daemon só a usa para pedir ao provedor os seus créditos.
 
 ## O que sai da sua máquina

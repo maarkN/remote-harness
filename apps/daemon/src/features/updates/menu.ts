@@ -1,4 +1,8 @@
-import type { PermissionRequestInfo, SessionState } from '@remote-harness/protocol'
+import {
+  formatConfirmationCode,
+  type PermissionRequestInfo,
+  type SessionState,
+} from '@remote-harness/protocol'
 import { KEEP_AWAKE_MODES, type KeepAwakeMode } from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
 import type { ConnectionPath } from '../../transport/connection.ts'
@@ -163,8 +167,11 @@ export type TrayMenuState = {
   now?: number
   /** At least one profile exists: "New session…" can launch it. */
   canStart?: boolean
-  /** Pairing link and address once the daemon listens for the app; else "Pair a phone…" stays one item. */
-  pairing?: { url: string; address: string } | null
+  /**
+   * Pairing link and address once the daemon listens for the app; else "Pair a phone…" stays one
+   * item. `confirmation`: the code a phone that presented this link must type (ADR-0009).
+   */
+  pairing?: { url: string; address: string; confirmation?: string } | null
   /** The helper draws `qr` items (macOS). */
   qr?: boolean
   /** The Preferences submenu (or, when `windows`, the window); absent opens the config file. */
@@ -545,6 +552,9 @@ function buildPrefsWindow(s: TrayMenuState, t: TrayStrings): TrayPrefsWindow {
     ? [
         ...(s.qr ? [{ kind: 'qr', text: s.pairing.url } as const] : []),
         { kind: 'value', label: t.pairMenu, value: s.pairing.address },
+        ...(s.pairing.confirmation
+          ? [{ kind: 'note', label: t.pairConfirm(formatConfirmationCode(s.pairing.confirmation)) } as const]
+          : []),
         { kind: 'note', label: t.pairNote },
         { kind: 'button', id: TRAY_ACTIONS.pair, label: t.pairInTerminal },
       ]
@@ -652,6 +662,15 @@ function pairItem(s: TrayMenuState, t: TrayStrings): TrayItem {
     items: [
       ...(s.qr ? [{ type: 'qr' as const, text: s.pairing.url }] : []),
       { id: 'pair-address', label: s.pairing.address, enabled: false },
+      ...(s.pairing.confirmation
+        ? [
+            {
+              id: 'pair-confirm',
+              label: t.pairConfirm(formatConfirmationCode(s.pairing.confirmation)),
+              enabled: false,
+            },
+          ]
+        : []),
       { id: 'pair-note', label: t.pairNote, enabled: false },
       { type: 'separator' },
       { id: TRAY_ACTIONS.pair, label: t.pairInTerminal },

@@ -121,6 +121,10 @@ const esES = {
     addBody_other:
       'Escanea este código con la app Remote Harness en el otro móvil o tableta. Funciona una vez, durante {{count}} minutos.',
     copyLink: 'Copiar enlace',
+    confirmTitle: 'Un dispositivo se está emparejando',
+    confirmBody: 'Escribe este código en él:',
+    paired: 'Dispositivo emparejado.',
+    locked: 'Demasiados códigos incorrectos: este QR ya no sirve. Crea uno nuevo.',
   },
   pairing: {
     title: 'Vincular con el ordenador',
@@ -149,6 +153,21 @@ const esES = {
       wrongComputer: 'El ordenador que respondió no es el del código. No se guardó nada.',
       protocol: 'La app y {{machine}} hablan versiones distintas. Actualiza ambos.',
       failed: 'No se pudo conectar con {{machine}}.',
+      confirmationRequired:
+        '{{Machine}} muestra ahora un código de confirmación: escribe el que aparece en su pantalla.',
+      wrongConfirmation: 'Ese código no es el que muestra {{machine}}. Compruébalo y vuelve a escribirlo.',
+      confirmationLocked:
+        'Demasiados códigos incorrectos: este QR ya no sirve. Muestra un nuevo código de emparejamiento en {{machine}}.',
+      computerUpdate:
+        '{{Machine}} usa un Remote Harness antiguo, sin códigos de confirmación. Actualízalo (`remote-harness update`) y muestra un nuevo código de emparejamiento.',
+    },
+    confirm: {
+      title: 'Escribe el código que muestra {{machine}}',
+      body: 'Ahora que este móvil pidió emparejarse, {{machine}} muestra un código de 6 dígitos: en la terminal que mostró el QR, en la bandeja o en el móvil que lo mostró. El código nunca va en el QR, así que un QR copiado no basta para emparejar.',
+      label: 'Código de confirmación',
+      submit: 'Emparejar',
+      cancel: 'Cancelar',
+      invalid: 'Escribe los 6 dígitos.',
     },
   },
   setupGuide: {

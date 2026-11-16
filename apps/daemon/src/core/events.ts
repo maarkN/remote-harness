@@ -15,6 +15,10 @@ export type DaemonEvents = {
   'account.limits': Pick<AccountLimits, 'profileId' | 'fiveHour' | 'sevenDay'>
   /** A paired device was revoked (from a device or the CLI): its connections and push go with it. */
   'device.revoked': { deviceId: string }
+  /** A device presented a pairing code: its confirmation code is shown now (ADR-0009). */
+  'pairing.presented': { pairingId: string }
+  /** Wrong confirmation codes burned a pairing code. */
+  'pairing.locked': { pairingId: string }
   /** These FCM tokens no longer belong to a paired device: nothing may be sent to them. */
   'push.tokens.dropped': { tokens: string[] }
 }

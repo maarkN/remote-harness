@@ -1,10 +1,12 @@
 import {
+  announcePreface,
   type ChannelSession,
   type ClientMessage,
   DeviceHandshake,
   type DeviceInfo,
   type KeyPair,
   PROTOCOL_VERSION,
+  pairingIdOf,
   parsePairingCode,
   type ServerMessage,
 } from '@remote-harness/protocol'
@@ -97,22 +99,45 @@ export function noiseConnect(
   }
 }
 
-/** Pairs a new device with a fresh code from the daemon (XXpsk3), without sending `auth`. */
+/**
+ * Pairs a new device with a fresh code from the daemon (XXpsk3), without sending `auth`. Without
+ * `confirmation` the code is presented in-process (as the app's announce would) and the
+ * confirmation code it shows is used; `'legacy'` speaks the old mode `0x01`.
+ */
 export function pairConnect(
   daemon: RunningDaemon,
-  options: { deviceKey?: KeyPair; info?: DeviceInfo; url?: string; via?: string } = {},
+  options: {
+    deviceKey?: KeyPair
+    info?: DeviceInfo
+    url?: string
+    via?: string
+    confirmation?: string | 'legacy'
+  } = {},
 ): NoiseClient {
   const url = options.url ?? daemon.pairing.create()?.url
   const parsed = url ? parsePairingCode(url) : null
   if (!parsed?.ok) throw new Error('no pairing code')
   const deviceKey = options.deviceKey ?? noiseCrypto.generateKeyPair()
+  const shown = () =>
+    daemon.pairing.hooks.presented?.(pairingIdOf(noiseCrypto, parsed.code.secret)) ?? '000000'
+  const confirmation = options.confirmation === 'legacy' ? undefined : (options.confirmation ?? shown())
   const handshake = DeviceHandshake.pair(noiseCrypto, {
     deviceKey,
     daemonKey: parsed.code.daemonKey,
     secret: parsed.code.secret,
     info: options.info ?? { name: 'Test phone', platform: 'ios' },
+    ...(confirmation === undefined ? {} : { confirmation }),
   })
   return noiseConnect(options.via ?? daemon.wsPort, handshake, deviceKey)
+}
+
+/** What the app does after scanning: presents the code; resolves with the close code (4011). */
+export function announceConnect(daemon: RunningDaemon, url: string, via?: string): Promise<number> {
+  const parsed = parsePairingCode(url)
+  if (!parsed.ok) throw new Error('no pairing code')
+  const ws = new WebSocket(via ?? `ws://127.0.0.1:${daemon.wsPort}`)
+  ws.on('open', () => ws.send(announcePreface(noiseCrypto, parsed.code.secret)))
+  return new Promise((resolve) => ws.on('close', (code) => resolve(code)))
 }
 
 /** Reconnects a paired device (IK), without sending `auth`; `via` is a relay device URL. */

@@ -39,6 +39,10 @@ export type SecureConnectionDeps = {
     paired(pairingId: Uint8Array, deviceKey: Uint8Array, device: DeviceInfo): Promise<PairingResult>
     /** A device authenticated (its last-seen time). */
     seen?(deviceKey: Uint8Array): void
+    /** A device presented a live code (ADR-0009): show its confirmation code. */
+    presented?(pairingId: Uint8Array): string | null
+    /** A pairing used another confirmation code; `locked` when that burned the pairing code. */
+    wrongConfirmation?(pairingId: Uint8Array): 'retry' | 'locked'
   }
   router: MessageRouter
   hub: ClientHub
@@ -115,6 +119,14 @@ export function acceptSecureConnection(
   const handleFirst = (data: Uint8Array) => {
     const step = handshake.start(data)
     if (step.kind === 'refused') return refuse(step.code, step.reason)
+    if (step.kind === 'announce') {
+      // Not a refusal: the computer now shows the confirmation code, which the phone asks for.
+      deps.hooks.presented?.(step.pairingId)
+      stage = 'closed'
+      log.info('pairing code presented')
+      connection.close(CHANNEL_CLOSE.confirmationShown, 'enter the code shown on the computer')
+      return
+    }
     if (step.kind !== 'send') return refuse(CHANNEL_CLOSE.unauthorized, 'unexpected handshake')
     link.send(step.send)
     if (step.session) {
@@ -129,6 +141,12 @@ export function acceptSecureConnection(
   const handleFinish = async (data: Uint8Array) => {
     const step = handshake.finish(data)
     if (step.kind === 'refused') return refuse(step.code, step.reason)
+    if (step.kind === 'wrong-confirmation') {
+      const outcome = deps.hooks.wrongConfirmation?.(step.pairingId) ?? 'retry'
+      return outcome === 'locked'
+        ? refuse(CHANNEL_CLOSE.confirmationLocked, 'too many wrong confirmation codes')
+        : refuse(CHANNEL_CLOSE.wrongConfirmation, 'wrong confirmation code')
+    }
     if (step.kind !== 'paired') return refuse(CHANNEL_CLOSE.unauthorized, 'unexpected handshake')
     const result = await deps.hooks.paired(step.pairingId, step.session.remoteStatic, step.device)
     if (!result.ok) return refuse(result.code, result.reason)

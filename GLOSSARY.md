@@ -26,6 +26,10 @@ _Avoid_: login, registration
 The QR (or link) a daemon shows to pair one new device; it is single-use and expires within minutes.
 _Avoid_: token, pairing link (as a long-lived credential)
 
+**Confirmation code**:
+The short code a daemon shows once a device presents a pairing code, and that the user types on that device to complete the pairing; it never travels in the pairing code.
+_Avoid_: PIN, OTP, verification code
+
 **Direct path**:
 A connection from a device to a daemon over an address the daemon advertised, without the connection relay.
 _Avoid_: LAN mode, local connection

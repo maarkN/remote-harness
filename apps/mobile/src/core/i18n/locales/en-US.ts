@@ -125,6 +125,10 @@ const enUS = {
     addBody_other:
       'Scan this code with the Remote Harness app on the other phone or tablet. It works once, for {{count}} minutes.',
     copyLink: 'Copy link',
+    confirmTitle: 'A device is pairing',
+    confirmBody: 'Enter this code on it:',
+    paired: 'Device paired.',
+    locked: 'Too many wrong codes: this QR no longer works. Create a new one.',
   },
   pairing: {
     title: 'Pair with your computer',
@@ -153,6 +157,20 @@ const enUS = {
       wrongComputer: "The computer that answered isn't the one in the code. Nothing was saved.",
       protocol: 'The app and {{machine}} speak different versions. Update both.',
       failed: "Couldn't connect to {{machine}}.",
+      confirmationRequired: '{{Machine}} now shows a confirmation code: type the one on its screen.',
+      wrongConfirmation: "That code doesn't match the one on {{machine}}. Check it and type it again.",
+      confirmationLocked:
+        'Too many wrong codes: this QR no longer works. Show a new pairing code on {{machine}}.',
+      computerUpdate:
+        '{{Machine}} runs an older Remote Harness, without confirmation codes. Update it (`remote-harness update`) and show a new pairing code.',
+    },
+    confirm: {
+      title: 'Enter the code shown on {{machine}}',
+      body: 'Now that this phone asked to pair, {{machine}} shows a 6-digit code: in the terminal that showed the QR, in the tray, or on the phone that showed it. The code never travels in the QR, so a copied QR alone cannot pair.',
+      label: 'Confirmation code',
+      submit: 'Pair',
+      cancel: 'Cancel',
+      invalid: 'Type the 6 digits.',
     },
   },
   setupGuide: {
