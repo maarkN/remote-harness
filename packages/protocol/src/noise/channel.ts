@@ -3,7 +3,7 @@
  * chunked transport messages. Every WebSocket message (direct or through the connection relay) is
  * one of these byte strings.
  */
-import { concatBytes, equalBytes, utf8Decode, utf8Encode } from './bytes.ts'
+import { bytesToHex, concatBytes, equalBytes, utf8Decode, utf8Encode } from './bytes.ts'
 import type { KeyPair, NoiseCrypto } from './crypto.ts'
 import {
   type CipherState,
@@ -100,6 +100,11 @@ export function channelPrologue(prefaceBytes: Uint8Array): Uint8Array {
 /** Identifies a pairing code to the daemon without revealing its secret. */
 export function pairingIdOf(crypto: NoiseCrypto, secret: Uint8Array): Uint8Array {
   return crypto.sha256(concatBytes(PAIRING_ID_CONTEXT, secret)).subarray(0, PAIRING_ID_LENGTH)
+}
+
+/** A paired device's short, stable ID: the first 8 bytes of SHA-256 of its static key, in hex. */
+export function deviceIdOf(crypto: NoiseCrypto, publicKey: Uint8Array): string {
+  return bytesToHex(crypto.sha256(publicKey).subarray(0, 8))
 }
 
 /** What a device says about itself when it pairs (the third XXpsk3 message). */

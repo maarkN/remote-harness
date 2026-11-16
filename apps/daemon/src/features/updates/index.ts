@@ -520,6 +520,7 @@ export async function registerUpdatesFeature(
       connection.onClose(scheduleRefresh)
     })
     ctx.bus.on('device.revoked', scheduleRefresh)
+    ctx.bus.on('device.renamed', scheduleRefresh)
   }
 
   void tray?.launch().then(refreshMenu)

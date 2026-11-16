@@ -32,6 +32,7 @@ const enUS = {
     genericSentence: 'Your machine',
   },
   nav: {
+    nameDevice: 'Name this device',
     pair: 'Pair',
     setupGuide: 'First-time setup',
     settings: 'Settings',
@@ -109,6 +110,11 @@ const enUS = {
       'This device was removed from {{name}} by another device. Pair again with a new code to use it.',
   },
   devices: {
+    rename: 'Rename',
+    renameTitle: 'Rename {{name}}',
+    renameLabel: 'Name',
+    save: 'Save',
+    nameInvalid: 'Use 1 to 64 characters.',
     title: 'Devices',
     loading: 'loading…',
     offline: 'Connect to the computer to see its devices.',
@@ -128,6 +134,15 @@ const enUS = {
     copyLink: 'Copy link',
   },
   pairing: {
+    name: {
+      title: 'Name this device',
+      body: '{{Machine}} lists its paired devices by name: in Settings → Devices, in the tray and in `remote-harness devices list`. A name tells your phones apart.',
+      label: 'Device name',
+      save: 'Save',
+      skip: 'Skip',
+      connecting: 'Connecting to {{machine}}…',
+      failed: "The name wasn't saved: {{error}}",
+    },
     title: 'Pair with your computer',
     intro: 'On your computer, run <cmd>remote-harness pair</cmd> and point the camera at the QR code.',
     guideTitle: 'First time? Set up your computer',

@@ -28,6 +28,7 @@ const esES = {
     genericSentence: 'Tu máquina',
   },
   nav: {
+    nameDevice: 'Nombre del dispositivo',
     pair: 'Vincular',
     setupGuide: 'Primera configuración',
     settings: 'Ajustes',
@@ -105,6 +106,11 @@ const esES = {
       'Otro dispositivo eliminó este de {{name}}. Vuelve a vincularlo con un código nuevo para usarlo.',
   },
   devices: {
+    rename: 'Renombrar',
+    renameTitle: 'Renombrar {{name}}',
+    renameLabel: 'Nombre',
+    save: 'Guardar',
+    nameInvalid: 'Usa de 1 a 64 caracteres.',
     title: 'Dispositivos',
     loading: 'cargando…',
     offline: 'Conéctate al ordenador para ver sus dispositivos.',
@@ -124,6 +130,15 @@ const esES = {
     copyLink: 'Copiar enlace',
   },
   pairing: {
+    name: {
+      title: 'Ponle nombre a este dispositivo',
+      body: '{{Machine}} muestra sus dispositivos vinculados por nombre: en Ajustes → Dispositivos, en la bandeja y en `remote-harness devices list`. Con un nombre, distingues tus teléfonos.',
+      label: 'Nombre del dispositivo',
+      save: 'Guardar',
+      skip: 'Omitir',
+      connecting: 'Conectando con {{machine}}…',
+      failed: 'No se guardó el nombre: {{error}}',
+    },
     title: 'Vincular con el ordenador',
     intro: 'En el ordenador, ejecuta <cmd>remote-harness pair</cmd> y apunta la cámara al código QR.',
     guideTitle: '¿Primera vez? Configura el ordenador',

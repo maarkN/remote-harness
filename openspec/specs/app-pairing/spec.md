@@ -31,11 +31,11 @@ The Machine card and Settings → Computers SHALL allow forgetting a computer af
 - **THEN** its keys are erased, the connection closes and the pairing screen appears
 
 ### Requirement: Pairing code scan
-The app SHALL read the pairing code shown by `remote-harness pair`, the setup, the tray or another device's "Add device" (`remoteharness://pair?v=2&…`, also when opened as a deep link), generate this device's X25519 key pair, pair with Noise XXpsk3 over the code's direct addresses and, when none answers, over its relay, check that the daemon's static key is the one in the code and, on `auth.ok`, add the computer, make it active and open the session list. It SHALL register both the `remoteharness://` and the `claude-remote://` deep-link schemes. A code the daemon refuses (used, expired, or the device limit reached) MUST save nothing and show why.
+The app SHALL read the pairing code shown by `remote-harness pair`, the setup, the tray or another device's "Add device" (`remoteharness://pair?v=2&…`, also when opened as a deep link), generate this device's X25519 key pair, pair with Noise XXpsk3 over the code's direct addresses and, when none answers, over its relay, check that the daemon's static key is the one in the code and, on `auth.ok`, add the computer, make it active and ask for this device's name before opening the session list: a screen with the name prefilled (the user-assigned device name when the system gives one other than just "iPhone" or "iPad", else the model, such as "iPhone 15 Pro" or "Pixel 8", else the platform default), **Save**, which sends `devices.rename` once the connection is open, and **Skip**, which keeps the platform default the pairing sent. A failed rename SHALL say so and let the user try again or skip. It SHALL register both the `remoteharness://` and the `claude-remote://` deep-link schemes. A code the daemon refuses (used, expired, or the device limit reached) MUST save nothing and show why.
 
 #### Scenario: Valid QR
 - **WHEN** the user points the camera at a fresh pairing code
-- **THEN** the app pairs, saves the computer and shows the session list
+- **THEN** the app pairs, saves the computer, asks for this device's name and then shows the session list
 
 #### Scenario: QR in another format
 - **WHEN** the QR is not a `remoteharness://pair` or `claude-remote://pair` URL with `v=2`
@@ -52,6 +52,14 @@ The app SHALL read the pairing code shown by `remote-harness pair`, the setup, t
 #### Scenario: Pairing away from home
 - **WHEN** none of the code's direct addresses answers and the code names a relay
 - **THEN** the app pairs through that relay
+
+#### Scenario: Name after pairing
+- **WHEN** the pairing succeeds on an iPhone 15 Pro whose system name is just "iPhone"
+- **THEN** the app shows the name step prefilled with "iPhone 15 Pro", and Save stores that name on the computer before the session list opens
+
+#### Scenario: Skip the name
+- **WHEN** the user taps Skip on the name step
+- **THEN** the session list opens and the computer keeps the platform default name
 
 ### Requirement: Pair again after the protocol change
 Credentials saved by a version before protocol 2 (a host, port and token) SHALL be discarded at start, and the pairing screen SHALL say that this computer must be paired again with a new code.

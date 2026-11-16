@@ -8,6 +8,7 @@ import {
   type KeyPair,
   type NodeLikeCrypto,
   type NoiseCrypto,
+  deviceIdOf as sharedDeviceIdOf,
 } from '@remote-harness/protocol'
 import type { TokenStore } from './secrets.ts'
 
@@ -29,7 +30,7 @@ const ED25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'he
 
 /** Short, stable ID of a paired device: the first 8 bytes of SHA-256 of its static key, in hex. */
 export function deviceIdOf(publicKey: Uint8Array): string {
-  return bytesToHex(noiseCrypto.sha256(publicKey).subarray(0, 8))
+  return sharedDeviceIdOf(noiseCrypto, publicKey)
 }
 
 /** First 16 bytes of SHA-256 of the relay public key, in hex (the connection relay computes the same). */

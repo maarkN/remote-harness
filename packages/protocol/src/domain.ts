@@ -473,6 +473,9 @@ export type AppBuild = z.infer<typeof AppBuildSchema>
 /** Optional on the wire, and dropped when malformed: a bad field never refuses a message. */
 export const wireAppBuild = AppBuildSchema.optional().catch(undefined)
 
+/** Longest device name (`devices.rename`, the pairing payload). */
+export const DEVICE_NAME_MAX = 64
+
 /** A device paired with the daemon, as `devices.list` shows it (times as ISO strings). */
 export const PairedDeviceInfoSchema = z.object({
   id: z.string(),

@@ -48,7 +48,7 @@ A pairing code SHALL be the link `remoteharness://pair?v=2&id=<daemon ID>&k=<dae
 - **THEN** the command says the daemon must be running and shows no code
 
 ### Requirement: Paired devices
-The daemon SHALL keep each paired device's static public key, a short ID derived from it, its name, platform, pairing time, last connection time and the last app build it authenticated with (`auth.app`, kept when a later `auth` has none) in `~/.remote-harness/paired-devices.json`, at most 10 devices, and accept a reconnecting device only when its static key is in that list. `devices.list` SHALL answer `devices.result` with each device's ID, name, platform, `pairedAt`, `lastSeen`, whether it is the asking device and its last app build; `devices.revoke` SHALL remove a device, close its open connections with 4007 and refuse its key from then on; `remote-harness devices list` and `remote-harness devices revoke <id>` SHALL do the same from the computer, the list showing each device's last app version ("?" when unknown). The daemon's `client authenticated` log line SHALL carry the app version, runtime and update the device sent.
+The daemon SHALL keep each paired device's static public key, a short ID derived from it, its name, platform, pairing time, last connection time and the last app build it authenticated with (`auth.app`, kept when a later `auth` has none) in `~/.remote-harness/paired-devices.json`, at most 10 devices, and accept a reconnecting device only when its static key is in that list. `devices.list` SHALL answer `devices.result` with each device's ID, name, platform, `pairedAt`, `lastSeen`, whether it is the asking device and its last app build; `devices.rename` SHALL store a device's new name and answer `devices.result` with the updated list, or `not_found` for an unknown ID, the tray's device list following at once; `devices.revoke` SHALL remove a device, close its open connections with 4007 and refuse its key from then on; `remote-harness devices list` and `remote-harness devices revoke <id>` SHALL do the same from the computer, the list showing each device's last app version ("?" when unknown). The daemon's `client authenticated` log line SHALL carry the app version, runtime and update the device sent.
 
 #### Scenario: Restart
 - **WHEN** the daemon restarts
@@ -69,6 +69,14 @@ The daemon SHALL keep each paired device's static public key, a short ID derived
 #### Scenario: Older app
 - **WHEN** a phone whose app does not send `app` authenticates
 - **THEN** it is accepted, its last known app build stays as it was, and `devices list` shows "app ?" if none was ever seen
+
+#### Scenario: Rename from the phone
+- **WHEN** a paired phone sends `devices.rename` with its own ID and the name "Hanna's iPhone"
+- **THEN** the daemon saves it, answers the updated list with that name, and `remote-harness devices list` and the tray show "Hanna's iPhone"
+
+#### Scenario: Unknown device
+- **WHEN** a phone sends `devices.rename` with an ID no device has
+- **THEN** the daemon answers `error` `not_found` and changes nothing
 
 ### Requirement: Key storage
 The daemon's identity — its Noise static key pair and its Ed25519 connection relay key pair, whose daemon ID is the first 16 bytes of SHA-256 of the relay public key in hex — SHALL be created at first start and stored in the secret store (macOS Keychain, Linux Secret Service, or a 0600 file where neither exists), never in plain text elsewhere. `remote-harness doctor` SHALL report whether the identity exists.

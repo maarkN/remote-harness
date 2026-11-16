@@ -162,6 +162,7 @@ describe('demo daemon', () => {
       { type: 'settings.mute', target: 'profile', targetId: 'work', muted: true },
       { type: 'devices.list' },
       { type: 'devices.revoke', deviceId: 'demo-tablet' },
+      { type: 'devices.rename', deviceId: 'demo-device', name: 'Tablet' },
       { type: 'pairing.create' },
       { type: 'changes.list', sessionId: EDITED.id },
       { type: 'transcript.search', query: 'pool' },

@@ -1296,3 +1296,23 @@ describe('the app build of each phone (#591)', () => {
     expect(older.ok).toBe(true)
   })
 })
+
+describe('device names (#592)', () => {
+  test('devices.rename trims the name and keeps it to 1–64 characters', () => {
+    expect(
+      parseClientMessage({ type: 'devices.rename', id: '1', deviceId: 'abcd', name: "  Hanna's iPhone " }),
+    ).toMatchObject({ ok: true, value: { name: "Hanna's iPhone" } })
+    expect(
+      parseClientMessage({ type: 'devices.rename', id: '1', deviceId: 'abcd', name: 'x'.repeat(64) }).ok,
+    ).toBe(true)
+    for (const name of ['', '   ', 'x'.repeat(65)])
+      expect(parseClientMessage({ type: 'devices.rename', id: '1', deviceId: 'abcd', name })).toMatchObject({
+        ok: false,
+        error: { code: 'bad_request' },
+      })
+    expect(parseClientMessage({ type: 'devices.rename', id: '1', name: 'iPad' })).toMatchObject({
+      ok: false,
+      error: { code: 'bad_request' },
+    })
+  })
+})
