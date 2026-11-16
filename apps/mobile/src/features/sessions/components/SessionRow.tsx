@@ -19,6 +19,7 @@ import { relativeTime, shortPath } from '@/core/utils/time'
 import { AgentBadge, Badge, ProfileTag, Text } from '@/ui'
 import { draftSummary } from '../../drafts/logic'
 import { useDraftsStore } from '../../drafts/store'
+import { SubagentIcons } from '../../subagents/SubagentIcons'
 import { sessionAgent } from '../agent'
 import { useSessionDensityStore } from '../density-store'
 import { openSession } from '../open-session'
@@ -44,11 +45,13 @@ type Props = {
   following?: boolean
   /** Long press opens the session's action sheet. */
   onLongPress?: () => void
+  /** The subagent icons open the Subagents sheet; stable across renders. */
+  onSubagents?: () => void
 }
 
 /**
  * One session: agent badge · title · relative time / folder · branch · worktree · shared checkout /
- * last activity (expanded density) / draft (when there is one) / state pill · pending · read-only · profile tag · muted · subagents · background · chevron.
+ * last activity (expanded density) / draft (when there is one) / state pill · pending · read-only · profile tag · muted · subagent icons · background · chevron.
  */
 export const SessionRow = memo(function SessionRow({
   session,
@@ -61,6 +64,7 @@ export const SessionRow = memo(function SessionRow({
   pinned = false,
   following = false,
   onLongPress,
+  onSubagents,
 }: Props) {
   const { t } = useTranslation()
   const { colors } = useTheme()
@@ -68,13 +72,18 @@ export const SessionRow = memo(function SessionRow({
   const waiting = pendingPermissions > 0 || session.state === 'waiting'
   const [hovered, setHovered] = useState(false)
   const agent = sessionAgent(session)
-  const subagents = session.subagents.length
   const expanded = useSessionDensityStore((s) => s.density === 'expanded')
+  const hasSubagents = onSubagents !== undefined && session.subagents.length > 0
   return (
     <Pressable
       onPress={() => openSession(session.id)}
       onLongPress={onLongPress}
       delayLongPress={350}
+      // Screen readers read the row as one element: the subagent icons' sheet is an action of it.
+      accessibilityActions={hasSubagents ? [{ name: 'subagents', label: t('subagents.title') }] : undefined}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'subagents') onSubagents?.()
+      }}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
       style={({ pressed }) => [
@@ -137,7 +146,7 @@ export const SessionRow = memo(function SessionRow({
           <Radio size={12} color={colors.accentText} accessibilityLabel={t('liveFollow.following')} />
         ) : null}
         {muted ? <BellOff size={12} color={colors.textDim} accessibilityLabel={t('sessions.muted')} /> : null}
-        {subagents > 0 ? <Badge label={t('sessions.subagents', { count: subagents })} /> : null}
+        {onSubagents ? <SubagentIcons subagents={session.subagents} onPress={onSubagents} /> : null}
         {session.backgroundTasks > 0 ? (
           <Badge label={t('sessions.background', { count: session.backgroundTasks })} tone="info" />
         ) : null}
