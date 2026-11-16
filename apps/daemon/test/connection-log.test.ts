@@ -171,9 +171,16 @@ describe('dead connections on the direct path (#590)', () => {
     const port = typeof address === 'object' && address ? address.port : 0
     const handshake = DeviceHandshake.reconnect(noiseCrypto, { deviceKey, daemonKey: daemonKey.publicKey })
     const client = noiseConnect(port, handshake, deviceKey, { autoPong: false })
+    // Pongs by hand until `auth.ok`, then none: on a slow runner a 40 ms ping could otherwise
+    // drop the socket before `auth.ok`, and the test would wait for it forever.
+    let authenticated = false
+    client.ws.on('ping', () => {
+      if (!authenticated) client.ws.pong()
+    })
     await client.ready
     client.send({ type: 'auth', protocolVersion: PROTOCOL_VERSION })
     expect(await client.next()).toMatchObject({ type: 'auth.ok' })
+    authenticated = true
     expect(await client.closed).toBe(1006)
     await settle()
     expect(closed()).toEqual([
