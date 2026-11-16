@@ -17,7 +17,7 @@ The daemon can type into your Claude Code sessions and approve tool calls, so it
 ## Keys and pairing
 
 - Every connection is a Noise protocol session (X25519, ChaCha20-Poly1305) encrypted end to end between the phone and the daemon. The daemon's own keys live in the macOS Keychain, the Linux Secret Service (`secret-tool`) or a `0600` file; each phone creates its key pair when it pairs and keeps it in its secure storage, on that device only.
-- A pairing code (`remote-harness pair`, the setup or the tray) works once and only for 5 minutes. The daemon keeps the paired phones' public keys (at most 10) and drops any connection whose key it does not know, before sending anything.
+- A pairing code (`remote-harness pair`, the setup or the tray) works once and only for 5 minutes, and only with its confirmation code: 6 digits the computer shows where the QR is once a phone scans it, never part of the QR or the link. Three wrong codes burn the pairing code, and an unexpected confirmation code on your screen means someone else is using your QR. The daemon keeps the paired phones' public keys (at most 10) and drops any connection whose key it does not know, before sending anything.
 - Provider keys (OpenRouter) live in the same store, under their own account. They are never written to `config.json`, `settings.json`, shell files or the launchers, never logged, and never sent to the phone: the launcher reads the key inside the tmux window, and the daemon only uses it to ask the provider for your credits.
 
 ## What leaves your machine

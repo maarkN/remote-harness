@@ -181,6 +181,39 @@ describe('tray shell menu', () => {
     })
   })
 
+  test('Pair a phone shows the confirmation code once a device presented the QR (#593)', () => {
+    const pairing = {
+      url: 'remoteharness://pair?v=2&id=x',
+      address: '100.64.0.2:7337',
+      confirmation: '012345',
+    }
+    const find = (items: TrayItem[], label: string) =>
+      items.find((i): i is Extract<TrayItem, { type: 'submenu' }> => 'items' in i && i.label === label)
+    const mac = find(buildTrayMenu({ ...base, pairing, qr: true }, en).items, 'Pair a phone')
+    expect(labels(mac?.items ?? [])).toContain('On the phone, enter 012 345')
+    const before = find(
+      buildTrayMenu({ ...base, pairing: { url: pairing.url, address: pairing.address }, qr: true }, en).items,
+      'Pair a phone',
+    )
+    expect(labels(before?.items ?? []).some((label) => label.startsWith('On the phone'))).toBe(false)
+    const prefs = {
+      permissions: true,
+      keepAwake: 'sessions' as const,
+      push: true,
+      machineName: 'MacBook Pro',
+      showInMenuBar: true,
+      startAtLogin: null,
+    }
+    const tab = buildTrayMenu(
+      { ...base, pairing, prefs, windows: true, qr: true },
+      en,
+    ).prefsWindow?.tabs.find((t) => t.id === 'pairing')
+    expect(tab?.sections.flatMap((section) => section.rows)).toContainEqual({
+      kind: 'note',
+      label: 'On the phone, enter 012 345',
+    })
+  })
+
   test('Preferences: permissions here, keep awake, push and the config file', () => {
     const prefs = {
       permissions: true,

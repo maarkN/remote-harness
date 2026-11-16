@@ -114,8 +114,11 @@ export function orderTargets(
 export type DaemonClientOptions = {
   computer: DaemonTarget
   crypto: NoiseCrypto
-  /** Pair with a code (Noise XXpsk3) instead of reconnecting with IK; used once, by the pairing. */
-  pairing?: { secret: Uint8Array; info: DeviceInfo }
+  /**
+   * Pair with a code (Noise XXpsk3, with the confirmation code the computer shows, ADR-0009)
+   * instead of reconnecting with IK; used once, by the pairing.
+   */
+  pairing?: { secret: Uint8Array; info: DeviceInfo; confirmation?: string }
   socketFactory?: SocketFactory
   /** Automatically reconnect with exponential backoff (disabled for the pairing test). */
   reconnect?: boolean
@@ -153,6 +156,9 @@ const FATAL_CLOSE_CODES: ReadonlySet<number> = new Set([
   CHANNEL_CLOSE.pairingRefused,
   CHANNEL_CLOSE.deviceLimit,
   CHANNEL_CLOSE.revoked,
+  CHANNEL_CLOSE.confirmationShown,
+  CHANNEL_CLOSE.wrongConfirmation,
+  CHANNEL_CLOSE.confirmationLocked,
 ])
 /** Ours: the daemon that answered does not have the pinned static key. */
 export const WRONG_DAEMON_CLOSE = 4090
@@ -473,6 +479,7 @@ export class DaemonClient {
             daemonKey: computer.daemonKey,
             secret: this.pairing.secret,
             info: this.pairing.info,
+            ...(this.pairing.confirmation === undefined ? {} : { confirmation: this.pairing.confirmation }),
           })
         : DeviceHandshake.reconnect(crypto, { deviceKey: computer.deviceKey, daemonKey: computer.daemonKey })
       socket.send(toArrayBuffer(this.handshake.start()))

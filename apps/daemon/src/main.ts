@@ -218,7 +218,9 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     pairing: () => {
       const link = pairing.current()
       const address = connectivity.addresses()[0] ?? connectivity.relay()
-      return link && address ? { url: link.url, address } : null
+      if (!link || !address) return null
+      const state = pairing.state(link.id)
+      return { url: link.url, address, ...(state.state === 'presented' ? { confirmation: state.code } : {}) }
     },
     pairedDevices: () => {
       const connected = hub.devicePaths()

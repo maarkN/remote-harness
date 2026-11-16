@@ -1316,3 +1316,33 @@ describe('device names (#592)', () => {
     })
   })
 })
+
+describe('pairing confirmation messages (#593)', () => {
+  test('pairing.code carries the code ID; pairing.progress the state and, when presented, the six digits', () => {
+    expect(
+      parseServerMessage({
+        type: 'pairing.code',
+        replyTo: '1',
+        url: 'remoteharness://pair?v=2',
+        expiresAt: '2026-11-16T12:05:00.000Z',
+        id: 'abc',
+      }),
+    ).toMatchObject({ ok: true, value: { id: 'abc' } })
+    expect(
+      parseServerMessage({
+        type: 'pairing.code',
+        replyTo: '1',
+        url: 'x',
+        expiresAt: '2026-11-16T12:05:00.000Z',
+      }).ok,
+    ).toBe(true)
+    expect(
+      parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'presented', code: '123456' }),
+    ).toMatchObject({ ok: true, value: { state: 'presented', code: '123456' } })
+    expect(parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'paired' }).ok).toBe(true)
+    expect(parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'locked' }).ok).toBe(true)
+    expect(
+      parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'presented', code: '12a456' }).ok,
+    ).toBe(false)
+  })
+})

@@ -71,8 +71,8 @@ export type TrayShellDeps = {
   closeSession: (sessionId: string) => Promise<unknown>
   /** Delivers `/rename <name>` to a controllable session's pane, like any other input. */
   renameSession: (sessionId: string, name: string) => Promise<void>
-  /** The pairing link and `host:port` once the daemon listens for the app. */
-  pairing: () => { url: string; address: string } | null
+  /** The pairing link and `host:port` once the daemon listens, and its confirmation code once shown. */
+  pairing: () => { url: string; address: string; confirmation?: string } | null
   keepAwake: { mode: () => KeepAwakeMode; set: (mode: KeepAwakeMode) => Promise<void> }
   /** The config's `push` setting, and writing + applying a new one. */
   push: { setting: () => PushSetting; set: (setting: PushSetting) => Promise<void> }
@@ -521,6 +521,9 @@ export async function registerUpdatesFeature(
     })
     ctx.bus.on('device.revoked', scheduleRefresh)
     ctx.bus.on('device.renamed', scheduleRefresh)
+    // The tray's QR was presented: its confirmation code appears under it (ADR-0009).
+    ctx.bus.on('pairing.presented', scheduleRefresh)
+    ctx.bus.on('pairing.locked', scheduleRefresh)
   }
 
   void tray?.launch().then(refreshMenu)

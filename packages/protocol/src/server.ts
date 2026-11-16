@@ -71,7 +71,27 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('daemon.paths'), ...DaemonPathsSchema.shape }),
   z.object({ type: z.literal('devices.result'), replyTo, devices: z.array(PairedDeviceInfoSchema) }),
   /** Reply to `pairing.create`: a single-use code and when it expires (ISO). */
-  z.object({ type: z.literal('pairing.code'), replyTo, url: z.string(), expiresAt: z.string() }),
+  z.object({
+    type: z.literal('pairing.code'),
+    replyTo,
+    url: z.string(),
+    expiresAt: z.string(),
+    /** Names the code in `pairing.progress` (#593); older daemons send none. */
+    id: z.string().optional(),
+  }),
+  /**
+   * What happened to a code this connection created with `pairing.create` (#593, ADR-0009): a
+   * device presented it (`code` is the confirmation code to type on it), paired, or burned it.
+   */
+  z.object({
+    type: z.literal('pairing.progress'),
+    id: z.string(),
+    state: z.enum(['presented', 'paired', 'locked']),
+    code: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
+  }),
   /** Reply to the follow messages: what this phone follows. */
   z.object({
     type: z.literal('live.followed'),

@@ -128,6 +128,10 @@ const ptBR = {
     addBody_other:
       'Escaneie este código com o app Remote Harness no outro celular ou tablet. Ele funciona uma vez, por {{count}} minutos.',
     copyLink: 'Copiar link',
+    confirmTitle: 'Um aparelho está pareando',
+    confirmBody: 'Digite este código nele:',
+    paired: 'Aparelho pareado.',
+    locked: 'Códigos errados demais: este QR não funciona mais. Crie um novo.',
   },
   pairing: {
     name: {
@@ -165,6 +169,21 @@ const ptBR = {
       wrongComputer: 'O computador que respondeu não é o do código. Nada foi salvo.',
       protocol: 'O app e {{machine}} falam versões diferentes. Atualize os dois.',
       failed: 'Não foi possível conectar a {{machine}}.',
+      confirmationRequired:
+        '{{Machine}} agora mostra um código de confirmação: digite o que está na tela dele.',
+      wrongConfirmation: 'Esse código não é o que aparece em {{machine}}. Confira e digite de novo.',
+      confirmationLocked:
+        'Códigos errados demais: este QR não funciona mais. Mostre um novo código de pareamento em {{machine}}.',
+      computerUpdate:
+        '{{Machine}} roda um Remote Harness antigo, sem códigos de confirmação. Atualize-o (`remote-harness update`) e mostre um novo código de pareamento.',
+    },
+    confirm: {
+      title: 'Digite o código mostrado em {{machine}}',
+      body: 'Agora que este celular pediu para parear, {{machine}} mostra um código de 6 dígitos: no terminal que mostrou o QR, na bandeja ou no celular que o mostrou. O código nunca vai no QR, então um QR copiado sozinho não pareia.',
+      label: 'Código de confirmação',
+      submit: 'Parear',
+      cancel: 'Cancelar',
+      invalid: 'Digite os 6 dígitos.',
     },
   },
   setupGuide: {

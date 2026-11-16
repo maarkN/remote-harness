@@ -12,7 +12,7 @@ O daemon roda no computador: acompanha os transcripts das sessões, controla o t
 | --- | --- |
 | `remote-harness setup` | Instalação guiada: contas e aliases, hooks, serviço, pareamento. `--yes` mantém a configuração, `--lang` escolhe o idioma. |
 | `remote-harness start` | Roda o daemon em primeiro plano. `--dev` prende só a `127.0.0.1` e nunca usa relay, `--host` define o endereço direto. |
-| `remote-harness pair` | Pede ao daemon em execução um QR code de pareamento: ele pareia um celular e expira em 5 minutos. |
+| `remote-harness pair` | Pede ao daemon em execução um QR code de pareamento: ele pareia um celular e expira em 5 minutos. Depois espera: quando o celular escaneia, imprime o código de confirmação a digitar no celular e, em seguida, que o celular foi pareado (Ctrl+C para de esperar). |
 | `remote-harness doctor` | Confere as ferramentas, a configuração, os perfis e as chaves de provedor, a identidade do daemon, se os relays de conexão respondem, o serviço, o push e os celulares registrados. |
 | `remote-harness install` / `uninstall` | Instala ou remove os atalhos, a entrada no `PATH`, os hooks e o wrapper da status line, sem perguntas. |
 | `remote-harness service install` / `uninstall` / `status` | O serviço em segundo plano: um LaunchAgent do launchd no macOS, uma unidade de usuário do systemd no Linux e no WSL. |

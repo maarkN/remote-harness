@@ -17,6 +17,10 @@ export type DaemonEvents = {
   'device.revoked': { deviceId: string }
   /** A device got a new name (`devices.rename`): the tray's device list follows. */
   'device.renamed': { deviceId: string }
+  /** A device presented a pairing code: its confirmation code is shown now (ADR-0009). */
+  'pairing.presented': { pairingId: string }
+  /** Wrong confirmation codes burned a pairing code. */
+  'pairing.locked': { pairingId: string }
   /** These FCM tokens no longer belong to a paired device: nothing may be sent to them. */
   'push.tokens.dropped': { tokens: string[] }
 }

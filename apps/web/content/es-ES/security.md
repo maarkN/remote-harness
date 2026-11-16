@@ -17,7 +17,7 @@ El daemon puede escribir en tus sesiones de Claude Code y aprobar llamadas a her
 ## Claves y emparejamiento
 
 - Cada conexión es una sesión del protocolo Noise (X25519, ChaCha20-Poly1305) cifrada de extremo a extremo entre el móvil y el daemon. Las claves del daemon están en el Llavero de macOS, el Secret Service de Linux (`secret-tool`) o un archivo `0600`; cada móvil crea su par de claves al emparejarse y lo guarda en el almacenamiento seguro, solo en ese dispositivo.
-- Un código de emparejamiento (`remote-harness pair`, la instalación o la bandeja) funciona una vez y solo durante 5 minutos. El daemon guarda las claves públicas de los móviles emparejados (como máximo 10) y corta cualquier conexión cuya clave no conoce, antes de enviar nada.
+- Un código de emparejamiento (`remote-harness pair`, la instalación o la bandeja) funciona una vez, solo durante 5 minutos y solo con su código de confirmación: 6 dígitos que el ordenador muestra donde está el QR cuando un móvil lo escanea, nunca parte del QR ni del enlace. Tres códigos incorrectos queman el código de emparejamiento, y un código de confirmación inesperado en tu pantalla significa que otra persona está usando tu QR. El daemon guarda las claves públicas de los móviles emparejados (como máximo 10) y corta cualquier conexión cuya clave no conoce, antes de enviar nada.
 - Las claves de proveedor (OpenRouter) viven en el mismo almacén, en su propia cuenta. Nunca se escriben en `config.json`, `settings.json`, archivos del shell ni lanzadores, nunca se registran y nunca se envían al móvil: el lanzador lee la clave dentro de la ventana de tmux, y el daemon solo la usa para pedir al proveedor tus créditos.
 
 ## Qué sale de tu máquina

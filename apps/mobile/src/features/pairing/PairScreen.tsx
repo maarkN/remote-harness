@@ -17,6 +17,7 @@ import { keyboardBehavior } from '@/core/platform/platform'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { isScreenshotBuild, startDemo } from '@/features/demo/demo-mode'
 import { Button, Card, Screen, Text } from '@/ui'
+import { ConfirmCodeStep } from './ConfirmCodeStep'
 import { type ParsedPairingCode, pairingCodeFromRoute, parsePairingLink } from './parse-pairing-url'
 import { usePairing } from './use-pairing'
 
@@ -29,7 +30,7 @@ export function PairScreen() {
   const params = useLocalSearchParams<Record<string, string | string[]>>()
   const [permission, requestPermission] = useCameraPermissions()
   const [mode, setMode] = useState<Mode>('scan')
-  const { pair, busy, error, setError } = usePairing()
+  const { pair, confirm, cancel, pending, busy, error, setError } = usePairing()
   const pairAgain = useConnectionStore((s) => s.pairAgain)
   // Only before the first pairing, so the demo never mixes with real computers.
   const canDemo = useConnectionStore((s) => s.computers.length === 0)
@@ -65,13 +66,31 @@ export function PairScreen() {
   // the iOS Camera app).
   useEffect(() => {
     const fromLink = pairingCodeFromRoute(params)
-    if (fromLink && !locked.current) start(fromLink, t('pairing.invalidQr'))
-  }, [params, start, t])
+    if (fromLink && !locked.current && !pending) start(fromLink, t('pairing.invalidQr'))
+  }, [params, start, t, pending])
 
   const onScanned = ({ data }: BarcodeScanningResult) => {
     if (locked.current || busy) return
     start(parsePairingLink(data), t('pairing.invalidQr'))
   }
+
+  // The computer now shows the confirmation code (ADR-0009): a step of its own, nothing else.
+  if (pending)
+    return (
+      <Screen>
+        <KeyboardAvoidingView behavior={keyboardBehavior(Platform.OS)} style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ConfirmCodeStep
+              machine={pending.code.name}
+              busy={busy}
+              error={error}
+              onSubmit={(digits) => void confirm(digits)}
+              onCancel={cancel}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Screen>
+    )
 
   return (
     <Screen>

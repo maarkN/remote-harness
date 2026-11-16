@@ -30,6 +30,8 @@ const deviceKey = crypto.generateKeyPair()
 const paired: Uint8Array[] = []
 const codes = new Map<string, Uint8Array>()
 const sameKey = (a: Uint8Array, b: Uint8Array) => bytesToBase64Url(a) === bytesToBase64Url(b)
+/** The confirmation code the fake computer shows for every live code. */
+const SHOWN = '123456'
 
 /** A socket with a fake daemon behind it: it runs the Noise responder and decrypts what it gets. */
 class FakeSocket implements SocketLike {
@@ -45,6 +47,8 @@ class FakeSocket implements SocketLike {
   private session: ChannelSession | null = null
   private readonly daemon = new DaemonHandshake(crypto, daemonKey, {
     pairingSecret: (id) => codes.get(bytesToBase64Url(id)) ?? null,
+    // As if the phone had announced the code and the computer showed this (ADR-0009).
+    pairingConfirmation: (id) => (codes.has(bytesToBase64Url(id)) ? SHOWN : null),
     isPaired: (key) => paired.some((k) => sameKey(k, key)),
   })
   onopen: SocketLike['onopen'] = null
@@ -58,7 +62,7 @@ class FakeSocket implements SocketLike {
     if (FakeSocket.silent) return
     const bytes = new Uint8Array(data)
     if (this.stage === 'first') {
-      this.mode = bytes[3] === 1 ? 'pair' : 'reconnect'
+      this.mode = bytes[3] === 0x04 ? 'pair' : 'reconnect'
       const step = this.daemon.start(bytes)
       if (step.kind === 'refused') {
         this.refused = step.code
@@ -266,7 +270,9 @@ describe('DaemonClient', () => {
     paired.splice(0)
     const secret = crypto.randomBytes(32)
     codes.set(bytesToBase64Url(pairingIdOf(crypto, secret)), secret)
-    const client = makeClient({ pairing: { secret, info: { name: 'iPhone', platform: 'ios' } } })
+    const client = makeClient({
+      pairing: { secret, info: { name: 'iPhone', platform: 'ios' }, confirmation: SHOWN },
+    })
     client.connect()
     const first = FakeSocket.instances[0]!
     first.open()
@@ -289,7 +295,7 @@ describe('DaemonClient', () => {
     codes.set(bytesToBase64Url(pairingIdOf(crypto, secret)), secret)
     const client = makeClient({
       computer: { addresses: ['h:1'], daemonKey: crypto.generateKeyPair().publicKey, deviceKey },
-      pairing: { secret, info: { name: '', platform: '' } },
+      pairing: { secret, info: { name: '', platform: '' }, confirmation: SHOWN },
     })
     client.connect()
     FakeSocket.instances[0]!.open()
@@ -302,7 +308,7 @@ describe('DaemonClient', () => {
 
   test('a refused pairing code is final', () => {
     const client = makeClient({
-      pairing: { secret: crypto.randomBytes(32), info: { name: '', platform: '' } },
+      pairing: { secret: crypto.randomBytes(32), info: { name: '', platform: '' }, confirmation: SHOWN },
     })
     client.connect()
     const socket = FakeSocket.instances[0]!
@@ -311,6 +317,26 @@ describe('DaemonClient', () => {
     socket.drop(CHANNEL_CLOSE.pairingRefused)
     expect(client.status).toBe('unauthorized')
     expect(client.closeCode).toBe(CHANNEL_CLOSE.pairingRefused)
+  })
+
+  test('wrong and burned confirmation codes end the pairing attempt for good (#593)', () => {
+    for (const code of [CHANNEL_CLOSE.wrongConfirmation, CHANNEL_CLOSE.confirmationLocked]) {
+      const secret = crypto.randomBytes(32)
+      codes.set(bytesToBase64Url(pairingIdOf(crypto, secret)), secret)
+      const client = makeClient({
+        pairing: { secret, info: { name: '', platform: '' }, confirmation: '000000' },
+      })
+      client.connect()
+      const socket = FakeSocket.instances.at(-1)!
+      socket.open()
+      expect(socket.mode).toBe('pair')
+      socket.drop(code)
+      expect(client.status).toBe('unauthorized')
+      expect(client.closeCode).toBe(code)
+      const count = FakeSocket.instances.length
+      vi.advanceTimersByTime(60_000)
+      expect(FakeSocket.instances).toHaveLength(count)
+    }
   })
 
   test('tries the addresses in turn', () => {

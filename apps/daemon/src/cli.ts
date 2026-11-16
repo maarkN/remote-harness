@@ -7,6 +7,7 @@ import { text } from 'node:stream/consumers'
 import { fileURLToPath } from 'node:url'
 import { password } from '@inquirer/prompts'
 import {
+  formatConfirmationCode,
   LOCALES,
   type Locale,
   LocaleSchema,
@@ -173,11 +174,17 @@ function tokenStoreLabel(kind: TokenStoreKind, file = paths.identityFile()): str
   return names.file(file)
 }
 
-const PairingLinkSchema = z.object({ url: z.string(), expiresAt: z.number() })
+/** `id` names the code for the state route (absent from daemons before confirmation codes). */
+const PairingLinkSchema = z.object({ url: z.string(), expiresAt: z.number(), id: z.string().optional() })
+const CodeStateSchema = z.object({
+  state: z.enum(['waiting', 'presented', 'paired', 'locked', 'expired']),
+  code: z.string().optional(),
+})
 
 /**
- * Asks the running daemon for a single-use pairing code and prints it; false when the daemon does
- * not answer. `attempts` waits for a service that was just (re)started.
+ * Asks the running daemon for a single-use pairing code, prints it and waits for the phone (the
+ * confirmation code it must type, then how it ended); false when the daemon does not answer.
+ * `attempts` waits for a service that was just (re)started.
  */
 async function printPairing(attempts = 1): Promise<boolean> {
   for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -187,11 +194,43 @@ async function printPairing(attempts = 1): Promise<boolean> {
       console.log(`\n${parsed.data.url}\n`)
       console.log(m.cli.pair.scan)
       console.log(m.cli.pair.singleUse(Math.round((parsed.data.expiresAt - Date.now()) / 60_000)))
+      if (parsed.data.id) await waitForPairing(parsed.data.id, parsed.data.expiresAt)
       return true
     }
     if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1_000))
   }
   return false
+}
+
+/**
+ * Follows a code until it ends (ADR-0009): the confirmation code once a device presents it, never
+ * before, so a screenshot of the QR does not carry it; then paired, burned or expired.
+ */
+async function waitForPairing(id: string, expiresAt: number): Promise<void> {
+  console.log(`\n${m.cli.pair.waiting}`)
+  let shown: string | undefined
+  while (Date.now() < expiresAt + 2_000) {
+    const reply = CodeStateSchema.safeParse(await daemonGet(`/admin/pairing-code/${encodeURIComponent(id)}`))
+    if (!reply.success) {
+      console.log(m.cli.pair.lost)
+      return
+    }
+    const { state, code } = reply.data
+    if (state === 'presented' && code && code !== shown) {
+      shown = code
+      console.log(`\n→ ${m.cli.pair.confirm(formatConfirmationCode(code))}`)
+    } else if (state === 'paired') {
+      console.log(`✓ ${m.cli.pair.paired}`)
+      return
+    } else if (state === 'locked' || state === 'expired') {
+      console.log(`✗ ${state === 'locked' ? m.cli.pair.locked : m.cli.pair.expired}`)
+      process.exitCode = 1
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
+  }
+  console.log(`✗ ${m.cli.pair.expired}`)
+  process.exitCode = 1
 }
 
 function installOptions(): InstallOptions {

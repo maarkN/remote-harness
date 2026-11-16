@@ -71,6 +71,52 @@ describe('pairing codes', () => {
   })
 })
 
+describe('confirmation codes (#593)', () => {
+  const clock = () => {
+    let now = 1_000_000
+    return { now: () => now, advance: (ms: number) => (now += ms) }
+  }
+  const id = (code: { pairingId: string }) => Buffer.from(code.pairingId, 'base64url')
+
+  test('a device presenting a code creates its six-digit confirmation once; the state follows', () => {
+    const codes = new PairingCodes(noiseCrypto)
+    const code = codes.create()
+    expect(codes.confirmationFor(id(code))).toBeNull()
+    expect(codes.state(code.pairingId)).toEqual({ state: 'waiting' })
+    const shown = codes.present(id(code))
+    expect(shown?.code).toMatch(/^\d{6}$/)
+    expect(shown?.created).toBe(true)
+    expect(codes.present(id(code))).toEqual({ code: shown?.code, created: false })
+    expect(codes.confirmationFor(id(code))).toBe(shown?.code)
+    expect(codes.state(code.pairingId)).toEqual({ state: 'presented', code: shown?.code })
+    expect(codes.consume(id(code))).toBe(true)
+    expect(codes.state(code.pairingId)).toEqual({ state: 'paired' })
+  })
+
+  test('the third wrong code burns the pairing code', () => {
+    const codes = new PairingCodes(noiseCrypto)
+    const code = codes.create()
+    codes.present(id(code))
+    expect(codes.wrongConfirmation(id(code))).toBe('retry')
+    expect(codes.wrongConfirmation(id(code))).toBe('retry')
+    expect(codes.secretFor(id(code))).toEqual(code.secret)
+    expect(codes.wrongConfirmation(id(code))).toBe('locked')
+    expect(codes.secretFor(id(code))).toBeNull()
+    expect(codes.state(code.pairingId)).toEqual({ state: 'locked' })
+    expect(codes.consume(id(code))).toBe(false)
+  })
+
+  test('an unknown or expired code shows nothing and reads as expired', () => {
+    const c = clock()
+    const codes = new PairingCodes(noiseCrypto, c.now)
+    const code = codes.create()
+    c.advance(5 * 60_000 + 1)
+    expect(codes.present(id(code))).toBeNull()
+    expect(codes.state(code.pairingId)).toEqual({ state: 'expired' })
+    expect(codes.state('nope')).toEqual({ state: 'expired' })
+  })
+})
+
 describe('paired devices', () => {
   const key = () => noiseCrypto.generateKeyPair().publicKey
 

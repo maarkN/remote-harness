@@ -3,6 +3,7 @@ import {
   CHANNEL_CLOSE,
   DeviceHandshake,
   PROTOCOL_VERSION,
+  pairingIdOf,
   parsePairingCode,
   type ServerMessage,
 } from '@remote-harness/protocol'
@@ -15,7 +16,7 @@ import { FileTokenStore } from '../src/core/secrets.ts'
 import { type RunningDaemon, startDaemon } from '../src/main.ts'
 import { SECRET_HEADER } from '../src/transport/hooks-server.ts'
 import { fakeExecutor, useTempHome, writeTestConfig } from './helpers.ts'
-import { authedClient, noiseConnect, pairConnect, reconnectConnect } from './noise-client.ts'
+import { announceConnect, authedClient, noiseConnect, pairConnect, reconnectConnect } from './noise-client.ts'
 
 const home = useTempHome()
 let daemon: RunningDaemon | undefined
@@ -111,11 +112,13 @@ describe('noise channel', () => {
     const parsed = parsePairingCode(daemon.pairing.create()?.url as string)
     if (!parsed.ok) throw new Error('bad code')
     const deviceKey = noiseCrypto.generateKeyPair()
+    const confirmation = daemon.pairing.hooks.presented?.(pairingIdOf(noiseCrypto, parsed.code.secret)) ?? ''
     const handshake = DeviceHandshake.pair(noiseCrypto, {
       deviceKey,
       daemonKey: noiseCrypto.generateKeyPair().publicKey,
       secret: parsed.code.secret,
       info: { name: '', platform: '' },
+      confirmation,
     })
     const errors: unknown[] = []
     const client = noiseConnect(daemon.wsPort, handshake, deviceKey)
@@ -231,6 +234,56 @@ describe('noise channel', () => {
     client.close()
   })
 
+  test('confirmation codes (#593): the link alone fails, the link and the code shown pair', async () => {
+    const { daemon } = await boot()
+    const secret = (await readFile(paths.hookSecret(), 'utf8')).trim()
+    const admin = (path: string, method = 'GET') =>
+      fetch(`http://127.0.0.1:${daemon.hookPort}${path}`, {
+        method,
+        headers: { [SECRET_HEADER]: secret },
+      }).then((r) => r.json() as Promise<Record<string, unknown>>)
+    const created = (await admin('/admin/pairing-code', 'POST')) as { url: string; id: string }
+    expect(await admin(`/admin/pairing-code/${created.id}`)).toEqual({ state: 'waiting' })
+    expect(await announceConnect(daemon, created.url)).toBe(CHANNEL_CLOSE.confirmationShown)
+    const presented = await admin(`/admin/pairing-code/${created.id}`)
+    expect(presented).toMatchObject({ state: 'presented', code: expect.stringMatching(/^\d{6}$/) })
+    const code = presented.code as string
+    const wrong = code === '000000' ? '111111' : '000000'
+    expect(await pairConnect(daemon, { url: created.url, confirmation: wrong }).closed).toBe(
+      CHANNEL_CLOSE.wrongConfirmation,
+    )
+    const phone = pairConnect(daemon, { url: created.url, confirmation: code })
+    await phone.ready
+    phone.send(auth)
+    await phone.until('auth.ok')
+    expect(await admin(`/admin/pairing-code/${created.id}`)).toEqual({ state: 'paired' })
+    phone.close()
+  })
+
+  test('three wrong confirmation codes burn the pairing code and log a warning (#593)', async () => {
+    const { daemon } = await boot()
+    const warn = vi.spyOn(silentLogger, 'warn')
+    const url = daemon.pairing.create()?.url as string
+    expect(await announceConnect(daemon, url)).toBe(CHANNEL_CLOSE.confirmationShown)
+    const closes: number[] = []
+    for (const confirmation of ['000001', '000002', '000003'])
+      closes.push(await pairConnect(daemon, { url, confirmation }).closed)
+    expect(closes).toEqual([
+      CHANNEL_CLOSE.wrongConfirmation,
+      CHANNEL_CLOSE.wrongConfirmation,
+      CHANNEL_CLOSE.confirmationLocked,
+    ])
+    expect(warn).toHaveBeenCalledWith('pairing code burned after 3 wrong confirmation codes')
+    expect(await pairConnect(daemon, { url }).closed).toBe(CHANNEL_CLOSE.pairingRefused)
+    expect(daemon.pairing.devices.devices()).toHaveLength(0)
+    warn.mockRestore()
+  })
+
+  test('an app without confirmation codes is told to update (4002) (#593)', async () => {
+    const { daemon } = await boot()
+    expect(await pairConnect(daemon, { confirmation: 'legacy' }).closed).toBe(CHANNEL_CLOSE.protocolMismatch)
+  })
+
   test('an 11th device is refused with 4006 and the code stays usable', async () => {
     const { daemon } = await boot()
     for (let i = 0; i < 10; i++) (await authedClient(daemon)).close()
@@ -318,6 +371,31 @@ describe('devices', () => {
     expect(daemon.pairing.devices.devices()).toHaveLength(2)
     phone.close()
     tablet.close()
+  })
+
+  test('pairing.progress reaches only the phone that created the code (#593)', async () => {
+    const { daemon } = await boot()
+    const phone = await authedClient(daemon)
+    const other = await authedClient(daemon)
+    phone.send({ type: 'pairing.create', id: 'p' })
+    const created = await phone.until('pairing.code')
+    expect(created.id).toEqual(expect.any(String))
+    expect(await announceConnect(daemon, created.url)).toBe(CHANNEL_CLOSE.confirmationShown)
+    const presented = await phone.until('pairing.progress')
+    expect(presented).toMatchObject({
+      id: created.id,
+      state: 'presented',
+      code: expect.stringMatching(/^\d{6}$/),
+    })
+    const tablet = pairConnect(daemon, { url: created.url, confirmation: presented.code })
+    await tablet.ready
+    tablet.send(auth)
+    await tablet.until('auth.ok')
+    expect(await phone.until('pairing.progress')).toMatchObject({ id: created.id, state: 'paired' })
+    // The other phone got nothing about it: its next message is the answer to its own ping.
+    other.send({ type: 'ping', id: 'o' })
+    expect(await other.next()).toMatchObject({ type: 'pong', replyTo: 'o' })
+    for (const client of [phone, other, tablet]) client.close()
   })
 
   test('the CLI lists and revokes through the admin routes', async () => {
