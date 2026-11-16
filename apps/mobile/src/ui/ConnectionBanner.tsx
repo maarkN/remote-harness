@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, View } from 'react-native'
 import { useConnectionStore } from '@/core/connection'
+import { bannerKey } from '@/core/connection/banner'
 import { space, useTheme } from '@/core/theme'
 import { Text } from './Text'
 
@@ -11,10 +12,10 @@ export function ConnectionBanner() {
   const status = useConnectionStore((s) => s.status)
   const credentials = useConnectionStore((s) => s.credentials)
   const unreachable = useConnectionStore((s) => s.unreachable)
+  const closeCode = useConnectionStore((s) => s.closeCode)
   if (!credentials || status === 'open' || status === 'idle') return null
   const danger = status === 'unauthorized'
-  // No answer at all: likely a sleeping or offline computer rather than a network blip.
-  const key = status === 'reconnecting' && unreachable ? 'asleep' : status
+  const key = bannerKey(status, unreachable, closeCode)
   return (
     <View style={[styles.base, { backgroundColor: danger ? colors.dangerSoft : colors.warningSoft }]}>
       <Text size="xs" color={danger ? 'danger' : 'warning'}>
