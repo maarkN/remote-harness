@@ -351,6 +351,9 @@ const esES = {
     cleanupDetail_other: '{{path}} · {{count}} cambios',
     copyPath: 'Copiar ruta de la carpeta',
     hide: 'Ocultar de la lista',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Sesión oculta',
+    undo: 'Deshacer',
     followLive: 'Seguir estado en vivo',
     unfollowLive: 'Dejar de seguir estado en vivo',
     failed: 'No se pudo completar la acción',
