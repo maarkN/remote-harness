@@ -1,30 +1,44 @@
+import * as Clipboard from 'expo-clipboard'
 import { router } from 'expo-router'
-import { ExternalLink, QrCode, Share2 } from 'lucide-react-native'
-import { useMemo } from 'react'
+import { Copy, ExternalLink, QrCode, Share2 } from 'lucide-react-native'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Linking, Platform, ScrollView, Share, View } from 'react-native'
+import { AccessibilityInfo, Linking, ScrollView, Share, View } from 'react-native'
 import { makeStyles, radius, space, useTheme } from '@/core/theme'
-import { Button, Card, Screen, Text } from '@/ui'
-import { buildSetupGuide, type GuideAction, REPO_URL } from './setup-guide'
-
-function runAction(action: GuideAction): void {
-  if (action.kind === 'link') void Linking.openURL(action.url)
-  else if (action.kind === 'share') void Share.share({ message: action.text })
-  else router.back()
-}
+import { Button, Card, Chip, Screen, Text } from '@/ui'
+import {
+  buildSetupGuide,
+  COMPUTER_SYSTEMS,
+  type ComputerSystem,
+  type GuideAction,
+  REPO_URL,
+} from './setup-guide'
 
 function actionIcon(action: GuideAction, color: string) {
   if (action.kind === 'link') return <ExternalLink size={16} color={color} />
+  if (action.kind === 'copy') return <Copy size={16} color={color} />
   if (action.kind === 'share') return <Share2 size={16} color={color} />
   return <QrCode size={16} color={color} />
 }
 
-/** Step-by-step for people who installed the app before setting up the computer. */
+/**
+ * Step-by-step for people who installed the app before setting up the computer. The install step
+ * asks for the computer's system first and then shows its command, to copy or send (#564).
+ */
 export function SetupGuideScreen() {
   const { t } = useTranslation()
   const { colors } = useTheme()
   const styles = useStyles()
-  const guide = useMemo(() => buildSetupGuide(t, Platform.OS), [t])
+  const [system, setSystem] = useState<ComputerSystem | null>(null)
+  const guide = useMemo(() => buildSetupGuide(t, system), [t, system])
+  const runAction = (action: GuideAction) => {
+    if (action.kind === 'link') void Linking.openURL(action.url)
+    else if (action.kind === 'copy') {
+      void Clipboard.setStringAsync(action.text)
+      AccessibilityInfo.announceForAccessibility(t('setupGuide.steps.install.copied'))
+    } else if (action.kind === 'share') void Share.share({ message: action.text })
+    else router.back()
+  }
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -51,6 +65,22 @@ export function SetupGuideScreen() {
                     {step.title}
                   </Text>
                 </View>
+                {step.id === 'install' ? (
+                  <View
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel={t('setupGuide.systemsLabel')}
+                    style={styles.systems}
+                  >
+                    {COMPUTER_SYSTEMS.map((option) => (
+                      <Chip
+                        key={option}
+                        label={t(`setupGuide.systems.${option}`)}
+                        selected={system === option}
+                        onPress={() => setSystem(option)}
+                      />
+                    ))}
+                  </View>
+                ) : null}
                 <Text color="textMuted">{step.body}</Text>
                 {step.code ? (
                   <View style={styles.code}>
@@ -97,6 +127,7 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: 'center',
     backgroundColor: theme.colors.accent,
   },
+  systems: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
   code: {
     backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
