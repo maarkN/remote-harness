@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
+  type AppBuild,
   CHANNEL_CLOSE,
   type ChannelSession,
   DaemonHandshake,
@@ -41,8 +42,8 @@ export type SecureConnectionDeps = {
   hooks: DaemonHandshakeHooks & {
     /** A pairing handshake succeeded: use the code up and record the device. */
     paired(pairingId: Uint8Array, deviceKey: Uint8Array, device: DeviceInfo): Promise<PairingResult>
-    /** A device authenticated (its last-seen time). */
-    seen?(deviceKey: Uint8Array): void
+    /** A device authenticated (its last-seen time and the app build it sent, if any). */
+    seen?(deviceKey: Uint8Array, app: AppBuild | undefined): void
   }
   router: MessageRouter
   hub: ClientHub
@@ -208,11 +209,12 @@ export function acceptSecureConnection(
       reached = 'open'
       authenticatedAt = now()
       clearTimeout(timer)
-      deps.hooks.seen?.(session.remoteStatic)
+      deps.hooks.seen?.(session.remoteStatic, message.app)
       deps.hub.add(connection)
       connection.send({ type: 'auth.ok', replyTo: message.id, ...deps.hello() })
       deps.onAuthenticated?.(connection)
-      log.info('client authenticated')
+      // Which build connects, for "which app was it?" from the computer (#591).
+      log.info(message.app ? { app: message.app } : {}, 'client authenticated')
       return
     }
     if (message.type === 'auth') {

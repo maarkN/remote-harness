@@ -23,18 +23,21 @@ export class RejectionLog {
 }
 
 export function registerDiagnosticsFeature(
-  ctx: Pick<DaemonContext, 'router'>,
+  ctx: Pick<DaemonContext, 'router' | 'diagnosticsDevices'>,
   now: () => Date = () => new Date(),
   logs: { dir: () => string; home: string } = { dir: paths.logs, home: homedir() },
 ) {
+  // The paired devices and their last app build, the asking one marked (#591).
+  const devices = ctx.diagnosticsDevices
   const log = new RejectionLog()
   ctx.router.onRejected((type: string, code: ErrorCode) =>
     log.push({ at: now().toISOString(), type: type.slice(0, 64), code }),
   )
-  ctx.router.register('diagnostics.errors', () => ({
+  ctx.router.register('diagnostics.errors', (_msg, connection) => ({
     type: 'diagnostics.result',
     daemonVersion: DAEMON_VERSION,
     errors: log.recent(),
+    ...(devices ? { devices: devices(connection.deviceId) } : {}),
   }))
   // Only to the connection that asked: the reply goes nowhere else, and nothing of it is logged.
   ctx.router.register('diagnostics.logs', async () => ({

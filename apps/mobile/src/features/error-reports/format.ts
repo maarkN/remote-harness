@@ -1,4 +1,4 @@
-import type { RejectedRequest } from '@remote-harness/protocol'
+import type { DiagnosticsDevice, RejectedRequest } from '@remote-harness/protocol'
 import { issueBodyNote } from './bundle'
 import type { ErrorEntry, ReportContext } from './scrub'
 
@@ -19,8 +19,11 @@ export type Report = {
   description: string | null
   context: ReportContext
   entries: ReportEntry[]
-  daemon: { version: string; errors: RejectedRequest[] } | null
+  daemon: DaemonDiagnostics | null
 }
+
+/** What the computer said: its version, rejected requests and devices with their app build (#591). */
+export type DaemonDiagnostics = { version: string; errors: RejectedRequest[]; devices?: DiagnosticsDevice[] }
 
 const sameContext = (a: ReportContext, b: ReportContext) =>
   (Object.keys(a) as (keyof ReportContext)[]).every((key) => a[key] === b[key])
@@ -31,7 +34,7 @@ export function buildReport(input: {
   description?: string
   context: ReportContext
   entries: readonly ErrorEntry[]
-  daemon?: { version: string; errors: RejectedRequest[] } | null
+  daemon?: DaemonDiagnostics | null
 }): Report {
   const description = input.description?.trim().slice(0, DESCRIPTION_LIMIT) || null
   return {

@@ -1,4 +1,4 @@
-import { CHANNEL_CLOSE, type DaemonPaths } from '@remote-harness/protocol'
+import { type AppBuild, CHANNEL_CLOSE, type DaemonPaths } from '@remote-harness/protocol'
 import { create } from 'zustand'
 import { noiseCrypto } from '../crypto'
 import { type Computer, withPaths } from '../storage/computer'
@@ -24,6 +24,13 @@ const memoryStorage: ComputerStorage = {
   remove: async () => null,
 }
 let credentialsStorage: ComputerStorage = memoryStorage
+
+/** The build this app runs, sent in `auth` (set by `ConnectionProvider`; absent in tests). */
+let appBuild: AppBuild | undefined
+
+export function setAppBuild(build: AppBuild | undefined): void {
+  appBuild = build
+}
 
 export function setComputerStorage(storage: ComputerStorage): void {
   credentialsStorage = storage
@@ -122,6 +129,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       computer,
       crypto: noiseCrypto,
       clientName: 'claude-remote-ios',
+      ...(appBuild ? { appBuild } : {}),
       // The demo's sockets live in memory: no relay to race, and a busy start-up (first launch on
       // a slow device) must not drop a handshake that is only waiting for the JavaScript thread.
       ...(demo

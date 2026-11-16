@@ -70,6 +70,33 @@ describe('diagnostics', () => {
     expect(JSON.stringify(reply)).not.toContain('secret')
   })
 
+  test('diagnostics.errors lists the paired devices and their app build, without names (#591)', async () => {
+    const router = new MessageRouter(silentLogger)
+    registerDiagnosticsFeature(
+      {
+        router,
+        diagnosticsDevices: (current) => [
+          {
+            id: 'aaaa',
+            platform: 'ios',
+            lastSeen: null,
+            current: current === 'aaaa',
+            app: { version: '1.2.2' },
+          },
+          { id: 'bbbb', platform: 'android', lastSeen: null, current: current === 'bbbb' },
+        ],
+      },
+      () => at,
+    )
+    const connection = { ...fakeConnection(), deviceId: 'aaaa' }
+    await router.dispatch({ type: 'diagnostics.errors', id: '1' }, connection)
+    const reply = connection.sent.at(-1) as Extract<ServerMessage, { type: 'diagnostics.result' }>
+    expect(reply.devices).toEqual([
+      { id: 'aaaa', platform: 'ios', lastSeen: null, current: true, app: { version: '1.2.2' } },
+      { id: 'bbbb', platform: 'android', lastSeen: null, current: false },
+    ])
+  })
+
   test('the log keeps only the last entries', () => {
     const log = new RejectionLog(2)
     for (const type of ['a', 'b', 'c']) log.push({ at: at.toISOString(), type, code: 'internal' })
