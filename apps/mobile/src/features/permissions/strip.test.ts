@@ -1,7 +1,17 @@
 import type { PermissionRequestInfo, Session } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { formatElapsed } from '../../core/utils/time'
-import { pendingForStrip, stripCandidates, stripSessionId } from './strip'
+import {
+  deckEdges,
+  deckFront,
+  deckStep,
+  pendingForStrip,
+  type StripItem,
+  stripCandidates,
+  stripItemKey,
+  stripSessionId,
+  swipeDelta,
+} from './strip'
 
 const session = (id: string, state: Session['state'], updatedAt: string, controllable = true) =>
   ({
@@ -42,7 +52,7 @@ describe('pendingForStrip', () => {
     expect(pendingForStrip([session('a', 'running', '2026-10-18T12:00:00Z')], [])).toBeNull()
   })
 
-  test('the oldest request first, distinct sessions counted, the next item as the "+N more" target', () => {
+  test('every item oldest first, distinct sessions counted', () => {
     const sessions = [
       session('a', 'waiting', '2026-10-18T12:05:00Z'),
       session('b', 'waiting', '2026-10-18T12:06:00Z'),
@@ -53,12 +63,12 @@ describe('pendingForStrip', () => {
       request('r3', 'a', '2026-10-18T12:04:00Z'),
     ]
     const strip = pendingForStrip(sessions, requests)
-    expect(strip?.oldest.kind).toBe('request')
-    expect(strip?.oldest.kind === 'request' && strip.oldest.request.requestId).toBe('r1')
-    expect(strip?.oldest.kind === 'request' && strip.oldest.session?.id).toBe('a')
+    const oldest = strip?.items[0]
+    expect(oldest?.kind === 'request' && oldest.request.requestId).toBe('r1')
+    expect(oldest?.kind === 'request' && oldest.session?.id).toBe('a')
     expect(strip?.sessions).toBe(2)
-    expect(strip?.more).toBe(2)
-    expect(strip?.next && stripSessionId(strip.next)).toBe('b')
+    expect(strip?.items.map(stripItemKey)).toEqual(['request:r1', 'request:r2', 'request:r3'])
+    expect(strip?.items[1] && stripSessionId(strip.items[1])).toBe('b')
   })
 
   test('a waiting session without a request is listed (and not answerable inline)', () => {
@@ -67,17 +77,71 @@ describe('pendingForStrip', () => {
       session('b', 'idle', '2026-10-18T12:30:00Z'),
     ]
     const strip = pendingForStrip(sessions, [request('r', 'c', '2026-10-18T12:10:00Z')])
-    expect(strip?.oldest).toMatchObject({ kind: 'waiting', session: { id: 'a' } })
+    expect(strip?.items[0]).toMatchObject({ kind: 'waiting', session: { id: 'a' } })
     expect(strip?.sessions).toBe(2)
     // A request for a session the list does not know yet still shows (session null).
-    expect(strip?.next).toMatchObject({ kind: 'request', session: null })
+    expect(strip?.items[1]).toMatchObject({ kind: 'request', session: null })
   })
 
   test('a waiting session that already has a request is not duplicated', () => {
     const sessions = [session('a', 'waiting', '2026-10-18T11:00:00Z')]
     const strip = pendingForStrip(sessions, [request('r', 'a', '2026-10-18T12:00:00Z')])
-    expect(strip?.more).toBe(0)
+    expect(strip?.items).toHaveLength(1)
     expect(strip?.sessions).toBe(1)
+  })
+})
+
+describe('deck', () => {
+  const item = (id: string, at: string): StripItem => ({
+    kind: 'request',
+    request: request(id, 'a', at),
+    session: null,
+    since: Date.parse(at),
+  })
+  const [r1, r2, r3] = [
+    item('r1', '2026-10-18T12:01:00Z'),
+    item('r2', '2026-10-18T12:02:00Z'),
+    item('r3', '2026-10-18T12:03:00Z'),
+  ]
+  const deck = [r1, r2, r3]
+
+  test('item keys tell requests and waiting sessions apart', () => {
+    expect(stripItemKey(r1)).toBe('request:r1')
+    expect(
+      stripItemKey({ kind: 'waiting', session: session('s', 'waiting', '2026-10-18T12:00:00Z'), since: 0 }),
+    ).toBe('waiting:s')
+  })
+
+  test('never moved: the oldest is in front', () => {
+    expect(deckFront(deck, null, 0)).toBe(0)
+  })
+
+  test('the front item stays in front when others come and go', () => {
+    expect(deckFront(deck, 'request:r2', 1)).toBe(1)
+    expect(deckFront([r2, r3], 'request:r2', 1)).toBe(0)
+  })
+
+  test('the front item answered: the one that took its place comes forward (#561)', () => {
+    expect(deckFront([r1, r3], 'request:r2', 1)).toBe(1)
+    // It was the last one: the previous comes forward.
+    expect(deckFront([r1, r2], 'request:r3', 2)).toBe(1)
+  })
+
+  test('next and previous wrap around', () => {
+    expect(deckStep(0, 1, 3)).toBe(1)
+    expect(deckStep(2, 1, 3)).toBe(0)
+    expect(deckStep(0, -1, 3)).toBe(2)
+  })
+
+  test('a swipe left brings the next, right the previous, a short one nothing', () => {
+    expect(swipeDelta(-80, 0)).toBe(1)
+    expect(swipeDelta(80, 0)).toBe(-1)
+    expect(swipeDelta(-20, -1200)).toBe(1)
+    expect(swipeDelta(30, 100)).toBe(0)
+  })
+
+  test('one edge for two items, two for three or more', () => {
+    expect([1, 2, 3, 5].map(deckEdges)).toEqual([0, 1, 2, 2])
   })
 })
 
