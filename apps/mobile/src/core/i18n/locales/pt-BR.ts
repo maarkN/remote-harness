@@ -153,14 +153,23 @@ const ptBR = {
   },
   setupGuide: {
     title: 'Configurar o computador',
+    /** The choice at the start of the install step; the command follows it. */
+    systemsLabel: 'Sistema do computador',
+    systems: { macos: 'macOS', linux: 'Linux', windows: 'Windows' },
     intro:
-      'Dois passos, uns 5 minutos. Você vai precisar do computador em que o seu agente de código roda (macOS, Linux ou Windows com WSL).',
+      'Dois passos, uns 5 minutos. Você vai precisar do computador em que o seu agente de código roda: macOS, Linux ou Windows.',
     help: 'Dúvidas ou problemas: {{url}}',
     steps: {
       install: {
         title: 'Remote Harness no computador',
-        body: 'Num terminal do computador, rode o instalador (no Windows, no PowerShell: `{{windows}}`). Ele verifica os pré-requisitos, pergunta quais contas do Claude Code você quer controlar (ou cria uma nova, com login) e o comando (alias) de cada uma.',
-        action: 'Enviar o link de instalação para o computador',
+        /** Before the computer's system is chosen: no command yet. */
+        chooseSystem: 'Qual é o sistema desse computador? O comando depende dele.',
+        body: 'Num terminal do computador, rode o instalador. Ele verifica os pré-requisitos, pergunta quais contas do Claude Code você quer controlar (ou cria uma nova, com login) e o comando (alias) de cada uma.',
+        bodyWindows:
+          'No PowerShell do computador, rode o instalador. Ele instala o WSL2 com Ubuntu quando falta (reinicie se ele pedir e rode de novo) e roda dentro dele o instalador do Linux, que pergunta quais contas do Claude Code você quer controlar e o comando (alias) de cada uma.',
+        copy: 'Copiar o comando',
+        copied: 'Comando copiado',
+        action: 'Enviar o comando para o computador',
       },
       pair: {
         title: 'Parear',
