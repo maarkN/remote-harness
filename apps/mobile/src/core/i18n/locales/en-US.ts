@@ -352,6 +352,9 @@ const enUS = {
     cleanupDetail_other: '{{path}} · {{count}} changes',
     copyPath: 'Copy folder path',
     hide: 'Hide from list',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Session hidden',
+    undo: 'Undo',
     followLive: 'Follow live status',
     unfollowLive: 'Stop following live status',
     failed: "Couldn't complete the action",
@@ -637,13 +640,15 @@ const enUS = {
     alreadyResolved: 'This request was already resolved (on the computer or it timed out).',
     strip: {
       title: 'Waiting for you',
-      more_one: '+{{count}} more',
-      more_other: '+{{count}} more',
       question: 'has a question',
       plan: 'plan ready for review',
       waiting: 'waiting for you',
       open: 'Open',
       terminal: 'answer in the terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} of {{total}}',
+      nextHint: 'Shows the next one waiting',
+      moved: '{{n}} of {{total}}: {{title}}',
     },
     detail: {
       command: 'command',
@@ -679,6 +684,8 @@ const enUS = {
       next: 'Next',
       send: 'Send',
       decline: 'Decline',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'Done',
     },
     plan: {
       title: 'Plan ready for review',

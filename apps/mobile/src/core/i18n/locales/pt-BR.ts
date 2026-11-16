@@ -351,6 +351,9 @@ const ptBR = {
     cleanupDetail_other: '{{path}} · {{count}} alterações',
     copyPath: 'Copiar caminho da pasta',
     hide: 'Ocultar da lista',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Sessão oculta',
+    undo: 'Desfazer',
     followLive: 'Acompanhar status ao vivo',
     unfollowLive: 'Parar de acompanhar status ao vivo',
     failed: 'Não foi possível concluir a ação',
@@ -635,13 +638,15 @@ const ptBR = {
     alreadyResolved: 'Este pedido já foi resolvido (no computador ou por tempo esgotado).',
     strip: {
       title: 'Esperando você',
-      more_one: '+{{count}} outro',
-      more_other: '+{{count}} outros',
       question: 'tem uma pergunta',
       plan: 'plano pronto para revisão',
       waiting: 'esperando você',
       open: 'Abrir',
       terminal: 'responda no terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} de {{total}}',
+      nextHint: 'Mostra o próximo da fila',
+      moved: '{{n}} de {{total}}: {{title}}',
     },
     detail: {
       command: 'comando',
@@ -677,6 +682,8 @@ const ptBR = {
       next: 'Próxima',
       send: 'Enviar',
       decline: 'Recusar',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'OK',
     },
     plan: {
       title: 'Plano pronto para revisão',

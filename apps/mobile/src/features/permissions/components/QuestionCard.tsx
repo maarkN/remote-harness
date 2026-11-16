@@ -1,12 +1,21 @@
 import type { PermissionAnswer, Question } from '@remote-harness/protocol'
 import { Check, MessageCircleQuestionMark } from 'lucide-react-native'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, ScrollView, TextInput, View } from 'react-native'
+import { Keyboard, Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native'
+import { useKeyboardHeight } from '@/core/platform/use-keyboard-height'
 import { fontSize, fonts, makeStyles, radius, space, useTheme } from '@/core/theme'
 import { agentLabel } from '@/features/sessions/agent'
 import { Button, Text } from '@/ui'
-import { buildAnswers, EMPTY_SELECTION, type Selection, setOther, stepAt, toggleOption } from '../interaction'
+import {
+  buildAnswers,
+  EMPTY_SELECTION,
+  questionBodyHeight,
+  type Selection,
+  setOther,
+  stepAt,
+  toggleOption,
+} from '../interaction'
 
 type Props = {
   questions: Question[]
@@ -19,6 +28,9 @@ type Props = {
 /**
  * `AskUserQuestion` as a native card, one question at a time like the agent's own prompt: options,
  * free-text "Other", Back / Next between the questions of one call, Send on the last and Decline.
+ * The free-text field always has a way to close the keyboard (Return on single-line fields, Done
+ * beside it while focused), and with the keyboard up the options area shrinks so the field and the
+ * buttons stay above it (#560).
  */
 export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Props) {
   const { t } = useTranslation()
@@ -26,12 +38,22 @@ export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Pr
   const styles = useStyles()
   const [selections, setSelections] = useState<Record<string, Selection>>({})
   const [stepIndex, setStepIndex] = useState(0)
+  const [focused, setFocused] = useState(false)
+  const body = useRef<ScrollView>(null)
+  const keyboardHeight = useKeyboardHeight()
+  const { height: windowHeight } = useWindowDimensions()
+  const keyboardOpen = keyboardHeight > 0
+  // The field is the last thing in the body: keep it in view once the keyboard is up.
+  useEffect(() => {
+    if (focused && keyboardOpen) body.current?.scrollToEnd({ animated: true })
+  }, [focused, keyboardOpen])
   const update = (question: string, change: (s: Selection) => Selection) =>
     setSelections((all) => ({ ...all, [question]: change(all[question] ?? EMPTY_SELECTION) }))
   const step = stepAt(questions, selections, stepIndex)
   if (!step) return null
   const { question: q, index, total, answered, last, complete } = step
   const selection = selections[q.question] ?? EMPTY_SELECTION
+  const multiline = q.kind === 'text'
 
   return (
     <View style={styles.card}>
@@ -41,7 +63,15 @@ export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Pr
           {title ?? t('permissions.question.title', { agent: agentLabel(null, t, { sentence: true }) })}
         </Text>
       </View>
-      <ScrollView style={styles.body} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={body}
+        style={{ maxHeight: questionBodyHeight(windowHeight, keyboardHeight) }}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        onLayout={() => {
+          if (focused && keyboardOpen) body.current?.scrollToEnd({ animated: false })
+        }}
+      >
         <View key={q.question} style={styles.question}>
           {total > 1 ? (
             <Text size="xs" color="accentText" weight="medium">
@@ -86,18 +116,39 @@ export function QuestionCard({ questions, title, busy, onAnswer, onDecline }: Pr
               </Pressable>
             )
           })}
-          <TextInput
-            value={selection.other}
-            onChangeText={(text) => update(q.question, (s) => setOther(s, text, q.multiSelect))}
-            placeholder={t(
-              q.kind === 'choice' ? 'permissions.question.other' : 'permissions.question.answer',
-            )}
-            placeholderTextColor={colors.textMuted}
-            keyboardType={q.kind === 'number' ? 'numeric' : 'default'}
-            editable={!busy}
-            multiline={q.kind === 'text'}
-            style={styles.input}
-          />
+          <View style={styles.field}>
+            <TextInput
+              value={selection.other}
+              onChangeText={(text) => update(q.question, (s) => setOther(s, text, q.multiSelect))}
+              placeholder={t(
+                q.kind === 'choice' ? 'permissions.question.other' : 'permissions.question.answer',
+              )}
+              placeholderTextColor={colors.textMuted}
+              keyboardType={q.kind === 'number' ? 'numeric' : 'default'}
+              editable={!busy}
+              multiline={multiline}
+              // Single-line fields close the keyboard from Return; a multiline one keeps it for new lines.
+              returnKeyType={multiline ? 'default' : 'done'}
+              submitBehavior={multiline ? 'newline' : 'blurAndSubmit'}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              style={[styles.input, styles.flex]}
+            />
+            {focused ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('permissions.question.done')}
+                accessibilityHint={t('conversation.hideKeyboard')}
+                hitSlop={8}
+                onPress={Keyboard.dismiss}
+                style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+              >
+                <Text size="sm" weight="bold" color="accentText">
+                  {t('permissions.question.done')}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </ScrollView>
       <View style={styles.actions}>
@@ -155,7 +206,6 @@ const useStyles = makeStyles((theme) => ({
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   flex: { flex: 1 },
-  body: { maxHeight: 360 },
   question: { gap: space.xs, paddingVertical: space.xs },
   option: {
     flexDirection: 'row',
@@ -179,6 +229,9 @@ const useStyles = makeStyles((theme) => ({
   },
   markRound: { borderRadius: 9 },
   markPicked: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  field: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm },
+  done: { paddingHorizontal: space.sm, paddingVertical: space.sm, borderRadius: radius.md },
+  pressed: { opacity: 0.6 },
   input: {
     backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
