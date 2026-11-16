@@ -238,11 +238,11 @@ export const ptBR = {
     },
     devices: {
       description: 'os aparelhos pareados com este computador',
-      list: 'lista os aparelhos pareados (ID, nome, plataforma, pareado em, visto por último)',
+      list: 'lista os aparelhos pareados (ID, nome, plataforma, pareado em, visto por último, versão do app)',
       revoke: 'despareia um aparelho: ele é desconectado e precisa parear de novo',
       empty: 'Nenhum aparelho pareado. Rode `remote-harness pair` para parear um.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
-        `${id}  ${name}  ${platform}  pareado em ${paired}  visto por último ${seen}`,
+      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
+        `${id}  ${name}  ${platform}  pareado em ${paired}  visto por último ${seen}  app ${app}`,
       never: 'nunca',
       revoked: (id: string) => `Aparelho ${id} revogado.`,
       notFound: (id: string) => `Nenhum aparelho pareado ${id}.`,

@@ -24,7 +24,7 @@ The machine line at the top of the session list SHALL open a switcher with the p
 - **THEN** the projects and models shown are the desktop's (or loading), never the laptop's
 
 ### Requirement: Path selection
-For the active computer the app SHALL try its direct addresses first (a short timeout each), then its home relay and then the other relays in its list, by daemon ID, except that after a connection drops it SHALL start with the address or relay that last completed `auth` and then try the others in that order; a relay that answers 4004 SHALL be followed by the next relay. While connected through a relay it SHALL probe the direct addresses every 30 s and when the app returns to the foreground, and move to a direct connection that completes the handshake and `auth`, re-subscribing from the last cursors so no conversation state is lost. `daemon.paths` SHALL update the saved addresses, home relay and relay list. The connection state SHALL show whether the direct path or the relay is in use. While connected, when nothing has been received for 30 s the app SHALL send `ping`; when no reply arrives within 10 s it SHALL drop that connection at once (without waiting for a close handshake), fail its pending requests as disconnected and reconnect, without reporting the heartbeat as a request error.
+For the active computer the app SHALL try its direct addresses first (a short timeout each), then its home relay and then the other relays in its list, by daemon ID, except that after a connection drops it SHALL start with the address or relay that last completed `auth` and then try the others in that order; a relay that answers 4004 SHALL be followed by the next relay. While connected through a relay it SHALL probe the direct addresses every 30 s and when the app returns to the foreground, and move to a direct connection that completes the handshake and `auth`, re-subscribing from the last cursors so no conversation state is lost. `daemon.paths` SHALL update the saved addresses, home relay and relay list. The connection state SHALL show whether the direct path or the relay is in use. While connected, when nothing has been received for 30 s the app SHALL send `ping`; when no reply arrives within 10 s it SHALL drop that connection at once (without waiting for a close handshake), fail its pending requests as disconnected and reconnect, without reporting the heartbeat as a request error. From the moment a socket opens, the Noise handshake and the `auth` request SHALL complete within 10 s: an attempt still authenticating then SHALL be dropped the same way (closed at once, pending requests failed as disconnected, not reported as a request error) and retried with the usual backoff. When the app returns to the foreground, or the user taps Try again, while a connection is still authenticating, the app SHALL drop that attempt and start a new one at once. An `auth.ok` that does not validate against the protocol schemas SHALL end the attempt with a visible error (the connection closed, no automatic retry, the banner saying the app and the computer run incompatible versions) instead of leaving it authenticating; the same banner text SHALL show when the daemon refuses the app's protocol version.
 
 #### Scenario: Away from home
 - **WHEN** no direct address answers
@@ -49,6 +49,22 @@ For the active computer the app SHALL try its direct addresses first (a short ti
 #### Scenario: Reconnect away from home
 - **WHEN** the app was connected through the relay and the connection drops
 - **THEN** the next attempt goes to that relay first instead of waiting on each direct address
+
+#### Scenario: Handshake reply lost
+- **WHEN** the socket opens and the daemon's handshake reply never arrives
+- **THEN** after 10 s the app closes that socket, shows "reconnecting…" and connects again with the usual backoff
+
+#### Scenario: `auth` never answered
+- **WHEN** the handshake completes but the reply to `auth` never arrives
+- **THEN** after 10 s from the socket opening the app drops the attempt and reconnects, and no request error is recorded for `auth`
+
+#### Scenario: Back in the foreground while authenticating
+- **WHEN** the app returns to the foreground and the connection is still authenticating
+- **THEN** the app drops that attempt and opens a new connection at once instead of waiting
+
+#### Scenario: `auth.ok` that does not validate
+- **WHEN** the daemon answers `auth` with an `auth.ok` the app's schemas reject
+- **THEN** the app closes the connection, does not retry, and the banner says the app and the computer run incompatible versions
 
 ### Requirement: Devices settings
 Settings → Devices SHALL list the devices paired with the active computer (name, platform, last seen, this device marked), offer "Add device", which asks for `pairing.create` and shows the code as a QR and a link with its expiry, "Rename" on each device (this one and the others), which opens a sheet with the current name to edit and sends `devices.rename`, and "Revoke" on each device after a confirmation. When this device is revoked (close code 4007), the app SHALL forget that computer and say so.

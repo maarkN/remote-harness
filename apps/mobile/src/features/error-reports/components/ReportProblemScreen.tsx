@@ -1,4 +1,3 @@
-import type { RejectedRequest } from '@remote-harness/protocol'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Linking, Platform, ScrollView, Share, Switch, TextInput, View } from 'react-native'
@@ -9,7 +8,7 @@ import { bundleReport, type ComputerLog } from '../bundle'
 import { currentContext } from '../capture'
 import { canSend } from '../consent'
 import { clearDraft, useReportDraft } from '../draft-store'
-import { buildReport, githubIssueUrl, ISSUES_URL, reportJson } from '../format'
+import { buildReport, type DaemonDiagnostics, githubIssueUrl, ISSUES_URL, reportJson } from '../format'
 import { recentEntries } from '../log'
 import { writeReportFile } from '../storage'
 import { useErrorReportsStore } from '../store'
@@ -17,9 +16,7 @@ import { readAttachment, uploadReport } from '../upload'
 import { AttachmentsSection } from './AttachmentsSection'
 import { ReportPreview } from './ReportPreview'
 
-type DaemonDiagnostics = { version: string; errors: RejectedRequest[] }
-
-/** The computer's recent rejected requests; null when not connected or not supported. */
+/** The computer's recent rejected requests and devices; null when not connected or not supported. */
 function useDaemonDiagnostics(): DaemonDiagnostics | null {
   const client = useDaemonClient()
   const [diagnostics, setDiagnostics] = useState<DaemonDiagnostics | null>(null)
@@ -30,7 +27,11 @@ function useDaemonDiagnostics(): DaemonDiagnostics | null {
       .request({ type: 'diagnostics.errors' })
       .then((reply) => {
         if (active && reply.type === 'diagnostics.result')
-          setDiagnostics({ version: reply.daemonVersion, errors: reply.errors })
+          setDiagnostics({
+            version: reply.daemonVersion,
+            errors: reply.errors,
+            ...(reply.devices ? { devices: reply.devices } : {}),
+          })
       })
       // Older daemons answer `unknown_type` and offline requests fail: the option stays hidden.
       .catch(() => undefined)

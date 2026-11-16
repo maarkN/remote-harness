@@ -4,7 +4,13 @@ import { NOISE_TEST_VECTORS, runNoiseVector } from '@remote-harness/protocol/noi
 import { describe, expect, test } from 'vitest'
 import { noiseCrypto } from '../src/core/identity.ts'
 import { PairingCodes, REUSE_MIN_LEFT_MS } from '../src/features/pairing/codes.ts'
-import { deviceIdOf, MAX_PAIRED_DEVICES, PairedDevices } from '../src/features/pairing/devices.ts'
+import {
+  deviceIdOf,
+  deviceInfoOf,
+  diagnosticsDeviceOf,
+  MAX_PAIRED_DEVICES,
+  PairedDevices,
+} from '../src/features/pairing/devices.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -99,6 +105,60 @@ describe('paired devices', () => {
     expect(await devices.add(key(), { name: 'eleventh', platform: 'ios' })).toBe(false)
     expect(await devices.add(keys[0] as Uint8Array, { name: 'renamed', platform: 'ios' })).toBe(true)
     expect(devices.devices()).toHaveLength(MAX_PAIRED_DEVICES)
+  })
+
+  test('keeps the last app build a device authenticated with (#591)', async () => {
+    const path = join(home.dir(), 'paired-devices.json')
+    let now = 1
+    const devices = new PairedDevices(path, () => now)
+    await devices.load()
+    const phone = key()
+    await devices.add(phone, { name: 'iPhone', platform: 'ios' })
+    now = 2
+    await devices.touch(phone, { version: '1.2.2', runtime: 'a1b2', update: 'u-1' })
+    now = 3
+    // An older build (or an `auth` without `app`) leaves the last known build in place.
+    await devices.touch(phone)
+    const reloaded = new PairedDevices(path)
+    await reloaded.load()
+    const [device] = reloaded.devices()
+    expect(device).toMatchObject({ lastSeen: 3, app: { version: '1.2.2', runtime: 'a1b2', update: 'u-1' } })
+    expect(deviceInfoOf(device as never, deviceIdOf(phone))).toMatchObject({
+      current: true,
+      app: { version: '1.2.2', runtime: 'a1b2', update: 'u-1' },
+    })
+    expect(diagnosticsDeviceOf(device as never)).toEqual({
+      id: deviceIdOf(phone),
+      platform: 'ios',
+      lastSeen: new Date(3).toISOString(),
+      current: false,
+      app: { version: '1.2.2', runtime: 'a1b2', update: 'u-1' },
+    })
+  })
+
+  test('a device file with a malformed app build keeps the device', async () => {
+    const { writeFile } = await import('node:fs/promises')
+    const path = join(home.dir(), 'odd.json')
+    const phone = key()
+    await writeFile(
+      path,
+      JSON.stringify({
+        devices: [
+          {
+            id: deviceIdOf(phone),
+            publicKey: Buffer.from(phone).toString('base64url'),
+            name: 'iPhone',
+            platform: 'ios',
+            pairedAt: 1,
+            app: { version: 7 },
+          },
+        ],
+      }),
+    )
+    const devices = new PairedDevices(path)
+    await devices.load()
+    expect(devices.has(phone)).toBe(true)
+    expect(devices.devices()[0]?.app).toBeUndefined()
   })
 
   test('renames a device and keeps the name across a reload (#592)', async () => {

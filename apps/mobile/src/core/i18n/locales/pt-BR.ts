@@ -53,6 +53,7 @@ const ptBR = {
       reconnecting: 'reconectando…',
       asleep: '{{machine}} não responde: pode estar dormindo ou offline. Reconectando…',
       unauthorized: 'pareamento recusado — pareie novamente',
+      incompatible: 'o app e {{machine}} estão em versões incompatíveis — atualize os dois',
       closed: 'desconectado',
     },
     status: {

@@ -58,6 +58,7 @@ const enUS = {
       reconnecting: 'reconnecting…',
       asleep: "{{machine}} isn't answering: it may be asleep or offline. Reconnecting…",
       unauthorized: 'pairing rejected — pair again',
+      incompatible: 'the app and {{machine}} run incompatible versions — update both',
       closed: 'disconnected',
     },
     status: {

@@ -460,6 +460,19 @@ export type ApprovalEntry = z.infer<typeof ApprovalEntrySchema>
 export const DevicePlatformSchema = z.enum(['ios', 'android'])
 export type DevicePlatform = z.infer<typeof DevicePlatformSchema>
 
+/**
+ * The app build a device runs (#591): its version, the runtime version that fingerprints its
+ * native build and the OTA update it runs (absent for the embedded bundle).
+ */
+export const AppBuildSchema = z.object({
+  version: z.string().min(1).max(32),
+  runtime: z.string().min(1).max(64).optional(),
+  update: z.string().min(1).max(64).optional(),
+})
+export type AppBuild = z.infer<typeof AppBuildSchema>
+/** Optional on the wire, and dropped when malformed: a bad field never refuses a message. */
+export const wireAppBuild = AppBuildSchema.optional().catch(undefined)
+
 /** Longest device name (`devices.rename`, the pairing payload). */
 export const DEVICE_NAME_MAX = 64
 
@@ -472,8 +485,20 @@ export const PairedDeviceInfoSchema = z.object({
   lastSeen: z.string().nullable(),
   /** The device that asked. */
   current: z.boolean(),
+  /** The last app build it authenticated with; absent until it sends one. */
+  app: wireAppBuild,
 })
 export type PairedDeviceInfo = z.infer<typeof PairedDeviceInfoSchema>
+
+/** A paired device in the diagnostics: no name (the user may have used a person's name). */
+export const DiagnosticsDeviceSchema = PairedDeviceInfoSchema.pick({
+  id: true,
+  platform: true,
+  lastSeen: true,
+  current: true,
+  app: true,
+})
+export type DiagnosticsDevice = z.infer<typeof DiagnosticsDeviceSchema>
 
 /** Where devices reach the daemon: direct `host:port` addresses and the home connection relay. */
 export const DaemonPathsSchema = z.object({

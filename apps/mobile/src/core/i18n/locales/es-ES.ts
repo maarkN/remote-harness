@@ -53,6 +53,7 @@ const esES = {
       reconnecting: 'reconectando…',
       asleep: '{{machine}} no responde: puede estar dormido o sin conexión. Reconectando…',
       unauthorized: 'vinculación rechazada — vuelve a vincular',
+      incompatible: 'la app y {{machine}} tienen versiones incompatibles — actualiza ambos',
       closed: 'desconectado',
     },
     status: {

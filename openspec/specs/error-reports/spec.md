@@ -6,7 +6,7 @@ Records the app's crashes, render errors and failed daemon requests in a scrubbe
 ## Requirements
 
 ### Requirement: On-device error log
-The app SHALL record JS crashes, unhandled promise rejections, render errors and failed daemon requests (error replies other than `unknown_type`, and timeouts) in a rotating log on the device with at most 50 entries. Recording MUST NOT send anything off the device. Each entry MUST contain only the allowlisted fields: time, source, error name, scrubbed message, scrubbed stack, request type, error code, route pattern and the app context (app version, runtime version, OTA update id and channel, platform, OS version, daemon version). Request errors MUST NOT carry the daemon's message.
+The app SHALL record JS crashes, unhandled promise rejections, render errors, failed daemon requests (error replies other than `unknown_type`, and timeouts) and daemon messages that fail validation against the protocol schemas (source `message`, with the message type and the parse code `bad_request` or `unknown_type`; also warned in the console in development builds) in a rotating log on the device with at most 50 entries. Recording MUST NOT send anything off the device. Each entry MUST contain only the allowlisted fields: time, source, error name, scrubbed message, scrubbed stack, request type, error code, route pattern and the app context (app version, runtime version, OTA update id and channel, platform, OS version, daemon version). Request errors MUST NOT carry the daemon's message.
 
 #### Scenario: Failed request
 - **WHEN** a `session.start` request is answered with `error` `invalid_cwd` and message "not a directory: /Users/me/secret"
@@ -15,6 +15,10 @@ The app SHALL record JS crashes, unhandled promise rejections, render errors and
 #### Scenario: Rotation
 - **WHEN** the log has 50 entries and another error happens
 - **THEN** the oldest entry is dropped
+
+#### Scenario: Daemon message that does not validate
+- **WHEN** the daemon sends a `session.changed` whose `sessionId` is a number
+- **THEN** the log gains an entry with source `message`, type `session.changed` and code `bad_request`, and the connection stays open
 
 ### Requirement: Scrubbing
 Free text in an entry SHALL be scrubbed before it is stored: text between quotes or backticks, URLs, emails, file paths (except their base name) and long token-like runs MUST be replaced by placeholders, and messages and stacks MUST be cut to a fixed size. The route MUST be the route pattern, never the concrete path. A report MUST NOT contain prompts, transcript text, terminal output, commands, paths, project or session names, tokens or pairing data.
@@ -35,7 +39,7 @@ The app SHALL offer the preference Send automatically / Ask each time / Never in
 - **THEN** no report is sent, unsent native reports are deleted, and the Send action of "Report a problem" is hidden
 
 ### Requirement: Report a problem
-Settings SHALL open a "Report a problem" screen with a description field, attachments, an option to include the computer's recent rejected requests (when the daemon supports `diagnostics.errors`), an option, off by default, to include the computer's logs (when the daemon supports `diagnostics.logs`, shown in full before sending), a preview of the report, and actions to send it, share it (a file on iOS, text on Android) or open a prefilled GitHub issue. Attachments SHALL be images and videos from the library or the camera, a screenshot taken by "Shake to report" and one audio note recorded on the screen (record, stop, play, remove), each listed with a remove action, within 25 MB in total: an attachment that would pass the limit MUST be refused with a message. The screen MUST say, next to Send, that attachments may show what is on the screen. Send SHALL upload the report as one zip (`report.json`, `computer-logs.txt` when included, and the attachments) to `https://remoteharness.app/api/reports` and, once accepted, show the report ID, which the GitHub issue link then includes; a failed upload SHALL say so and keep everything for another try. Send MUST be hidden with the "Never" preference. All texts MUST be translated.
+Settings SHALL open a "Report a problem" screen with a description field, attachments, an option to include the computer's recent rejected requests and the last app build it saw from each paired device, by ID and platform, without names (when the daemon supports `diagnostics.errors`), an option, off by default, to include the computer's logs (when the daemon supports `diagnostics.logs`, shown in full before sending), a preview of the report, and actions to send it, share it (a file on iOS, text on Android) or open a prefilled GitHub issue. Attachments SHALL be images and videos from the library or the camera, a screenshot taken by "Shake to report" and one audio note recorded on the screen (record, stop, play, remove), each listed with a remove action, within 25 MB in total: an attachment that would pass the limit MUST be refused with a message. The screen MUST say, next to Send, that attachments may show what is on the screen. Send SHALL upload the report as one zip (`report.json`, `computer-logs.txt` when included, and the attachments) to `https://remoteharness.app/api/reports` and, once accepted, show the report ID, which the GitHub issue link then includes; a failed upload SHALL say so and keep everything for another try. Send MUST be hidden with the "Never" preference. All texts MUST be translated.
 
 #### Scenario: Share without Firebase
 - **WHEN** the build has no Firebase and the user taps Share
@@ -52,6 +56,10 @@ Settings SHALL open a "Report a problem" screen with a description field, attach
 #### Scenario: Never
 - **WHEN** the preference is Never
 - **THEN** Send is hidden and Share and the GitHub link remain
+
+#### Scenario: Which build the computer saw
+- **WHEN** the user includes the computer's errors in a report and the computer answers with its devices
+- **THEN** the report's `daemon` block lists each device's ID, platform, last seen and app version, and no device name
 
 ### Requirement: Render error fallback
 A render error SHALL show a themed fallback screen with a "Try again" action instead of a blank app, and MUST be recorded in the log.

@@ -13,6 +13,7 @@ import {
   PROVIDER_NAMES,
   type PushMode,
   PushTestResultSchema,
+  wireAppBuild,
 } from '@remote-harness/protocol'
 import { Command, InvalidArgumentError, Option } from 'commander'
 import qrcode from 'qrcode-terminal'
@@ -1053,6 +1054,7 @@ const DevicesReplySchema = z.object({
       platform: z.string(),
       pairedAt: z.string(),
       lastSeen: z.string().nullable(),
+      app: wireAppBuild,
     }),
   ),
 })
@@ -1083,6 +1085,7 @@ devicesCommand
           d.platform || '—',
           shortTime(d.pairedAt),
           d.lastSeen ? shortTime(d.lastSeen) : m.cli.devices.never,
+          d.app?.version ?? '?',
         ),
       )
   })

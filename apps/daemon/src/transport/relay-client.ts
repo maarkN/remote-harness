@@ -2,7 +2,7 @@ import { concatBytes, relayCloseCode, utf8Encode } from '@remote-harness/protoco
 import WebSocket from 'ws'
 import { type DaemonIdentity, signRelayChallenge } from '../core/identity.ts'
 import type { Logger } from '../core/logger.ts'
-import type { Link } from './secure-connection.ts'
+import type { Link, LinkClose } from './secure-connection.ts'
 
 // The connection relay's daemon frames (apps/relay/internal/relay/frame.go).
 const FRAME_CHALLENGE = 0x01
@@ -35,8 +35,20 @@ export function relayHello(identity: DaemonIdentity, challenge: Uint8Array): Uin
 
 type Channel = {
   message: Array<(data: Uint8Array, isBinary: boolean) => void>
-  close: Array<() => void>
+  close: Array<(close: LinkClose) => void>
   closed: boolean
+}
+
+/** The close reason of a channel whose relay connection ended. */
+export const RELAY_LOST_REASON = 'relay connection lost'
+
+/** A short reason for the codes the relay chooses itself; a device's own code has none. */
+export function relayCloseReason(code: number): string {
+  if (code === 4010) return 'idle on the relay'
+  if (code === 4031) return 'too slow on the relay'
+  if (code === 1009) return 'message too large'
+  if (code === 1001) return 'going away'
+  return ''
 }
 
 export type RelayConnectionOptions = {
@@ -80,7 +92,8 @@ export class RelayConnection {
         clearTimeout(readyTimer)
         if (this.watchdog) clearInterval(this.watchdog)
         rejectReady(new Error(`relay closed (${code})`))
-        for (const channel of this.channels.keys()) this.endChannel(channel)
+        for (const channel of this.channels.keys())
+          this.endChannel(channel, { code, reason: RELAY_LOST_REASON })
         resolve(code)
       })
     })
@@ -124,7 +137,14 @@ export class RelayConnection {
     else if (kind === FRAME_DATA) {
       const ch = this.channels.get(channel)
       if (ch && !ch.closed) for (const fn of ch.message) fn(data.subarray(HEADER), true)
-    } else if (kind === FRAME_CLOSE) this.endChannel(channel)
+    } else if (kind === FRAME_CLOSE) {
+      // The device's close code, or the relay's own (idle, too slow…); 1005 when it has none.
+      const code =
+        data.length >= HEADER + 2
+          ? new DataView(data.buffer, data.byteOffset, data.byteLength).getUint16(HEADER)
+          : 1005
+      this.endChannel(channel, { code, reason: relayCloseReason(code) })
+    }
   }
 
   private openChannel(id: number): void {
@@ -135,14 +155,14 @@ export class RelayConnection {
         if (!channel.closed && this.ws.readyState === WebSocket.OPEN)
           this.ws.send(frame(FRAME_DATA, id, data))
       },
-      close: (code) => {
+      close: (code, reason) => {
         if (channel.closed) return
         if (this.ws.readyState === WebSocket.OPEN) {
           const rest = new Uint8Array(2)
           new DataView(rest.buffer).setUint16(0, relayCloseCode(code))
           this.ws.send(frame(FRAME_CLOSE, id, rest))
         }
-        this.endChannel(id)
+        this.endChannel(id, { code, reason, byDaemon: true })
       },
       onMessage: (fn) => channel.message.push(fn),
       onClose: (fn) => channel.close.push(fn),
@@ -150,11 +170,11 @@ export class RelayConnection {
     this.o.onLink(link)
   }
 
-  private endChannel(id: number): void {
+  private endChannel(id: number, close: LinkClose): void {
     const channel = this.channels.get(id)
     if (!channel || channel.closed) return
     channel.closed = true
     this.channels.delete(id)
-    for (const fn of channel.close.splice(0)) fn()
+    for (const fn of channel.close.splice(0)) fn(close)
   }
 }

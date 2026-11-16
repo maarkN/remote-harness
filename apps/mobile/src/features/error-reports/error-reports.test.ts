@@ -13,6 +13,7 @@ import { appendEntry, isDuplicate, LOG_LIMIT, parseLog, pendingCrashes, recentEn
 import {
   buildEntry,
   type ErrorEntry,
+  invalidMessageError,
   MESSAGE_LIMIT,
   type ReportContext,
   scrubMessage,
@@ -122,6 +123,25 @@ describe('buildEntry', () => {
       requestType: 'session.start',
       code: 'invalid_cwd',
       message: null,
+      stack: null,
+    })
+  })
+
+  test('daemon messages that fail validation keep their type, parse code and scrubbed reason, no stack', () => {
+    const entry = buildEntry({
+      at,
+      source: 'message',
+      error: invalidMessageError('sessionId: Invalid input: expected string, received number'),
+      requestType: 'session.changed',
+      code: 'bad_request',
+      context,
+    })
+    expect(entry).toMatchObject({
+      source: 'message',
+      name: 'InvalidDaemonMessage',
+      requestType: 'session.changed',
+      code: 'bad_request',
+      message: 'sessionId: Invalid input: expected string, received number',
       stack: null,
     })
   })
@@ -286,6 +306,30 @@ describe('format', () => {
     const report = buildReport({ kind: 'manual', at, context, entries: [entryAt(at.toISOString()), old] })
     expect(report.entries[0]).not.toHaveProperty('context')
     expect(report.entries[1]?.context?.appVersion).toBe('0.11.0')
+  })
+
+  test('the computer block carries its devices and their app build, never a device name (#591)', () => {
+    const devices = [
+      { id: 'aaaa', platform: 'ios', lastSeen: null, current: true, app: { version: '1.2.2' } },
+      { id: 'bbbb', platform: 'android', lastSeen: '2026-11-16T10:00:00.000Z', current: false },
+    ]
+    const report = buildReport({
+      kind: 'manual',
+      at,
+      context,
+      entries: [],
+      daemon: { version: '1.2.3', errors: [], devices },
+    })
+    expect(report.daemon?.devices).toEqual(devices)
+    expect(reportJson(report)).not.toContain('"name"')
+    const older = buildReport({
+      kind: 'manual',
+      at,
+      context,
+      entries: [],
+      daemon: { version: '1.2.2', errors: [] },
+    })
+    expect(older.daemon).not.toHaveProperty('devices')
   })
 
   test('description is trimmed and cut', () => {
