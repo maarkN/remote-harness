@@ -631,13 +631,15 @@ const esES = {
     alreadyResolved: 'Esta solicitud ya se ha resuelto (en el ordenador o por tiempo agotado).',
     strip: {
       title: 'Esperando por ti',
-      more_one: '+{{count}} más',
-      more_other: '+{{count}} más',
       question: 'tiene una pregunta',
       plan: 'plan listo para revisar',
       waiting: 'esperando por ti',
       open: 'Abrir',
       terminal: 'responde en la terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} de {{total}}',
+      nextHint: 'Muestra el siguiente de la cola',
+      moved: '{{n}} de {{total}}: {{title}}',
     },
     detail: {
       command: 'comando',

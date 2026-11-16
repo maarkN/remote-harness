@@ -635,13 +635,15 @@ const ptBR = {
     alreadyResolved: 'Este pedido já foi resolvido (no computador ou por tempo esgotado).',
     strip: {
       title: 'Esperando você',
-      more_one: '+{{count}} outro',
-      more_other: '+{{count}} outros',
       question: 'tem uma pergunta',
       plan: 'plano pronto para revisão',
       waiting: 'esperando você',
       open: 'Abrir',
       terminal: 'responda no terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} de {{total}}',
+      nextHint: 'Mostra o próximo da fila',
+      moved: '{{n}} de {{total}}: {{title}}',
     },
     detail: {
       command: 'comando',
