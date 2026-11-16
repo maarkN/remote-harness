@@ -5,6 +5,7 @@ import {
   buildAnswers,
   EMPTY_SELECTION,
   isAnswerComplete,
+  questionBodyHeight,
   setOther,
   stepAt,
   toggleOption,
@@ -92,5 +93,21 @@ describe('steps (#473)', () => {
     expect(stepAt(questions, all, -1)).toMatchObject({ index: 0 })
     expect(stepAt([choice(true)], {}, 0)).toMatchObject({ index: 0, total: 1, last: true, answered: false })
     expect(stepAt([], {}, 0)).toBeNull()
+  })
+})
+
+describe('questionBodyHeight', () => {
+  test('360 pt while the keyboard is down', () => {
+    expect(questionBodyHeight(874, 0)).toBe(360)
+  })
+
+  test('fits the space above the keyboard (#560)', () => {
+    expect(questionBodyHeight(667, 260)).toBe(102)
+    expect(questionBodyHeight(874, 336)).toBe(135)
+  })
+
+  test('never under 88 pt nor over 360 pt', () => {
+    expect(questionBodyHeight(500, 300)).toBe(88)
+    expect(questionBodyHeight(2400, 300)).toBe(360)
   })
 })

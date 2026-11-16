@@ -679,6 +679,8 @@ const enUS = {
       next: 'Next',
       send: 'Send',
       decline: 'Decline',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'Done',
     },
     plan: {
       title: 'Plan ready for review',

@@ -672,6 +672,8 @@ const esES = {
       next: 'Siguiente',
       send: 'Enviar',
       decline: 'Rechazar',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'OK',
     },
     plan: {
       title: 'Plan listo para revisar',

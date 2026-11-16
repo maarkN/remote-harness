@@ -677,6 +677,8 @@ const ptBR = {
       next: 'Próxima',
       send: 'Enviar',
       decline: 'Recusar',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'OK',
     },
     plan: {
       title: 'Plano pronto para revisão',
