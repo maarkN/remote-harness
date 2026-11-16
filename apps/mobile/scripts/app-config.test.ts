@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  ANDROID_BLOCKED_PERMISSIONS,
   ANDROID_PROGUARD_RULES,
   addShortcutsMetaData,
   androidVersionCode,
@@ -42,6 +43,22 @@ describe('R8 keep rules', () => {
       )
     expect(lookups).toContain('@drawable/notification_icon')
     for (const resource of lookups) expect(KEPT_ANDROID_RESOURCES).toContain(resource)
+  })
+})
+
+describe('Android permissions', () => {
+  it('removes the activity recognition permission expo-sensors declares for its pedometer', () => {
+    const manifest = readFileSync(
+      fileURLToPath(
+        new URL('../node_modules/expo-sensors/android/src/main/AndroidManifest.xml', import.meta.url),
+      ),
+      'utf8',
+    )
+    const declared = [...manifest.matchAll(/<uses-permission android:name="([^"]+)"/g)].map(
+      (match) => match[1],
+    )
+    expect(declared).toContain('android.permission.ACTIVITY_RECOGNITION')
+    for (const permission of declared) expect(ANDROID_BLOCKED_PERMISSIONS).toContain(permission)
   })
 })
 
