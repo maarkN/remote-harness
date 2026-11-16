@@ -64,7 +64,7 @@ A pairing code SHALL be the link `remoteharness://pair?v=2&id=<daemon ID>&k=<dae
 - **THEN** the third attempt closes with 4013, the daemon logs a warning, and the right code no longer pairs (4005)
 
 ### Requirement: Paired devices
-The daemon SHALL keep each paired device's static public key, a short ID derived from it, its name, platform, pairing time and last connection time in `~/.remote-harness/paired-devices.json`, at most 10 devices, and accept a reconnecting device only when its static key is in that list. `devices.list` SHALL answer `devices.result` with each device's ID, name, platform, `pairedAt`, `lastSeen` and whether it is the asking device; `devices.revoke` SHALL remove a device, close its open connections with 4007 and refuse its key from then on; `remote-harness devices list` and `remote-harness devices revoke <id>` SHALL do the same from the computer.
+The daemon SHALL keep each paired device's static public key, a short ID derived from it, its name, platform, pairing time, last connection time and the last app build it authenticated with (`auth.app`, kept when a later `auth` has none) in `~/.remote-harness/paired-devices.json`, at most 10 devices, and accept a reconnecting device only when its static key is in that list. `devices.list` SHALL answer `devices.result` with each device's ID, name, platform, `pairedAt`, `lastSeen`, whether it is the asking device and its last app build; `devices.revoke` SHALL remove a device, close its open connections with 4007 and refuse its key from then on; `remote-harness devices list` and `remote-harness devices revoke <id>` SHALL do the same from the computer, the list showing each device's last app version ("?" when unknown). The daemon's `client authenticated` log line SHALL carry the app version, runtime and update the device sent.
 
 #### Scenario: Restart
 - **WHEN** the daemon restarts
@@ -76,7 +76,15 @@ The daemon SHALL keep each paired device's static public key, a short ID derived
 
 #### Scenario: List from the CLI
 - **WHEN** the user runs `remote-harness devices list`
-- **THEN** each paired device is printed with its ID, name, platform, paired and last seen times
+- **THEN** each paired device is printed with its ID, name, platform, paired and last seen times and its last app version
+
+#### Scenario: App build of each phone
+- **WHEN** a phone running app 1.2.2 with OTA update `0199f2d4-…` authenticates
+- **THEN** the log line `client authenticated` carries that version, runtime and update, and `paired-devices.json` keeps them for that device
+
+#### Scenario: Older app
+- **WHEN** a phone whose app does not send `app` authenticates
+- **THEN** it is accepted, its last known app build stays as it was, and `devices list` shows "app ?" if none was ever seen
 
 ### Requirement: Key storage
 The daemon's identity — its Noise static key pair and its Ed25519 connection relay key pair, whose daemon ID is the first 16 bytes of SHA-256 of the relay public key in hex — SHALL be created at first start and stored in the secret store (macOS Keychain, Linux Secret Service, or a 0600 file where neither exists), never in plain text elsewhere. `remote-harness doctor` SHALL report whether the identity exists.

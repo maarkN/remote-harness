@@ -715,3 +715,41 @@ describe('DaemonClient stuck while authenticating (#589)', () => {
     client.close()
   })
 })
+
+describe('DaemonClient app build (#591)', () => {
+  test('`auth` carries the app build, on the main connection and on the direct probe', async () => {
+    const app = { version: '1.2.2', runtime: 'a1b2c3' }
+    const client = makeClient({
+      appBuild: app,
+      computer: {
+        daemonId: 'd'.repeat(32),
+        addresses: ['10.0.0.2:7337'],
+        relay: 'wss://us.relay',
+        daemonKey: daemonKey.publicKey,
+        deviceKey,
+      },
+    })
+    client.connect()
+    FakeSocket.instances[0]!.drop()
+    vi.advanceTimersByTime(100)
+    const relay = FakeSocket.instances[1]!
+    relay.open()
+    expect(relay.last()).toMatchObject({ type: 'auth', app })
+    relay.receive({ type: 'auth.ok', replyTo: relay.last().id, ...hello })
+    await Promise.resolve()
+    vi.advanceTimersByTime(DIRECT_PROBE_INTERVAL_MS)
+    const probe = FakeSocket.instances[2]!
+    probe.open()
+    expect(probe.last()).toMatchObject({ type: 'auth', app })
+    client.close()
+  })
+
+  test('without a build, `auth` has no `app`', () => {
+    const client = makeClient()
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(socket.last()).not.toHaveProperty('app')
+    client.close()
+  })
+})

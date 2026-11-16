@@ -11,6 +11,7 @@ import {
   DaemonPathsSchema,
   DaemonUpdateChannelSchema,
   DaemonUpdateInfoSchema,
+  DiagnosticsDeviceSchema,
   DirectoryItemSchema,
   ErrorCodeSchema,
   FileItemSchema,
@@ -245,6 +246,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     daemonVersion: z.string(),
     /** Most recent first, at most `DIAGNOSTICS_LIMIT`. */
     errors: z.array(RejectedRequestSchema),
+    /** The paired devices and the last app build of each (#591); older daemons send none. */
+    devices: z.array(DiagnosticsDeviceSchema).optional(),
   }),
   z.object({
     type: z.literal('directories.results'),

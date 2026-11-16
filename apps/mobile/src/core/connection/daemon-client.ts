@@ -1,4 +1,5 @@
 import {
+  type AppBuild,
   CHANNEL_CLOSE,
   type ChannelSession,
   type ClientRequest,
@@ -131,6 +132,8 @@ export type DaemonClientOptions = {
   /** From the socket opening, how long the handshake and `auth` may take (`HANDSHAKE_DEADLINE_MS`). */
   handshakeTimeoutMs?: number
   clientName?: string
+  /** The app build this client runs, sent in every `auth` so the computer knows it (#591). */
+  appBuild?: AppBuild
 }
 
 type Pending = {
@@ -565,7 +568,7 @@ export class DaemonClient {
   }
 
   private authenticate(): void {
-    this.sendRequest({ type: 'auth', protocolVersion: PROTOCOL_VERSION, client: this.options.clientName })
+    this.sendRequest({ type: 'auth', ...this.authFields() })
       .then((reply) => {
         if (reply.type !== 'auth.ok') return
         const { type: _t, replyTo: _r, ...hello } = reply
@@ -587,6 +590,16 @@ export class DaemonClient {
           this.setStatus('unauthorized', (error as Error).message)
         }
       })
+  }
+
+  /** What every `auth` says about this client. */
+  private authFields() {
+    const { clientName, appBuild } = this.options
+    return {
+      protocolVersion: PROTOCOL_VERSION,
+      ...(clientName ? { client: clientName } : {}),
+      ...(appBuild ? { app: appBuild } : {}),
+    }
   }
 
   private handleMessage(text: string): void {
@@ -838,12 +851,7 @@ export class DaemonClient {
             const step = handshake.receive(bytes)
             if (!step.session) return finish(null)
             session = step.session
-            const auth = {
-              type: 'auth',
-              id: authId,
-              protocolVersion: PROTOCOL_VERSION,
-              client: this.options.clientName,
-            }
+            const auth = { type: 'auth', id: authId, ...this.authFields() }
             for (const frame of session.sealText(JSON.stringify(auth))) socket.send(toArrayBuffer(frame))
             return
           }

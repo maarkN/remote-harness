@@ -127,9 +127,9 @@ export async function registerPairingFeature(o: PairingOptions): Promise<Pairing
         progress(bytesToBase64Url(pairingId), { state: 'paired' })
         return { ok: true }
       },
-      seen: (deviceKey) => {
+      seen: (deviceKey, app) => {
         devices
-          .touch(deviceKey)
+          .touch(deviceKey, app)
           .catch((error: unknown) => o.logger.warn({ err: error }, 'device last seen not saved'))
       },
     },
