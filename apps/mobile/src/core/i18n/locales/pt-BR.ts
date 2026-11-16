@@ -153,14 +153,23 @@ const ptBR = {
   },
   setupGuide: {
     title: 'Configurar o computador',
+    /** The choice at the start of the install step; the command follows it. */
+    systemsLabel: 'Sistema do computador',
+    systems: { macos: 'macOS', linux: 'Linux', windows: 'Windows' },
     intro:
-      'Dois passos, uns 5 minutos. Você vai precisar do computador em que o seu agente de código roda (macOS, Linux ou Windows com WSL).',
+      'Dois passos, uns 5 minutos. Você vai precisar do computador em que o seu agente de código roda: macOS, Linux ou Windows.',
     help: 'Dúvidas ou problemas: {{url}}',
     steps: {
       install: {
         title: 'Remote Harness no computador',
-        body: 'Num terminal do computador, rode o instalador (no Windows, no PowerShell: `{{windows}}`). Ele verifica os pré-requisitos, pergunta quais contas do Claude Code você quer controlar (ou cria uma nova, com login) e o comando (alias) de cada uma.',
-        action: 'Enviar o link de instalação para o computador',
+        /** Before the computer's system is chosen: no command yet. */
+        chooseSystem: 'Qual é o sistema desse computador? O comando depende dele.',
+        body: 'Num terminal do computador, rode o instalador. Ele verifica os pré-requisitos, pergunta quais contas do Claude Code você quer controlar (ou cria uma nova, com login) e o comando (alias) de cada uma.',
+        bodyWindows:
+          'No PowerShell do computador, rode o instalador. Ele instala o WSL2 com Ubuntu quando falta (reinicie se ele pedir e rode de novo) e roda dentro dele o instalador do Linux, que pergunta quais contas do Claude Code você quer controlar e o comando (alias) de cada uma.',
+        copy: 'Copiar o comando',
+        copied: 'Comando copiado',
+        action: 'Enviar o comando para o computador',
       },
       pair: {
         title: 'Parear',
@@ -337,6 +346,21 @@ const ptBR = {
     /** `n` é um número simples entre parênteses, sem plural. */
     subagents: 'Subagentes ({{n}})',
     subagentsRunning: 'Subagentes ({{n}} · {{running}} rodando)',
+    /** Under each icon of the session sheet's grid; the full labels above stay its accessible labels. */
+    short: {
+      terminal: 'Terminal',
+      runCommand: 'Comando',
+      model: 'Modelo',
+      subagents: 'Subagentes',
+      toggleKeyBar: 'Atalhos',
+      toggleHandsFree: 'Mãos livres',
+      templates: 'Modelos de prompt',
+      schedule: 'Agendar',
+      history: 'Histórico',
+      changes: 'Alterações',
+      toggleFollow: 'Acompanhar',
+      toggleLiveFollow: 'Ao vivo',
+    },
   },
   sessionActions: {
     close: 'Encerrar sessão',
@@ -351,6 +375,9 @@ const ptBR = {
     cleanupDetail_other: '{{path}} · {{count}} alterações',
     copyPath: 'Copiar caminho da pasta',
     hide: 'Ocultar da lista',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Sessão oculta',
+    undo: 'Desfazer',
     followLive: 'Acompanhar status ao vivo',
     unfollowLive: 'Parar de acompanhar status ao vivo',
     failed: 'Não foi possível concluir a ação',
@@ -448,8 +475,8 @@ const ptBR = {
   },
   sessionDetails: {
     title: 'Detalhes da sessão',
-    open: 'Detalhes da sessão: {{title}}',
-    openHint: 'Mostra a pasta completa, o perfil e o ID da sessão',
+    open: '{{title}}: detalhes e ações',
+    openHint: 'Abre as ações e os detalhes da sessão',
     openFolder: 'Pasta {{folder}}. Detalhes da sessão',
     copy: 'Copiar',
     copied: 'Copiado',
@@ -635,13 +662,15 @@ const ptBR = {
     alreadyResolved: 'Este pedido já foi resolvido (no computador ou por tempo esgotado).',
     strip: {
       title: 'Esperando você',
-      more_one: '+{{count}} outro',
-      more_other: '+{{count}} outros',
       question: 'tem uma pergunta',
       plan: 'plano pronto para revisão',
       waiting: 'esperando você',
       open: 'Abrir',
       terminal: 'responda no terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} de {{total}}',
+      nextHint: 'Mostra o próximo da fila',
+      moved: '{{n}} de {{total}}: {{title}}',
     },
     detail: {
       command: 'comando',
@@ -677,6 +706,8 @@ const ptBR = {
       next: 'Próxima',
       send: 'Enviar',
       decline: 'Recusar',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'OK',
     },
     plan: {
       title: 'Plano pronto para revisão',
@@ -1039,8 +1070,6 @@ const ptBR = {
     agents_other: '{{count}} agentes',
     filters: 'Filtros',
     worktree: 'worktree',
-    subagents_one: '+{{count}} subagente',
-    subagents_other: '+{{count}} subagentes',
     muted: 'silenciada',
     sort: { recent: 'Recentes', state: 'Por estado', label: 'Ordenar' },
     density: { compact: 'Compacta', expanded: 'Expandida', label: 'Densidade da lista' },
@@ -1174,8 +1203,21 @@ const ptBR = {
     tools_other: '{{count}} ferramentas',
     state: { running: 'rodando', done: '✓ concluído', failed: '× falhou', stopped: '■ parado' },
     unnamed: 'Subagente #{{n}}',
-    more_one: '+{{count}} subagente ({{running}} rodando)',
-    more_other: '+{{count}} subagentes ({{running}} rodando)',
+    /** The state icons on a session's card in the list: overflow, label (summary + counts per state) and hint. */
+    overflow: '+{{count}}',
+    overflowRunning: '+{{count}} ({{running}} rodando)',
+    cardLabel: '{{summary}}: {{states}}',
+    cardHint: 'Mostra os subagentes',
+    stateCount: {
+      running_one: '{{count}} rodando',
+      running_other: '{{count}} rodando',
+      done_one: '{{count}} concluído',
+      done_other: '{{count}} concluídos',
+      failed_one: '{{count}} com falha',
+      failed_other: '{{count}} com falha',
+      stopped_one: '{{count}} parado',
+      stopped_other: '{{count}} parados',
+    },
   },
   workflow: {
     title: 'Workflow',

@@ -3,15 +3,7 @@ import { esc, inline } from './html.ts'
 import { LOCALE_PATHS, type Locale, messagesFor, WEB_LOCALES, type WebMessages } from './i18n/index.ts'
 import { INSTALL_COMMANDS } from './install.ts'
 import { platformMark } from './platform-marks.ts'
-import {
-  AUTHOR,
-  CONTRIBUTORS,
-  MARK_REGULAR,
-  OG_IMAGE_URL,
-  REPO_URL,
-  SITE_URL,
-  type SiteConfig,
-} from './site.ts'
+import { AUTHOR, CONTRIBUTORS, MARK_REGULAR, OG_IMAGE_URL, REPO_URL, SITE_URL } from './site.ts'
 import { STYLES } from './styles.ts'
 
 const OG_LOCALES: Record<Locale, string> = { 'en-US': 'en_US', 'pt-BR': 'pt_BR', 'es-ES': 'es_ES' }
@@ -25,10 +17,12 @@ export function docsPath(locale: Locale): string {
   return `${LOCALE_PATHS[locale]}docs/`
 }
 
-/** Fixed links; the iPhone & iPad card comes from `SiteConfig` (#347). */
+/** Fixed links. */
 export const LINKS = {
-  /** Google Play's testing opt-in page, until the listing is public (#161). */
-  android: 'https://play.google.com/apps/test/com.alvyntech.remoteharness',
+  /** TestFlight's public link, until the App Store listing is public (#161). */
+  ios: 'https://testflight.apple.com/join/Vkh3K19G',
+  /** Google Play's testing opt-in link, until the listing is public (#161). */
+  android: 'https://play.google.com/apps/test/com.alvyntech.remoteharness/10',
   releases: `${REPO_URL}/releases`,
   security: `${REPO_URL}/blob/main/SECURITY.md`,
   license: `${REPO_URL}/blob/main/LICENSE`,
@@ -331,21 +325,8 @@ export function command(text: string, m: WebMessages): string {
   return `<div class="cmd"><code>${highlighted}</code><button type="button" data-copy="${esc(text)}" data-copied="${esc(m.install.copied)}" aria-label="${esc(m.install.copyLabel)}">${esc(m.install.copy)}</button></div>`
 }
 
-/** The iPhone & iPad card: the install link when the server has one, else how to build from source. */
-function iosCard(
-  locale: Locale,
-  m: WebMessages,
-  site: SiteConfig,
-): { href: string; detail: string; note: string } {
-  const ios = m.install.ios
-  if (site.appInstallUrl) return { href: site.appInstallUrl, detail: ios.detail, note: ios.note }
-  return { href: `${docsPath(locale)}getting-started/`, detail: ios.source, note: '' }
-}
-
-function install(locale: Locale, m: WebMessages, site: SiteConfig): string {
+function install(m: WebMessages): string {
   const i = m.install
-  const ios = iosCard(locale, m, site)
-  const iosNote = ios.note ? `<p class="note">${inline(ios.note)}</p>` : ''
   const reqs = i.requirements.map((r) => `<li><span>${esc(r)}</span></li>`).join('')
   return `<section class="s" id="install">
   <div class="head"><span class="eyebrow">${esc(i.eyebrow)}</span><h2>${esc(i.title)}</h2></div>
@@ -359,9 +340,8 @@ function install(locale: Locale, m: WebMessages, site: SiteConfig): string {
     </div>
     <div class="stores" id="app">
       <h3>${esc(i.appTitle)}</h3>
-      <a class="store" href="${esc(ios.href)}"><span class="ic" aria-hidden="true">${platformMark('apple')}</span><span><b>${esc(i.ios.title)}</b><small>${esc(ios.detail)}</small></span></a>
+      <a class="store" href="${LINKS.ios}"><span class="ic" aria-hidden="true">${platformMark('apple')}</span><span><b>${esc(i.ios.title)}</b><small>${esc(i.ios.detail)}</small></span></a>
       <a class="store" href="${LINKS.android}"><span class="ic" aria-hidden="true">${platformMark('android')}</span><span><b>${esc(i.android.title)}</b><small>${esc(i.android.detail)}</small></span></a>
-      ${iosNote}
       <p class="note">${inline(i.appNote)}</p>
     </div>
   </div>
@@ -410,15 +390,8 @@ document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener(
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,done);else done()})});
 })();`
 
-/**
- * The landing page in `locale`; `path` is the URL being served (`/` or the language's own path),
- * `site` what the server's environment adds (the app install link).
- */
-export function renderLanding(
-  locale: Locale,
-  path: string = LOCALE_PATHS[locale],
-  site: SiteConfig = {},
-): string {
+/** The landing page in `locale`; `path` is the URL being served (`/` or the language's own path). */
+export function renderLanding(locale: Locale, path: string = LOCALE_PATHS[locale]): string {
   const m = messagesFor(locale)
   return `<!doctype html>
 <html lang="${locale}">
@@ -434,7 +407,7 @@ ${agents(m)}
 ${how(m)}
 ${features(m)}
 ${security(m)}
-${install(locale, m, site)}
+${install(m)}
 ${faq(m)}
 ${siteFooter(locale, m)}
 </div></main>

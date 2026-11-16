@@ -2,11 +2,13 @@ import type { SubagentInfo } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
 import {
+  cardSubagents,
   sortSubagents,
   subagentCounts,
   subagentElapsed,
   subagentKind,
   subagentLabel,
+  subagentStateCounts,
   subagentStatus,
 } from './sort'
 
@@ -68,5 +70,51 @@ describe('subagents', () => {
     expect(subagentElapsed({ state: 'running', startedAt: started, updatedAt: started }, now - 100_000)).toBe(
       0,
     )
+  })
+})
+
+describe('card icons (#562)', () => {
+  const ended = (agentId: string, updatedAt: string, outcome?: 'failed' | 'stopped'): SubagentInfo => ({
+    ...sub(agentId, 'done', updatedAt),
+    ...(outcome ? { outcome } : {}),
+  })
+
+  test('at most three, running first, and the rest counted', () => {
+    const list = [
+      ended('a', '1'),
+      sub('b', 'running', '2'),
+      ended('c', '5', 'failed'),
+      sub('d', 'running', '3'),
+    ]
+    expect(cardSubagents(list)).toEqual({
+      shown: [
+        { agentId: 'd', status: 'running' },
+        { agentId: 'b', status: 'running' },
+        { agentId: 'c', status: 'failed' },
+      ],
+      hidden: 1,
+      hiddenRunning: 0,
+    })
+  })
+
+  test('the overflow only counts the running ones it hides', () => {
+    const list = [...['a', 'b', 'c', 'd', 'e'].map((id, i) => sub(id, 'running', String(i))), ended('f', '9')]
+    const card = cardSubagents(list)
+    expect(card.shown).toHaveLength(3)
+    expect(card.hidden).toBe(3)
+    expect(card.hiddenRunning).toBe(2)
+  })
+
+  test('none: nothing to show', () => {
+    expect(cardSubagents([])).toEqual({ shown: [], hidden: 0, hiddenRunning: 0 })
+  })
+
+  test('counts per state, in the badge order', () => {
+    const list = [sub('a', 'running', '1'), ended('b', '2'), ended('c', '3', 'failed'), ended('d', '4')]
+    expect(subagentStateCounts(list)).toEqual([
+      ['running', 1],
+      ['done', 2],
+      ['failed', 1],
+    ])
   })
 })

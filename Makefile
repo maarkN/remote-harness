@@ -14,7 +14,6 @@
 #   REMOTE_HARNESS_WEB_SSH=<user@host> server of remoteharness.app for deploy-web and the web install links
 #   REMOTE_HARNESS_WEB_DIR=<path>      its folder on that server (default /srv/remote-harness-web)
 #   REMOTE_HARNESS_RELAY_DIR=<path>    deploy-relay's folder on that server (default /srv/remote-harness-relay)
-#   APP_INSTALL_URL=/app/<token>/      deploy-web writes it to the server's .env: the landing's iPhone & iPad card opens it
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help

@@ -47,11 +47,19 @@ The session SHALL expose `backgroundTasks` with the background tasks reported in
 - **THEN** the session's `backgroundTasks` becomes 1 and its state does not change
 
 ### Requirement: Nesting in the app
-The app SHALL show subagents nested under the parent session in the session list, with their state. The session screen MUST NOT show a strip of subagents; instead, when the session has subagents, the More options menu SHALL offer **Subagents (N)**, or **Subagents (N · M running)** while any runs, and the menu button SHALL show an accent dot while any subagent runs. Selecting the item SHALL open a sheet listing the subagents sorted running first, each row with its label, a state pill, the elapsed time (live while running, the total once done, omitted when the start is unknown) and the tool count when above zero; tapping a row SHALL open that subagent's conversation.
+The app SHALL show a session's subagents inside its card in the session list, on the card's state line, as state icons: at most three, running first and then the most recently updated, each drawn with its state's symbol and color (see "Subagent outcome and badges"), followed by "+N" for the others and, when some of those others run, "(M running)" counting only the hidden ones. The list MUST NOT draw subagent lines between cards. The icons SHALL be one button, announced with the number of subagents and the count per state, that opens the Subagents sheet over the list. A workflow run's agents are subagents of the session and SHALL show like any other; the workflow card stays in the conversation. The session screen MUST NOT show a strip of subagents; instead, when the session has subagents, the More options menu SHALL offer **Subagents (N)**, or **Subagents (N · M running)** while any runs, and the menu button SHALL show an accent dot while any subagent runs. Selecting the item SHALL open a sheet listing the subagents sorted running first, each row with its label, a state pill, the elapsed time (live while running, the total once done, omitted when the start is unknown) and the tool count when above zero; tapping a row SHALL open that subagent's conversation.
 
 #### Scenario: List
 - **WHEN** the session has two running subagents
-- **THEN** the session row shows "+2 subagents" and lists them nested
+- **THEN** its card shows two running icons on the state line and nothing is drawn between it and the next card
+
+#### Scenario: More subagents than icons
+- **WHEN** a session has six subagents, five of them running
+- **THEN** the card shows three running icons and "+3 (2 running)"
+
+#### Scenario: Open from the list
+- **WHEN** the user taps the subagent icons of a card
+- **THEN** the Subagents sheet opens over the list, and tapping a row opens that subagent's conversation
 
 #### Scenario: Menu and sheet
 - **WHEN** a session has five subagents, two of them running
@@ -59,7 +67,7 @@ The app SHALL show subagents nested under the parent session in the session list
 
 #### Scenario: No subagents
 - **WHEN** a session has no subagents
-- **THEN** the menu has no Subagents item and the button shows no dot
+- **THEN** the card shows no icons, the menu has no Subagents item and the button shows no dot
 
 ### Requirement: Subagent names
 The daemon SHALL send `description` and `agentType` only as trimmed, non-empty strings (else `null`). While either is missing, or the agent belongs to a workflow run whose phase is not known yet, it SHALL read the subagent's meta file (next to its transcript) again on later activity. Without a description, it SHALL use the first line of the subagent's prompt (the first user message of its transcript), cut at 80 characters. The app SHALL label a subagent with the first trimmed, non-empty value of: description, agent type, "Subagent #N" (its position by start time in the session), and MUST NOT show an empty label. With a description, the agent type SHALL be shown on the row's secondary line.
@@ -79,7 +87,7 @@ A subagent that ended SHALL carry `outcome: "failed"` when the parent's `Agent`/
 - "× failed": danger;
 - "■ stopped": warning.
 
-The badges SHALL appear in the Subagents sheet, the tablet inspector and the nested rows of the session list. All labels MUST be translated.
+The badges SHALL appear in the Subagents sheet and the tablet inspector. The session list SHALL show the same states as icons in the same colors (a progress circle, a check, an × and a square, each in a circle), with the state in their accessible label. All labels MUST be translated.
 
 #### Scenario: Failed subagent
 - **WHEN** the parent's tool result for a subagent is an error
@@ -88,3 +96,7 @@ The badges SHALL appear in the Subagents sheet, the tablet inspector and the nes
 #### Scenario: Killed background subagent
 - **WHEN** the task notification of a background subagent reports `<status>killed</status>`
 - **THEN** the app shows the amber "■ stopped" badge
+
+#### Scenario: States in the list
+- **WHEN** a session has a running, a done and a failed subagent
+- **THEN** its card shows an accent progress circle, a green check and a red ×, announced as "3 subagents: 1 running, 1 done, 1 failed"

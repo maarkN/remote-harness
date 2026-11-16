@@ -157,14 +157,23 @@ const enUS = {
   },
   setupGuide: {
     title: 'Set up your computer',
+    /** The choice at the start of the install step; the command follows it. */
+    systemsLabel: "The computer's system",
+    systems: { macos: 'macOS', linux: 'Linux', windows: 'Windows' },
     intro:
-      "Two steps, about 5 minutes. You'll need the computer where your coding agent runs (macOS, Linux or Windows with WSL).",
+      "Two steps, about 5 minutes. You'll need the computer where your coding agent runs: macOS, Linux or Windows.",
     help: 'Questions or problems: {{url}}',
     steps: {
       install: {
         title: 'Remote Harness on the computer',
-        body: 'In a terminal on the computer, run the installer (on Windows, in PowerShell: `{{windows}}`). It checks the prerequisites, asks which Claude Code accounts you want to control (or creates a new one, with login) and the command (alias) for each.',
-        action: 'Send the install link to the computer',
+        /** Before the computer's system is chosen: no command yet. */
+        chooseSystem: 'Which system does that computer run? The command depends on it.',
+        body: 'In a terminal on the computer, run the installer. It checks the prerequisites, asks which Claude Code accounts you want to control (or creates a new one, with login) and the command (alias) for each.',
+        bodyWindows:
+          'In PowerShell on the computer, run the installer. It sets up WSL2 with Ubuntu when it is missing (restart if asked, then run it again) and runs the Linux installer inside it, which asks which Claude Code accounts you want to control and the command (alias) for each.',
+        copy: 'Copy the command',
+        copied: 'Command copied',
+        action: 'Send the command to the computer',
       },
       pair: {
         title: 'Pair',
@@ -338,6 +347,21 @@ const enUS = {
     /** `n` is a plain number in parentheses, so no plural form applies. */
     subagents: 'Subagents ({{n}})',
     subagentsRunning: 'Subagents ({{n}} · {{running}} running)',
+    /** Under each icon of the session sheet's grid; the full labels above stay its accessible labels. */
+    short: {
+      terminal: 'Terminal',
+      runCommand: 'Command',
+      model: 'Model',
+      subagents: 'Subagents',
+      toggleKeyBar: 'Shortcuts',
+      toggleHandsFree: 'Hands-free',
+      templates: 'Templates',
+      schedule: 'Schedule',
+      history: 'History',
+      changes: 'Changes',
+      toggleFollow: 'Follow',
+      toggleLiveFollow: 'Live status',
+    },
   },
   sessionActions: {
     close: 'Close session',
@@ -352,6 +376,9 @@ const enUS = {
     cleanupDetail_other: '{{path}} · {{count}} changes',
     copyPath: 'Copy folder path',
     hide: 'Hide from list',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Session hidden',
+    undo: 'Undo',
     followLive: 'Follow live status',
     unfollowLive: 'Stop following live status',
     failed: "Couldn't complete the action",
@@ -451,8 +478,8 @@ const enUS = {
   },
   sessionDetails: {
     title: 'Session details',
-    open: 'Session details: {{title}}',
-    openHint: 'Shows the full folder, profile and session ID',
+    open: '{{title}}: details and actions',
+    openHint: "Opens the session's actions and details",
     openFolder: 'Folder {{folder}}. Session details',
     copy: 'Copy',
     copied: 'Copied',
@@ -637,13 +664,15 @@ const enUS = {
     alreadyResolved: 'This request was already resolved (on the computer or it timed out).',
     strip: {
       title: 'Waiting for you',
-      more_one: '+{{count}} more',
-      more_other: '+{{count}} more',
       question: 'has a question',
       plan: 'plan ready for review',
       waiting: 'waiting for you',
       open: 'Open',
       terminal: 'answer in the terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} of {{total}}',
+      nextHint: 'Shows the next one waiting',
+      moved: '{{n}} of {{total}}: {{title}}',
     },
     detail: {
       command: 'command',
@@ -679,6 +708,8 @@ const enUS = {
       next: 'Next',
       send: 'Send',
       decline: 'Decline',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'Done',
     },
     plan: {
       title: 'Plan ready for review',
@@ -1041,8 +1072,6 @@ const enUS = {
     agents_other: '{{count}} agents',
     filters: 'Filters',
     worktree: 'worktree',
-    subagents_one: '+{{count}} subagent',
-    subagents_other: '+{{count}} subagents',
     muted: 'muted',
     sort: { recent: 'Recent', state: 'By state', label: 'Sort' },
     density: { compact: 'Compact', expanded: 'Expanded', label: 'List density' },
@@ -1175,8 +1204,21 @@ const enUS = {
     tools_other: '{{count}} tools',
     state: { running: 'running', done: '✓ done', failed: '× failed', stopped: '■ stopped' },
     unnamed: 'Subagent #{{n}}',
-    more_one: '+{{count}} subagent ({{running}} running)',
-    more_other: '+{{count}} subagents ({{running}} running)',
+    /** The state icons on a session's card in the list: overflow, label (summary + counts per state) and hint. */
+    overflow: '+{{count}}',
+    overflowRunning: '+{{count}} ({{running}} running)',
+    cardLabel: '{{summary}}: {{states}}',
+    cardHint: 'Shows the subagents',
+    stateCount: {
+      running_one: '{{count}} running',
+      running_other: '{{count}} running',
+      done_one: '{{count}} done',
+      done_other: '{{count}} done',
+      failed_one: '{{count}} failed',
+      failed_other: '{{count}} failed',
+      stopped_one: '{{count}} stopped',
+      stopped_other: '{{count}} stopped',
+    },
   },
   workflow: {
     /** The card's title when the script declares no name. */

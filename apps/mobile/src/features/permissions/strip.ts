@@ -8,12 +8,8 @@ export type StripItem =
 export type StripModel = {
   /** Distinct sessions waiting (several requests in one session count once). */
   sessions: number
-  /** The oldest item, shown in the strip. */
-  oldest: StripItem
-  /** The item after it (target of "+N more"), if any. */
-  next: StripItem | null
-  /** Items besides the oldest. */
-  more: number
+  /** Every item, oldest first; never empty. With two or more the strip is a deck (#561). */
+  items: [StripItem, ...StripItem[]]
 }
 
 /**
@@ -44,12 +40,10 @@ export function pendingForStrip(
       )
       .map((session): StripItem => ({ kind: 'waiting', session, since: Date.parse(session.updatedAt) })),
   ].sort((a, b) => a.since - b.since)
-  const oldest = items[0]
+  const [oldest, ...rest] = items
   if (!oldest) return null
-  const ids = new Set(
-    items.map((item) => (item.kind === 'request' ? item.request.sessionId : item.session.id)),
-  )
-  return { sessions: ids.size, oldest, next: items[1] ?? null, more: items.length - 1 }
+  const ids = new Set(items.map(stripSessionId))
+  return { sessions: ids.size, items: [oldest, ...rest] }
 }
 
 /**
@@ -67,4 +61,44 @@ export function stripCandidates(
 
 export function stripSessionId(item: StripItem): string {
   return item.kind === 'request' ? item.request.sessionId : item.session.id
+}
+
+/** Stable identity of an item while it waits: its request, or the waiting session without one. */
+export function stripItemKey(item: StripItem): string {
+  return item.kind === 'request' ? `request:${item.request.requestId}` : `waiting:${item.session.id}`
+}
+
+/**
+ * Index of the deck's front card. `key` is the item the user brought forward (`null` until they
+ * move, so the oldest stays in front) and `index` where it was: while it waits it stays in front;
+ * once answered or resolved the item that took its place comes forward, or the previous one when
+ * it was the last.
+ */
+export function deckFront(items: readonly StripItem[], key: string | null, index: number): number {
+  if (key === null) return 0
+  const found = items.findIndex((item) => stripItemKey(item) === key)
+  if (found >= 0) return found
+  return Math.max(0, Math.min(index, items.length - 1))
+}
+
+/** The next (`1`) or previous (`-1`) card, wrapping around the deck. */
+export function deckStep(index: number, delta: 1 | -1, length: number): number {
+  return length > 0 ? (index + delta + length) % length : 0
+}
+
+/** Card edges peeking below the front card: none for one item, one for two, two for more. */
+export function deckEdges(length: number): number {
+  return Math.max(0, Math.min(length - 1, 2))
+}
+
+/** Sideways distance (pt) or speed (pt/s) past which a swipe on the front card moves the deck. */
+const SWIPE_DISTANCE = 64
+const SWIPE_VELOCITY = 800
+
+/** A released swipe on the front card: left brings the next item (`1`), right the previous (`-1`). */
+export function swipeDelta(translationX: number, velocityX: number): -1 | 0 | 1 {
+  'worklet'
+  if (translationX <= -SWIPE_DISTANCE || velocityX <= -SWIPE_VELOCITY) return 1
+  if (translationX >= SWIPE_DISTANCE || velocityX >= SWIPE_VELOCITY) return -1
+  return 0
 }

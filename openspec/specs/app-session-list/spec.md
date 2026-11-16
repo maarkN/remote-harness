@@ -92,7 +92,7 @@ The list screen header SHALL show the product mark (22 pt, accent) followed by "
 - **THEN** its header keeps both the new-session and settings actions, and no floating action button is shown
 
 ### Requirement: Row anatomy
-Each row SHALL show: the agent badge (20 pt rounded square in the agent's fixed color with its two-letter code), the title and the relative time on the first line; the folder, the branch (`⎇`), a `worktree` hint when the folder is under `.claude/worktrees`, and the shared-checkout warning on the second line; the state pill (running = accent, waiting = warning, idle = success, ended = muted), the pending-permission badge, a plain `read-only` pill, the profile tag (name in the profile color), a muted glyph when the session or its profile is muted, a plain `+N subagents` pill and the background-tasks pill on the third line, with a chevron at the end. A waiting row SHALL keep the warning border and a selected row the accent border. The agent color MUST NOT change with the state.
+Each row SHALL show: the agent badge (20 pt rounded square in the agent's fixed color with its two-letter code), the title and the relative time on the first line; the folder, the branch (`⎇`), a `worktree` hint when the folder is under `.claude/worktrees`, and the shared-checkout warning on the second line; the state pill (running = accent, waiting = warning, idle = success, ended = muted), the pending-permission badge, a plain `read-only` pill, the profile tag (name in the profile color), a muted glyph when the session or its profile is muted, the subagents' state icons (see the `subagents` capability) and the background-tasks pill on the third line, with a chevron at the end, in both list densities. A waiting row SHALL keep the warning border and a selected row the accent border. The agent color MUST NOT change with the state.
 
 #### Scenario: Waiting Claude Code session
 - **WHEN** a Claude Code session of the Work profile waits for a permission in a worktree
@@ -100,7 +100,7 @@ Each row SHALL show: the agent badge (20 pt rounded square in the agent's fixed 
 
 #### Scenario: Muted session with subagents
 - **WHEN** a muted session has two subagents
-- **THEN** the third line shows the muted glyph and "+2 subagents"
+- **THEN** the third line shows the muted glyph and two subagent icons
 
 ### Requirement: Relative time
 Every session row and the recent-directories list SHALL show a compact relative time of the last activity: "now" under 45 seconds, then minutes ("2 min"), hours ("2 h"), "yesterday" for one day and days ("3 d"), translated.
@@ -110,15 +110,27 @@ Every session row and the recent-directories list SHALL show a compact relative 
 - **THEN** its row shows "yesterday" (pt-BR "ontem", es-ES "ayer")
 
 ### Requirement: Waiting strip
-When at least one session is waiting for the user (a pending permission request of a session that has not ended, or a controllable session in the `waiting` state), the list screen SHALL pin a strip above the list with the header "WAITING FOR YOU · N" (N = sessions waiting) and the elapsed time since the oldest item, updated every second; the oldest item with its agent badge, session title, profile tag and `Tool · argument`; and the answer buttons (Deny, Always, Allow) for a tool permission, or a status line ("has a question", "plan ready for review", "waiting for you") with an Open button for questions, plans and sessions without a request. With more than one item it SHALL show "+N more", which opens the session of the next item. The strip MUST NOT change the order of the list, and the waiting row keeps its warning border. Read-only sessions without a request and requests of ended sessions MUST NOT appear in it.
+When at least one session is waiting for the user (a pending permission request of a session that has not ended, or a controllable session in the `waiting` state), the list screen SHALL pin a strip above the list. Its items are ordered oldest first. Each item SHALL show its agent badge, session title, profile tag and `Tool · argument`, and the answer buttons (Deny, Always, Allow) for a tool permission, or a status line ("has a question", "plan ready for review", "waiting for you") with an Open button for questions, plans and sessions without a request. With one item the strip SHALL show it with the header "WAITING FOR YOU · 1" and the elapsed time since the item, updated every second. With two or more items the strip SHALL be drawn as a deck: one item in front (the oldest at first) with one card edge peeking below it for two items and two edges for three or more, and in the header, instead of the session count, a counter "n/N ›" with the front item's position among the N items, next to the front item's elapsed time. Tapping the counter SHALL bring the next item to the front, and the first again after the last; swiping the front card to the left SHALL bring the next item and to the right the previous one. When the front item is answered or resolved elsewhere, the item that takes its place SHALL come forward with a short animation, or the previous one when it was the last. With Reduce Motion the deck SHALL not animate nor follow the finger. The counter SHALL be a button announced with its position (e.g. "2 of 3") and a hint that it shows the next one, and moving through the deck SHALL announce the new position and the session's title. The strip MUST NOT change the order of the list, and the waiting row keeps its warning border. Read-only sessions without a request and requests of ended sessions MUST NOT appear in it.
 
 #### Scenario: One Bash permission pending
 - **WHEN** one session waits for `Bash · gh pr create --fill`
-- **THEN** the strip shows "WAITING FOR YOU · 1", the elapsed time, the session's badge, title and profile, "Bash · gh pr create --fill" and Deny / Always / Allow
+- **THEN** the strip shows "WAITING FOR YOU · 1", the elapsed time, the session's badge, title and profile, "Bash · gh pr create --fill" and Deny / Always / Allow, with no card edge and no counter
 
 #### Scenario: Two sessions waiting
 - **WHEN** a second session asks a question while the first permission is still pending
-- **THEN** the header reads "WAITING FOR YOU · 2", the oldest request stays answerable and "+1 more" opens the second session
+- **THEN** the strip shows the first permission in front with one card edge below it and "1/2 ›" in the header, and the permission stays answerable
+
+#### Scenario: Move through the deck
+- **WHEN** three items wait and the user taps "1/3 ›", then swipes the front card to the right
+- **THEN** the second item comes to the front with "2/3 ›", and the swipe brings the first back with "1/3 ›"
+
+#### Scenario: Answer from the deck
+- **WHEN** three items wait, the second is in front and the user taps Allow on it
+- **THEN** the third item comes forward with an animation and the counter reads "2/2 ›"
+
+#### Scenario: Reduce Motion
+- **WHEN** Reduce Motion is on and the user answers the front item
+- **THEN** the next item replaces it without animation
 
 #### Scenario: Nothing waiting
 - **WHEN** the last pending request is resolved
@@ -129,11 +141,23 @@ When at least one session is waiting for the user (a pending permission request 
 - **THEN** the strip does not show it
 
 ### Requirement: Swipe actions and action sheet
-Each session row SHALL support swipe actions: swipe left reveals **Close** (danger) and **More**; swipe right reveals **Mute** / **Unmute** (accent) and **Pin** / **Unpin**. A full swipe SHALL trigger the first action of that side with a haptic; only one row MAY be open at a time, and tapping elsewhere or scrolling closes it. Long press on a row and **More** SHALL open the same action sheet: Close session (controllable) or Resume (read-only), Mute / Unmute, Pin to top / Unpin, Clean up worktree (when the session's folder is a worktree, with its path and change count), Copy folder path, Hide from list (read-only). Close SHALL open a confirmation sheet that explains the graceful sequence, warns more strongly when the session is running or waiting, and offers the worktree cleanup with its outcomes; "Discard" requires a second confirmation. The session screen's More options menu SHALL also offer Close session.
+Each session row SHALL support swipe actions: swipe left reveals **More** and **Close** (danger; **Hide** for read-only sessions); swipe right reveals **Mute** / **Unmute** (accent) and **Pin** / **Unpin**. The row SHALL follow the finger and MAY be dragged past the revealed buttons. A swipe that is released before the full-swipe distance SHALL only reveal the buttons (or close the row again) and never run an action, also while the row animates open or closed. The full-swipe distance SHALL be half the row's width and never less than the revealed buttons plus 24 pt, so a row resting open never reaches it. Releasing the finger past that distance SHALL run the outermost action of that side (Mute / Unmute on the right swipe, Close or Hide on the left swipe) and close the row; while the drag is past the distance, the outermost action SHALL stretch to fill the space. The phone SHALL vibrate when the drag crosses the full-swipe distance (and lightly when it goes back under it), before the finger is lifted. Only one row MAY be open at a time, and tapping elsewhere or scrolling closes it. Long press on a row and **More** SHALL open the same action sheet: Close session (controllable) or Resume (read-only), Mute / Unmute, Pin to top / Unpin, Clean up worktree (when the session's folder is a worktree, with its path and change count), Copy folder path, Hide from list (read-only). Close SHALL open a confirmation sheet that explains the graceful sequence, warns more strongly when the session is running or waiting, and offers the worktree cleanup with its outcomes; "Discard" requires a second confirmation. The session screen's More options menu SHALL also offer Close session.
 
 #### Scenario: Swipe to close
-- **WHEN** the user swipes a running session fully to the left
-- **THEN** the phone vibrates briefly and the close confirmation opens with the stronger warning
+- **WHEN** the user drags a running session to the left past half the row's width and lifts the finger
+- **THEN** the phone vibrates as the drag crosses the distance, and on release the close confirmation opens with the stronger warning
+
+#### Scenario: Short swipe only reveals the buttons
+- **WHEN** the user drags a row about 80 pt to the right, or flicks it, and lifts the finger
+- **THEN** the row springs open showing Mute and Pin, and the session is not muted
+
+#### Scenario: Short swipe on a read-only session
+- **WHEN** the user drags a read-only session a short way to the left and lifts the finger
+- **THEN** the row springs open showing More and Hide, and the session stays in the list
+
+#### Scenario: Back under the distance before releasing
+- **WHEN** the user drags past the full-swipe distance, moves back under it and lifts the finger
+- **THEN** no action runs and the row rests open with its buttons
 
 #### Scenario: Swipe to mute
 - **WHEN** the user swipes a row to the right and taps Mute
@@ -148,7 +172,7 @@ Each session row SHALL support swipe actions: swipe left reveals **Close** (dang
 - **THEN** the sheet shows both counts and offers "Commit & push, then delete", "Discard changes and delete…" (with a second confirmation) and "Keep the worktree, just close"
 
 ### Requirement: Pinned and hidden sessions
-Pinned sessions SHALL appear first in the list, in the chosen order among themselves; hidden sessions SHALL leave the list until they become live again (controllable and not ended), which also clears the hidden flag. Both are stored on the device.
+Pinned sessions SHALL appear first in the list, in the chosen order among themselves; hidden sessions SHALL leave the list until they become live again (controllable and not ended), which also clears the hidden flag. Both are stored on the device. Hiding a session (a full swipe, the Hide button or Hide from list in the action sheet) SHALL show "Session hidden" with **Undo** at the bottom of the list for 5 seconds, announced to screen readers; Undo SHALL bring the session back where it was. Hiding another session replaces the bar with the newer one.
 
 #### Scenario: Pin
 - **WHEN** the user pins an idle session while the list is sorted by recency
@@ -157,6 +181,14 @@ Pinned sessions SHALL appear first in the list, in the chosen order among themse
 #### Scenario: Hidden session resumed on the computer
 - **WHEN** a hidden ended session becomes controllable again
 - **THEN** it reappears in the list
+
+#### Scenario: Undo a hide
+- **WHEN** the user hides a read-only session with a full swipe and taps Undo within 5 seconds
+- **THEN** the session is back in the list and stays there after relaunching the app
+
+#### Scenario: Undo expires
+- **WHEN** the user hides a session and does nothing for 5 seconds
+- **THEN** the bar goes away and the session stays hidden
 
 ### Requirement: Draft marker
 A session row SHALL show a `Draft:` line with the start of the session's draft (whitespace collapsed, cut at 60 characters with an ellipsis), or the number of photos when the draft has no text. The line MUST be translated and readable by screen readers, and MUST disappear when the draft is sent or discarded.

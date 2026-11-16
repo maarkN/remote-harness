@@ -45,7 +45,9 @@ describe('createI18n', () => {
     expect(pt('permissions.queued', { count: 1 })).toBe('+1 pedido na fila')
     expect(pt('permissions.queued', { count: 3 })).toBe('+3 pedidos na fila')
     expect(createI18n('es-ES').t('settings.forgetButton')).toBe('Olvidar esta máquina')
-    expect(createI18n('en-US').t('subagents.more', { count: 2, running: 1 })).toBe('+2 subagents (1 running)')
+    expect(createI18n('en-US').t('subagents.overflowRunning', { count: 2, running: 1 })).toBe(
+      '+2 (1 running)',
+    )
   })
 
   test('uses the _other form for the many plural category (millions)', () => {

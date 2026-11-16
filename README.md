@@ -51,7 +51,7 @@ Remote Harness solves this with tools you already trust: sessions run inside **t
 **1.x.** Releases are on [GitHub Releases](https://github.com/maarkN/remote-harness/releases); installed apps get their JavaScript over the air and the daemon updates itself. It is used every day by its authors, but expect rough edges and breaking changes between minor versions.
 
 - **Computer:** macOS, Linux and Windows (WSL2), installed with one command and updated with `remote-harness update` (or automatically, from the menu bar).
-- **Phone:** iOS/iPadOS and Android 10+. Not in the stores yet: install the Android APK from the releases or build the app yourself ([getting started](https://remoteharness.app/docs/getting-started/#install-the-app)); TestFlight and Google Play are in progress ([#161](https://github.com/maarkN/remote-harness/issues/161)). Installed builds get JavaScript updates over the air.
+- **Phone:** iOS/iPadOS and Android 10+. Install it from [TestFlight](https://testflight.apple.com/join/Vkh3K19G) or [Google Play (testing)](https://play.google.com/apps/test/com.alvyntech.remoteharness/10), take the Android APK from the releases, or build the app yourself ([getting started](https://remoteharness.app/docs/getting-started/#install-the-app)). Installed builds get JavaScript updates over the air.
 - **Agents:** Claude Code (any number of accounts, also through OpenRouter) Codex CLI, Gemini CLI, Kimi CLI and Qwen Code.
 - **Languages:** the app, the CLI, notifications and the [site](https://remoteharness.app) in English, Brazilian Portuguese and Spanish.
 

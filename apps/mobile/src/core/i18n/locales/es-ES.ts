@@ -153,14 +153,23 @@ const esES = {
   },
   setupGuide: {
     title: 'Configurar el ordenador',
+    /** The choice at the start of the install step; the command follows it. */
+    systemsLabel: 'Sistema del ordenador',
+    systems: { macos: 'macOS', linux: 'Linux', windows: 'Windows' },
     intro:
-      'Dos pasos, unos 5 minutos. Necesitarás el ordenador en el que se ejecuta tu agente de código (macOS, Linux o Windows con WSL).',
+      'Dos pasos, unos 5 minutos. Necesitarás el ordenador en el que se ejecuta tu agente de código: macOS, Linux o Windows.',
     help: 'Dudas o problemas: {{url}}',
     steps: {
       install: {
         title: 'Remote Harness en el ordenador',
-        body: 'En un terminal del ordenador, ejecuta el instalador (en Windows, en PowerShell: `{{windows}}`). Comprueba los requisitos, te pregunta qué cuentas de Claude Code quieres controlar (o crea una nueva, con inicio de sesión) y el comando (alias) de cada una.',
-        action: 'Enviar el enlace de instalación al ordenador',
+        /** Before the computer's system is chosen: no command yet. */
+        chooseSystem: '¿Qué sistema usa ese ordenador? El comando depende de ello.',
+        body: 'En un terminal del ordenador, ejecuta el instalador. Comprueba los requisitos, te pregunta qué cuentas de Claude Code quieres controlar (o crea una nueva, con inicio de sesión) y el comando (alias) de cada una.',
+        bodyWindows:
+          'En PowerShell del ordenador, ejecuta el instalador. Instala WSL2 con Ubuntu si falta (reinicia si lo pide y vuelve a ejecutarlo) y ejecuta dentro el instalador de Linux, que te pregunta qué cuentas de Claude Code quieres controlar y el comando (alias) de cada una.',
+        copy: 'Copiar el comando',
+        copied: 'Comando copiado',
+        action: 'Enviar el comando al ordenador',
       },
       pair: {
         title: 'Vincular',
@@ -337,6 +346,21 @@ const esES = {
     /** `n` es un número simple entre paréntesis, sin plural. */
     subagents: 'Subagentes ({{n}})',
     subagentsRunning: 'Subagentes ({{n}} · {{running}} en marcha)',
+    /** Under each icon of the session sheet's grid; the full labels above stay its accessible labels. */
+    short: {
+      terminal: 'Terminal',
+      runCommand: 'Comando',
+      model: 'Modelo',
+      subagents: 'Subagentes',
+      toggleKeyBar: 'Atajos',
+      toggleHandsFree: 'Manos libres',
+      templates: 'Plantillas',
+      schedule: 'Programar',
+      history: 'Historial',
+      changes: 'Cambios',
+      toggleFollow: 'Seguir',
+      toggleLiveFollow: 'En vivo',
+    },
   },
   sessionActions: {
     close: 'Cerrar sesión',
@@ -351,6 +375,9 @@ const esES = {
     cleanupDetail_other: '{{path}} · {{count}} cambios',
     copyPath: 'Copiar ruta de la carpeta',
     hide: 'Ocultar de la lista',
+    /** Bar at the bottom of the list after hiding a session; the action brings it back. */
+    hidden: 'Sesión oculta',
+    undo: 'Deshacer',
     followLive: 'Seguir estado en vivo',
     unfollowLive: 'Dejar de seguir estado en vivo',
     failed: 'No se pudo completar la acción',
@@ -448,8 +475,8 @@ const esES = {
   },
   sessionDetails: {
     title: 'Detalles de la sesión',
-    open: 'Detalles de la sesión: {{title}}',
-    openHint: 'Muestra la carpeta completa, el perfil y el ID de la sesión',
+    open: '{{title}}: detalles y acciones',
+    openHint: 'Abre las acciones y los detalles de la sesión',
     openFolder: 'Carpeta {{folder}}. Detalles de la sesión',
     copy: 'Copiar',
     copied: 'Copiado',
@@ -631,13 +658,15 @@ const esES = {
     alreadyResolved: 'Esta solicitud ya se ha resuelto (en el ordenador o por tiempo agotado).',
     strip: {
       title: 'Esperando por ti',
-      more_one: '+{{count}} más',
-      more_other: '+{{count}} más',
       question: 'tiene una pregunta',
       plan: 'plan listo para revisar',
       waiting: 'esperando por ti',
       open: 'Abrir',
       terminal: 'responde en la terminal',
+      /** Deck counter (two or more waiting): its label, hint, and what is announced after moving. */
+      position: '{{n}} de {{total}}',
+      nextHint: 'Muestra el siguiente de la cola',
+      moved: '{{n}} de {{total}}: {{title}}',
     },
     detail: {
       command: 'comando',
@@ -672,6 +701,8 @@ const esES = {
       next: 'Siguiente',
       send: 'Enviar',
       decline: 'Rechazar',
+      /** Beside the answer field while it is focused: closes the keyboard. */
+      done: 'OK',
     },
     plan: {
       title: 'Plan listo para revisar',
@@ -1036,8 +1067,6 @@ const esES = {
     agents_other: '{{count}} agentes',
     filters: 'Filtros',
     worktree: 'worktree',
-    subagents_one: '+{{count}} subagente',
-    subagents_other: '+{{count}} subagentes',
     muted: 'silenciada',
     sort: { recent: 'Recientes', state: 'Por estado', label: 'Ordenar' },
     density: { compact: 'Compacta', expanded: 'Expandida', label: 'Densidad de la lista' },
@@ -1172,8 +1201,21 @@ const esES = {
     tools_other: '{{count}} herramientas',
     state: { running: 'en marcha', done: '✓ terminado', failed: '× falló', stopped: '■ detenido' },
     unnamed: 'Subagente #{{n}}',
-    more_one: '+{{count}} subagente ({{running}} en marcha)',
-    more_other: '+{{count}} subagentes ({{running}} en marcha)',
+    /** The state icons on a session's card in the list: overflow, label (summary + counts per state) and hint. */
+    overflow: '+{{count}}',
+    overflowRunning: '+{{count}} ({{running}} en marcha)',
+    cardLabel: '{{summary}}: {{states}}',
+    cardHint: 'Muestra los subagentes',
+    stateCount: {
+      running_one: '{{count}} en marcha',
+      running_other: '{{count}} en marcha',
+      done_one: '{{count}} terminado',
+      done_other: '{{count}} terminados',
+      failed_one: '{{count}} con fallo',
+      failed_other: '{{count}} con fallo',
+      stopped_one: '{{count}} detenido',
+      stopped_other: '{{count}} detenidos',
+    },
   },
   workflow: {
     title: 'Workflow',

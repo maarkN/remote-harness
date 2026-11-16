@@ -2,10 +2,10 @@ import { describe, expect, test } from 'vitest'
 import { agentMark } from '../src/agent-marks.ts'
 import { renderDoc } from '../src/docs/page.ts'
 import { esc, inline } from '../src/html.ts'
-import { CATALOGS, LOCALE_PATHS, WEB_LOCALES } from '../src/i18n/index.ts'
+import { CATALOGS, WEB_LOCALES } from '../src/i18n/index.ts'
 import { renderInstallPage } from '../src/install-page.ts'
-import { INSTALL_COMMANDS, renderLanding, renderNotFound } from '../src/landing.ts'
-import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, siteConfig, sitemapXml } from '../src/site.ts'
+import { INSTALL_COMMANDS, LINKS, renderLanding, renderNotFound } from '../src/landing.ts'
+import { AUTHOR, CONTRIBUTORS, faviconSvg, robotsTxt, sitemapXml } from '../src/site.ts'
 
 /** Dotted paths of every leaf, with array lengths, so the three catalogs can be compared. */
 function shape(value: unknown, prefix = ''): string[] {
@@ -76,12 +76,13 @@ describe('renderLanding', () => {
     expect(html).toContain(m.footer.contributors)
     // The only external resources are the fonts.
     const externals = [...html.matchAll(/(?:href|src)="(https?:\/\/[^"]+)"/g)].map((match) => match[1])
-    // Links (not resources) to the contributors' profiles, the author's site and the app's Google Play
-    // testing page are fine too.
+    // Links (not resources) to the contributors' profiles, the author's site and the app's TestFlight
+    // and Google Play testing pages are fine too.
     const credits = [
       AUTHOR.url,
       ...CONTRIBUTORS.map((login) => `https://github.com/${login}`),
-      'https://play.google.com/apps/test/com.alvyntech.remoteharness',
+      'https://testflight.apple.com/join/Vkh3K19G',
+      'https://play.google.com/apps/test/com.alvyntech.remoteharness/10',
     ]
     const foreign = externals.filter(
       (url) =>
@@ -166,26 +167,23 @@ describe('renderLanding', () => {
     expect(html).toContain(`<span>${agentMark('kimi', 14)}km → ~/.kimi</span>`)
   })
 
-  test.each(WEB_LOCALES)('%s: the iPhone & iPad card opens the install link when configured', (locale) => {
+  test.each(WEB_LOCALES)('%s: the iPhone & iPad card opens TestFlight', (locale) => {
     const ios = CATALOGS[locale].install.ios
-    const docs = `${LOCALE_PATHS[locale]}docs/getting-started/`
-    const withLink = renderLanding(locale, undefined, { appInstallUrl: '/app/abc123/' })
-    expect(withLink).toContain(`<a class="store" href="/app/abc123/">`)
-    expect(withLink).toContain(`<small>${esc(ios.detail)}</small>`)
-    // The note explains the device registration and links the docs section.
-    expect(withLink).toContain(inline(ios.note))
-    expect(ios.note).toContain(`](${docs}#`)
-    const without = renderLanding(locale)
-    expect(without).toContain(`<a class="store" href="${docs}">`)
-    expect(without).toContain(`<small>${esc(ios.source)}</small>`)
-    expect(without).not.toContain(inline(ios.note))
+    const html = renderLanding(locale)
+    expect(LINKS.ios).toBe('https://testflight.apple.com/join/Vkh3K19G')
+    expect(html).toContain(`<a class="store" href="${LINKS.ios}">`)
+    expect(html).toContain(`<small>${esc(ios.detail)}</small>`)
+    expect(ios.detail).toContain('TestFlight')
+    // The ad-hoc install link and its device registration note stay off the landing.
+    expect(html).not.toContain('getting-started/#registering-an-iphone-or-ipad')
+    expect(html).not.toMatch(/href="\/(app|ios)\//)
   })
 
   test.each(WEB_LOCALES)('%s: the Android card opens the Google Play testing page', (locale) => {
     const android = CATALOGS[locale].install.android
     const html = renderLanding(locale)
     expect(html).toContain(
-      '<a class="store" href="https://play.google.com/apps/test/com.alvyntech.remoteharness">',
+      '<a class="store" href="https://play.google.com/apps/test/com.alvyntech.remoteharness/10">',
     )
     expect(html).toContain(`<small>${esc(android.detail)}</small>`)
     expect(android.detail).toContain('Google Play')
@@ -258,23 +256,12 @@ describe('site files', () => {
   })
 })
 
-describe('siteConfig', () => {
-  test('takes the install link as a path on the site or an https URL, nothing else', () => {
-    expect(siteConfig({})).toEqual({})
-    expect(siteConfig({ APP_INSTALL_URL: ' /app/abc/ ' })).toEqual({ appInstallUrl: '/app/abc/' })
-    expect(siteConfig({ APP_INSTALL_URL: 'https://remoteharness.app/app/abc/' })).toEqual({
-      appInstallUrl: 'https://remoteharness.app/app/abc/',
-    })
-    for (const bad of ['http://example.com/', '//evil.example/', 'javascript:alert(1)', 'app/abc/', ''])
-      expect(siteConfig({ APP_INSTALL_URL: bad }), bad).toEqual({})
-  })
-
-  test.each(WEB_LOCALES)('%s: the docs section the install texts link to exists', (locale) => {
+describe('install link page', () => {
+  test.each(WEB_LOCALES)('%s: the docs section its registration hint links to exists', (locale) => {
     const html = renderDoc(locale, 'getting-started') ?? ''
-    for (const text of [CATALOGS[locale].install.ios.note, CATALOGS[locale].appLink.ios.registered]) {
-      const anchor = text.match(/getting-started\/#([a-z0-9-]+)\)/)?.[1]
-      expect(anchor, text).toBeTruthy()
-      expect(html).toContain(`id="${anchor}"`)
-    }
+    const text = CATALOGS[locale].appLink.ios.registered
+    const anchor = text.match(/getting-started\/#([a-z0-9-]+)\)/)?.[1]
+    expect(anchor, text).toBeTruthy()
+    expect(html).toContain(`id="${anchor}"`)
   })
 })
