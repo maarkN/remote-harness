@@ -1,5 +1,5 @@
 import { base64UrlToBytes, bytesToBase64Url } from './bytes.ts'
-import { PAIRING_SECRET_LENGTH } from './channel.ts'
+import { CONFIRMATION_CODE_LENGTH, PAIRING_SECRET_LENGTH } from './channel.ts'
 
 /** Pairing code version (`v=` in the link). */
 export const PAIRING_CODE_VERSION = 2
@@ -96,6 +96,17 @@ export function pairingCodeFromParams(
   )
     return { ok: false, reason: 'invalid' }
   return { ok: true, code: { daemonId, daemonKey, secret, addresses, ...(relay ? { relay } : {}), name } }
+}
+
+/** A confirmation code as the computer and the app show it: `123 456`. */
+export function formatConfirmationCode(code: string): string {
+  return `${code.slice(0, 3)} ${code.slice(3)}`
+}
+
+/** The six digits a user typed (spaces and dashes allowed), or null when they are not six digits. */
+export function confirmationDigits(input: string): string | null {
+  const digits = input.replace(/[\s-]/g, '')
+  return new RegExp(`^\\d{${CONFIRMATION_CODE_LENGTH}}$`).test(digits) ? digits : null
 }
 
 /** A connection relay's device endpoint for a daemon (`wss://relay/v1/device/<daemon ID>`). */

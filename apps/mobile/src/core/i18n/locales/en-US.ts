@@ -32,6 +32,7 @@ const enUS = {
     genericSentence: 'Your machine',
   },
   nav: {
+    nameDevice: 'Name this device',
     pair: 'Pair',
     setupGuide: 'First-time setup',
     settings: 'Settings',
@@ -57,6 +58,7 @@ const enUS = {
       reconnecting: 'reconnecting…',
       asleep: "{{machine}} isn't answering: it may be asleep or offline. Reconnecting…",
       unauthorized: 'pairing rejected — pair again',
+      incompatible: 'the app and {{machine}} run incompatible versions — update both',
       closed: 'disconnected',
     },
     status: {
@@ -108,6 +110,11 @@ const enUS = {
       'This device was removed from {{name}} by another device. Pair again with a new code to use it.',
   },
   devices: {
+    rename: 'Rename',
+    renameTitle: 'Rename {{name}}',
+    renameLabel: 'Name',
+    save: 'Save',
+    nameInvalid: 'Use 1 to 64 characters.',
     title: 'Devices',
     loading: 'loading…',
     offline: 'Connect to the computer to see its devices.',
@@ -125,8 +132,21 @@ const enUS = {
     addBody_other:
       'Scan this code with the Remote Harness app on the other phone or tablet. It works once, for {{count}} minutes.',
     copyLink: 'Copy link',
+    confirmTitle: 'A device is pairing',
+    confirmBody: 'Enter this code on it:',
+    paired: 'Device paired.',
+    locked: 'Too many wrong codes: this QR no longer works. Create a new one.',
   },
   pairing: {
+    name: {
+      title: 'Name this device',
+      body: '{{Machine}} lists its paired devices by name: in Settings → Devices, in the tray and in `remote-harness devices list`. A name tells your phones apart.',
+      label: 'Device name',
+      save: 'Save',
+      skip: 'Skip',
+      connecting: 'Connecting to {{machine}}…',
+      failed: "The name wasn't saved: {{error}}",
+    },
     title: 'Pair with your computer',
     intro: 'On your computer, run <cmd>remote-harness pair</cmd> and point the camera at the QR code.',
     guideTitle: 'First time? Set up your computer',
@@ -153,6 +173,20 @@ const enUS = {
       wrongComputer: "The computer that answered isn't the one in the code. Nothing was saved.",
       protocol: 'The app and {{machine}} speak different versions. Update both.',
       failed: "Couldn't connect to {{machine}}.",
+      confirmationRequired: '{{Machine}} now shows a confirmation code: type the one on its screen.',
+      wrongConfirmation: "That code doesn't match the one on {{machine}}. Check it and type it again.",
+      confirmationLocked:
+        'Too many wrong codes: this QR no longer works. Show a new pairing code on {{machine}}.',
+      computerUpdate:
+        '{{Machine}} runs an older Remote Harness, without confirmation codes. Update it (`remote-harness update`) and show a new pairing code.',
+    },
+    confirm: {
+      title: 'Enter the code shown on {{machine}}',
+      body: 'Now that this phone asked to pair, {{machine}} shows a 6-digit code: in the terminal that showed the QR, in the tray, or on the phone that showed it. The code never travels in the QR, so a copied QR alone cannot pair.',
+      label: 'Confirmation code',
+      submit: 'Pair',
+      cancel: 'Cancel',
+      invalid: 'Type the 6 digits.',
     },
   },
   setupGuide: {

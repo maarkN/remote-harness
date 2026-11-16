@@ -1,5 +1,6 @@
 import {
   type DaemonUpdateChannel,
+  type DiagnosticsDevice,
   PROTOCOL_VERSION,
   type Profile,
   type PushMode,
@@ -35,6 +36,7 @@ import { registerLiveStatusFeature } from './features/live-status/index.ts'
 import { registerModeFeature } from './features/mode/index.ts'
 import { registerMuteFeature } from './features/mute/index.ts'
 import type { MuteStore } from './features/mute/store.ts'
+import { diagnosticsDeviceOf } from './features/pairing/devices.ts'
 import { type PairingFeature, registerPairingFeature } from './features/pairing/index.ts'
 import { registerPaneFeature } from './features/pane/index.ts'
 import { registerPermissionsFeature } from './features/permissions/index.ts'
@@ -132,6 +134,8 @@ export type DaemonContext = {
   pairedDeviceIds?: () => ReadonlySet<string>
   /** A paired device's name (approval log); absent in tests that build a context. */
   deviceName?: (deviceId: string) => string | undefined
+  /** The paired devices for the diagnostics, without names; absent in tests that build a context. */
+  diagnosticsDevices?: (currentId: string | undefined) => DiagnosticsDevice[]
   /** This daemon's ID, which pushes and live status links carry; absent in tests that build a context. */
   daemonId?: string
 }
@@ -203,6 +207,8 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     providerKey: options.providerKey ?? (async () => null),
     pairedDeviceIds: () => pairing.devices.ids(),
     deviceName: (deviceId) => pairing.devices.devices().find((d) => d.id === deviceId)?.name,
+    diagnosticsDevices: (current) =>
+      pairing.devices.devices().map((device) => diagnosticsDeviceOf(device, current)),
     daemonId: identity.daemonId,
   }
 
@@ -212,7 +218,9 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     pairing: () => {
       const link = pairing.current()
       const address = connectivity.addresses()[0] ?? connectivity.relay()
-      return link && address ? { url: link.url, address } : null
+      if (!link || !address) return null
+      const state = pairing.state(link.id)
+      return { url: link.url, address, ...(state.state === 'presented' ? { confirmation: state.code } : {}) }
     },
     pairedDevices: () => {
       const connected = hub.devicePaths()

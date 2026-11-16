@@ -71,7 +71,7 @@ The protocol SHALL define the client messages `auth`, `sessions.list`, `session.
 - **THEN** the message is accepted, and one with a time outside `HH:MM` or a weekday outside 0–6 is rejected with `bad_request`
 
 ### Requirement: Protocol version
-The protocol version SHALL be 2. The connection preface carries the preface version and the device's `auth` (its first message in the encrypted channel, without any token) SHALL include `protocolVersion`; the daemon MUST close a connection whose preface version it does not speak with 4002, and answer an `auth` with a different major with a `protocol_mismatch` error and close the connection.
+The protocol version SHALL be 2. The connection preface carries the preface version and the device's `auth` (its first message in the encrypted channel, without any token) SHALL include `protocolVersion` and MAY include `app { version, runtime?, update? }` (the app version, the runtime version of its native build and the OTA update id it runs, at most 32, 64 and 64 characters); an `app` that does not validate SHALL be dropped and the `auth` accepted without it; the daemon MUST close a connection whose preface version it does not speak with 4002, and answer an `auth` with a different major with a `protocol_mismatch` error and close the connection.
 
 #### Scenario: Incompatible version
 - **WHEN** the app sends `protocolVersion` 3 and the daemon speaks version 2
@@ -80,6 +80,14 @@ The protocol version SHALL be 2. The connection preface carries the preface vers
 #### Scenario: Auth without token
 - **WHEN** a client sends `{"type":"auth","id":"1","protocolVersion":2}`
 - **THEN** the message is accepted by the parser
+
+#### Scenario: Auth with the app build
+- **WHEN** a client sends `{"type":"auth","id":"1","protocolVersion":2,"app":{"version":"1.2.2","runtime":"a1b2c3"}}`
+- **THEN** the parser accepts it with that `app`
+
+#### Scenario: Malformed app build
+- **WHEN** a client sends `auth` with `"app":{"version":42}`
+- **THEN** the parser accepts the `auth` without `app`
 
 ### Requirement: Image attachment messages
 `attachment.upload` SHALL carry `sessionId`, `mimeType` (`image/jpeg`, `image/png`, `image/webp` or `image/gif`) and non-empty base64 `data`, and is answered with `attachment.uploaded` carrying `attachmentId`. `session.input` SHALL accept optional `attachmentIds` (1 to 4 ids) and an empty `text`. The error codes SHALL include `unsupported_media`.
@@ -130,7 +138,7 @@ The protocol SHALL define the client messages `session.close { sessionId, worktr
 - **THEN** the parser returns a `bad_request` error
 
 ### Requirement: Daemon diagnostics
-The daemon SHALL log every rejected WS request with its message type and error code and without its payload or message, keep the last 50 rejections in memory as `{ at, type, code }`, and answer `diagnostics.errors` with `diagnostics.result { daemonVersion, errors }`, most recent first. It SHALL answer `diagnostics.logs` with `diagnostics.logs.result { files }`, one `{ name, text, truncated }` per log file present, scrubbed as error-reports "Computer logs" says.
+The daemon SHALL log every rejected WS request with its message type and error code and without its payload or message, keep the last 50 rejections in memory as `{ at, type, code }`, and answer `diagnostics.errors` with `diagnostics.result { daemonVersion, errors, devices }`, errors most recent first, `devices` each paired device's `{ id, platform, lastSeen, current, app? }` without its name. It SHALL answer `diagnostics.logs` with `diagnostics.logs.result { files }`, one `{ name, text, truncated }` per log file present, scrubbed as error-reports "Computer logs" says.
 
 #### Scenario: Recent rejections
 - **WHEN** a `session.start` was rejected with `invalid_cwd` and the app sends `diagnostics.errors`
@@ -144,6 +152,10 @@ The daemon SHALL log every rejected WS request with its message type and error c
 - **WHEN** the app sends `diagnostics.logs` and the daemon has `daemon.log` and `update.log`
 - **THEN** it answers `diagnostics.logs.result` with those two files, scrubbed
 
+#### Scenario: Devices in the diagnostics
+- **WHEN** a phone that authenticated with app 1.2.2 sends `diagnostics.errors`
+- **THEN** the reply's `devices` has its ID with `current: true` and `app.version` "1.2.2", and no device name
+
 ### Requirement: Agent mode on sessions
 `Session` SHALL carry `approvalPolicy`: the Codex approval policy of the session (`on-request`, `never`, `untrusted`, `granular`, or another value Codex reports), `null` for Claude Code sessions and until known; and `permissionProfile`: the Codex permission profile (`:read-only`, `:workspace`, `:danger-full-access` or a named profile), `null` for Claude Code sessions and until known. Both MUST default to `null` so messages from older daemons stay valid. `permissionMode` keeps describing Claude Code sessions. The protocol SHALL define the Codex presets the app may request with `session.setMode`: `read-only` and `workspace`; full access is never one of them.
 
@@ -156,7 +168,7 @@ The daemon SHALL log every rejected WS request with its message type and error c
 - **THEN** they are `read-only` and `workspace`
 
 ### Requirement: Paths, devices and lean traffic messages
-The protocol SHALL define the client messages `devices.list`, `devices.revoke { deviceId }` and `pairing.create`, and the server messages `devices.result { devices }` (each `{ id, name, platform, pairedAt, lastSeen, current }`, times as ISO strings, `lastSeen` nullable), `pairing.code { url, expiresAt }`, `daemon.paths { addresses, relay, relays }` (also carried by `auth.ok` as `paths`), `transcript.entries { sessionId, agentId?, entries }`, `pane.diff { sessionId, cols, rows, lineCount, scroll?, lines }` and `session.changed { sessionId, set, unset }`. `transcript.entries` replaces `transcript.entry`. The channel close codes SHALL include 4007 (device revoked), which the app treats as final.
+The protocol SHALL define the client messages `devices.list`, `devices.revoke { deviceId }`, `devices.rename { deviceId, name }` (the name trimmed and 1–64 characters long) and `pairing.create`, and the server messages `devices.result { devices }` (each `{ id, name, platform, pairedAt, lastSeen, current, app? }`, times as ISO strings, `lastSeen` nullable, `app` the last app build the device authenticated with, absent until it sends one), `pairing.code { url, expiresAt, id? }`, `pairing.progress { id, state, code? }` (`state` is `presented`, with the six-digit `code`, `paired` or `locked`), `daemon.paths { addresses, relay, relays }` (also carried by `auth.ok` as `paths`), `transcript.entries { sessionId, agentId?, entries }`, `pane.diff { sessionId, cols, rows, lineCount, scroll?, lines }` and `session.changed { sessionId, set, unset }`. `transcript.entries` replaces `transcript.entry`. The channel close codes SHALL include 4007 (device revoked), 4011 (the confirmation code is shown on the computer), 4012 (wrong confirmation code) and 4013 (pairing code burned by wrong confirmation codes), which the app treats as final for that connection.
 
 #### Scenario: Revoke message
 - **WHEN** a client sends `devices.revoke` without `deviceId`
@@ -164,6 +176,14 @@ The protocol SHALL define the client messages `devices.list`, `devices.revoke { 
 
 #### Scenario: Session delta
 - **WHEN** the daemon sends `{"type":"session.changed","sessionId":"s","set":{"state":"running"},"unset":[]}`
+- **THEN** the app's parser accepts it
+
+#### Scenario: Rename message
+- **WHEN** a client sends `devices.rename` with a name of only spaces, or of 65 characters
+- **THEN** the parser rejects it with `bad_request`
+
+#### Scenario: Pairing progress
+- **WHEN** the daemon sends `{"type":"pairing.progress","id":"abc","state":"presented","code":"123456"}`
 - **THEN** the app's parser accepts it
 
 ### Requirement: Permission requests carry whether rules apply

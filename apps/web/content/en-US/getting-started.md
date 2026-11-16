@@ -72,7 +72,7 @@ Building from source with your own Apple developer account has no such list: Xco
 
 ## Pair the phone
 
-The setup ends with a QR code; `remote-harness pair` asks the running daemon for a new one at any time, and so do the tray and **Add device** in Settings → Devices of a phone already paired. Each code pairs one device and expires after 5 minutes; a computer takes up to 10 devices, and the app can pair several computers and switch between them. Open the app, scan it, and you are in: the phone creates its own key pair, keeps it in its secure storage and connects directly at home or through the connection relay elsewhere, with everything encrypted end to end (Noise, X25519 and ChaCha20-Poly1305).
+The setup ends with a QR code; `remote-harness pair` asks the running daemon for a new one at any time, and so do the tray and **Add device** in Settings → Devices of a phone already paired. Each code pairs one device and expires after 5 minutes; a computer takes up to 10 devices, and the app can pair several computers and switch between them. Open the app and scan it: the computer then shows a 6-digit confirmation code where the QR is (the terminal, the tray or the other phone), and the phone asks for it. The code never travels in the QR, so a screenshot or a pasted link alone cannot pair, and a code you did not ask for means someone else has your QR: ignore it. Type it and you are in: the phone creates its own key pair, keeps it in its secure storage and connects directly at home or through the connection relay elsewhere, with everything encrypted end to end (Noise, X25519 and ChaCha20-Poly1305).
 
 Installed the app first? Its pairing screen has a step-by-step guide for the computer side, including the install command to share.
 

@@ -28,6 +28,7 @@ const esES = {
     genericSentence: 'Tu máquina',
   },
   nav: {
+    nameDevice: 'Nombre del dispositivo',
     pair: 'Vincular',
     setupGuide: 'Primera configuración',
     settings: 'Ajustes',
@@ -52,6 +53,7 @@ const esES = {
       reconnecting: 'reconectando…',
       asleep: '{{machine}} no responde: puede estar dormido o sin conexión. Reconectando…',
       unauthorized: 'vinculación rechazada — vuelve a vincular',
+      incompatible: 'la app y {{machine}} tienen versiones incompatibles — actualiza ambos',
       closed: 'desconectado',
     },
     status: {
@@ -104,6 +106,11 @@ const esES = {
       'Otro dispositivo eliminó este de {{name}}. Vuelve a vincularlo con un código nuevo para usarlo.',
   },
   devices: {
+    rename: 'Renombrar',
+    renameTitle: 'Renombrar {{name}}',
+    renameLabel: 'Nombre',
+    save: 'Guardar',
+    nameInvalid: 'Usa de 1 a 64 caracteres.',
     title: 'Dispositivos',
     loading: 'cargando…',
     offline: 'Conéctate al ordenador para ver sus dispositivos.',
@@ -121,8 +128,21 @@ const esES = {
     addBody_other:
       'Escanea este código con la app Remote Harness en el otro móvil o tableta. Funciona una vez, durante {{count}} minutos.',
     copyLink: 'Copiar enlace',
+    confirmTitle: 'Un dispositivo se está emparejando',
+    confirmBody: 'Escribe este código en él:',
+    paired: 'Dispositivo emparejado.',
+    locked: 'Demasiados códigos incorrectos: este QR ya no sirve. Crea uno nuevo.',
   },
   pairing: {
+    name: {
+      title: 'Ponle nombre a este dispositivo',
+      body: '{{Machine}} muestra sus dispositivos vinculados por nombre: en Ajustes → Dispositivos, en la bandeja y en `remote-harness devices list`. Con un nombre, distingues tus teléfonos.',
+      label: 'Nombre del dispositivo',
+      save: 'Guardar',
+      skip: 'Omitir',
+      connecting: 'Conectando con {{machine}}…',
+      failed: 'No se guardó el nombre: {{error}}',
+    },
     title: 'Vincular con el ordenador',
     intro: 'En el ordenador, ejecuta <cmd>remote-harness pair</cmd> y apunta la cámara al código QR.',
     guideTitle: '¿Primera vez? Configura el ordenador',
@@ -149,6 +169,21 @@ const esES = {
       wrongComputer: 'El ordenador que respondió no es el del código. No se guardó nada.',
       protocol: 'La app y {{machine}} hablan versiones distintas. Actualiza ambos.',
       failed: 'No se pudo conectar con {{machine}}.',
+      confirmationRequired:
+        '{{Machine}} muestra ahora un código de confirmación: escribe el que aparece en su pantalla.',
+      wrongConfirmation: 'Ese código no es el que muestra {{machine}}. Compruébalo y vuelve a escribirlo.',
+      confirmationLocked:
+        'Demasiados códigos incorrectos: este QR ya no sirve. Muestra un nuevo código de emparejamiento en {{machine}}.',
+      computerUpdate:
+        '{{Machine}} usa un Remote Harness antiguo, sin códigos de confirmación. Actualízalo (`remote-harness update`) y muestra un nuevo código de emparejamiento.',
+    },
+    confirm: {
+      title: 'Escribe el código que muestra {{machine}}',
+      body: 'Ahora que este móvil pidió emparejarse, {{machine}} muestra un código de 6 dígitos: en la terminal que mostró el QR, en la bandeja o en el móvil que lo mostró. El código nunca va en el QR, así que un QR copiado no basta para emparejar.',
+      label: 'Código de confirmación',
+      submit: 'Emparejar',
+      cancel: 'Cancelar',
+      invalid: 'Escribe los 6 dígitos.',
     },
   },
   setupGuide: {

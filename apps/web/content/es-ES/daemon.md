@@ -12,7 +12,7 @@ El daemon se ejecuta en el ordenador: sigue los transcripts de las sesiones, con
 | --- | --- |
 | `remote-harness setup` | Instalación guiada: cuentas y alias, hooks, servicio, emparejamiento. `--yes` mantiene la configuración, `--lang` elige el idioma. |
 | `remote-harness start` | Ejecuta el daemon en primer plano. `--dev` lo ata solo a `127.0.0.1` y nunca usa un relay, `--host` fija la dirección directa. |
-| `remote-harness pair` | Pide al daemon en ejecución un código QR de emparejamiento: empareja un móvil y caduca en 5 minutos. |
+| `remote-harness pair` | Pide al daemon en ejecución un código QR de emparejamiento: empareja un móvil y caduca en 5 minutos. Después espera: cuando el móvil lo escanea, imprime el código de confirmación que hay que escribir en el móvil y luego que el móvil quedó emparejado (Ctrl+C deja de esperar). |
 | `remote-harness doctor` | Comprueba las herramientas, la configuración, los perfiles y sus claves de proveedor, la identidad del daemon, si los relays de conexión responden, el servicio, el push y los móviles registrados. |
 | `remote-harness install` / `uninstall` | Instala o quita los lanzadores, la entrada en el `PATH`, los hooks y el envoltorio de la status line, sin preguntas. |
 | `remote-harness service install` / `uninstall` / `status` | El servicio en segundo plano: un LaunchAgent de launchd en macOS, una unidad de usuario de systemd en Linux y WSL. |

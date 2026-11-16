@@ -16,6 +16,7 @@ import {
   DaemonRequestError,
   DIRECT_PROBE_INTERVAL_MS,
   daemonUrl,
+  HANDSHAKE_DEADLINE_MS,
   HEARTBEAT_MS,
   HEARTBEAT_TIMEOUT_MS,
   orderTargets,
@@ -29,10 +30,14 @@ const deviceKey = crypto.generateKeyPair()
 const paired: Uint8Array[] = []
 const codes = new Map<string, Uint8Array>()
 const sameKey = (a: Uint8Array, b: Uint8Array) => bytesToBase64Url(a) === bytesToBase64Url(b)
+/** The confirmation code the fake computer shows for every live code. */
+const SHOWN = '123456'
 
 /** A socket with a fake daemon behind it: it runs the Noise responder and decrypts what it gets. */
 class FakeSocket implements SocketLike {
   static instances: FakeSocket[] = []
+  /** A daemon that never answers the handshake (the reply was lost on the way). */
+  static silent = false
   readyState = 0
   binaryType = ''
   sent: Record<string, unknown>[] = []
@@ -42,6 +47,8 @@ class FakeSocket implements SocketLike {
   private session: ChannelSession | null = null
   private readonly daemon = new DaemonHandshake(crypto, daemonKey, {
     pairingSecret: (id) => codes.get(bytesToBase64Url(id)) ?? null,
+    // As if the phone had announced the code and the computer showed this (ADR-0009).
+    pairingConfirmation: (id) => (codes.has(bytesToBase64Url(id)) ? SHOWN : null),
     isPaired: (key) => paired.some((k) => sameKey(k, key)),
   })
   onopen: SocketLike['onopen'] = null
@@ -52,9 +59,10 @@ class FakeSocket implements SocketLike {
     FakeSocket.instances.push(this)
   }
   send(data: ArrayBuffer) {
+    if (FakeSocket.silent) return
     const bytes = new Uint8Array(data)
     if (this.stage === 'first') {
-      this.mode = bytes[3] === 1 ? 'pair' : 'reconnect'
+      this.mode = bytes[3] === 0x04 ? 'pair' : 'reconnect'
       const step = this.daemon.start(bytes)
       if (step.kind === 'refused') {
         this.refused = step.code
@@ -132,6 +140,7 @@ function authenticate(socket: FakeSocket) {
 
 beforeEach(() => {
   FakeSocket.instances = []
+  FakeSocket.silent = false
   paired.splice(0, paired.length, deviceKey.publicKey)
   codes.clear()
   vi.useFakeTimers()
@@ -261,7 +270,9 @@ describe('DaemonClient', () => {
     paired.splice(0)
     const secret = crypto.randomBytes(32)
     codes.set(bytesToBase64Url(pairingIdOf(crypto, secret)), secret)
-    const client = makeClient({ pairing: { secret, info: { name: 'iPhone', platform: 'ios' } } })
+    const client = makeClient({
+      pairing: { secret, info: { name: 'iPhone', platform: 'ios' }, confirmation: SHOWN },
+    })
     client.connect()
     const first = FakeSocket.instances[0]!
     first.open()
@@ -284,7 +295,7 @@ describe('DaemonClient', () => {
     codes.set(bytesToBase64Url(pairingIdOf(crypto, secret)), secret)
     const client = makeClient({
       computer: { addresses: ['h:1'], daemonKey: crypto.generateKeyPair().publicKey, deviceKey },
-      pairing: { secret, info: { name: '', platform: '' } },
+      pairing: { secret, info: { name: '', platform: '' }, confirmation: SHOWN },
     })
     client.connect()
     FakeSocket.instances[0]!.open()
@@ -297,7 +308,7 @@ describe('DaemonClient', () => {
 
   test('a refused pairing code is final', () => {
     const client = makeClient({
-      pairing: { secret: crypto.randomBytes(32), info: { name: '', platform: '' } },
+      pairing: { secret: crypto.randomBytes(32), info: { name: '', platform: '' }, confirmation: SHOWN },
     })
     client.connect()
     const socket = FakeSocket.instances[0]!
@@ -306,6 +317,26 @@ describe('DaemonClient', () => {
     socket.drop(CHANNEL_CLOSE.pairingRefused)
     expect(client.status).toBe('unauthorized')
     expect(client.closeCode).toBe(CHANNEL_CLOSE.pairingRefused)
+  })
+
+  test('wrong and burned confirmation codes end the pairing attempt for good (#593)', () => {
+    for (const code of [CHANNEL_CLOSE.wrongConfirmation, CHANNEL_CLOSE.confirmationLocked]) {
+      const secret = crypto.randomBytes(32)
+      codes.set(bytesToBase64Url(pairingIdOf(crypto, secret)), secret)
+      const client = makeClient({
+        pairing: { secret, info: { name: '', platform: '' }, confirmation: '000000' },
+      })
+      client.connect()
+      const socket = FakeSocket.instances.at(-1)!
+      socket.open()
+      expect(socket.mode).toBe('pair')
+      socket.drop(code)
+      expect(client.status).toBe('unauthorized')
+      expect(client.closeCode).toBe(code)
+      const count = FakeSocket.instances.length
+      vi.advanceTimersByTime(60_000)
+      expect(FakeSocket.instances).toHaveLength(count)
+    }
   })
 
   test('tries the addresses in turn', () => {
@@ -568,5 +599,157 @@ describe('DaemonClient unreachable computer', () => {
     expect(client.unreachable).toBe(false)
     expect(client.status).toBe('closed')
     expect(FakeSocket.instances).toHaveLength(1)
+  })
+})
+
+describe('DaemonClient stuck while authenticating (#589)', () => {
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+  }
+
+  test('a handshake the daemon never answers is dropped at the deadline and retried', async () => {
+    FakeSocket.silent = true
+    const client = makeClient()
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(client.status).toBe('authenticating')
+    vi.advanceTimersByTime(HANDSHAKE_DEADLINE_MS - 1)
+    expect(client.status).toBe('authenticating')
+    vi.advanceTimersByTime(1)
+    await settle()
+    expect(socket.readyState).toBe(3)
+    expect(client.status).toBe('reconnecting')
+    expect(client.lastError).toBe('handshake timeout')
+    vi.advanceTimersByTime(1_000)
+    expect(FakeSocket.instances).toHaveLength(2)
+    client.close()
+  })
+
+  test('an `auth` the daemon never answers is dropped at the same deadline, not reported as a request error', async () => {
+    const client = makeClient()
+    const errors = vi.fn()
+    client.onRequestError(errors)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(socket.last().type).toBe('auth')
+    vi.advanceTimersByTime(HANDSHAKE_DEADLINE_MS)
+    await settle()
+    expect(socket.readyState).toBe(3)
+    expect(client.status).toBe('reconnecting')
+    vi.advanceTimersByTime(1_000)
+    const next = FakeSocket.instances[1]!
+    authenticate(next)
+    await settle()
+    expect(client.status).toBe('open')
+    expect(errors).not.toHaveBeenCalled()
+    client.close()
+  })
+
+  test('the deadline ends with `auth.ok`', async () => {
+    const client = makeClient()
+    client.connect()
+    authenticate(FakeSocket.instances[0]!)
+    await settle()
+    vi.advanceTimersByTime(HANDSHAKE_DEADLINE_MS * 2)
+    await settle()
+    expect(client.status).toBe('open')
+    expect(FakeSocket.instances).toHaveLength(1)
+    client.close()
+  })
+
+  test('an `auth.ok` that does not validate ends the attempt with a visible error', async () => {
+    const client = makeClient()
+    const invalid = vi.fn()
+    client.onInvalidMessage(invalid)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    socket.receive({ type: 'auth.ok', replyTo: socket.last().id, protocolVersion: 'two' })
+    await settle()
+    expect(client.status).toBe('unauthorized')
+    expect(client.closeCode).toBe(CHANNEL_CLOSE.protocolMismatch)
+    expect(client.lastError).toMatch(/auth\.ok/)
+    expect(socket.readyState).toBe(3)
+    expect(invalid).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth.ok', code: 'bad_request' }))
+    expect(client.invalidMessages).toBe(1)
+    vi.advanceTimersByTime(60_000)
+    expect(FakeSocket.instances).toHaveLength(1)
+  })
+
+  test('other messages that do not validate are counted and reported, and the connection stays', async () => {
+    const client = makeClient()
+    const invalid = vi.fn()
+    client.onInvalidMessage(invalid)
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    authenticate(socket)
+    await settle()
+    socket.receive({ type: 'session.changed', sessionId: 42 })
+    socket.receive({ type: 'session.renamed.v9', sessionId: 's' })
+    expect(client.invalidMessages).toBe(2)
+    expect(invalid).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ type: 'session.changed', code: 'bad_request' }),
+    )
+    expect(invalid).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ type: 'session.renamed.v9', code: 'unknown_type' }),
+    )
+    expect(client.status).toBe('open')
+    client.close()
+  })
+
+  test('back in the foreground while still authenticating: the attempt is dropped and a new one starts at once', () => {
+    FakeSocket.silent = true
+    const client = makeClient()
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(client.status).toBe('authenticating')
+    client.resumeNow()
+    expect(socket.readyState).toBe(3)
+    expect(FakeSocket.instances).toHaveLength(2)
+    expect(client.status).toBe('connecting')
+    client.close()
+  })
+})
+
+describe('DaemonClient app build (#591)', () => {
+  test('`auth` carries the app build, on the main connection and on the direct probe', async () => {
+    const app = { version: '1.2.2', runtime: 'a1b2c3' }
+    const client = makeClient({
+      appBuild: app,
+      computer: {
+        daemonId: 'd'.repeat(32),
+        addresses: ['10.0.0.2:7337'],
+        relay: 'wss://us.relay',
+        daemonKey: daemonKey.publicKey,
+        deviceKey,
+      },
+    })
+    client.connect()
+    FakeSocket.instances[0]!.drop()
+    vi.advanceTimersByTime(100)
+    const relay = FakeSocket.instances[1]!
+    relay.open()
+    expect(relay.last()).toMatchObject({ type: 'auth', app })
+    relay.receive({ type: 'auth.ok', replyTo: relay.last().id, ...hello })
+    await Promise.resolve()
+    vi.advanceTimersByTime(DIRECT_PROBE_INTERVAL_MS)
+    const probe = FakeSocket.instances[2]!
+    probe.open()
+    expect(probe.last()).toMatchObject({ type: 'auth', app })
+    client.close()
+  })
+
+  test('without a build, `auth` has no `app`', () => {
+    const client = makeClient()
+    client.connect()
+    const socket = FakeSocket.instances[0]!
+    socket.open()
+    expect(socket.last()).not.toHaveProperty('app')
+    client.close()
   })
 })

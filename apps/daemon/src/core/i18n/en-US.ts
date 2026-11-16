@@ -25,6 +25,14 @@ export const enUS = {
         ` (Android emulator: also \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Scan it with the Remote Harness app. Do not share this code.',
       singleUse: (minutes: number) => `It pairs one phone and expires in ${minutes} minutes.`,
+      waiting: 'Waiting for the phone to scan it… (Ctrl+C to stop waiting)',
+      confirm: (code: string) =>
+        `A device is pairing: enter ${code} on it. Not you? Ignore it: without this code nothing pairs.`,
+      paired: 'Device paired.',
+      locked:
+        'Too many wrong codes: this pairing code no longer works. Run `remote-harness pair` for a new one.',
+      expired: 'The pairing code expired. Run `remote-harness pair` for a new one.',
+      lost: 'The daemon stopped answering; this pairing code may no longer work.',
     },
     setup: {
       description: 'wizard: choose accounts and aliases, install hooks and the service, pair the phone',
@@ -234,11 +242,11 @@ export const enUS = {
     },
     devices: {
       description: 'the devices paired with this computer',
-      list: 'list the paired devices (ID, name, platform, paired, last seen)',
+      list: 'list the paired devices (ID, name, platform, paired, last seen, app version)',
       revoke: 'unpair a device: it is disconnected and must pair again',
       empty: 'No paired devices. Run `remote-harness pair` to pair one.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
-        `${id}  ${name}  ${platform}  paired ${paired}  last seen ${seen}`,
+      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
+        `${id}  ${name}  ${platform}  paired ${paired}  last seen ${seen}  app ${app}`,
       never: 'never',
       revoked: (id: string) => `Device ${id} revoked.`,
       notFound: (id: string) => `No paired device ${id}.`,
@@ -636,6 +644,7 @@ export const enUS = {
       pairMenu: 'Pair a phone',
       pairInTerminal: 'Show the pairing in the terminal',
       pairNote: 'Single use · expires in 5 minutes',
+      pairConfirm: (code: string) => `On the phone, enter ${code}`,
       prefsMenu: 'Preferences',
       prefPermissions: 'Show permission requests here',
       keepAwake: 'Keep the computer awake',

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   AttachmentMimeTypeSchema,
   DaemonUpdateChannelSchema,
+  DEVICE_NAME_MAX,
   DevicePlatformSchema,
   DIRECTORY_LIST_LIMIT,
   InputModeSchema,
@@ -19,6 +20,7 @@ import {
   SettingsPaneSchema,
   TRANSCRIPT_SEARCH_LIMIT,
   WorktreeActionSchema,
+  wireAppBuild,
 } from './domain.ts'
 
 const id = z.string().min(1)
@@ -30,6 +32,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     id,
     protocolVersion: z.number().int(),
     client: z.string().optional(),
+    /** The app build that connects (#591); older apps send none. */
+    app: wireAppBuild,
   }),
   z.object({ type: z.literal('ping'), id }),
   z.object({ type: z.literal('sessions.list'), id }),
@@ -262,6 +266,13 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('devices.list'), id }),
   /** Unpairs a device (possibly this one): its connections close with 4007; answered with `ack`. */
   z.object({ type: z.literal('devices.revoke'), id, deviceId: z.string().min(1) }),
+  /** A paired device's new name (#592); answered with the updated `devices.result`. */
+  z.object({
+    type: z.literal('devices.rename'),
+    id,
+    deviceId: z.string().min(1),
+    name: z.string().trim().min(1).max(DEVICE_NAME_MAX),
+  }),
   /** A single-use pairing code to add another device; answered with `pairing.code`. */
   z.object({ type: z.literal('pairing.create'), id }),
   /** The permission requests waiting now; answered with `permissions.result`. */

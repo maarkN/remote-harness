@@ -22,6 +22,14 @@ export const esES = {
         ` (emulador de Android: también \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Escanéalo con la app Remote Harness. No compartas este código.',
       singleUse: (minutes: number) => `Empareja un móvil y caduca en ${minutes} minutos.`,
+      waiting: 'Esperando a que el móvil lo escanee… (Ctrl+C para dejar de esperar)',
+      confirm: (code: string) =>
+        `Un dispositivo se está emparejando: escribe ${code} en él. ¿No eres tú? Ignóralo: sin este código no se empareja nada.`,
+      paired: 'Dispositivo emparejado.',
+      locked:
+        'Demasiados códigos incorrectos: este código de emparejamiento ya no sirve. Ejecuta `remote-harness pair` para uno nuevo.',
+      expired: 'El código de emparejamiento caducó. Ejecuta `remote-harness pair` para uno nuevo.',
+      lost: 'El daemon dejó de responder; puede que este código de emparejamiento ya no sirva.',
     },
     setup: {
       description: 'asistente: elige cuentas y alias, instala los hooks y el servicio, y empareja el móvil',
@@ -241,11 +249,11 @@ export const esES = {
     },
     devices: {
       description: 'los dispositivos emparejados con este ordenador',
-      list: 'lista los dispositivos emparejados (ID, nombre, plataforma, emparejado, visto por última vez)',
+      list: 'lista los dispositivos emparejados (ID, nombre, plataforma, emparejado, visto por última vez, versión de la app)',
       revoke: 'desempareja un dispositivo: se desconecta y debe volver a emparejarse',
       empty: 'No hay dispositivos emparejados. Ejecuta `remote-harness pair` para emparejar uno.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
-        `${id}  ${name}  ${platform}  emparejado ${paired}  visto por última vez ${seen}`,
+      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
+        `${id}  ${name}  ${platform}  emparejado ${paired}  visto por última vez ${seen}  app ${app}`,
       never: 'nunca',
       revoked: (id: string) => `Dispositivo ${id} revocado.`,
       notFound: (id: string) => `No hay ningún dispositivo emparejado ${id}.`,
@@ -640,6 +648,7 @@ export const esES = {
       pairMenu: 'Emparejar un móvil',
       pairInTerminal: 'Mostrar el emparejamiento en la terminal',
       pairNote: 'Un solo uso · caduca en 5 minutos',
+      pairConfirm: (code: string) => `En el móvil, escribe ${code}`,
       prefsMenu: 'Preferencias',
       prefPermissions: 'Mostrar aquí las solicitudes de permiso',
       keepAwake: 'Mantener el ordenador despierto',

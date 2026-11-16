@@ -12,7 +12,7 @@ The daemon runs on the computer: it tails the session transcripts, drives tmux, 
 | --- | --- |
 | `remote-harness setup` | Guided setup: accounts and aliases, hooks, service, pairing. `--yes` keeps the config, `--lang` picks the language. |
 | `remote-harness start` | Runs the daemon in the foreground. `--dev` binds to `127.0.0.1` only and never uses a relay, `--host` sets the direct address. |
-| `remote-harness pair` | Asks the running daemon for a pairing QR code: it pairs one phone and expires in 5 minutes. |
+| `remote-harness pair` | Asks the running daemon for a pairing QR code: it pairs one phone and expires in 5 minutes. It then waits: once the phone scans it, it prints the confirmation code to type on the phone, then that the phone paired (Ctrl+C stops waiting). |
 | `remote-harness doctor` | Checks the tools, the config, the profiles and their provider keys, the daemon identity, whether the connection relays answer, the service, push and the registered phones. |
 | `remote-harness install` / `uninstall` | Installs or removes the launchers, the `PATH` entry, the hooks and the status line wrapper, without questions. |
 | `remote-harness service install` / `uninstall` / `status` | The background service: a launchd LaunchAgent on macOS, a systemd user unit on Linux and WSL. |

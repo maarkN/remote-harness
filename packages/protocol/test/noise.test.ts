@@ -1,16 +1,22 @@
 import * as nodeCrypto from 'node:crypto'
 import { describe, expect, test } from 'vitest'
 import {
+  announcePreface,
   base64UrlToBytes,
   bytesToBase64Url,
   CHANNEL_CLOSE,
   ChannelSession,
+  confirmationDigits,
+  confirmationPsk,
   createNoiseCrypto,
   DaemonHandshake,
   type DaemonHandshakeStep,
   DeviceHandshake,
   decodePreface,
+  deviceIdOf,
+  formatConfirmationCode,
   formatPairingCode,
+  generateConfirmationCode,
   HandshakeState,
   type KeyPair,
   type NodeLikeCrypto,
@@ -24,6 +30,14 @@ import { NOISE_TEST_VECTORS, runNoiseVector } from '../src/noise/test-vectors.ts
 
 const crypto = createNoiseCrypto(nodeCrypto as unknown as NodeLikeCrypto)
 
+describe('device IDs (#592)', () => {
+  test('the first 8 bytes of SHA-256 of the static key, in hex, as the daemon names devices', () => {
+    const key = new Uint8Array(32).fill(7)
+    const expected = nodeCrypto.createHash('sha256').update(key).digest('hex').slice(0, 16)
+    expect(deviceIdOf(crypto, key)).toBe(expected)
+  })
+})
+
 describe('official Noise vectors', () => {
   test.each(NOISE_TEST_VECTORS.map((v) => [v.protocol_name, v] as const))('%s', (_name, vector) => {
     expect(runNoiseVector(crypto, vector)).toEqual([])
@@ -35,16 +49,22 @@ type World = {
   deviceKey: KeyPair
   secret: Uint8Array
   codes: Map<string, Uint8Array>
+  /** The confirmation code the daemon shows per pairing ID, once a device announced it. */
+  confirmations: Map<string, string>
   paired: Uint8Array[]
 }
 
+const SHOWN = '123456'
+
 function world(): World {
   const secret = crypto.randomBytes(32)
+  const id = bytesToBase64Url(pairingIdOf(crypto, secret))
   return {
     daemonKey: crypto.generateKeyPair(),
     deviceKey: crypto.generateKeyPair(),
     secret,
-    codes: new Map([[bytesToBase64Url(pairingIdOf(crypto, secret)), secret]]),
+    codes: new Map([[id, secret]]),
+    confirmations: new Map([[id, SHOWN]]),
     paired: [],
   }
 }
@@ -52,17 +72,23 @@ function world(): World {
 function daemonSide(w: World): DaemonHandshake {
   return new DaemonHandshake(crypto, w.daemonKey, {
     pairingSecret: (id) => w.codes.get(bytesToBase64Url(id)) ?? null,
+    pairingConfirmation: (id) => w.confirmations.get(bytesToBase64Url(id)) ?? null,
     isPaired: (key) => w.paired.some((k) => bytesToBase64Url(k) === bytesToBase64Url(key)),
   })
 }
 
-/** Runs a full pairing; returns both sessions. */
-function pair(w: World, secret = w.secret): { device: ChannelSession; daemon: DaemonHandshakeStep } {
+/** Runs a full pairing with a confirmation code; returns both sessions. */
+function pair(
+  w: World,
+  secret = w.secret,
+  confirmation = SHOWN,
+): { device: ChannelSession; daemon: DaemonHandshakeStep } {
   const device = DeviceHandshake.pair(crypto, {
     deviceKey: w.deviceKey,
     daemonKey: w.daemonKey.publicKey,
     secret,
     info: { name: 'Pixel 9', platform: 'android' },
+    confirmation,
   })
   const daemon = daemonSide(w)
   const second = daemon.start(device.start())
@@ -110,6 +136,7 @@ describe('pairing (XXpsk3)', () => {
       daemonKey: w.daemonKey.publicKey,
       secret: w.secret,
       info: { name: '', platform: '' },
+      confirmation: SHOWN,
     })
     expect(daemonSide(w).start(device.start())).toMatchObject({
       kind: 'refused',
@@ -117,12 +144,14 @@ describe('pairing (XXpsk3)', () => {
     })
   })
 
-  test('a wrong secret fails at the third message', () => {
+  test('a wrong secret fails at the third message, like a wrong confirmation code', () => {
     const w = world()
     const wrong = crypto.randomBytes(32)
     // Same pairing ID (the daemon finds a code) but the device holds another secret.
-    w.codes.set(bytesToBase64Url(pairingIdOf(crypto, wrong)), w.secret)
-    expect(pair(w, wrong).daemon).toMatchObject({ kind: 'refused', code: CHANNEL_CLOSE.pairingRefused })
+    const id = bytesToBase64Url(pairingIdOf(crypto, wrong))
+    w.codes.set(id, w.secret)
+    w.confirmations.set(id, SHOWN)
+    expect(pair(w, wrong).daemon).toMatchObject({ kind: 'wrong-confirmation' })
   })
 
   test('the device refuses a daemon whose static key is not the one in the code', () => {
@@ -132,6 +161,7 @@ describe('pairing (XXpsk3)', () => {
       daemonKey: crypto.generateKeyPair().publicKey,
       secret: w.secret,
       info: { name: '', platform: '' },
+      confirmation: SHOWN,
     })
     const second = daemonSide(w).start(device.start())
     if (second.kind !== 'send') throw new Error('refused')
@@ -145,12 +175,97 @@ describe('pairing (XXpsk3)', () => {
       daemonKey: w.daemonKey.publicKey,
       secret: w.secret,
       info: { name: '', platform: '' },
+      confirmation: SHOWN,
     })
     const first = device.start()
     // Flip the mode byte to reconnect: the daemon then reads garbage as IK.
     const tampered = Uint8Array.from(first)
     tampered[3] = 0x02
     expect(daemonSide(w).start(tampered)).toMatchObject({ kind: 'refused' })
+  })
+})
+
+describe('confirmation codes (#593, ADR-0009)', () => {
+  test('the announce is the preface with mode 0x03 and the pairing ID, and nothing else', () => {
+    const w = world()
+    const announce = announcePreface(crypto, w.secret)
+    expect(Array.from(announce.subarray(0, 4))).toEqual([0x52, 0x48, 0x02, 0x03])
+    expect(announce).toHaveLength(4 + 16)
+    expect(bytesToBase64Url(announce.subarray(4))).toBe(bytesToBase64Url(pairingIdOf(crypto, w.secret)))
+    const step = daemonSide(w).start(announce)
+    expect(step).toMatchObject({ kind: 'announce' })
+    if (step.kind === 'announce')
+      expect(bytesToBase64Url(step.pairingId)).toBe(bytesToBase64Url(pairingIdOf(crypto, w.secret)))
+  })
+
+  test('an announce of an unknown code is refused with 4005', () => {
+    const w = world()
+    w.codes.clear()
+    expect(daemonSide(w).start(announcePreface(crypto, w.secret))).toMatchObject({
+      kind: 'refused',
+      code: CHANNEL_CLOSE.pairingRefused,
+    })
+  })
+
+  test('the right confirmation code pairs; another one fails at the third message', () => {
+    expect(pair(world()).daemon.kind).toBe('paired')
+    const wrong = pair(world(), undefined, '654321').daemon
+    expect(wrong.kind).toBe('wrong-confirmation')
+    if (wrong.kind === 'wrong-confirmation') expect(wrong.pairingId).toHaveLength(16)
+  })
+
+  test('a pairing before any device announced the code is handled as an announce', () => {
+    const w = world()
+    w.confirmations.clear()
+    const device = DeviceHandshake.pair(crypto, {
+      deviceKey: w.deviceKey,
+      daemonKey: w.daemonKey.publicKey,
+      secret: w.secret,
+      info: { name: '', platform: '' },
+      confirmation: SHOWN,
+    })
+    expect(daemonSide(w).start(device.start())).toMatchObject({ kind: 'announce' })
+  })
+
+  test('the pairing mode of apps without confirmation codes (0x01) is refused with 4002', () => {
+    const w = world()
+    const device = DeviceHandshake.pair(crypto, {
+      deviceKey: w.deviceKey,
+      daemonKey: w.daemonKey.publicKey,
+      secret: w.secret,
+      info: { name: '', platform: '' },
+    })
+    const first = device.start()
+    expect(first[3]).toBe(0x01)
+    expect(daemonSide(w).start(first)).toMatchObject({
+      kind: 'refused',
+      code: CHANNEL_CLOSE.protocolMismatch,
+    })
+  })
+
+  test('the PSK is HMAC-SHA256 of the context and the digits under the secret', () => {
+    const secret = new Uint8Array(32).fill(9)
+    const expected = nodeCrypto
+      .createHmac('sha256', secret)
+      .update(Buffer.concat([Buffer.from('remote-harness pairing confirmation\0'), Buffer.from('123456')]))
+      .digest('hex')
+    expect(Buffer.from(confirmationPsk(crypto, secret, '123456')).toString('hex')).toBe(expected)
+    expect(() => confirmationPsk(crypto, secret, '12345')).toThrow(NoiseError)
+  })
+
+  test('shown as `123 456`; typed with spaces or a dash, read as six digits', () => {
+    expect(formatConfirmationCode('012345')).toBe('012 345')
+    expect(confirmationDigits('012 345')).toBe('012345')
+    expect(confirmationDigits(' 012-345 ')).toBe('012345')
+    for (const typed of ['12345', '1234567', '12a456', '']) expect(confirmationDigits(typed)).toBeNull()
+  })
+
+  test('confirmation codes are six digits, drawn without bias', () => {
+    for (let i = 0; i < 50; i++) expect(generateConfirmationCode(crypto)).toMatch(/^\d{6}$/)
+    // A draw at or above the largest multiple of 1,000,000 is thrown away, not folded.
+    const draws = [Uint8Array.of(0xff, 0xff, 0xff, 0xff), Uint8Array.of(0, 0, 0x30, 0x39)]
+    const fixed = { ...crypto, randomBytes: () => draws.shift() as Uint8Array }
+    expect(generateConfirmationCode(fixed)).toBe('012345')
   })
 })
 

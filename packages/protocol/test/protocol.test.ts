@@ -1235,3 +1235,114 @@ describe('agent ids', () => {
     expect(parsed.success).toBe(false)
   })
 })
+
+describe('the app build of each phone (#591)', () => {
+  test('auth carries the app build; without it, or malformed, it is still accepted', () => {
+    const withApp = parseClientMessage({
+      type: 'auth',
+      id: '1',
+      protocolVersion: 2,
+      app: { version: '1.2.2', runtime: 'a1b2c3', update: '0199f2d4-1c2b-7a3e-9b1f-2a3c4d5e6f70' },
+    })
+    expect(withApp).toMatchObject({
+      ok: true,
+      value: { app: { version: '1.2.2', runtime: 'a1b2c3', update: '0199f2d4-1c2b-7a3e-9b1f-2a3c4d5e6f70' } },
+    })
+    const without = parseClientMessage({ type: 'auth', id: '1', protocolVersion: 2 })
+    expect(without.ok).toBe(true)
+    if (without.ok && without.value.type === 'auth') expect(without.value.app).toBeUndefined()
+    for (const app of [{ version: 42 }, { version: 'x'.repeat(33) }, 'v1.2.2', { runtime: 'a' }]) {
+      const malformed = parseClientMessage({ type: 'auth', id: '1', protocolVersion: 2, app })
+      expect(malformed.ok).toBe(true)
+      if (malformed.ok && malformed.value.type === 'auth') expect(malformed.value.app).toBeUndefined()
+    }
+  })
+
+  test('devices and diagnostics carry the last app build; older daemons send neither', () => {
+    const device = {
+      id: 'abcd',
+      name: 'iPhone',
+      platform: 'ios',
+      pairedAt: '2026-10-25T10:00:00.000Z',
+      lastSeen: null,
+      current: true,
+    }
+    const listed = parseServerMessage({
+      type: 'devices.result',
+      replyTo: '1',
+      devices: [{ ...device, app: { version: '1.2.2' } }, device],
+    })
+    expect(listed).toMatchObject({
+      ok: true,
+      value: { devices: [{ app: { version: '1.2.2' } }, { id: 'abcd' }] },
+    })
+    const diagnostics = parseServerMessage({
+      type: 'diagnostics.result',
+      replyTo: '1',
+      daemonVersion: '1.2.3',
+      errors: [],
+      devices: [{ id: 'abcd', platform: 'ios', lastSeen: null, current: true, app: { version: '1.2.2' } }],
+    })
+    expect(diagnostics).toMatchObject({
+      ok: true,
+      value: { devices: [{ id: 'abcd', current: true, app: { version: '1.2.2' } }] },
+    })
+    const older = parseServerMessage({
+      type: 'diagnostics.result',
+      replyTo: '1',
+      daemonVersion: '1.2.2',
+      errors: [],
+    })
+    expect(older.ok).toBe(true)
+  })
+})
+
+describe('device names (#592)', () => {
+  test('devices.rename trims the name and keeps it to 1–64 characters', () => {
+    expect(
+      parseClientMessage({ type: 'devices.rename', id: '1', deviceId: 'abcd', name: "  Hanna's iPhone " }),
+    ).toMatchObject({ ok: true, value: { name: "Hanna's iPhone" } })
+    expect(
+      parseClientMessage({ type: 'devices.rename', id: '1', deviceId: 'abcd', name: 'x'.repeat(64) }).ok,
+    ).toBe(true)
+    for (const name of ['', '   ', 'x'.repeat(65)])
+      expect(parseClientMessage({ type: 'devices.rename', id: '1', deviceId: 'abcd', name })).toMatchObject({
+        ok: false,
+        error: { code: 'bad_request' },
+      })
+    expect(parseClientMessage({ type: 'devices.rename', id: '1', name: 'iPad' })).toMatchObject({
+      ok: false,
+      error: { code: 'bad_request' },
+    })
+  })
+})
+
+describe('pairing confirmation messages (#593)', () => {
+  test('pairing.code carries the code ID; pairing.progress the state and, when presented, the six digits', () => {
+    expect(
+      parseServerMessage({
+        type: 'pairing.code',
+        replyTo: '1',
+        url: 'remoteharness://pair?v=2',
+        expiresAt: '2026-11-16T12:05:00.000Z',
+        id: 'abc',
+      }),
+    ).toMatchObject({ ok: true, value: { id: 'abc' } })
+    expect(
+      parseServerMessage({
+        type: 'pairing.code',
+        replyTo: '1',
+        url: 'x',
+        expiresAt: '2026-11-16T12:05:00.000Z',
+      }).ok,
+    ).toBe(true)
+    expect(
+      parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'presented', code: '123456' }),
+    ).toMatchObject({ ok: true, value: { state: 'presented', code: '123456' } })
+    expect(parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'paired' }).ok).toBe(true)
+    expect(parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'locked' }).ok).toBe(true)
+    expect(
+      parseServerMessage({ type: 'pairing.progress', id: 'abc', state: 'presented', code: '12a456' }).ok,
+    ).toBe(false)
+  })
+})

@@ -4,7 +4,13 @@ import { NOISE_TEST_VECTORS, runNoiseVector } from '@remote-harness/protocol/noi
 import { describe, expect, test } from 'vitest'
 import { noiseCrypto } from '../src/core/identity.ts'
 import { PairingCodes, REUSE_MIN_LEFT_MS } from '../src/features/pairing/codes.ts'
-import { deviceIdOf, MAX_PAIRED_DEVICES, PairedDevices } from '../src/features/pairing/devices.ts'
+import {
+  deviceIdOf,
+  deviceInfoOf,
+  diagnosticsDeviceOf,
+  MAX_PAIRED_DEVICES,
+  PairedDevices,
+} from '../src/features/pairing/devices.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -65,6 +71,52 @@ describe('pairing codes', () => {
   })
 })
 
+describe('confirmation codes (#593)', () => {
+  const clock = () => {
+    let now = 1_000_000
+    return { now: () => now, advance: (ms: number) => (now += ms) }
+  }
+  const id = (code: { pairingId: string }) => Buffer.from(code.pairingId, 'base64url')
+
+  test('a device presenting a code creates its six-digit confirmation once; the state follows', () => {
+    const codes = new PairingCodes(noiseCrypto)
+    const code = codes.create()
+    expect(codes.confirmationFor(id(code))).toBeNull()
+    expect(codes.state(code.pairingId)).toEqual({ state: 'waiting' })
+    const shown = codes.present(id(code))
+    expect(shown?.code).toMatch(/^\d{6}$/)
+    expect(shown?.created).toBe(true)
+    expect(codes.present(id(code))).toEqual({ code: shown?.code, created: false })
+    expect(codes.confirmationFor(id(code))).toBe(shown?.code)
+    expect(codes.state(code.pairingId)).toEqual({ state: 'presented', code: shown?.code })
+    expect(codes.consume(id(code))).toBe(true)
+    expect(codes.state(code.pairingId)).toEqual({ state: 'paired' })
+  })
+
+  test('the third wrong code burns the pairing code', () => {
+    const codes = new PairingCodes(noiseCrypto)
+    const code = codes.create()
+    codes.present(id(code))
+    expect(codes.wrongConfirmation(id(code))).toBe('retry')
+    expect(codes.wrongConfirmation(id(code))).toBe('retry')
+    expect(codes.secretFor(id(code))).toEqual(code.secret)
+    expect(codes.wrongConfirmation(id(code))).toBe('locked')
+    expect(codes.secretFor(id(code))).toBeNull()
+    expect(codes.state(code.pairingId)).toEqual({ state: 'locked' })
+    expect(codes.consume(id(code))).toBe(false)
+  })
+
+  test('an unknown or expired code shows nothing and reads as expired', () => {
+    const c = clock()
+    const codes = new PairingCodes(noiseCrypto, c.now)
+    const code = codes.create()
+    c.advance(5 * 60_000 + 1)
+    expect(codes.present(id(code))).toBeNull()
+    expect(codes.state(code.pairingId)).toEqual({ state: 'expired' })
+    expect(codes.state('nope')).toEqual({ state: 'expired' })
+  })
+})
+
 describe('paired devices', () => {
   const key = () => noiseCrypto.generateKeyPair().publicKey
 
@@ -99,6 +151,73 @@ describe('paired devices', () => {
     expect(await devices.add(key(), { name: 'eleventh', platform: 'ios' })).toBe(false)
     expect(await devices.add(keys[0] as Uint8Array, { name: 'renamed', platform: 'ios' })).toBe(true)
     expect(devices.devices()).toHaveLength(MAX_PAIRED_DEVICES)
+  })
+
+  test('keeps the last app build a device authenticated with (#591)', async () => {
+    const path = join(home.dir(), 'paired-devices.json')
+    let now = 1
+    const devices = new PairedDevices(path, () => now)
+    await devices.load()
+    const phone = key()
+    await devices.add(phone, { name: 'iPhone', platform: 'ios' })
+    now = 2
+    await devices.touch(phone, { version: '1.2.2', runtime: 'a1b2', update: 'u-1' })
+    now = 3
+    // An older build (or an `auth` without `app`) leaves the last known build in place.
+    await devices.touch(phone)
+    const reloaded = new PairedDevices(path)
+    await reloaded.load()
+    const [device] = reloaded.devices()
+    expect(device).toMatchObject({ lastSeen: 3, app: { version: '1.2.2', runtime: 'a1b2', update: 'u-1' } })
+    expect(deviceInfoOf(device as never, deviceIdOf(phone))).toMatchObject({
+      current: true,
+      app: { version: '1.2.2', runtime: 'a1b2', update: 'u-1' },
+    })
+    expect(diagnosticsDeviceOf(device as never)).toEqual({
+      id: deviceIdOf(phone),
+      platform: 'ios',
+      lastSeen: new Date(3).toISOString(),
+      current: false,
+      app: { version: '1.2.2', runtime: 'a1b2', update: 'u-1' },
+    })
+  })
+
+  test('a device file with a malformed app build keeps the device', async () => {
+    const { writeFile } = await import('node:fs/promises')
+    const path = join(home.dir(), 'odd.json')
+    const phone = key()
+    await writeFile(
+      path,
+      JSON.stringify({
+        devices: [
+          {
+            id: deviceIdOf(phone),
+            publicKey: Buffer.from(phone).toString('base64url'),
+            name: 'iPhone',
+            platform: 'ios',
+            pairedAt: 1,
+            app: { version: 7 },
+          },
+        ],
+      }),
+    )
+    const devices = new PairedDevices(path)
+    await devices.load()
+    expect(devices.has(phone)).toBe(true)
+    expect(devices.devices()[0]?.app).toBeUndefined()
+  })
+
+  test('renames a device and keeps the name across a reload (#592)', async () => {
+    const path = join(home.dir(), 'renamed.json')
+    const devices = new PairedDevices(path)
+    await devices.load()
+    const phone = key()
+    await devices.add(phone, { name: 'iPhone', platform: 'ios' })
+    expect(await devices.rename(deviceIdOf(phone), "Hanna's iPhone")).toBe(true)
+    expect(await devices.rename('ffffffffffffffff', 'Ghost')).toBe(false)
+    const reloaded = new PairedDevices(path)
+    await reloaded.load()
+    expect(reloaded.devices().map((d) => d.name)).toEqual(["Hanna's iPhone"])
   })
 
   test('a corrupt file is an empty list', async () => {

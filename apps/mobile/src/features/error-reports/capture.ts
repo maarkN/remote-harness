@@ -15,7 +15,13 @@ import {
 } from './crashlytics'
 import { buildReport, errorFromEntry, type Report } from './format'
 import { appendEntry, isDuplicate, pendingCrashes, recentEntries } from './log'
-import { buildEntry, type ErrorEntry, type ErrorSource, type ReportContext } from './scrub'
+import {
+  buildEntry,
+  type ErrorEntry,
+  type ErrorSource,
+  invalidMessageError,
+  type ReportContext,
+} from './scrub'
 import { loadHandledAt, loadPreference, readLog, saveHandledAt, savePreference, writeLog } from './storage'
 import { useErrorReportsStore } from './store'
 
@@ -168,11 +174,25 @@ export async function setReportPreference(preference: ReportPreference): Promise
   await applyPreference(preference)
 }
 
-/** Records the requests the daemon rejected or never answered (type and code only). */
+/**
+ * Records the requests the daemon rejected or never answered (type and code only), and the daemon
+ * messages the client dropped because they failed validation.
+ */
 export function bindErrorReports(client: DaemonClient): () => void {
-  return client.onRequestError((type, error) => {
+  const offRequests = client.onRequestError((type, error) => {
     // The expected answer of older daemons to newer messages, not a bug.
     if (error.code === 'unknown_type') return
     recordError('request', error, { requestType: type, code: error.code })
   })
+  const offMessages = client.onInvalidMessage((message) => {
+    if (__DEV__) console.warn('Daemon message dropped: it does not validate', message)
+    recordError('message', invalidMessageError(message.message), {
+      ...(message.type ? { requestType: message.type } : {}),
+      code: message.code,
+    })
+  })
+  return () => {
+    offRequests()
+    offMessages()
+  }
 }

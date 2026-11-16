@@ -12,7 +12,7 @@ import {
 } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { type SocketLike, WRONG_DAEMON_CLOSE } from '@/core/connection/daemon-client'
-import { failureForClose, testConnection } from './test-connection'
+import { announcePairing, failureForClose, testConnection } from './test-connection'
 
 const crypto = createNoiseCrypto(nodeCrypto as unknown as NodeLikeCrypto)
 const daemonKey = crypto.generateKeyPair()
@@ -24,20 +24,35 @@ const hello = {
   muted: { profiles: [], sessions: [] },
 }
 
-type Behavior = 'ok' | 'down'
+/** `old`: a daemon from before confirmation codes, which does not know the announce (4002). */
+type Behavior = 'ok' | 'down' | 'old'
 
-/** Sockets backed by a fake daemon that knows the given codes; `down` addresses refuse at once. */
+/** What the fake computer shows once a device announces its code. */
+const SHOWN = '123456'
+
+/**
+ * Sockets backed by a fake daemon that knows the given codes; `down` addresses refuse at once.
+ * Like the daemon, an announce shows the confirmation code (4011) and three wrong codes burn it.
+ */
 function socketFactory(codes: Uint8Array[], behaviors: Record<string, Behavior>) {
   const urls: string[] = []
+  const shown = new Set<string>()
+  let attempts = 0
   const factory = (url: string): SocketLike => {
     urls.push(url)
     let session: ChannelSession | null = null
-    let stage: 'first' | 'finish' | 'open' = 'first'
+    let stage: 'first' | 'finish' | 'open' | 'closed' = 'first'
     const daemon = new DaemonHandshake(crypto, daemonKey, {
       pairingSecret: (id) =>
         codes.find((c) => bytesToBase64Url(pairingIdOf(crypto, c)) === bytesToBase64Url(id)) ?? null,
+      pairingConfirmation: (id) => (shown.has(bytesToBase64Url(id)) ? SHOWN : null),
       isPaired: () => false,
     })
+    // Like the daemon, nothing more is read once it closed (the client's `auth` may already follow).
+    const closeWith = (code: number) => {
+      stage = 'closed'
+      queueMicrotask(() => socket.onclose?.({ code }))
+    }
     const deliver = (bytes: Uint8Array) =>
       queueMicrotask(() =>
         socket.onmessage?.({
@@ -52,11 +67,15 @@ function socketFactory(codes: Uint8Array[], behaviors: Record<string, Behavior>)
       onerror: null,
       send(data) {
         const bytes = new Uint8Array(data)
+        if (stage === 'closed') return
         if (stage === 'first') {
+          if (behaviors[url] === 'old' && bytes[3] !== 0x01 && bytes[3] !== 0x02)
+            return closeWith(CHANNEL_CLOSE.protocolMismatch)
           const step = daemon.start(bytes)
-          if (step.kind === 'refused') {
-            queueMicrotask(() => socket.onclose?.({ code: step.code }))
-            return
+          if (step.kind === 'refused') return closeWith(step.code)
+          if (step.kind === 'announce') {
+            shown.add(bytesToBase64Url(step.pairingId))
+            return closeWith(CHANNEL_CLOSE.confirmationShown)
           }
           if (step.kind === 'send') deliver(step.send)
           stage = 'finish'
@@ -64,10 +83,13 @@ function socketFactory(codes: Uint8Array[], behaviors: Record<string, Behavior>)
         }
         if (stage === 'finish') {
           const step = daemon.finish(bytes)
-          if (step.kind !== 'paired') {
-            queueMicrotask(() => socket.onclose?.({ code: step.kind === 'refused' ? step.code : 4001 }))
-            return
+          if (step.kind === 'wrong-confirmation') {
+            attempts += 1
+            if (attempts < 3) return closeWith(CHANNEL_CLOSE.wrongConfirmation)
+            codes.splice(0)
+            return closeWith(CHANNEL_CLOSE.confirmationLocked)
           }
+          if (step.kind !== 'paired') return closeWith(step.kind === 'refused' ? step.code : 4001)
           // Single use, like the daemon.
           codes.splice(0)
           session = step.session
@@ -101,45 +123,115 @@ function code(addresses: string[], secret = crypto.randomBytes(32)): PairingCode
 
 const options = { crypto, deviceKey: crypto.generateKeyPair(), info: { name: 'iPhone', platform: 'ios' } }
 
-describe('testConnection (pairing)', () => {
-  test('pairs and answers hello', async () => {
+describe('announcePairing (#593)', () => {
+  test('the computer shows the confirmation code: the target that answered comes back', async () => {
     const pairing = code(['10.0.0.2:7337'])
     const { factory } = socketFactory([pairing.secret], {})
-    const result = await testConnection(pairing, { ...options, socketFactory: factory })
-    expect(result).toMatchObject({ ok: true, hello: { daemonVersion: '0.1.0' } })
-  })
-
-  test('a used code is reported as such and not retried on the other addresses', async () => {
-    const pairing = code(['10.0.0.2:7337', '10.0.0.3:7337'])
-    const { factory, urls } = socketFactory([], {})
-    expect(await testConnection(pairing, { ...options, socketFactory: factory })).toEqual({
-      ok: false,
-      error: 'codeUsed',
+    expect(await announcePairing(pairing, { crypto, socketFactory: factory })).toEqual({
+      ok: true,
+      target: { addresses: ['10.0.0.2:7337'] },
     })
-    expect(urls).toHaveLength(1)
   })
 
-  test('an address that does not answer moves on to the next one', async () => {
-    const pairing = code(['10.0.0.2:7337', '100.64.0.2:7337'])
-    const { factory, urls } = socketFactory([pairing.secret], { 'ws://10.0.0.2:7337': 'down' })
-    expect(await testConnection(pairing, { ...options, socketFactory: factory })).toMatchObject({ ok: true })
-    expect(urls).toEqual(['ws://10.0.0.2:7337', 'ws://100.64.0.2:7337'])
-  })
-
-  test("pairs through the code's relay when no direct address answers", async () => {
+  test('an address that does not answer moves on; the relay is the last resort', async () => {
     const pairing = { ...code(['10.0.0.2:7337']), relay: 'wss://br.relay.remoteharness.app' }
     const { factory, urls } = socketFactory([pairing.secret], { 'ws://10.0.0.2:7337': 'down' })
-    expect(await testConnection(pairing, { ...options, socketFactory: factory })).toMatchObject({ ok: true })
+    expect(await announcePairing(pairing, { crypto, socketFactory: factory })).toEqual({
+      ok: true,
+      target: { addresses: [], daemonId: '0'.repeat(32), relay: 'wss://br.relay.remoteharness.app' },
+    })
     expect(urls).toEqual([
       'ws://10.0.0.2:7337',
       `wss://br.relay.remoteharness.app/v1/device/${'0'.repeat(32)}`,
     ])
   })
 
+  test('a used code is reported at once, and so is a computer that must be updated', async () => {
+    const used = code(['10.0.0.2:7337', '10.0.0.3:7337'])
+    const first = socketFactory([], {})
+    expect(await announcePairing(used, { crypto, socketFactory: first.factory })).toEqual({
+      ok: false,
+      error: 'codeUsed',
+    })
+    expect(first.urls).toHaveLength(1)
+    const old = code(['10.0.0.2:7337'])
+    const second = socketFactory([old.secret], { 'ws://10.0.0.2:7337': 'old' })
+    expect(await announcePairing(old, { crypto, socketFactory: second.factory })).toEqual({
+      ok: false,
+      error: 'computerUpdate',
+    })
+  })
+})
+
+describe('testConnection (pairing)', () => {
+  /** Announces like the app does, then pairs with `confirmation`. */
+  async function pairWith(
+    pairing: PairingCode,
+    behaviors: Record<string, Behavior> = {},
+    confirmation = SHOWN,
+  ) {
+    const fake = socketFactory([pairing.secret], behaviors)
+    const announced = await announcePairing(pairing, { crypto, socketFactory: fake.factory })
+    if (!announced.ok) throw new Error(announced.error)
+    const result = await testConnection(pairing, {
+      ...options,
+      socketFactory: fake.factory,
+      confirmation,
+      first: announced.target,
+    })
+    return { result, fake, target: announced.target }
+  }
+
+  test('pairs with the code shown on the computer and answers hello', async () => {
+    const { result } = await pairWith(code(['10.0.0.2:7337']))
+    expect(result).toMatchObject({ ok: true, hello: { daemonVersion: '0.1.0' } })
+  })
+
+  test('pairs first where the announce was answered (the relay away from home)', async () => {
+    const pairing = { ...code(['10.0.0.2:7337']), relay: 'wss://br.relay.remoteharness.app' }
+    const { result, fake } = await pairWith(pairing, { 'ws://10.0.0.2:7337': 'down' })
+    expect(result).toMatchObject({ ok: true })
+    expect(fake.urls).toEqual([
+      'ws://10.0.0.2:7337',
+      `wss://br.relay.remoteharness.app/v1/device/${'0'.repeat(32)}`,
+      `wss://br.relay.remoteharness.app/v1/device/${'0'.repeat(32)}`,
+    ])
+  })
+
+  test('a wrong code can be typed again; the third burns the pairing code', async () => {
+    const pairing = code(['10.0.0.2:7337'])
+    const fake = socketFactory([pairing.secret], {})
+    const announced = await announcePairing(pairing, { crypto, socketFactory: fake.factory })
+    if (!announced.ok) throw new Error(announced.error)
+    const attempt = (confirmation: string) =>
+      testConnection(pairing, {
+        ...options,
+        socketFactory: fake.factory,
+        confirmation,
+        first: announced.target,
+      })
+    expect(await attempt('000001')).toEqual({ ok: false, error: 'wrongConfirmation' })
+    expect(await attempt('000002')).toEqual({ ok: false, error: 'wrongConfirmation' })
+    expect(await attempt('000003')).toEqual({ ok: false, error: 'confirmationLocked' })
+  })
+
+  test('a pairing the computer has not shown a code for asks to type the one it shows now', async () => {
+    const pairing = code(['10.0.0.2:7337'])
+    const { factory } = socketFactory([pairing.secret], {})
+    expect(
+      await testConnection(pairing, { ...options, socketFactory: factory, confirmation: SHOWN }),
+    ).toEqual({
+      ok: false,
+      error: 'confirmationRequired',
+    })
+  })
+
   test('nothing answering is a failure with the reason', async () => {
     const pairing = code(['10.0.0.2:7337'])
     const { factory } = socketFactory([pairing.secret], { 'ws://10.0.0.2:7337': 'down' })
-    expect(await testConnection(pairing, { ...options, socketFactory: factory })).toEqual({
+    expect(
+      await testConnection(pairing, { ...options, socketFactory: factory, confirmation: SHOWN }),
+    ).toEqual({
       ok: false,
       error: 'failed',
       detail: 'refused',
@@ -148,11 +240,8 @@ describe('testConnection (pairing)', () => {
 
   test('another daemon key in the answer is refused', async () => {
     const pairing = { ...code(['10.0.0.2:7337']), daemonKey: crypto.generateKeyPair().publicKey }
-    const { factory } = socketFactory([pairing.secret], {})
-    expect(await testConnection(pairing, { ...options, socketFactory: factory })).toEqual({
-      ok: false,
-      error: 'wrongComputer',
-    })
+    const { result } = await pairWith(pairing)
+    expect(result).toEqual({ ok: false, error: 'wrongComputer' })
   })
 
   test('close codes map to the messages', () => {
@@ -161,5 +250,8 @@ describe('testConnection (pairing)', () => {
     expect(failureForClose(CHANNEL_CLOSE.protocolMismatch)).toBe('protocol')
     expect(failureForClose(WRONG_DAEMON_CLOSE)).toBe('wrongComputer')
     expect(failureForClose(CHANNEL_CLOSE.unauthorized)).toBe('unauthorized')
+    expect(failureForClose(CHANNEL_CLOSE.confirmationShown)).toBe('confirmationRequired')
+    expect(failureForClose(CHANNEL_CLOSE.wrongConfirmation)).toBe('wrongConfirmation')
+    expect(failureForClose(CHANNEL_CLOSE.confirmationLocked)).toBe('confirmationLocked')
   })
 })

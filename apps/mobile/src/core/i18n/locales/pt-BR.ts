@@ -28,6 +28,7 @@ const ptBR = {
     genericSentence: 'Sua máquina',
   },
   nav: {
+    nameDevice: 'Nome do aparelho',
     pair: 'Parear',
     setupGuide: 'Primeira configuração',
     settings: 'Configurações',
@@ -52,6 +53,7 @@ const ptBR = {
       reconnecting: 'reconectando…',
       asleep: '{{machine}} não responde: pode estar dormindo ou offline. Reconectando…',
       unauthorized: 'pareamento recusado — pareie novamente',
+      incompatible: 'o app e {{machine}} estão em versões incompatíveis — atualize os dois',
       closed: 'desconectado',
     },
     status: {
@@ -104,6 +106,11 @@ const ptBR = {
       'Este aparelho foi removido de {{name}} por outro aparelho. Pareie de novo com um código novo para usá-lo.',
   },
   devices: {
+    rename: 'Renomear',
+    renameTitle: 'Renomear {{name}}',
+    renameLabel: 'Nome',
+    save: 'Salvar',
+    nameInvalid: 'Use de 1 a 64 caracteres.',
     title: 'Aparelhos',
     loading: 'carregando…',
     offline: 'Conecte ao computador para ver os aparelhos dele.',
@@ -121,8 +128,21 @@ const ptBR = {
     addBody_other:
       'Escaneie este código com o app Remote Harness no outro celular ou tablet. Ele funciona uma vez, por {{count}} minutos.',
     copyLink: 'Copiar link',
+    confirmTitle: 'Um aparelho está pareando',
+    confirmBody: 'Digite este código nele:',
+    paired: 'Aparelho pareado.',
+    locked: 'Códigos errados demais: este QR não funciona mais. Crie um novo.',
   },
   pairing: {
+    name: {
+      title: 'Dê um nome a este aparelho',
+      body: '{{Machine}} lista os aparelhos pareados pelo nome: em Configurações → Aparelhos, na bandeja e em `remote-harness devices list`. Com um nome, dá para diferenciar seus celulares.',
+      label: 'Nome do aparelho',
+      save: 'Salvar',
+      skip: 'Pular',
+      connecting: 'Conectando a {{machine}}…',
+      failed: 'O nome não foi salvo: {{error}}',
+    },
     title: 'Parear com o computador',
     intro: 'No computador, rode <cmd>remote-harness pair</cmd> e aponte a câmera para o QR code.',
     guideTitle: 'Primeira vez? Configure o computador',
@@ -149,6 +169,21 @@ const ptBR = {
       wrongComputer: 'O computador que respondeu não é o do código. Nada foi salvo.',
       protocol: 'O app e {{machine}} falam versões diferentes. Atualize os dois.',
       failed: 'Não foi possível conectar a {{machine}}.',
+      confirmationRequired:
+        '{{Machine}} agora mostra um código de confirmação: digite o que está na tela dele.',
+      wrongConfirmation: 'Esse código não é o que aparece em {{machine}}. Confira e digite de novo.',
+      confirmationLocked:
+        'Códigos errados demais: este QR não funciona mais. Mostre um novo código de pareamento em {{machine}}.',
+      computerUpdate:
+        '{{Machine}} roda um Remote Harness antigo, sem códigos de confirmação. Atualize-o (`remote-harness update`) e mostre um novo código de pareamento.',
+    },
+    confirm: {
+      title: 'Digite o código mostrado em {{machine}}',
+      body: 'Agora que este celular pediu para parear, {{machine}} mostra um código de 6 dígitos: no terminal que mostrou o QR, na bandeja ou no celular que o mostrou. O código nunca vai no QR, então um QR copiado sozinho não pareia.',
+      label: 'Código de confirmação',
+      submit: 'Parear',
+      cancel: 'Cancelar',
+      invalid: 'Digite os 6 dígitos.',
     },
   },
   setupGuide: {

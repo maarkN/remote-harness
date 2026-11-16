@@ -1,8 +1,14 @@
+import Constants from 'expo-constants'
 import { type ReactNode, useEffect } from 'react'
 import { AppState } from 'react-native'
 import { credentialsStorage } from '../storage/credentials'
 import { wipeHistory } from '../storage/history'
-import { setComputerStorage, useConnectionStore } from './connection-store'
+import { runningUpdate } from '../updates'
+import { appBuildOf } from './app-build'
+import { setAppBuild, setComputerStorage, useConnectionStore } from './connection-store'
+
+// Every `auth` tells the computer which build connects (#591).
+setAppBuild(appBuildOf({ version: Constants.expoConfig?.version, ...runningUpdate() }))
 
 // Forgetting a computer (also when it revoked this device) deletes its history cache with its keys.
 setComputerStorage({

@@ -1,9 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import {
+  type AppBuild,
   base64UrlToBytes,
   bytesToBase64Url,
   type DeviceInfo,
+  type DiagnosticsDevice,
   type PairedDeviceInfo,
+  wireAppBuild,
 } from '@remote-harness/protocol'
 import { z } from 'zod'
 import { deviceIdOf } from '../../core/identity.ts'
@@ -22,6 +25,8 @@ const PairedDeviceSchema = z.object({
   pairedAt: z.number(),
   /** Last time the device authenticated; absent until it reconnects once. */
   lastSeen: z.number().optional(),
+  /** The last app build it authenticated with (#591); a malformed one is dropped, not the device. */
+  app: wireAppBuild,
 })
 export type PairedDevice = z.infer<typeof PairedDeviceSchema>
 const FileSchema = z.object({ devices: z.array(PairedDeviceSchema) })
@@ -35,7 +40,14 @@ export function deviceInfoOf(device: PairedDevice, currentId?: string): PairedDe
     pairedAt: new Date(device.pairedAt).toISOString(),
     lastSeen: device.lastSeen === undefined ? null : new Date(device.lastSeen).toISOString(),
     current: device.id === currentId,
+    ...(device.app ? { app: device.app } : {}),
   }
+}
+
+/** A device in `diagnostics.result`: no name, which may be a person's. */
+export function diagnosticsDeviceOf(device: PairedDevice, currentId?: string): DiagnosticsDevice {
+  const { name: _name, pairedAt: _pairedAt, ...rest } = deviceInfoOf(device, currentId)
+  return rest
 }
 
 /** The devices paired with this daemon, kept in `paired-devices.json` (public keys only). */
@@ -84,19 +96,30 @@ export class PairedDevices {
       platform: info.platform || existing?.platform || '',
       pairedAt: existing?.pairedAt ?? now,
       lastSeen: now,
+      ...(existing?.app ? { app: existing.app } : {}),
     }
     this.set([...this.list.filter((d) => d.publicKey !== key), device])
     await this.save()
     return true
   }
 
-  /** Records that a device authenticated now. */
-  async touch(publicKey: Uint8Array): Promise<void> {
+  /** Records that a device authenticated now, with its app build when it sent one. */
+  async touch(publicKey: Uint8Array, app?: AppBuild): Promise<void> {
     const key = bytesToBase64Url(publicKey)
     const device = this.list.find((d) => d.publicKey === key)
     if (!device) return
     device.lastSeen = this.now()
+    if (app) device.app = app
     await this.save()
+  }
+
+  /** Gives a device a new name (already trimmed and checked by the protocol); false for an unknown ID. */
+  async rename(id: string, name: string): Promise<boolean> {
+    const device = this.list.find((d) => d.id === id)
+    if (!device) return false
+    device.name = name
+    await this.save()
+    return true
   }
 
   /** Removes a device; its key is refused from then on. Null when no device has that ID. */

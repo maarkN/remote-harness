@@ -1,4 +1,5 @@
 import {
+  type AppBuild,
   CHANNEL_CLOSE,
   type ChannelSession,
   type ClientRequest,
@@ -8,6 +9,7 @@ import {
   type KeyPair,
   type NoiseCrypto,
   normalizeChannelClose,
+  type ParseError,
   PROTOCOL_VERSION,
   parseServerMessage,
   relayDeviceUrl,
@@ -92,6 +94,11 @@ export const DIRECT_PROBE_INTERVAL_MS = 30_000
 export const HEARTBEAT_MS = 30_000
 /** A heartbeat `ping` unanswered for this long means the connection is dead. */
 export const HEARTBEAT_TIMEOUT_MS = 10_000
+/**
+ * From the socket opening, the Noise handshake and the `auth` request share this deadline: an
+ * attempt still `authenticating` when it passes is dropped like a dead connection and retried.
+ */
+export const HANDSHAKE_DEADLINE_MS = 10_000
 /** How often the heartbeat looks at how long the connection has been quiet. */
 const HEARTBEAT_CHECK_MS = 10_000
 
@@ -107,8 +114,11 @@ export function orderTargets(
 export type DaemonClientOptions = {
   computer: DaemonTarget
   crypto: NoiseCrypto
-  /** Pair with a code (Noise XXpsk3) instead of reconnecting with IK; used once, by the pairing. */
-  pairing?: { secret: Uint8Array; info: DeviceInfo }
+  /**
+   * Pair with a code (Noise XXpsk3, with the confirmation code the computer shows, ADR-0009)
+   * instead of reconnecting with IK; used once, by the pairing.
+   */
+  pairing?: { secret: Uint8Array; info: DeviceInfo; confirmation?: string }
   socketFactory?: SocketFactory
   /** Automatically reconnect with exponential backoff (disabled for the pairing test). */
   reconnect?: boolean
@@ -119,7 +129,11 @@ export type DaemonClientOptions = {
   connectTimeoutMs?: number
   /** The same for a direct address, shorter so the relay is tried soon away from home. */
   directTimeoutMs?: number
+  /** From the socket opening, how long the handshake and `auth` may take (`HANDSHAKE_DEADLINE_MS`). */
+  handshakeTimeoutMs?: number
   clientName?: string
+  /** The app build this client runs, sent in every `auth` so the computer knows it (#591). */
+  appBuild?: AppBuild
 }
 
 type Pending = {
@@ -131,6 +145,8 @@ type Pending = {
 type AnyHandler = (message: ServerMessage) => void
 /** A request answered with `error`, or never answered: its message type and the error (code). */
 export type RequestErrorListener = (type: ClientRequest['type'], error: DaemonRequestError) => void
+/** A daemon message the protocol schemas rejected: its raw type (when it had one) and why. */
+export type InvalidMessage = Pick<ParseError, 'code' | 'message'> & { type?: string }
 
 const OPEN = 1
 /** Close codes after which retrying is pointless: unknown key, protocol mismatch, refused pairing. */
@@ -140,6 +156,9 @@ const FATAL_CLOSE_CODES: ReadonlySet<number> = new Set([
   CHANNEL_CLOSE.pairingRefused,
   CHANNEL_CLOSE.deviceLimit,
   CHANNEL_CLOSE.revoked,
+  CHANNEL_CLOSE.confirmationShown,
+  CHANNEL_CLOSE.wrongConfirmation,
+  CHANNEL_CLOSE.confirmationLocked,
 ])
 /** Ours: the daemon that answered does not have the pinned static key. */
 export const WRONG_DAEMON_CLOSE = 4090
@@ -189,6 +208,9 @@ export class DaemonClient {
   private readonly statusListeners = new Set<(status: ConnectionStatus, error?: string) => void>()
   private readyListeners = new Set<(hello: Hello) => void>()
   private readonly requestErrorListeners = new Set<RequestErrorListener>()
+  private readonly invalidMessageListeners = new Set<(message: InvalidMessage) => void>()
+  private _invalidMessages = 0
+  private handshakeTimer: ReturnType<typeof setTimeout> | null = null
   private seq = 0
   private attempt = 0
   private retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -267,7 +289,9 @@ export class DaemonClient {
     if (this._status === 'open' && this._path === 'relay') void this.probeDirect()
     // Back from the background: check at once that the connection survived.
     if (this._status === 'open') this.heartbeat()
-    if (this._status === 'open' || this._status === 'connecting' || this._status === 'authenticating') return
+    if (this._status === 'open' || this._status === 'connecting') return
+    // Still authenticating: the handshake reply or `auth.ok` was lost meanwhile (#589).
+    if (this._status === 'authenticating') this.abandonAttempt()
     this.clearRetry()
     this.attempt = 0
     this.open()
@@ -277,6 +301,7 @@ export class DaemonClient {
     this.stopped = true
     this.clearRetry()
     this.clearConnectTimer()
+    this.clearHandshakeTimer()
     this.stopHeartbeat()
     this.setPath(null)
     const socket = this.socket
@@ -328,6 +353,17 @@ export class DaemonClient {
   onRequestError(listener: RequestErrorListener): () => void {
     this.requestErrorListeners.add(listener)
     return () => this.requestErrorListeners.delete(listener)
+  }
+
+  /** How many daemon messages failed validation on this client (they are dropped, never handled). */
+  get invalidMessages(): number {
+    return this._invalidMessages
+  }
+
+  /** Called for every daemon message the protocol schemas reject. */
+  onInvalidMessage(listener: (message: InvalidMessage) => void): () => void {
+    this.invalidMessageListeners.add(listener)
+    return () => this.invalidMessageListeners.delete(listener)
   }
 
   private requestFailed(type: ClientRequest['type'], error: DaemonRequestError): DaemonRequestError {
@@ -428,6 +464,14 @@ export class DaemonClient {
       this.clearConnectTimer()
       this._unreachable = false
       this.setStatus('authenticating')
+      // Nothing else bounds the attempt from here: no heartbeat before `auth.ok`, and the daemon
+      // keeps the socket alive with its own pings.
+      this.clearHandshakeTimer()
+      this.handshakeTimer = setTimeout(() => {
+        this.handshakeTimer = null
+        if (this.socket === socket && this._status === 'authenticating')
+          this.dropDead(socket, 'handshake timeout')
+      }, this.options.handshakeTimeoutMs ?? HANDSHAKE_DEADLINE_MS)
       const { computer, crypto } = this.options
       this.handshake = this.pairing
         ? DeviceHandshake.pair(crypto, {
@@ -435,6 +479,7 @@ export class DaemonClient {
             daemonKey: computer.daemonKey,
             secret: this.pairing.secret,
             info: this.pairing.info,
+            ...(this.pairing.confirmation === undefined ? {} : { confirmation: this.pairing.confirmation }),
           })
         : DeviceHandshake.reconnect(crypto, { deviceKey: computer.deviceKey, daemonKey: computer.daemonKey })
       socket.send(toArrayBuffer(this.handshake.start()))
@@ -455,6 +500,7 @@ export class DaemonClient {
     this.session = null
     this.handshake = null
     this.stopHeartbeat()
+    this.clearHandshakeTimer()
     this.setPath(null)
     // Closed before opening, within the timeout: something answered (refused, no network).
     if (this.connectTimer) this._unreachable = false
@@ -514,6 +560,7 @@ export class DaemonClient {
     socket.onclose = null
     socket.close(1000, reason)
     this.clearConnectTimer()
+    this.clearHandshakeTimer()
     this.failPending('disconnected')
     this._closeCode = code
     this.stopped = true
@@ -521,10 +568,11 @@ export class DaemonClient {
   }
 
   private authenticate(): void {
-    this.sendRequest({ type: 'auth', protocolVersion: PROTOCOL_VERSION, client: this.options.clientName })
+    this.sendRequest({ type: 'auth', ...this.authFields() })
       .then((reply) => {
         if (reply.type !== 'auth.ok') return
         const { type: _t, replyTo: _r, ...hello } = reply
+        this.clearHandshakeTimer()
         // The code is used up: from now on this device reconnects with its own key (IK).
         this.pairing = undefined
         this._hello = hello
@@ -544,9 +592,22 @@ export class DaemonClient {
       })
   }
 
+  /** What every `auth` says about this client. */
+  private authFields() {
+    const { clientName, appBuild } = this.options
+    return {
+      protocolVersion: PROTOCOL_VERSION,
+      ...(clientName ? { client: clientName } : {}),
+      ...(appBuild ? { app: appBuild } : {}),
+    }
+  }
+
   private handleMessage(text: string): void {
     const parsed = parseServerMessage(text)
-    if (!parsed.ok) return
+    if (!parsed.ok) {
+      this.invalidMessage(parsed.error)
+      return
+    }
     const message = parsed.value
     const replyTo = 'replyTo' in message ? message.replyTo : undefined
     if (replyTo) {
@@ -563,6 +624,26 @@ export class DaemonClient {
     }
     for (const handler of this.handlers.get(message.type) ?? []) handler(message)
     for (const handler of this.handlers.get('*') ?? []) handler(message)
+  }
+
+  /** Counted and reported, never handled; while authenticating it can only be the reply to `auth`. */
+  private invalidMessage(error: ParseError): void {
+    this._invalidMessages += 1
+    const info: InvalidMessage = {
+      code: error.code,
+      message: error.message,
+      ...(error.type ? { type: error.type } : {}),
+    }
+    for (const listener of this.invalidMessageListeners) listener(info)
+    // The daemon sends nothing before its answer to `auth`: an unreadable answer would only come
+    // back the same on every retry, so the attempt ends here with an error the user can see.
+    const socket = this.socket
+    if (socket && this._status === 'authenticating')
+      this.refuse(
+        socket,
+        CHANNEL_CLOSE.protocolMismatch,
+        `the computer's ${error.type ?? 'reply'} could not be read`,
+      )
   }
 
   private failPending(code: 'disconnected'): void {
@@ -633,17 +714,38 @@ export class DaemonClient {
    * A connection that stopped answering (a NAT dropped it silently): closed without waiting for a
    * close handshake that would never come, then reconnected like any dropped connection.
    */
-  private dropDead(socket: SocketLike): void {
+  private dropDead(socket: SocketLike, reason = 'no answer'): void {
     if (this.socket !== socket) return
     socket.onmessage = null
     socket.onclose = null
     socket.close()
-    this.socketClosed(socket, { code: 1006, reason: 'no answer' })
+    this.socketClosed(socket, { code: 1006, reason })
+  }
+
+  /** Drops the attempt in progress without scheduling a retry: the caller opens a new one. */
+  private abandonAttempt(): void {
+    const socket = this.socket
+    this.socket = null
+    this.session = null
+    this.handshake = null
+    this.clearConnectTimer()
+    this.clearHandshakeTimer()
+    if (socket) {
+      socket.onmessage = null
+      socket.onclose = null
+      socket.close()
+    }
+    this.failPending('disconnected')
   }
 
   private clearConnectTimer(): void {
     if (this.connectTimer) clearTimeout(this.connectTimer)
     this.connectTimer = null
+  }
+
+  private clearHandshakeTimer(): void {
+    if (this.handshakeTimer) clearTimeout(this.handshakeTimer)
+    this.handshakeTimer = null
   }
 
   private startProbing(): void {
@@ -749,12 +851,7 @@ export class DaemonClient {
             const step = handshake.receive(bytes)
             if (!step.session) return finish(null)
             session = step.session
-            const auth = {
-              type: 'auth',
-              id: authId,
-              protocolVersion: PROTOCOL_VERSION,
-              client: this.options.clientName,
-            }
+            const auth = { type: 'auth', id: authId, ...this.authFields() }
             for (const frame of session.sealText(JSON.stringify(auth))) socket.send(toArrayBuffer(frame))
             return
           }

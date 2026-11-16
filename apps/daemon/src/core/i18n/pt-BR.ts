@@ -22,6 +22,14 @@ export const ptBR = {
         ` (emulador Android: também \`adb reverse tcp:${port} tcp:${port}\`).`,
       scan: 'Escaneie com o app Remote Harness. Não compartilhe este código.',
       singleUse: (minutes: number) => `Ele pareia um celular e expira em ${minutes} minutos.`,
+      waiting: 'Esperando o celular escanear… (Ctrl+C para parar de esperar)',
+      confirm: (code: string) =>
+        `Um aparelho está pareando: digite ${code} nele. Não foi você? Ignore: sem este código nada é pareado.`,
+      paired: 'Aparelho pareado.',
+      locked:
+        'Códigos errados demais: este código de pareamento não funciona mais. Rode `remote-harness pair` para um novo.',
+      expired: 'O código de pareamento expirou. Rode `remote-harness pair` para um novo.',
+      lost: 'O daemon parou de responder; este código de pareamento pode não funcionar mais.',
     },
     setup: {
       description: 'assistente: escolhe contas e aliases, instala hooks, serviço e pareia o celular',
@@ -238,11 +246,11 @@ export const ptBR = {
     },
     devices: {
       description: 'os aparelhos pareados com este computador',
-      list: 'lista os aparelhos pareados (ID, nome, plataforma, pareado em, visto por último)',
+      list: 'lista os aparelhos pareados (ID, nome, plataforma, pareado em, visto por último, versão do app)',
       revoke: 'despareia um aparelho: ele é desconectado e precisa parear de novo',
       empty: 'Nenhum aparelho pareado. Rode `remote-harness pair` para parear um.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string) =>
-        `${id}  ${name}  ${platform}  pareado em ${paired}  visto por último ${seen}`,
+      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
+        `${id}  ${name}  ${platform}  pareado em ${paired}  visto por último ${seen}  app ${app}`,
       never: 'nunca',
       revoked: (id: string) => `Aparelho ${id} revogado.`,
       notFound: (id: string) => `Nenhum aparelho pareado ${id}.`,
@@ -640,6 +648,7 @@ export const ptBR = {
       pairMenu: 'Parear um celular',
       pairInTerminal: 'Mostrar o pareamento no terminal',
       pairNote: 'Uso único · expira em 5 minutos',
+      pairConfirm: (code: string) => `No celular, digite ${code}`,
       prefsMenu: 'Preferências',
       prefPermissions: 'Mostrar pedidos de permissão aqui',
       keepAwake: 'Manter o computador acordado',
