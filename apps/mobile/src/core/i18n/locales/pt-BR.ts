@@ -337,6 +337,21 @@ const ptBR = {
     /** `n` é um número simples entre parênteses, sem plural. */
     subagents: 'Subagentes ({{n}})',
     subagentsRunning: 'Subagentes ({{n}} · {{running}} rodando)',
+    /** Under each icon of the session sheet's grid; the full labels above stay its accessible labels. */
+    short: {
+      terminal: 'Terminal',
+      runCommand: 'Comando',
+      model: 'Modelo',
+      subagents: 'Subagentes',
+      toggleKeyBar: 'Atalhos',
+      toggleHandsFree: 'Mãos livres',
+      templates: 'Modelos de prompt',
+      schedule: 'Agendar',
+      history: 'Histórico',
+      changes: 'Alterações',
+      toggleFollow: 'Acompanhar',
+      toggleLiveFollow: 'Ao vivo',
+    },
   },
   sessionActions: {
     close: 'Encerrar sessão',
@@ -448,8 +463,8 @@ const ptBR = {
   },
   sessionDetails: {
     title: 'Detalhes da sessão',
-    open: 'Detalhes da sessão: {{title}}',
-    openHint: 'Mostra a pasta completa, o perfil e o ID da sessão',
+    open: '{{title}}: detalhes e ações',
+    openHint: 'Abre as ações e os detalhes da sessão',
     openFolder: 'Pasta {{folder}}. Detalhes da sessão',
     copy: 'Copiar',
     copied: 'Copiado',

@@ -337,6 +337,21 @@ const esES = {
     /** `n` es un número simple entre paréntesis, sin plural. */
     subagents: 'Subagentes ({{n}})',
     subagentsRunning: 'Subagentes ({{n}} · {{running}} en marcha)',
+    /** Under each icon of the session sheet's grid; the full labels above stay its accessible labels. */
+    short: {
+      terminal: 'Terminal',
+      runCommand: 'Comando',
+      model: 'Modelo',
+      subagents: 'Subagentes',
+      toggleKeyBar: 'Atajos',
+      toggleHandsFree: 'Manos libres',
+      templates: 'Plantillas',
+      schedule: 'Programar',
+      history: 'Historial',
+      changes: 'Cambios',
+      toggleFollow: 'Seguir',
+      toggleLiveFollow: 'En vivo',
+    },
   },
   sessionActions: {
     close: 'Cerrar sesión',
@@ -448,8 +463,8 @@ const esES = {
   },
   sessionDetails: {
     title: 'Detalles de la sesión',
-    open: 'Detalles de la sesión: {{title}}',
-    openHint: 'Muestra la carpeta completa, el perfil y el ID de la sesión',
+    open: '{{title}}: detalles y acciones',
+    openHint: 'Abre las acciones y los detalles de la sesión',
     openFolder: 'Carpeta {{folder}}. Detalles de la sesión',
     copy: 'Copiar',
     copied: 'Copiado',

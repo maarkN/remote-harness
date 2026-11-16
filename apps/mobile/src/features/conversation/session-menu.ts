@@ -123,3 +123,44 @@ export function sessionMenu(
     ...(controllable ? {} : { disabledReason: t('sessionMenu.readOnly') }),
   }
 }
+
+/** A cell of the session sheet's action grid (#563): the menu item plus its short label and toggle state. */
+export type SessionSheetCell = SessionMenuItem & {
+  key: Exclude<SessionMenuAction, 'close'>
+  /** Under the icon; the full `label` is the accessible label. */
+  short: string
+  /** On / off for the toggles, `null` for plain actions. */
+  active: boolean | null
+}
+
+/**
+ * The session sheet's actions: the menu's items in its order as grid cells, and Close session set
+ * apart (it goes at the bottom, in the danger color). Toggles carry their current state.
+ */
+export function sessionSheet(
+  menu: { items: SessionMenuItem[]; disabledReason?: string },
+  state: {
+    keyBarVisible: boolean
+    following: boolean
+    liveFollow?: boolean | null
+    handsFree?: boolean | null
+  },
+  t: TFunction,
+): { cells: SessionSheetCell[]; close: SessionMenuItem | null; disabledReason?: string } {
+  const active: Partial<Record<SessionMenuAction, boolean>> = {
+    toggleKeyBar: state.keyBarVisible,
+    toggleFollow: state.following,
+    toggleLiveFollow: state.liveFollow === true,
+    toggleHandsFree: state.handsFree === true,
+  }
+  const cells = menu.items
+    .filter(
+      (item): item is SessionMenuItem & { key: Exclude<SessionMenuAction, 'close'> } => item.key !== 'close',
+    )
+    .map((item) => ({ ...item, short: t(`sessionMenu.short.${item.key}`), active: active[item.key] ?? null }))
+  return {
+    cells,
+    close: menu.items.find((item) => item.key === 'close') ?? null,
+    ...(menu.disabledReason ? { disabledReason: menu.disabledReason } : {}),
+  }
+}

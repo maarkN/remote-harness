@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Alert, Keyboard, Pressable, StyleSheet, View } from 'react-native'
 import { useConnectionStore, useDaemonClient } from '@/core/connection'
 import { useLayout } from '@/core/layout'
-import { makeStyles, space, useTheme } from '@/core/theme'
+import { makeStyles, radius, space, useTheme } from '@/core/theme'
 import { shortPath } from '@/core/utils/time'
 import { SmartComposer } from '@/features/autocomplete/SmartComposer'
 import { CommandSheet } from '@/features/commands/CommandSheet'
@@ -14,7 +14,7 @@ import { RunCommandContext } from '@/features/commands/run-context'
 import { ConversationScreen } from '@/features/conversation/ConversationScreen'
 import { setFollow, useFollowStore } from '@/features/conversation/follow-store'
 import { setKeyBarVisible, useKeyBarStore } from '@/features/conversation/key-bar-store'
-import { type SessionMenuAction, sessionMenu } from '@/features/conversation/session-menu'
+import { type SessionMenuAction, sessionMenu, sessionSheet } from '@/features/conversation/session-menu'
 import { promptErrorMessage, usePrompt } from '@/features/conversation/use-prompt'
 import { HandsFreeSession } from '@/features/hands-free/HandsFreeSession'
 import { handsFreeSupported } from '@/features/hands-free/native'
@@ -36,7 +36,7 @@ import { useSchedulesStore } from '@/features/schedules/store'
 import { StatusBar } from '@/features/session-status/StatusBar'
 import { sessionAgent } from '@/features/sessions/agent'
 import { CloseSessionSheet } from '@/features/sessions/components/CloseSessionSheet'
-import { SessionDetailsSheet } from '@/features/sessions/components/SessionDetailsSheet'
+import { SessionSheet } from '@/features/sessions/components/SessionSheet'
 import { StateBadge } from '@/features/sessions/components/StateBadge'
 import { switchToComputer } from '@/features/sessions/switch-computer'
 import { useStableSession } from '@/features/sessions/use-stable-session'
@@ -44,7 +44,7 @@ import { useShortcutRequest } from '@/features/shortcuts/use-shortcut-request'
 import { SubagentsSheet } from '@/features/subagents/SubagentsSheet'
 import { subagentCounts } from '@/features/subagents/sort'
 import { TemplatesSheet } from '@/features/templates/TemplatesSheet'
-import { ActionMenu, AgentBadge, headerActions, IconButton, ProfileTag, Text } from '@/ui'
+import { AgentBadge, headerActions, IconButton, ProfileTag, Text } from '@/ui'
 
 export default function SessionRoute() {
   const { t } = useTranslation()
@@ -76,7 +76,8 @@ export default function SessionRoute() {
   const liveEnabled = useLiveStatusSettings((s) => s.enabled)
   const liveFollow = followSupported && liveEnabled && session?.state !== 'ended' ? liveFollowed : null
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
+  // The session sheet (#563): actions and details, from the title, the folder, ⋮ and ⌘⇧O.
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
@@ -106,19 +107,18 @@ export default function SessionRoute() {
   const startHandsFree = useHandsFreeStore((s) => s.start)
   const stopHandsFree = useHandsFreeStore((s) => s.stop)
   const handsFree = handsFreeSessionId === id && controllable
-  // ⌘⇧O opens More options of the session on screen (others stay mounted under it on phones).
-  const [menuRequests, setMenuRequests] = useState(0)
-  useShortcutRequest('sessionMenu', () => setMenuRequests((n) => n + 1), useIsFocused())
   const subagentStats = subagentCounts(session?.subagents ?? [])
   const agent = session ? sessionAgent(session) : null
   // Two-column tablets reach the inspector (terminal, subagents, details) from the header.
   const { layout } = useLayout()
   const title = session?.title || t('common.session')
   // A focused composer would keep the keyboard over the sheet's lower rows.
-  const openDetails = () => {
+  const openSheet = () => {
     Keyboard.dismiss()
-    setDetailsOpen(true)
+    setSheetOpen(true)
   }
+  // ⌘⇧O opens the session sheet of the session on screen (others stay mounted under it on phones).
+  useShortcutRequest('sessionMenu', openSheet, useIsFocused())
   const menu = sessionMenu(
     {
       controllable,
@@ -131,6 +131,11 @@ export default function SessionRoute() {
       handsFree: handsFreeSupported() ? handsFree : null,
       schedules: schedulesSupported,
     },
+    t,
+  )
+  const sheet = sessionSheet(
+    menu,
+    { keyBarVisible, following, liveFollow, handsFree: handsFreeSupported() ? handsFree : null },
     t,
   )
   // `/model <id>` goes through the same path as a typed slash command, delivered now.
@@ -199,14 +204,15 @@ export default function SessionRoute() {
                 {layout === 'regular' ? (
                   <IconButton icon={PanelRight} label={t('tablet.inspector')} onPress={toggleInspector} />
                 ) : null}
-                <ActionMenu
-                  icon={EllipsisVertical}
-                  label={t('sessionMenu.moreOptions')}
-                  items={menu.items.map((item) => ({ ...item, onPress: actions[item.key] }))}
-                  disabledReason={menu.disabledReason}
-                  attention={subagentStats.running > 0}
-                  openRequests={menuRequests}
-                />
+                {/* ⋮ opens the same sheet as the title; a later change removes it (#563). */}
+                <View>
+                  <IconButton
+                    icon={EllipsisVertical}
+                    label={t('sessionMenu.moreOptions')}
+                    onPress={openSheet}
+                  />
+                  {subagentStats.running > 0 ? <View pointerEvents="none" style={styles.dot} /> : null}
+                </View>
               </View>
             ) : null,
           ),
@@ -217,7 +223,7 @@ export default function SessionRoute() {
                 accessibilityLabel={t('sessionDetails.open', { title })}
                 accessibilityHint={t('sessionDetails.openHint')}
                 hitSlop={8}
-                onPress={openDetails}
+                onPress={openSheet}
                 style={({ pressed }) => [styles.titleButton, pressed && styles.pressed]}
               >
                 {liveFollow ? (
@@ -236,11 +242,16 @@ export default function SessionRoute() {
         }}
       />
       {session ? (
-        <SessionDetailsSheet
-          visible={detailsOpen}
+        <SessionSheet
+          visible={sheetOpen}
           session={session}
           profile={profile}
-          onClose={() => setDetailsOpen(false)}
+          cells={sheet.cells}
+          close={sheet.close}
+          disabledReason={sheet.disabledReason}
+          subagentsRunning={subagentStats.running > 0}
+          onAction={(action) => actions[action]()}
+          onClose={() => setSheetOpen(false)}
         />
       ) : null}
       {session && closeOpen ? (
@@ -312,7 +323,7 @@ export default function SessionRoute() {
                       accessibilityLabel={t('sessionDetails.openFolder', { folder: shortPath(session.cwd) })}
                       accessibilityHint={t('sessionDetails.openHint')}
                       hitSlop={{ top: 12, bottom: 12 }}
-                      onPress={openDetails}
+                      onPress={openSheet}
                       style={({ pressed }) => [styles.cwd, pressed && styles.pressed]}
                     >
                       <Text size="xs" color="textMuted" numberOfLines={1}>
@@ -337,7 +348,7 @@ export default function SessionRoute() {
                   profileId={session.profileId}
                   branch={session.checkout?.branch ?? null}
                   provider={provider}
-                  onDetails={openDetails}
+                  onDetails={openSheet}
                 />
               </>
             ) : null
@@ -393,4 +404,16 @@ const useStyles = makeStyles((theme) => ({
   meta: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm },
   cwd: { flexShrink: 1 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  // Same dot as on the old More options menu: a subagent is running.
+  dot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 9,
+    height: 9,
+    borderRadius: radius.pill,
+    backgroundColor: theme.colors.accent,
+    borderWidth: 1.5,
+    borderColor: theme.colors.background,
+  },
 }))

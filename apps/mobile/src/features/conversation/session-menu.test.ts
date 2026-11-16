@@ -2,7 +2,7 @@ import type { TranscriptEntry } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
 import { createI18n } from '@/core/i18n/create'
 import { promptHistory } from './prompt-history'
-import { sessionMenu } from './session-menu'
+import { sessionMenu, sessionSheet } from './session-menu'
 
 const en = createI18n('en-US').t
 
@@ -168,5 +168,66 @@ describe('sessionMenu', () => {
   test('close is the last item and reads "Close session"', () => {
     const menu = sessionMenu({ controllable: true, keyBarVisible: false, following: false }, en)
     expect(menu.items.at(-1)).toEqual({ key: 'close', label: 'Close session', disabled: false })
+  })
+})
+
+describe('sessionSheet (#563)', () => {
+  const state = {
+    keyBarVisible: true,
+    following: false,
+    liveFollow: true as boolean | null,
+    handsFree: false as boolean | null,
+  }
+  const build = (controllable = true) => {
+    const menu = sessionMenu(
+      { controllable, ...state, subagents: { count: 2, running: 1 }, commands: true, schedules: true },
+      en,
+    )
+    return sessionSheet(menu, state, en)
+  }
+
+  test('the menu order in a grid, Close session apart', () => {
+    const sheet = build()
+    expect(sheet.cells.map((c) => c.key)).toEqual([
+      'terminal',
+      'runCommand',
+      'subagents',
+      'toggleKeyBar',
+      'toggleHandsFree',
+      'templates',
+      'schedule',
+      'history',
+      'changes',
+      'toggleFollow',
+      'toggleLiveFollow',
+    ])
+    expect(sheet.close).toMatchObject({ key: 'close', label: 'Close session', disabled: false })
+  })
+
+  test('short labels under the icons, the full action as the label', () => {
+    const cell = (key: string) => build().cells.find((c) => c.key === key)
+    expect(cell('toggleKeyBar')).toMatchObject({ short: 'Shortcuts', label: 'Hide keyboard shortcuts' })
+    expect(cell('subagents')).toMatchObject({ short: 'Subagents', label: 'Subagents (2 · 1 running)' })
+    expect(cell('runCommand')?.short).toBe('Command')
+  })
+
+  test('toggles carry their state; actions do not', () => {
+    const on = Object.fromEntries(build().cells.map((c) => [c.key, c.active]))
+    expect(on).toMatchObject({
+      toggleKeyBar: true,
+      toggleHandsFree: false,
+      toggleFollow: false,
+      toggleLiveFollow: true,
+      terminal: null,
+      history: null,
+    })
+  })
+
+  test('a read-only session keeps the disabled cells and the reason', () => {
+    const sheet = build(false)
+    expect(sheet.cells.find((c) => c.key === 'terminal')?.disabled).toBe(true)
+    expect(sheet.cells.find((c) => c.key === 'toggleFollow')?.disabled).toBe(false)
+    expect(sheet.close?.disabled).toBe(true)
+    expect(sheet.disabledReason).toContain('Read-only')
   })
 })
