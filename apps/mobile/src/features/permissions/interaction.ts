@@ -79,3 +79,20 @@ export function stepAt(
     complete: isAnswerComplete(questions, selections),
   }
 }
+
+/** The question card's scrolling body: its full height while the keyboard is down. */
+const BODY_MAX = 360
+/** Never shorter than about two options. */
+const BODY_MIN = 88
+/** Share of the room above the keyboard the body may take; the rest is the card's field and buttons, the composer and the header. */
+const BODY_SHARE_WITH_KEYBOARD = 0.25
+
+/**
+ * Maximum height of the question card's options area: 360 pt, or with the keyboard up a share of
+ * the room above it, so the field and Send / Decline stay visible on small phones (#560).
+ */
+export function questionBodyHeight(windowHeight: number, keyboardHeight: number): number {
+  if (keyboardHeight <= 0) return BODY_MAX
+  const room = Math.round((windowHeight - keyboardHeight) * BODY_SHARE_WITH_KEYBOARD)
+  return Math.min(BODY_MAX, Math.max(BODY_MIN, room))
+}
