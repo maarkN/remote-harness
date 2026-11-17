@@ -1,17 +1,23 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import pino from 'pino'
 import { describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
-import { waitForPaneSession } from '../src/features/lifecycle/index.ts'
+import type { CheckoutResolver } from '../src/features/checkout/resolver.ts'
+import { registerLifecycleFeature, waitForPaneSession } from '../src/features/lifecycle/index.ts'
 import {
   LifecycleService,
   MAX_FIRST_PROMPT_BYTES,
+  START_SETTLE_MS,
   validateCwd,
   WAIT_FOR_SESSION_MS,
 } from '../src/features/lifecycle/service.ts'
+import type { SessionService } from '../src/features/sessions/service.ts'
 import { SessionStore } from '../src/features/sessions/store.ts'
 import type { SessionRecord } from '../src/features/sessions/types.ts'
-import { fakeExecutor, useTempHome } from './helpers.ts'
+import type { DaemonContext } from '../src/main.ts'
+import { MessageRouter } from '../src/transport/router.ts'
+import { fakeConnection, fakeExecutor, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
 
@@ -393,6 +399,96 @@ describe('LifecycleService', () => {
     const results = await Promise.all([service.resume('claudin', 'old'), service.resume('claudin', 'old')])
     expect(results).toEqual([{ paneId: '%9' }, { paneId: '%9' }])
     expect(exec.calls).toHaveLength(1)
+  })
+
+  test('a resume fails when the agent exits before the settle check (#606)', async () => {
+    const { exec, store, project } = await setup()
+    const alive = new Set<string>()
+    const service = new LifecycleService(
+      exec,
+      store,
+      [
+        { id: 'claudin', name: 'P', configDir: '/c', color: '' },
+        { id: 'cdx', name: 'X', configDir: '/x', color: '', agent: 'codex' },
+      ],
+      '/bin-dir',
+      home.dir(),
+      async (pane) => alive.has(pane),
+      undefined,
+      undefined,
+      1,
+    )
+    store.upsert('old', {}, () => record('old', { cwd: project }))
+    await expect(service.resume('claudin', 'old')).rejects.toMatchObject({
+      code: 'internal',
+      message: 'Claude Code exited right after starting (pane %9 closed)',
+    })
+    // The closed pane is not linked: the session stays read-only.
+    expect(store.get('old')).toMatchObject({ paneId: null, controllable: false })
+    // Tapping again launches again, and a pane that stays alive is linked as before.
+    alive.add('%9')
+    expect(await service.resume('claudin', 'old')).toEqual({ paneId: '%9' })
+    expect(exec.calls).toHaveLength(2)
+    expect(store.get('old')).toMatchObject({ paneId: '%9', controllable: true })
+    // The error names the profile's actual agent.
+    alive.clear()
+    store.upsert('cx', {}, () => record('cx', { cwd: project, profileId: 'cdx' }))
+    await expect(service.resume('cdx', 'cx')).rejects.toMatchObject({
+      code: 'internal',
+      message: expect.stringContaining('Codex exited right after starting'),
+    })
+  })
+
+  test('session.resume logs accepted and rejected resumes, like session.start (#606)', {
+    timeout: 4 * START_SETTLE_MS + 2_000,
+  }, async () => {
+    const { exec, store, project } = await setup()
+    const lines: Array<Record<string, unknown>> = []
+    const logger = pino({ level: 'info' }, { write: (text: string) => lines.push(JSON.parse(text)) })
+    const alive = new Set<string>()
+    const router = new MessageRouter(logger)
+    const ctx = {
+      exec,
+      router,
+      logger,
+      profiles: [{ id: 'claudin', name: 'P', configDir: '/c', color: '' }],
+      tmux: { hasPane: async (pane: string) => alive.has(pane) },
+    } as unknown as DaemonContext
+    // The feature accepts folders inside the home folder only, and the project is in the test's.
+    const realHome = process.env.HOME
+    process.env.HOME = home.dir()
+    try {
+      registerLifecycleFeature(
+        ctx,
+        store,
+        {} as unknown as SessionService,
+        {} as unknown as CheckoutResolver,
+        { lock: { run: (_key, fn) => fn() }, denyPending: () => {} },
+        async () => {},
+      )
+    } finally {
+      process.env.HOME = realHome
+    }
+    store.upsert('old', {}, () => record('old', { cwd: project }))
+    const conn = fakeConnection()
+    const resume = (id: string) =>
+      router.dispatch({ type: 'session.resume', id, profileId: 'claudin', sessionId: 'old' }, conn)
+    await resume('1')
+    expect(conn.sent.at(-1)).toMatchObject({ type: 'error', replyTo: '1', code: 'internal' })
+    expect(lines.find((l) => l.msg === 'session.resume rejected')).toMatchObject({
+      profileId: 'claudin',
+      sessionId: 'old',
+      code: 'internal',
+      reason: 'Claude Code exited right after starting (pane %9 closed)',
+    })
+    alive.add('%9')
+    await resume('2')
+    expect(conn.sent.at(-1)).toMatchObject({ type: 'ack', replyTo: '2' })
+    expect(lines.find((l) => l.msg === 'session resumed')).toMatchObject({
+      profileId: 'claudin',
+      sessionId: 'old',
+      paneId: '%9',
+    })
   })
 
   test('lists recent directories per profile with the latest branch and the sessions this week', async () => {

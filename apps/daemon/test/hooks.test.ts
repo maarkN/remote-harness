@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process'
-import { lstat, mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Profile } from '@remote-harness/protocol'
 import { describe, expect, test } from 'vitest'
@@ -35,6 +35,14 @@ import { createHooksServer } from '../src/transport/hooks-server.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
+const hasTmux = (() => {
+  try {
+    execFileSync('tmux', ['-V'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+})()
 const options = {
   port: 7338,
   curlConfig: '/u/.remote-harness/hook-secret.curlrc',
@@ -402,6 +410,95 @@ exit 0
     expect(log).not.toContain('status off')
     expect(log).not.toContain('TMUX=unset')
   })
+
+  /** A fake tmux that logs each call with the folder it ran in; `has` answers has-session. */
+  async function folderTmux(has: boolean): Promise<{ bin: string; log: () => Promise<string> }> {
+    const bin = join(home.dir(), `tmux-${has ? 'has' : 'none'}`)
+    const log = join(home.dir(), `tmux-${has ? 'has' : 'none'}.log`)
+    await writeFile(
+      bin,
+      `#!/bin/sh
+printf '%s | IN=%s\\n' "$*" "$(pwd -P)" >> '${log}'
+while [ "$1" = -L ] || [ "$1" = -f ]; do shift 2; done
+case "$1" in
+  has-session) exit ${has ? 0 : 1} ;;
+  new-session|new-window) echo '%1 @1'; exit 0 ;;
+esac
+exit 0
+`,
+      { mode: 0o755 },
+    )
+    return { bin, log: () => readFile(log, 'utf8') }
+  }
+
+  test('the window changes to the launcher folder itself, and a new session is created from home (#606)', async () => {
+    await mkdir(join(home.dir(), 'my project'))
+    await mkdir(join(home.dir(), 'home'))
+    const project = await realpath(join(home.dir(), 'my project'))
+    const userHome = await realpath(join(home.dir(), 'home'))
+    const { TMUX: _, ...env } = process.env
+    const run = async (has: boolean) => {
+      const fake = await folderTmux(has)
+      const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+      execFileSync('zsh', ['-c', script, 'p', '--resume', 'abc'], {
+        env: { ...env, HOME: userHome, REMOTE_HARNESS_NO_ATTACH: '1' },
+        cwd: project,
+      })
+      return fake.log()
+    }
+    // The window's own command enters the folder, whatever the tmux server's directory is.
+    const window = `cd -- ${project.replaceAll(' ', '\\ ')} && exec env -u CLAUDE_CONFIG_DIR claude --resume abc`
+    const created = await run(false)
+    expect(created).toContain(`-c ${project} `)
+    // The session (and a tmux server it starts) is created from the home folder.
+    expect(created).toMatch(new RegExp(`new-session -d -P .* \\| IN=${userHome}\\n`))
+    expect(created).toContain(`${window} | IN=${userHome}`)
+    const added = await run(true)
+    expect(added).toContain(
+      `new-window -d -P -F #{pane_id} #{window_id} -t =s: -n p:my project -c ${project} `,
+    )
+    expect(added).toContain(window)
+  })
+
+  test.skipIf(!hasTmux)(
+    'a tmux server whose starting folder was deleted still opens the window in the launcher folder (#606)',
+    async () => {
+      const socket = `rh-test-${process.pid}-${Date.now()}`
+      const gone = join(home.dir(), 'gone')
+      await mkdir(gone)
+      await mkdir(join(home.dir(), 'api'))
+      const project = await realpath(join(home.dir(), 'api'))
+      const seen = join(home.dir(), 'cwd.txt')
+      // The agent only reports the folder it runs in (empty when the folder is gone).
+      const agent = join(home.dir(), 'agent')
+      await writeFile(agent, `#!/bin/sh\npwd -P > '${seen}' 2>/dev/null || : > '${seen}'\n`, { mode: 0o755 })
+      const tmux = (...args: string[]) => execFileSync('tmux', ['-L', socket, '-f', '/dev/null', ...args])
+      // The launchers' session exists and its server started in a folder that is then deleted.
+      execFileSync('tmux', ['-L', socket, '-f', '/dev/null', 'new-session', '-d', '-s', 's', 'sleep 60'], {
+        cwd: gone,
+      })
+      await rm(gone, { recursive: true })
+      try {
+        const script = renderLauncher(profile, {
+          ...options,
+          tmuxServer: { socket, conf: '/dev/null' },
+        })
+        const { TMUX: _, ...env } = process.env
+        execFileSync('zsh', ['-c', script], {
+          env: { ...env, REMOTE_HARNESS_NO_ATTACH: '1', REMOTE_HARNESS_CLAUDE_BIN: agent },
+          cwd: project,
+        })
+        let folder: string | null = null
+        for (let i = 0; i < 50 && folder === null; i++) {
+          folder = await readFile(seen, 'utf8').catch(() => null)
+          if (folder === null) await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+        expect(folder?.trim()).toBe(project)
+      } finally {
+        tmux('kill-server')
+      }
+    },
+  )
 })
 
 describe('hook receiver', () => {

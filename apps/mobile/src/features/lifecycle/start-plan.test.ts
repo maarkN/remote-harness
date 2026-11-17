@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { DaemonRequestError } from '@/core/connection/daemon-client'
 import { createI18n } from '@/core/i18n/create'
-import { planStart, startErrorMessage, withTimeout } from './start-plan'
+import { planStart, resumeErrorMessage, startErrorMessage, withTimeout } from './start-plan'
 
 const en = createI18n('en-US').t
 
@@ -62,6 +62,31 @@ describe('startErrorMessage', () => {
       'Could not open the agent in tmux: Claude Code exited',
     )
     expect(startErrorMessage(new DaemonRequestError('timeout', 'x'), en)).toBe(
+      'Your machine did not respond.',
+    )
+  })
+})
+
+describe('resumeErrorMessage', () => {
+  test('explains a failed resume like a failed start, naming the session agent (#606)', () => {
+    const exited = new DaemonRequestError(
+      'internal',
+      'Claude Code exited right after starting (pane %9 closed)',
+    )
+    expect(resumeErrorMessage(exited, en, 'claude')).toBe(
+      'Could not open Claude Code in tmux: Claude Code exited right after starting (pane %9 closed)',
+    )
+    expect(resumeErrorMessage(new DaemonRequestError('internal', 'Codex exited'), en, 'codex')).toBe(
+      'Could not open Codex in tmux: Codex exited',
+    )
+    expect(resumeErrorMessage(new DaemonRequestError('invalid_cwd', 'x'), en, 'claude')).toMatch(
+      /outside your home/,
+    )
+    // The other codes keep their generic texts (a session that no longer exists, a timeout).
+    expect(resumeErrorMessage(new DaemonRequestError('not_found', 'x'), en, 'claude')).toMatch(
+      /closed or removed/,
+    )
+    expect(resumeErrorMessage(new DaemonRequestError('timeout', 'x'), en, null)).toBe(
       'Your machine did not respond.',
     )
   })
