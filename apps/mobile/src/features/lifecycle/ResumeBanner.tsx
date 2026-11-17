@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 import { useDaemonClient } from '@/core/connection'
-import { errorMessage } from '@/core/connection/error-message'
 import { makeStyles, space } from '@/core/theme'
+import { sessionAgent } from '@/features/sessions/agent'
 import { Button, Text } from '@/ui'
+import { resumeErrorMessage } from './start-plan'
 
 /** Shown on read-only sessions: reopens them with `claude --resume` in a new tmux window. */
 export function ResumeBanner({ session }: { session: Session }) {
@@ -25,7 +26,7 @@ export function ResumeBanner({ session }: { session: Session }) {
       await client.request({ type: 'session.resume', profileId: session.profileId, sessionId: session.id })
       setLaunched(true)
     } catch (e) {
-      setError(errorMessage(e, t))
+      setError(resumeErrorMessage(e, t, sessionAgent(session)))
     } finally {
       setBusy(false)
     }

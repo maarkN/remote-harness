@@ -139,15 +139,21 @@ SESSION=${zshQuote(options.tmuxSession)}
 TMUX_CMD=${tmuxCmd}
 ${binEnv}=\${REMOTE_HARNESS_${binEnv}:-\${CLAUDE_REMOTE_${binEnv}:-${agent.command}}}
 ${providerBlock}
-name="${profile.id}:\${PWD:t}"
+dir=$PWD
+name="${profile.id}:\${dir:t}"
 cmd=(${command})
 command_line="\${(j: :)\${(q)cmd[@]}}"
 envs=(${configEnv}${execEnv}-e "REMOTE_HARNESS_PROFILE=$REMOTE_HARNESS_PROFILE" -e "CLAUDE_REMOTE_PROFILE=$REMOTE_HARNESS_PROFILE")
-${promptBlock}
+${promptBlock}# The window enters the folder itself: once the folder the tmux server started in is deleted, tmux
+# ignores \`-c\` and every new pane starts in that deleted folder (#606).
+command_line="cd -- \${(q)dir} && exec $command_line"
+
 if "\${TMUX_CMD[@]}" has-session -t "=$SESSION" 2>/dev/null; then
-  ids=$("\${TMUX_CMD[@]}" new-window -d -P -F '#{pane_id} #{window_id}' -t "=$SESSION:" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
+  ids=$("\${TMUX_CMD[@]}" new-window -d -P -F '#{pane_id} #{window_id}' -t "=$SESSION:" -n "$name" -c "$dir" "\${envs[@]}" "$command_line") || exit 1
 else
-  ids=$("\${TMUX_CMD[@]}" new-session -d -P -F '#{pane_id} #{window_id}' -s "$SESSION" -n "$name" -c "$PWD" "\${envs[@]}" "$command_line") || exit 1
+  # Created from the home folder: a tmux server this starts keeps that folder as its own, never a
+  # project folder that may be deleted later.
+  ids=$({ cd -- "$HOME" || cd /; } 2>/dev/null; "\${TMUX_CMD[@]}" new-session -d -P -F '#{pane_id} #{window_id}' -s "$SESSION" -n "$name" -c "$dir" "\${envs[@]}" "$command_line") || exit 1
 fi
 pane=\${ids%% *}
 window=\${ids##* }

@@ -1,6 +1,7 @@
 import { DaemonRequestError } from '../../core/connection/daemon-client'
 import { errorMessage } from '../../core/connection/error-message'
 import type { TFunction } from '../../core/i18n/create'
+import type { AgentId } from '../../core/theme/agents'
 import { agentLabel } from '../sessions/agent'
 
 export type StartPlan = { action: 'launch'; worktree: boolean } | { action: 'confirm' }
@@ -53,6 +54,24 @@ export function startErrorMessage(error: unknown, t: TFunction): string {
       ? {
           internal: t('newSession.errors.launchFailed', {
             agent: agentLabel(null, t),
+            reason: error.message,
+          }),
+        }
+      : {}),
+  })
+}
+
+/**
+ * Text shown on the Resume banner when `session.resume` fails, worded like a failed start and
+ * naming the session's agent: the daemon's reason when the agent exited at once (#606).
+ */
+export function resumeErrorMessage(error: unknown, t: TFunction, agent: AgentId | null): string {
+  return errorMessage(error, t, {
+    invalid_cwd: t('newSession.errors.invalidCwd'),
+    ...(error instanceof DaemonRequestError
+      ? {
+          internal: t('newSession.errors.launchFailed', {
+            agent: agentLabel(agent, t),
             reason: error.message,
           }),
         }
