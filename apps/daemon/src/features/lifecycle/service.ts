@@ -89,6 +89,19 @@ export class LifecycleService {
     return result.stdout.trim()
   }
 
+  /**
+   * The launcher only reports the window it created, and a window whose command exits closes at
+   * once (for example when its folder no longer exists, #606): `paneId` once it survived its first
+   * moments.
+   */
+  private async settled(profile: Profile, paneId: string): Promise<string> {
+    if (this.settleMs <= 0) return paneId
+    await new Promise((resolve) => setTimeout(resolve, this.settleMs))
+    if (await this.hasPane(paneId)) return paneId
+    const name = agentFor(profile).name
+    throw new DaemonError('internal', `${name} exited right after starting (pane ${paneId} closed)`)
+  }
+
   /** The worktree name for a new session: its name's slug when free (or `-2`…`-9`), else the time. */
   private async freeWorktreeName(root: string, name: string | undefined): Promise<string> {
     for (const candidate of worktreeCandidates(worktreeSlug(name ?? ''))) {
@@ -123,20 +136,10 @@ export class LifecycleService {
     }
     if (options.model) args.push('--model', options.model)
     if (options.name) args.push(...(agent.nameArgs(options.name) ?? []))
-    const paneId = await this.launch(
+    const paneId = await this.settled(
       profile,
-      cwd,
-      args,
-      options.prompt ? { REMOTE_HARNESS_PROMPT: options.prompt } : {},
+      await this.launch(profile, cwd, args, options.prompt ? { REMOTE_HARNESS_PROMPT: options.prompt } : {}),
     )
-    // The launcher only reports the window it created; a window whose command exits closes at once.
-    if (this.settleMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, this.settleMs))
-      if (!(await this.hasPane(paneId))) {
-        const name = agentFor(profile).name
-        throw new DaemonError('internal', `${name} exited right after starting (pane ${paneId} closed)`)
-      }
-    }
     // The pane is alive; its SessionStart hook may already have registered it, or may still be pending.
     if (options.name) this.pendingNames.set(paneId, options.name)
     const sessionId = await this.waitForSession(paneId, WAIT_FOR_SESSION_MS)
@@ -183,9 +186,10 @@ export class LifecycleService {
       }
       if (this.resuming.get(sessionId) !== pending) return this.resume(profileId, sessionId)
     }
-    const launch = validateCwd(session.cwd, this.home).then((cwd) =>
-      this.launch(profile, cwd, agentFor(profile).resumeArgs(sessionId)),
-    )
+    // The settle check is part of the launch a repeated tap waits for, so it gets the same answer.
+    const launch = validateCwd(session.cwd, this.home)
+      .then((cwd) => this.launch(profile, cwd, agentFor(profile).resumeArgs(sessionId)))
+      .then((paneId) => this.settled(profile, paneId))
     this.resuming.set(sessionId, launch)
     try {
       const paneId = await launch

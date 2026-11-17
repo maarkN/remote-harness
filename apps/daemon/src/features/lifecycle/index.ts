@@ -118,10 +118,24 @@ export function registerLifecycleFeature(
       throw error
     }
   })
-  ctx.router.register('session.resume', async (msg) => ({
-    type: 'ack',
-    data: await service.resume(msg.profileId, msg.sessionId),
-  }))
+  ctx.router.register('session.resume', async (msg) => {
+    try {
+      const data = await service.resume(msg.profileId, msg.sessionId)
+      ctx.logger.info(
+        { profileId: msg.profileId, sessionId: msg.sessionId, paneId: data.paneId },
+        'session resumed',
+      )
+      return { type: 'ack', data }
+    } catch (error) {
+      const code = error instanceof DaemonError ? error.code : 'internal'
+      const reason = error instanceof Error ? error.message : String(error)
+      ctx.logger.warn(
+        { profileId: msg.profileId, sessionId: msg.sessionId, code, reason },
+        'session.resume rejected',
+      )
+      throw error
+    }
+  })
   ctx.router.register('session.close', async (msg) => {
     const data = await closer.close(msg.sessionId, msg.worktree)
     ctx.logger.info({ sessionId: msg.sessionId, ...data }, 'session closed')
