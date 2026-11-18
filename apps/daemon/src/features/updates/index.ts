@@ -13,11 +13,13 @@ import { messagesFor } from '../../core/i18n/index.ts'
 import { displayHostName, paths, shortenHome } from '../../core/paths.ts'
 import { DAEMON_VERSION } from '../../core/version.ts'
 import { createDesktop } from '../../infra/desktop.ts'
+import { writeFileAtomic } from '../../infra/fs.ts'
 import { currentWsl, resolvePlatform } from '../../infra/platform.ts'
-import { spawnJsonLines, trayAssetsDir, trayCommand } from '../../infra/tray-helper.ts'
+import { readXtermAssets, spawnJsonLines, trayAssetsDir, trayCommand } from '../../infra/tray-helper.ts'
 import type { DaemonContext } from '../../main.ts'
 import { agentFor } from '../agents/index.ts'
 import { showInTerminal } from '../pane/show-in-terminal.ts'
+import type { PaneViewer } from '../pane/streamer.ts'
 import type { PushSetting } from '../push/mode.ts'
 import { LaunchdService } from '../service/launchd.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
@@ -44,6 +46,8 @@ import {
 } from './menu.ts'
 import { buildTrayPopover } from './popover.ts'
 import { RemoteUpdates } from './remote.ts'
+import { terminalPageHtml } from './terminal-page.ts'
+import { TerminalWindows } from './terminal-windows.ts'
 import { TrayHost } from './tray-host.ts'
 
 /** Given only to the service daemon (`start` without `--dev`). */
@@ -76,6 +80,12 @@ export type TrayShellDeps = {
   keepAwake: { mode: () => KeepAwakeMode; set: (mode: KeepAwakeMode) => Promise<void> }
   /** The config's `push` setting, and writing + applying a new one. */
   push: { setting: () => PushSetting; set: (setting: PushSetting) => Promise<void> }
+  /** What a session's terminal window (#614) needs: the pane stream and typing into the pane. */
+  terminal?: {
+    subscribe: (sessionId: string, paneId: string, viewer: PaneViewer) => void
+    type: (sessionId: string, data: string) => Promise<void>
+    refresh: (sessionId: string) => void
+  }
 }
 
 /** First check after start, then how often due checks and automatic updates are evaluated. */
@@ -118,6 +128,10 @@ export async function registerUpdatesFeature(
   /** The helper reported it can open the Preferences/Sessions windows, and shows the popover (macOS). */
   let helperWindows = false
   let helperPopover = false
+  /** The helper opens a session's terminal window (macOS, #614). */
+  let helperTerminals = false
+  // Created once the tray exists (it sends the windows' messages); the helper's messages reach it.
+  let terminals: TerminalWindows | null = null
   /** Profiles renamed from the tray: the config has the name, `hello` keeps the start-time one. */
   const profileNames = new Map<string, string>()
   /** Renamed while not controllable: sent as `/rename` once the session is controllable again. */
@@ -203,14 +217,47 @@ export async function registerUpdatesFeature(
         (id, value) => void onTrayClick(id, value),
         ctx.logger,
         undefined,
-        ({ windows, popover }) => {
+        ({ windows, popover, terminals: canOpenTerminals }) => {
           helperWindows = windows
           helperPopover = popover
+          helperTerminals = canOpenTerminals
+          // A new helper process has no terminal windows open.
+          terminals?.reset()
           if (windows) void refreshStartAtLogin()
           refreshMenu()
         },
+        (message) => terminals?.onHelperMessage(message),
       )
     : null
+
+  const terminalDeps = deps.shell?.terminal
+  terminals =
+    tray && terminalDeps
+      ? new TerminalWindows({
+          send: (message) => tray.send(message),
+          session: (sessionId) => {
+            const session = deps.store.get(sessionId)
+            return (
+              session && {
+                title: session.title || session.cwd,
+                paneId: session.paneId,
+                controllable: session.controllable,
+                state: session.state,
+              }
+            )
+          },
+          // Written next to the helper at the first window of this daemon run.
+          page: async () => {
+            const path = join(paths.tray(), 'terminal.html')
+            await writeFileAtomic(path, terminalPageHtml(await readXtermAssets()))
+            return path
+          },
+          subscribe: terminalDeps.subscribe,
+          type: terminalDeps.type,
+          refresh: terminalDeps.refresh,
+          logger: ctx.logger,
+        })
+      : null
 
   /** The shell sections: sessions by recency, the oldest pending tool permission, the phones. */
   const shellState = () => {
@@ -270,6 +317,7 @@ export async function registerUpdatesFeature(
       qr: platform === 'darwin',
       windows: helperWindows,
       popover: helperPopover,
+      terminals: helperTerminals && terminals !== null,
       prefs: {
         permissions: settings.trayPermissions,
         keepAwake: shell.keepAwake.mode(),
@@ -443,6 +491,8 @@ export async function registerUpdatesFeature(
       else if (id.startsWith(TRAY_PREFIXES.deny))
         shell?.respond(id.slice(TRAY_PREFIXES.deny.length), 'deny', false)
       else if (id.startsWith(TRAY_PREFIXES.focus)) await focusSession(id.slice(TRAY_PREFIXES.focus.length))
+      else if (id.startsWith(TRAY_PREFIXES.window))
+        await terminals?.show(id.slice(TRAY_PREFIXES.window.length))
       else if (id.startsWith(TRAY_PREFIXES.close))
         await shell?.closeSession(id.slice(TRAY_PREFIXES.close.length))
       else if (id.startsWith(TRAY_PREFIXES.rename) && shell) {
@@ -503,6 +553,8 @@ export async function registerUpdatesFeature(
   if (deps.shell) {
     const shell = deps.shell
     deps.store.onChange(scheduleRefresh)
+    // An open terminal window follows its session's title, and closes when the pane goes.
+    deps.store.onChange((session) => terminals?.sessionChanged(session.id))
     // A session renamed while not controllable gets the alias sent as `/rename` once it has a pane.
     deps.store.onChange((session, previous) => {
       if (!pendingRenames.has(session.id) || !session.controllable || previous?.controllable) return
@@ -536,6 +588,7 @@ export async function registerUpdatesFeature(
     clearTimeout(first)
     clearInterval(tick)
     clearTimeout(refreshTimer)
+    terminals?.reset()
     tray?.stop()
     remote.stop()
   })

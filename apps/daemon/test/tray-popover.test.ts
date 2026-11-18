@@ -164,6 +164,16 @@ describe('tray popover', () => {
     expect(buildTrayPopover({ ...base, sessions: [] }, en).sessions.empty).toBe('No sessions')
   })
 
+  test("a click opens the session's terminal window when the helper has them (#614)", () => {
+    const sessions = [session('a', 'running'), session('o', 'idle', { controllable: false })]
+    const { rows } = buildTrayPopover({ ...base, sessions, terminals: true }, en).sessions
+    expect(rows[0]?.action).toBe('window:a')
+    // Open in terminal (tmux) stays in the context menu.
+    expect(rows[0]?.menu[0]).toEqual({ id: 'focus:a', label: 'Open in terminal (tmux)', enabled: true })
+    expect(rows[1]?.action).toBeNull()
+    expect(buildTrayPopover({ ...base, sessions }, en).sessions.rows[0]?.action).toBe('focus:a')
+  })
+
   test('a session outside tmux is muted, tagged and explained, and a click does nothing (#613)', () => {
     const sessions = [
       session('o', 'running', { controllable: false }),

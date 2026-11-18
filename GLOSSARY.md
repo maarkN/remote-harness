@@ -68,6 +68,10 @@ _Avoid_: menu, profile selector
 The tmux server of its own (`tmux -L remote-harness`, started with a generated config) where the launchers open agent sessions and the daemon drives them, apart from the user's default tmux server and their `tmux.conf`. `remote-harness tmux` reaches it.
 _Avoid_: shared tmux session, default server (for ours), the user's tmux (for ours)
 
+**Terminal window**:
+A window on the computer, opened from the macOS tray, that shows one session's tmux pane live like the app's Terminal tab and types into the session what is typed in it; one per session.
+_Avoid_: tmux window (that is tmux's own), session window, external terminal (the terminal app "Open in terminal (tmux)" uses)
+
 ### Permissions
 
 **Always-allow rule**:

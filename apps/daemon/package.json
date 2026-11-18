@@ -15,8 +15,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@remote-harness/protocol": "workspace:*",
     "@inquirer/prompts": "^8.7.3",
+    "@remote-harness/protocol": "workspace:*",
+    "@xterm/xterm": "^6.0.0",
     "chokidar": "^5.0.0",
     "commander": "^15.0.0",
     "execa": "^10.1.1",

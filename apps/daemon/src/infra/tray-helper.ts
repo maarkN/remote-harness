@@ -2,7 +2,8 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { chmod, mkdir, readFile, rename } from 'node:fs/promises'
-import { join } from 'node:path'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import type { Executor } from './exec.ts'
@@ -58,6 +59,19 @@ export function spawnJsonLines(
       child.kill()
     },
   }
+}
+
+/**
+ * xterm.js (UMD build and CSS) from the daemon's `@xterm/xterm` dependency, for the terminal window's
+ * page (#614); resolved from the bundle (`dist/cli.js`) or the sources alike.
+ */
+export async function readXtermAssets(): Promise<{ js: string; css: string }> {
+  const dir = dirname(createRequire(import.meta.url).resolve('@xterm/xterm/package.json'))
+  const [js, css] = await Promise.all([
+    readFile(join(dir, 'lib', 'xterm.js'), 'utf8'),
+    readFile(join(dir, 'css', 'xterm.css'), 'utf8'),
+  ])
+  return { js, css }
 }
 
 /** `apps/daemon/tray`, from the bundle (`dist/cli.js`) or from the sources (`src/infra`). */
