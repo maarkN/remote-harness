@@ -635,6 +635,9 @@ export const ptBR = {
       sessionsWindowTitle: 'Sessões',
       searchSessions: 'Buscar sessões',
       copyPath: 'Copiar caminho',
+      outsideTmux: 'fora do tmux',
+      outsideTmuxHint:
+        'Iniciada fora do tmux do Remote Harness, então não há terminal para abrir daqui. Sessões iniciadas pelo comando de um perfil podem ser abertas aqui.',
       renamePromptTitle: 'Renomear sessão',
       renameConfirm: 'Renomear',
       cancel: 'Cancelar',

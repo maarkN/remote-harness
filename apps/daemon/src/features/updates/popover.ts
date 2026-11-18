@@ -2,6 +2,7 @@ import type { Messages } from '../../core/i18n/index.ts'
 import {
   deviceDetail,
   deviceStateLabel,
+  isOutsideTmux,
   MAX_TRAY_DEVICES,
   MAX_TRAY_SESSIONS_WINDOW,
   PREFS_TAB_PREFIX,
@@ -38,6 +39,8 @@ export type PopoverSession = {
   pill: TrayPill
   /** What a click does (open in terminal); null when the session has no pane. */
   action: string | null
+  /** A live session outside the Remote Harness tmux server: the row's tag and its tooltip (#613). */
+  outsideTmux: { tag: string; hint: string } | null
   /** The row's context menu. */
   menu: PopoverAction[]
 }
@@ -110,6 +113,7 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
           .join(' · '),
         pill: { label: t.states[session.state], tone: session.state },
         action: session.controllable ? `${TRAY_PREFIXES.focus}${session.id}` : null,
+        outsideTmux: isOutsideTmux(session) ? { tag: t.outsideTmux, hint: t.outsideTmuxHint } : null,
         menu: [
           { id: `${TRAY_PREFIXES.focus}${session.id}`, label: t.focus, enabled: session.controllable },
           { id: `${TRAY_PREFIXES.rename}${session.id}`, label: t.rename },

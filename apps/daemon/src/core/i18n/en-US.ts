@@ -632,6 +632,10 @@ export const enUS = {
       sessionsWindowTitle: 'Sessions',
       searchSessions: 'Search sessions',
       copyPath: 'Copy path',
+      /** A live session with no pane on the Remote Harness tmux server (#613). */
+      outsideTmux: 'outside tmux',
+      outsideTmuxHint:
+        "Started outside Remote Harness's tmux, so there is no terminal to open from here. Sessions started with a profile's command can be opened here.",
       renamePromptTitle: 'Rename session',
       renameConfirm: 'Rename',
       cancel: 'Cancel',

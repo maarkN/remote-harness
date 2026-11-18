@@ -635,6 +635,9 @@ export const esES = {
       sessionsWindowTitle: 'Sesiones',
       searchSessions: 'Buscar sesiones',
       copyPath: 'Copiar ruta',
+      outsideTmux: 'fuera de tmux',
+      outsideTmuxHint:
+        'Iniciada fuera del tmux de Remote Harness, así que no hay terminal que abrir desde aquí. Las sesiones iniciadas con el comando de un perfil sí se pueden abrir aquí.',
       renamePromptTitle: 'Renombrar sesión',
       renameConfirm: 'Renombrar',
       cancel: 'Cancelar',

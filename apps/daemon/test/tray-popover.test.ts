@@ -147,6 +147,7 @@ describe('tray popover', () => {
       detail: '~/projects/acme-api · Work · worktree',
       pill: { label: 'waiting', tone: 'waiting' },
       action: 'focus:a',
+      outsideTmux: null,
       menu: [
         { id: 'focus:a', label: 'Open in terminal (tmux)', enabled: true },
         { id: 'rename:a', label: 'Rename…' },
@@ -161,6 +162,33 @@ describe('tray popover', () => {
     expect(capped.rows).toHaveLength(5)
     expect(capped.more).toEqual({ id: 'see-all', label: 'See all sessions…' })
     expect(buildTrayPopover({ ...base, sessions: [] }, en).sessions.empty).toBe('No sessions')
+  })
+
+  test('a session outside tmux is muted, tagged and explained, and a click does nothing (#613)', () => {
+    const sessions = [
+      session('o', 'running', { controllable: false }),
+      session('t', 'idle'),
+      session('z', 'ended'),
+    ]
+    const { rows } = buildTrayPopover({ ...base, sessions }, en).sessions
+    expect(rows[0]).toMatchObject({
+      id: 'o',
+      action: null,
+      outsideTmux: {
+        tag: 'outside tmux',
+        hint: "Started outside Remote Harness's tmux, so there is no terminal to open from here. Sessions started with a profile's command can be opened here.",
+      },
+    })
+    expect(rows[0]?.menu).toEqual([
+      { id: 'focus:o', label: 'Open in terminal (tmux)', enabled: false },
+      { id: 'rename:o', label: 'Rename…' },
+      { id: 'close:o', label: 'Close session', enabled: false },
+    ])
+    expect(rows[1]).toMatchObject({ id: 't', action: 'focus:t', outsideTmux: null })
+    expect(rows.map((row) => row.id)).toEqual(['o', 't'])
+    expect(buildTrayPopover({ ...base, sessions }, pt).sessions.rows[0]?.outsideTmux?.tag).toBe(
+      'fora do tmux',
+    )
   })
 
   test('devices with their state, opening the Devices tab', () => {

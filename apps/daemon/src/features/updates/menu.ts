@@ -121,6 +121,8 @@ export type TraySessionsWindow = {
   actions: { focus: string; rename: string; close: string; copyPath: string }
   /** The helper's native rename prompt (a text field is not expressible as a `PrefRow`). */
   renamePrompt: { title: string; confirm: string; cancel: string }
+  /** Tag and tooltip of a live session outside tmux (`controllable` false, not ended) (#613). */
+  outsideTmux: { tag: string; hint: string }
 }
 
 /** The oldest pending tool permission, answerable from the menu. */
@@ -328,6 +330,14 @@ export function statusLine(s: TrayMenuState, t: TrayStrings): string | null {
   return t.status(s.machine, s.version, s.since, s.network ? pathsLabel(s.network, t) : undefined)
 }
 
+/**
+ * A live session with no pane on the Remote Harness tmux server (started outside it): nothing to
+ * open, focus or close from the tray, which says so instead of ignoring clicks (#613).
+ */
+export function isOutsideTmux(session: Pick<TraySession, 'state' | 'controllable'>): boolean {
+  return !session.controllable && session.state !== 'ended'
+}
+
 export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
   const separator = { type: 'separator' } as const
   const status = s.updating
@@ -367,10 +377,15 @@ export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
     items.push({ id: 'sessions', label: t.sessions(s.sessions.length, running), enabled: false })
     for (const session of live.slice(0, cap)) {
       const meta = [session.folder, session.profile, session.worktree ? t.worktree : null].filter(Boolean)
+      const outside = isOutsideTmux(session)
       items.push({
         type: 'submenu',
-        label: `${session.title} · ${t.states[session.state]}`,
+        label: [session.title, t.states[session.state], outside ? t.outsideTmux : null]
+          .filter(Boolean)
+          .join(' · '),
         items: [
+          // Why Open in terminal and Close are disabled: there is no pane to reach (#613).
+          ...(outside ? [{ id: `outside:${session.id}`, label: t.outsideTmuxHint, enabled: false }] : []),
           { id: `info:${session.id}`, label: meta.join(' · '), enabled: false },
           { id: `${TRAY_PREFIXES.focus}${session.id}`, label: t.focus, enabled: session.controllable },
           { id: `${TRAY_PREFIXES.rename}${session.id}`, label: t.rename },
@@ -480,6 +495,7 @@ export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
             searchPlaceholder: t.searchSessions,
             actions: { focus: t.focus, rename: t.rename, close: t.close, copyPath: t.copyPath },
             renamePrompt: { title: t.renamePromptTitle, confirm: t.renameConfirm, cancel: t.cancel },
+            outsideTmux: { tag: t.outsideTmux, hint: t.outsideTmuxHint },
           },
         }
       : {}),
