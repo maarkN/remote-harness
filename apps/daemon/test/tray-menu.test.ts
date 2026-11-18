@@ -150,9 +150,34 @@ describe('tray shell menu', () => {
         copyPath: 'Copy path',
       },
       renamePrompt: { title: 'Rename session', confirm: 'Rename', cancel: 'Cancel' },
+      outsideTmux: { tag: 'outside tmux', hint: en.outsideTmuxHint },
     })
     const few = buildTrayMenu({ ...base, sessions: sessions.slice(0, 2), windows: true }, en)
     expect(ids(few.items)).not.toContain(TRAY_ACTIONS.seeAll)
+  })
+
+  test('a session outside tmux says so in its label and starts its submenu with why (#613)', () => {
+    const sessions = [
+      session('o', 'running', { controllable: false }),
+      session('t', 'idle'),
+      session('z', 'ended', { controllable: false }),
+    ]
+    const menu = buildTrayMenu({ ...base, sessions }, en)
+    const submenu = (title: string) =>
+      menu.items.find((i) => 'type' in i && i.type === 'submenu' && i.label.startsWith(title))
+    const outside = submenu('Session o')
+    expect(outside).toMatchObject({ type: 'submenu', label: 'Session o · running · outside tmux' })
+    const items = outside && 'items' in outside ? outside.items : []
+    expect(items[0]).toEqual({ id: 'outside:o', label: en.outsideTmuxHint, enabled: false })
+    expect(items).toContainEqual({ id: 'focus:o', label: 'Open in terminal (tmux)', enabled: false })
+    expect(items).toContainEqual({ id: 'close:o', label: 'Close session', enabled: false })
+    expect(submenu('Session t')).toMatchObject({ label: 'Session t · idle' })
+    expect(labels(menu.items).filter((label) => label.includes('outside tmux'))).toEqual([
+      'Session o · running · outside tmux',
+    ])
+    expect(labels(buildTrayMenu({ ...base, sessions }, pt).items)).toContain(
+      `Session o · ${pt.states.running} · fora do tmux`,
+    )
   })
 
   test('the oldest pending permission goes first with Allow / Always / Deny / Focus', () => {

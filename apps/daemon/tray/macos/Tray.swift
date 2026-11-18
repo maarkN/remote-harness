@@ -80,11 +80,17 @@ struct TrayRenamePromptWire: Decodable {
   let confirm: String
   let cancel: String
 }
+/// Tag and tooltip of a live session outside the Remote Harness tmux server (no pane to open).
+struct OutsideTmuxWire: Decodable {
+  let tag: String
+  let hint: String
+}
 struct TraySessionsWindowWire: Decodable {
   let title: String
   let searchPlaceholder: String
   let actions: TraySessionsActionsWire
   let renamePrompt: TrayRenamePromptWire
+  let outsideTmux: OutsideTmuxWire?
 }
 
 // MARK: - Popover wire (mirrors the daemon's `TrayPopover`; every string already translated)
@@ -123,6 +129,8 @@ struct PopoverSessionWire: Decodable, Identifiable {
   let detail: String
   let pill: TrayPillWire
   let action: String?
+  /// Set for a live session outside tmux: the row is muted, tagged and explains why it does not open.
+  let outsideTmux: OutsideTmuxWire?
   let menu: [PopoverActionWire]
 }
 struct PopoverSessionsWire: Decodable {
@@ -622,7 +630,9 @@ struct SessionsView: View {
         .textFieldStyle(.roundedBorder)
         .padding(10)
       List(filtered) { session in
-        SessionRowView(session: session, actions: state.sessionsWindow?.actions, tray: tray)
+        SessionRowView(
+          session: session, actions: state.sessionsWindow?.actions,
+          outsideTmux: state.sessionsWindow?.outsideTmux, tray: tray)
       }
     }
     .frame(minWidth: 480, idealWidth: 560, minHeight: 320, idealHeight: 440)
@@ -632,16 +642,25 @@ struct SessionsView: View {
 struct SessionRowView: View {
   let session: TraySessionWire
   let actions: TraySessionsActionsWire?
+  let outsideTmux: OutsideTmuxWire?
   let tray: Tray
+
+  /// The tag and tooltip, only for a live session without a pane (an ended one is just ended).
+  private var outside: OutsideTmuxWire? {
+    session.controllable || session.state == "ended" ? nil : outsideTmux
+  }
 
   var body: some View {
     HStack {
       VStack(alignment: .leading, spacing: 2) {
-        Text(session.title).bold()
+        Text(session.title).bold().foregroundStyle(outside == nil ? .primary : .secondary)
         Text("\(session.folder) · \(session.agent) · \(session.state)")
           .font(.caption)
           .foregroundStyle(.secondary)
+        // Its own line: the buttons leave this column little width.
+        if let outside { Tag(label: outside.tag) }
       }
+      .help(outside?.hint ?? "")
       Spacer()
       Button(actions?.focus ?? "Focus") { tray.sendAction("focus:\(session.id)", nil) }
         .disabled(!session.controllable)
@@ -932,18 +951,41 @@ struct SessionRow: View {
         AgentBadge(agent: row.agent)
         VStack(alignment: .leading, spacing: 1) {
           Text(row.title).lineLimit(1).truncationMode(.tail)
-          Text(row.detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
-            .lineLimit(1).truncationMode(.middle)
+            .foregroundColor(row.outsideTmux == nil ? .primary : .secondary)
+          HStack(spacing: 6) {
+            // On the detail line, so the title keeps its width.
+            if let outside = row.outsideTmux { Tag(label: outside.tag) }
+            Text(row.detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+              .lineLimit(1).truncationMode(.middle)
+          }
         }
         Spacer(minLength: 4)
         Pill(pill: row.pill)
       }
     }
+    // No click action for a session outside tmux: the tooltip says why (#613).
+    .help(row.outsideTmux?.hint ?? "")
     .contextMenu {
       ForEach(row.menu) { item in
         Button(item.label) { tray.popoverAction(item.id) }.disabled(item.enabled == false)
       }
     }
+  }
+}
+
+/// A muted outlined label next to a pill ("outside tmux").
+struct Tag: View {
+  let label: String
+
+  var body: some View {
+    Text(label)
+      .font(.system(size: 10, design: .monospaced))
+      .lineLimit(1)
+      .foregroundColor(.secondary)
+      .padding(.horizontal, 5)
+      .padding(.vertical, 0.5)
+      .overlay(Capsule().stroke(Color.secondary.opacity(0.45), lineWidth: 1))
+      .fixedSize()
   }
 }
 
