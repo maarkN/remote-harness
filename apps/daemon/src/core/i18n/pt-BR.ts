@@ -630,6 +630,8 @@ export const ptBR = {
       rename: 'Renomear…',
       close: 'Encerrar sessão',
       seeAllSessions: 'Ver todas as sessões…',
+      seeAllDevices: (count: number) => `Ver todos os dispositivos (${count})…`,
+      allDevices: (count: number) => `Ver todos os dispositivos (${count})`,
       sessionsWindowTitle: 'Sessões',
       searchSessions: 'Buscar sessões',
       copyPath: 'Copiar caminho',

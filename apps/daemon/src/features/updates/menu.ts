@@ -233,6 +233,8 @@ export const PREFS_TAB_PREFIX = 'prefs:'
 export const MAX_TRAY_SESSIONS = 8
 /** Same, on a helper that can open the Sessions window for the rest ("See all sessions…"). */
 export const MAX_TRAY_SESSIONS_WINDOW = 5
+/** Paired devices listed in the menu and the popover; the rest behind "See all devices (N)" (#619). */
+export const MAX_TRAY_DEVICES = 3
 const SUMMARY_MAX = 48
 
 /** `Bash · gh pr create --fill` for the pending item; the detail is cut, never the whole input. */
@@ -270,6 +272,16 @@ export function pathsLabel(network: TrayNetwork, t: TrayStrings): string {
 }
 
 /** `online · relay`, `online · direct + relay` or `offline`. */
+/** Devices online now first, then the most recently seen; never seen last, the newest pairing first. */
+export function recentDevices(devices: readonly TrayDevice[]): TrayDevice[] {
+  return [...devices].sort(
+    (a, b) =>
+      Number(b.paths.length > 0) - Number(a.paths.length > 0) ||
+      (b.lastSeen ?? -1) - (a.lastSeen ?? -1) ||
+      b.pairedAt - a.pairedAt,
+  )
+}
+
 export function deviceStateLabel(device: Pick<TrayDevice, 'paths'>, t: TrayStrings): string {
   const [first] = device.paths
   if (!first) return t.offline
@@ -383,22 +395,21 @@ export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
   }
 
   if (s.devices) {
-    const devices = s.devices.items
+    const devices = recentDevices(s.devices.items)
     items.push({ id: 'devices', label: t.devices(devices.length, s.devices.push), enabled: false })
-    for (const device of devices) {
-      items.push({
-        type: 'submenu',
-        label: `${device.name} · ${deviceStateLabel(device, t)}`,
-        items: [
-          { id: `info:device:${device.id}`, label: deviceDetail(device, s, t), enabled: false },
-          separator,
-          {
-            type: 'submenu',
-            label: t.revoke,
-            items: [{ id: `${TRAY_PREFIXES.revoke}${device.id}`, label: t.revokeConfirm }],
-          },
-        ],
-      })
+    for (const device of devices.slice(0, MAX_TRAY_DEVICES)) items.push(deviceItem(device, s, t))
+    // The rest: the Devices tab where windows open, else every device in a submenu, so each one can
+    // still be revoked from the tray.
+    if (devices.length > MAX_TRAY_DEVICES) {
+      items.push(
+        s.windows
+          ? { id: `${PREFS_TAB_PREFIX}devices`, label: t.seeAllDevices(devices.length) }
+          : {
+              type: 'submenu',
+              label: t.allDevices(devices.length),
+              items: devices.map((device) => deviceItem(device, s, t)),
+            },
+      )
     }
     if (devices.length === 0) items.push({ id: 'no-devices', label: t.noDevices, enabled: false })
     items.push(separator)
@@ -654,6 +665,23 @@ function deviceRows(s: TrayMenuState, t: TrayStrings): PrefRow[] {
 }
 
 /** Pair a phone: the QR (macOS, a single-use code), the address and the terminal fallback. */
+/** A device as `name · state`, with when it paired and a confirmed Revoke… */
+function deviceItem(device: TrayDevice, s: TrayMenuState, t: TrayStrings): TrayItem {
+  return {
+    type: 'submenu',
+    label: `${device.name} · ${deviceStateLabel(device, t)}`,
+    items: [
+      { id: `info:device:${device.id}`, label: deviceDetail(device, s, t), enabled: false },
+      { type: 'separator' },
+      {
+        type: 'submenu',
+        label: t.revoke,
+        items: [{ id: `${TRAY_PREFIXES.revoke}${device.id}`, label: t.revokeConfirm }],
+      },
+    ],
+  }
+}
+
 function pairItem(s: TrayMenuState, t: TrayStrings): TrayItem {
   if (!s.pairing) return { id: TRAY_ACTIONS.pair, label: t.pair }
   return {

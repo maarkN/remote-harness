@@ -1,11 +1,31 @@
 import { describe, expect, test } from 'vitest'
 import { messagesFor } from '../src/core/i18n/index.ts'
-import type { TrayMenuState, TrayPending, TraySession } from '../src/features/updates/menu.ts'
+import type { TrayDevice, TrayMenuState, TrayPending, TraySession } from '../src/features/updates/menu.ts'
 import { buildTrayPopover } from '../src/features/updates/popover.ts'
 
 const en = messagesFor('en-US').updates.tray
 const pt = messagesFor('pt-BR').updates.tray
 const NOW = Date.parse('2026-10-18T09:41:00Z')
+
+const DAY = 86_400_000
+const device = (id: string, patch: Partial<TrayDevice> = {}): TrayDevice => ({
+  id,
+  name: id,
+  platform: 'ios',
+  pairedAt: NOW - 60 * DAY,
+  lastSeen: null,
+  paths: [],
+  ...patch,
+})
+/** Six paired devices: `iphone` online, then `pixel`, `ipad`, `mac` and `old` by last seen, `never` never seen. */
+const sixDevices: TrayDevice[] = [
+  device('old', { lastSeen: NOW - 30 * DAY }),
+  device('ipad', { lastSeen: NOW - 2 * DAY }),
+  device('never', { pairedAt: NOW - DAY }),
+  device('pixel', { lastSeen: NOW - 3_600_000 }),
+  device('iphone', { lastSeen: NOW - 9 * DAY, paths: ['relay'] }),
+  device('mac', { lastSeen: NOW - 5 * DAY }),
+]
 
 const session = (id: string, state: TraySession['state'], patch: Partial<TraySession> = {}): TraySession => ({
   id,
@@ -157,12 +177,26 @@ describe('tray popover', () => {
           pill: { label: 'online · direct', tone: 'online' },
         },
       ],
+      more: null,
       empty: null,
       action: 'prefs:devices',
     })
     const none = buildTrayPopover({ ...base, devices: { push: false, items: [] } }, pt).devices
     expect(none.empty).toBe('Pareie um celular para acompanhar suas sessões por ele')
     expect(none.detail).toBe('push desligado')
+  })
+
+  test('at most three devices, online first then the most recently seen, and "See all devices (N)…" (#619)', () => {
+    const { devices } = buildTrayPopover({ ...base, devices: { push: true, items: sixDevices } }, en)
+    expect(devices.rows.map((row) => row.id)).toEqual(['iphone', 'pixel', 'ipad'])
+    expect(devices.more).toEqual({ id: 'prefs:devices', label: 'See all devices (6)…' })
+    const three = { push: true, items: sixDevices.slice(0, 3) }
+    const few = buildTrayPopover({ ...base, devices: three }, pt).devices
+    // Never seen goes last.
+    expect(few.rows.map((row) => row.id)).toEqual(['ipad', 'old', 'never'])
+    expect(few.more).toBeNull()
+    const ptMore = buildTrayPopover({ ...base, devices: { push: true, items: sixDevices } }, pt).devices.more
+    expect(ptMore?.label).toBe('Ver todos os dispositivos (6)…')
   })
 
   test('quick actions: pairing tab once listening, the update state and Quit', () => {

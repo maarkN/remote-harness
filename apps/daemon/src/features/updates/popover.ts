@@ -2,8 +2,10 @@ import type { Messages } from '../../core/i18n/index.ts'
 import {
   deviceDetail,
   deviceStateLabel,
+  MAX_TRAY_DEVICES,
   MAX_TRAY_SESSIONS_WINDOW,
   PREFS_TAB_PREFIX,
+  recentDevices,
   statusLine,
   TRAY_ACTIONS,
   TRAY_PREFIXES,
@@ -66,7 +68,15 @@ export type TrayPopover = {
     ended: PopoverAction | null
     empty: string | null
   }
-  devices: { label: string; detail: string; rows: PopoverDevice[]; empty: string | null; action: string }
+  devices: {
+    label: string
+    detail: string
+    rows: PopoverDevice[]
+    /** "See all devices (N)…", opening the Devices tab, when more are paired than listed. */
+    more: PopoverAction | null
+    empty: string | null
+    action: string
+  }
   /** Groups of quick actions, drawn with a divider between groups. */
   actions: PopoverAction[][]
 }
@@ -79,7 +89,7 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
   const live = sessions.filter((session) => session.state !== 'ended')
   const ended = sessions.length - live.length
   const running = live.filter((session) => session.state === 'running').length
-  const devices = s.devices?.items ?? []
+  const devices = recentDevices(s.devices?.items ?? [])
   const pill: TrayPill = s.updating
     ? { label: t.updating, tone: 'accent' }
     : s.available?.version
@@ -114,7 +124,7 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
     devices: {
       label: t.devicesTitle,
       detail: s.devices?.push ? t.pushOn : t.pushOff,
-      rows: devices.map((device) => ({
+      rows: devices.slice(0, MAX_TRAY_DEVICES).map((device) => ({
         id: device.id,
         name: device.name,
         platform: device.platform,
@@ -124,6 +134,10 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
           tone: device.paths.length > 0 ? 'online' : 'offline',
         },
       })),
+      more:
+        devices.length > MAX_TRAY_DEVICES
+          ? { id: `${PREFS_TAB_PREFIX}devices`, label: t.seeAllDevices(devices.length) }
+          : null,
       empty: devices.length === 0 ? t.noDevicesHint : null,
       action: `${PREFS_TAB_PREFIX}devices`,
     },

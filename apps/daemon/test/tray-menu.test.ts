@@ -7,6 +7,7 @@ import {
   pendingSummary,
   relativeTime,
   TRAY_ACTIONS,
+  type TrayDevice,
   type TrayItem,
   type TrayMenuState,
   type TrayNetwork,
@@ -18,6 +19,26 @@ const en = messagesFor('en-US').updates.tray
 const pt = messagesFor('pt-BR').updates.tray
 
 const NOW = Date.parse('2026-10-18T09:41:00Z')
+
+const DAY = 86_400_000
+const device = (id: string, patch: Partial<TrayDevice> = {}): TrayDevice => ({
+  id,
+  name: id,
+  platform: 'ios',
+  pairedAt: NOW - 60 * DAY,
+  lastSeen: null,
+  paths: [],
+  ...patch,
+})
+/** Six paired devices: `iphone` online, then `pixel`, `ipad`, `mac` and `old` by last seen, `never` never seen. */
+const sixDevices: TrayDevice[] = [
+  device('old', { lastSeen: NOW - 30 * DAY }),
+  device('ipad', { lastSeen: NOW - 2 * DAY }),
+  device('never', { pairedAt: NOW - DAY }),
+  device('pixel', { lastSeen: NOW - 3_600_000 }),
+  device('iphone', { lastSeen: NOW - 9 * DAY, paths: ['relay'] }),
+  device('mac', { lastSeen: NOW - 5 * DAY }),
+]
 
 const base: TrayMenuState = {
   version: '0.11.0',
@@ -405,6 +426,40 @@ describe('tray shell menu', () => {
     expect(labels(buildTrayMenu({ ...base, devices: { push: false, items: [] } }, en).items)).toContain(
       'No paired devices',
     )
+  })
+
+  test('at most three devices; the rest behind "See all devices", a window or a submenu (#619)', () => {
+    const state = { ...base, devices: { push: true, items: sixDevices } }
+    const deviceRows = (items: TrayItem[]) =>
+      items.flatMap((i) =>
+        'type' in i && i.type === 'submenu' && / · (online|offline)/.test(i.label) ? [i.label] : [],
+      )
+    // A helper with windows: three devices and an item opening the Devices tab.
+    const windowed = buildTrayMenu({ ...state, windows: true }, en).items
+    expect(deviceRows(windowed)).toEqual(['iphone · online · relay', 'pixel · offline', 'ipad · offline'])
+    expect(windowed).toContainEqual({ id: 'prefs:devices', label: 'See all devices (6)…' })
+    // Without windows (Linux, Windows): every device in a submenu, each still with Revoke….
+    const plain = buildTrayMenu({ ...state, windows: false }, en).items
+    expect(deviceRows(plain)).toEqual(['iphone · online · relay', 'pixel · offline', 'ipad · offline'])
+    const all = plain.find((i) => 'type' in i && i.type === 'submenu' && i.label === 'See all devices (6)')
+    expect(all && 'type' in all && all.type === 'submenu' && deviceRows(all.items)).toEqual([
+      'iphone · online · relay',
+      'pixel · offline',
+      'ipad · offline',
+      'mac · offline',
+      'old · offline',
+      'never · offline',
+    ])
+    expect(labels(all ? [all] : [])).toContain('Revoke…')
+    expect(labels(buildTrayMenu({ ...state, windows: false }, pt).items)).toContain(
+      'Ver todos os dispositivos (6)',
+    )
+    // Three or fewer: no link.
+    const few = buildTrayMenu(
+      { ...base, devices: { push: true, items: sixDevices.slice(0, 3) }, windows: true },
+      en,
+    )
+    expect(labels(few.items).some((label) => label.startsWith('See all devices'))).toBe(false)
   })
 
   test('relative times follow the locale', () => {

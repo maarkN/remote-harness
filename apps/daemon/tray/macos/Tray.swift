@@ -144,6 +144,8 @@ struct PopoverDevicesWire: Decodable {
   let label: String
   let detail: String
   let rows: [PopoverDeviceWire]
+  /// "See all devices (N)…", when more are paired than listed.
+  let more: PopoverActionWire?
   let empty: String?
   let action: String
 }
@@ -221,6 +223,10 @@ final class Tray: NSObject {
     dispatch(id)
   }
 
+  /// Side of the menu bar glyph in points: the tallest that still fits a 22–24 pt menu bar (it was 18,
+  /// which read small next to the system icons).
+  static let glyphSide: CGFloat = 22
+
   /// The Remote Harness mark in its bold weight ("Cursor Signal": a terminal cursor block with the `>`
   /// prompt cut out of it and three signal arcs leaving it to the right), drawn from the same geometry
   /// as the app icon (256-unit box). The state shows as shape and opacity, never as color but the amber
@@ -229,7 +235,7 @@ final class Tray: NSObject {
   /// color allowed in the menu bar) over label-colored strokes, `offline` draws the template at 40 %.
   private static func glyph(_ state: String) -> NSImage {
     let colored = state == "waiting"
-    let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
+    let image = NSImage(size: NSSize(width: glyphSide, height: glyphSide), flipped: true) { rect in
       let s = rect.width / 256
       let p = { (x: CGFloat, y: CGFloat) in NSPoint(x: x * s, y: y * s) }
       let ink = (colored ? NSColor.labelColor : NSColor.black)
@@ -723,6 +729,7 @@ struct PopoverView: View {
         ForEach(cards.devices.rows) { row in
           DeviceRow(row: row) { tray.popoverAction(cards.devices.action) }
         }
+        if let more = cards.devices.more { LinkRow(action: more, tray: tray) }
         if let empty = cards.devices.empty { MutedRow(text: empty) }
         Divider().padding(.top, 6)
         VStack(alignment: .leading, spacing: 0) {
