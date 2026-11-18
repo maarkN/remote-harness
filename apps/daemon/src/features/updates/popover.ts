@@ -93,6 +93,8 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
   const ended = sessions.length - live.length
   const running = live.filter((session) => session.state === 'running').length
   const devices = recentDevices(s.devices?.items ?? [])
+  // A click opens the terminal window unless the `terminal` setting names an app or `auto` (#615).
+  const inWindow = Boolean(s.terminals) && (s.terminal?.choice ?? 'window') === 'window'
   const pill: TrayPill = s.updating
     ? { label: t.updating, tone: 'accent' }
     : s.available?.version
@@ -113,7 +115,7 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
           .join(' · '),
         pill: { label: t.states[session.state], tone: session.state },
         action: session.controllable
-          ? `${s.terminals ? TRAY_PREFIXES.window : TRAY_PREFIXES.focus}${session.id}`
+          ? `${inWindow ? TRAY_PREFIXES.window : TRAY_PREFIXES.focus}${session.id}`
           : null,
         outsideTmux: isOutsideTmux(session) ? { tag: t.outsideTmux, hint: t.outsideTmuxHint } : null,
         menu: [

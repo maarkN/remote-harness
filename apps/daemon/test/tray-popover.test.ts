@@ -174,6 +174,21 @@ describe('tray popover', () => {
     expect(buildTrayPopover({ ...base, sessions }, en).sessions.rows[0]?.action).toBe('focus:a')
   })
 
+  test('the click follows the terminal setting: the window, or the chosen app (#615)', () => {
+    const sessions = [session('a', 'running')]
+    const terminal = (choice: 'window' | 'ghostty' | 'auto') => ({
+      label: 'Open sessions in',
+      choice,
+      options: [],
+    })
+    const action = (choice: 'window' | 'ghostty' | 'auto') =>
+      buildTrayPopover({ ...base, sessions, terminals: true, terminal: terminal(choice) }, en).sessions
+        .rows[0]?.action
+    expect(action('window')).toBe('window:a')
+    expect(action('ghostty')).toBe('focus:a')
+    expect(action('auto')).toBe('focus:a')
+  })
+
   test('a session outside tmux is muted, tagged and explained, and a click does nothing (#613)', () => {
     const sessions = [
       session('o', 'running', { controllable: false }),

@@ -13,6 +13,7 @@ import {
   type TrayNetwork,
   type TraySession,
   trayIcon,
+  trayTerminalOptions,
 } from '../src/features/updates/menu.ts'
 
 const en = messagesFor('en-US').updates.tray
@@ -492,6 +493,64 @@ describe('tray shell menu', () => {
     expect(relativeTime(NOW - 3 * 86_400_000, NOW, 'pt-BR', pt)).toBe('há 3 dias')
     expect(relativeTime(NOW - 2 * 3_600_000, NOW, 'es-ES', es)).toBe('hace 2 horas')
     expect(relativeTime(NOW - 10_000, NOW, 'en-US', en)).toBe('just now')
+  })
+
+  test('"Open sessions in": the choices offered and the picker / submenu (#615)', () => {
+    const labels = messagesFor('en-US').terminals.choices
+    // macOS with terminal windows: the window, Automatic, the installed apps, and the current choice.
+    expect(
+      trayTerminalOptions({
+        platform: 'darwin',
+        windows: true,
+        installed: ['ghostty', 'terminal'],
+        current: 'kitty',
+      }),
+    ).toEqual(['window', 'auto', 'ghostty', 'kitty', 'terminal'])
+    expect(
+      trayTerminalOptions({ platform: 'linux', windows: false, installed: ['kitty'], current: undefined }),
+    ).toEqual(['auto', 'kitty'])
+    const terminal = {
+      label: 'Open sessions in',
+      choice: 'ghostty' as const,
+      options: (['window', 'auto', 'ghostty'] as const).map((id) => ({ id, label: labels[id] })),
+    }
+    const prefs = {
+      permissions: true,
+      keepAwake: 'sessions' as const,
+      push: true,
+      machineName: 'MacBook Pro',
+      showInMenuBar: true,
+      startAtLogin: null,
+    }
+    const windowed = buildTrayMenu({ ...base, prefs, terminal, windows: true }, en)
+    const general = windowed.prefsWindow?.tabs
+      .find((tab) => tab.id === 'general')
+      ?.sections.flatMap((x) => x.rows)
+    expect(general).toContainEqual({
+      kind: 'picker',
+      id: 'open-in:',
+      label: 'Open sessions in',
+      options: [
+        { id: 'open-in:window', label: 'Remote Harness terminal window', checked: false },
+        { id: 'open-in:auto', label: 'Automatic (the terminal app that is open)', checked: false },
+        { id: 'open-in:ghostty', label: 'Ghostty', checked: true },
+      ],
+    })
+    const plain = buildTrayMenu({ ...base, prefs, terminal }, en)
+    const sub = plain.items.find(
+      (i): i is Extract<TrayItem, { type: 'submenu' }> => 'items' in i && i.label === 'Preferences',
+    )
+    expect(sub?.items).toContainEqual({
+      type: 'submenu',
+      label: 'Open sessions in',
+      items: [
+        { id: 'open-in:window', label: 'Remote Harness terminal window', checked: false },
+        { id: 'open-in:auto', label: 'Automatic (the terminal app that is open)', checked: false },
+        { id: 'open-in:ghostty', label: 'Ghostty', checked: true },
+      ],
+    })
+    // No shell state: no picker.
+    expect(JSON.stringify(buildTrayMenu({ ...base, prefs, windows: true }, en))).not.toContain('open-in:')
   })
 
   test('Preferences tabs in the prototype order, with Network and Devices', () => {

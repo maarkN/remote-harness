@@ -62,6 +62,17 @@ export const ptBR = {
       applied: 'aplicado ao daemon em execução',
       notRunning: 'o daemon não está rodando; vale na próxima vez que ele iniciar',
     },
+    terminal: {
+      description: 'mostra ou define onde o tray abre as sessões: window, auto ou um app de terminal',
+      current: (label: string, isDefault: boolean) =>
+        `sessões abrem em: ${label}${isDefault ? ' (padrão)' : ''}`,
+      choices: (list: string) => `opções (✓ instalado): ${list}`,
+      invalid: (value: string, valid: string) => `"${value}" não está disponível aqui; use um de: ${valid}`,
+      notInstalled: (label: string) =>
+        `${label} não está instalado: até estar, as sessões abrem no app de terminal que estiver aberto`,
+      applied: 'aplicado ao daemon em execução',
+      notRunning: 'o daemon não está rodando; vale no próximo início',
+    },
     keepAwake: {
       description: 'mostra ou define quando o computador fica acordado: off, sessions ou always',
       modes: {
@@ -520,6 +531,24 @@ export const ptBR = {
       'O Remote Harness roda as sessões do seu agente de código nesta pasta e precisa ler e gravar os arquivos dela.',
   },
   machine: { darwin: 'Mac', linux: 'computador' },
+  terminals: {
+    choices: {
+      window: 'Janela de terminal do Remote Harness',
+      auto: 'Automático (o app de terminal que estiver aberto)',
+      ghostty: 'Ghostty',
+      iterm2: 'iTerm2',
+      wezterm: 'WezTerm',
+      kitty: 'kitty',
+      alacritty: 'Alacritty',
+      terminal: 'Terminal',
+    },
+    thisTerminal: (label: string) => `${label} (este terminal)`,
+    question: 'Onde uma sessão deve abrir quando você clica nela no ícone do Remote Harness?',
+    openIn: 'Abrir sessões em',
+    missingTitle: (app: string) => `${app} não foi encontrado`,
+    missingBody: (used: string) =>
+      `A sessão abriu em ${used}. Escolha outro terminal nas Preferências ou com remote-harness terminal.`,
+  },
   profiles: {
     defaultName: 'Pessoal',
     newDirName: (index: number) => (index === 0 ? 'trabalho' : index === 1 ? 'pessoal' : `conta-${index}`),

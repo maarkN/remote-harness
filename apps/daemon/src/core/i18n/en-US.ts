@@ -63,6 +63,17 @@ export const enUS = {
       applied: 'applied to the running daemon',
       notRunning: 'the daemon is not running; it applies at the next start',
     },
+    terminal: {
+      description: 'show or set where the tray opens sessions: window, auto or a terminal app',
+      current: (label: string, isDefault: boolean) =>
+        `sessions open in: ${label}${isDefault ? ' (default)' : ''}`,
+      choices: (list: string) => `choices (✓ installed): ${list}`,
+      invalid: (value: string, valid: string) => `"${value}" is not available here; use one of: ${valid}`,
+      notInstalled: (label: string) =>
+        `${label} is not installed: until it is, sessions open in the terminal app that is open`,
+      applied: 'applied to the running daemon',
+      notRunning: 'the daemon is not running; it applies at the next start',
+    },
     keepAwake: {
       description: 'show or set when the computer is kept awake: off, sessions or always',
       modes: {
@@ -515,6 +526,25 @@ export const enUS = {
       'Remote Harness runs your coding agent sessions in this folder and needs to read and write its files.',
   },
   machine: { darwin: 'Mac', linux: 'computer' },
+  /** Where the tray opens a session (`terminal` in config.json, #615). */
+  terminals: {
+    choices: {
+      window: 'Remote Harness terminal window',
+      auto: 'Automatic (the terminal app that is open)',
+      ghostty: 'Ghostty',
+      iterm2: 'iTerm2',
+      wezterm: 'WezTerm',
+      kitty: 'kitty',
+      alacritty: 'Alacritty',
+      terminal: 'Terminal',
+    },
+    thisTerminal: (label: string) => `${label} (this terminal)`,
+    question: 'Where should a session open when you click it in the Remote Harness icon?',
+    openIn: 'Open sessions in',
+    missingTitle: (app: string) => `${app} was not found`,
+    missingBody: (used: string) =>
+      `The session opened in ${used} instead. Choose another terminal in Preferences or with remote-harness terminal.`,
+  },
   profiles: {
     defaultName: 'Personal',
     /** Suffix of a suggested `~/.claude-<name>` folder: 0 and 1 are words, the rest numbered. */

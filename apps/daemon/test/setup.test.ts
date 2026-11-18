@@ -17,6 +17,7 @@ import {
   validateAlias,
   validateNewConfigDir,
 } from '../src/features/setup/profiles.ts'
+import { terminalHere, terminalSetupOptions } from '../src/features/setup/terminal-question.ts'
 import { useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -152,5 +153,60 @@ describe('setup profiles', () => {
     await writeFile(join(dir, '.claude.json'), '{"primaryApiKey":"sk-x"}')
     expect(await readLogin(join(dir, '.claude'), pt, dir)).toBe('chave de API')
     expect(await readLogin(join(dir, '.claude'), en, dir)).toBe('API key')
+  })
+})
+
+describe('setup terminal question (#615)', () => {
+  test('the app running the setup, from $TERM_PROGRAM or $TERM', () => {
+    expect(terminalHere({ TERM_PROGRAM: 'ghostty' })).toBe('ghostty')
+    expect(terminalHere({ TERM_PROGRAM: 'iTerm.app' })).toBe('iterm2')
+    expect(terminalHere({ TERM_PROGRAM: 'WezTerm' })).toBe('wezterm')
+    expect(terminalHere({ TERM_PROGRAM: 'Apple_Terminal' })).toBe('terminal')
+    expect(terminalHere({ TERM: 'xterm-kitty' })).toBe('kitty')
+    expect(terminalHere({ TERM: 'alacritty' })).toBe('alacritty')
+    expect(terminalHere({ TERM: 'xterm-256color' })).toBeNull()
+  })
+
+  test('macOS: the window first and preselected, Automatic, the installed apps, this one marked', () => {
+    const options = terminalSetupOptions({
+      platform: 'darwin',
+      installed: ['ghostty', 'iterm2', 'terminal'],
+      env: { TERM_PROGRAM: 'ghostty' },
+      current: undefined,
+    })
+    expect(options).toEqual({
+      choices: [
+        { value: 'window', here: false },
+        { value: 'auto', here: false },
+        { value: 'ghostty', here: true },
+        { value: 'iterm2', here: false },
+        { value: 'terminal', here: false },
+      ],
+      preselected: 'window',
+    })
+  })
+
+  test('the current setting is preselected, and kept as a choice even when not installed', () => {
+    const options = terminalSetupOptions({
+      platform: 'darwin',
+      installed: ['ghostty'],
+      env: {},
+      current: 'kitty',
+    })
+    expect(options.preselected).toBe('kitty')
+    expect(options.choices.map((c) => c.value)).toEqual(['window', 'auto', 'ghostty', 'kitty'])
+  })
+
+  test('Linux: the running terminal when installed, else Automatic; no macOS-only choice', () => {
+    const linux = { platform: 'linux' as const, installed: ['kitty' as const], current: undefined }
+    expect(terminalSetupOptions({ ...linux, env: { TERM: 'xterm-kitty' } })).toEqual({
+      choices: [
+        { value: 'auto', here: false },
+        { value: 'kitty', here: true },
+      ],
+      preselected: 'kitty',
+    })
+    expect(terminalSetupOptions({ ...linux, env: { TERM_PROGRAM: 'ghostty' } }).preselected).toBe('auto')
+    expect(terminalSetupOptions({ ...linux, env: {}, current: 'iterm2' }).preselected).toBe('auto')
   })
 })
