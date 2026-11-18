@@ -1,8 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { showInTerminal } from '../src/features/pane/show-in-terminal.ts'
-import { attachCommand, pickTerminalApp, planShowInTerminal } from '../src/features/pane/terminal-focus.ts'
+import {
+  attachCommand,
+  pickTerminalApp,
+  planShowInTerminal,
+  shellQuote,
+} from '../src/features/pane/terminal-focus.ts'
 import { createDesktop } from '../src/infra/desktop.ts'
-import { TmuxClient } from '../src/infra/tmux.ts'
+import { resolveTmuxBin, TMUX_LOCATIONS, TmuxClient } from '../src/infra/tmux.ts'
 import { fakeExecutor } from './helpers.ts'
 
 describe('TmuxClient.listClients', () => {
@@ -34,15 +39,82 @@ describe('TmuxClient.switchClient', () => {
   })
 })
 
+describe('resolveTmuxBin', () => {
+  const none = async () => false
+
+  test('takes the absolute path `which tmux` prints', async () => {
+    const exec = fakeExecutor(() => ({ stdout: '/opt/homebrew/bin/tmux\n' }))
+    expect(await resolveTmuxBin(exec, none)).toBe('/opt/homebrew/bin/tmux')
+    expect(exec.calls).toMatchObject([{ file: 'which', args: ['tmux'] }])
+  })
+
+  test('falls back to the first usual location that exists when `which` finds nothing', async () => {
+    const exists = async (path: string) => path === '/usr/local/bin/tmux' || path === '/usr/bin/tmux'
+    expect(
+      await resolveTmuxBin(
+        fakeExecutor(() => ({ exitCode: 1 })),
+        exists,
+      ),
+    ).toBe('/usr/local/bin/tmux')
+    // `which` printing nothing (or a bare name) counts as not found.
+    expect(
+      await resolveTmuxBin(
+        fakeExecutor(() => ({ stdout: 'tmux\n' })),
+        exists,
+      ),
+    ).toBe('/usr/local/bin/tmux')
+    expect(TMUX_LOCATIONS[0]).toBe('/opt/homebrew/bin/tmux')
+  })
+
+  test('is null when tmux is nowhere', async () => {
+    expect(
+      await resolveTmuxBin(
+        fakeExecutor(() => ({ exitCode: 1 })),
+        none,
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('TmuxClient.absoluteBin', () => {
+  test('looks the path up once', async () => {
+    const exec = fakeExecutor(() => ({ stdout: '/opt/homebrew/bin/tmux\n' }))
+    const tmux = new TmuxClient(exec)
+    expect(await tmux.absoluteBin()).toBe('/opt/homebrew/bin/tmux')
+    expect(await tmux.absoluteBin()).toBe('/opt/homebrew/bin/tmux')
+    expect(exec.calls.filter((call) => call.file === 'which')).toHaveLength(1)
+  })
+
+  test('is the client binary itself when it is already absolute', async () => {
+    const exec = fakeExecutor()
+    expect(await new TmuxClient(exec, '/usr/bin/tmux').absoluteBin()).toBe('/usr/bin/tmux')
+    expect(exec.calls).toEqual([])
+  })
+
+  test('keeps the bare name when no lookup finds tmux', async () => {
+    const tmux = new TmuxClient(
+      fakeExecutor(() => ({ exitCode: 1 })),
+      'tmux',
+      null,
+      async () => false,
+    )
+    expect(await tmux.absoluteBin()).toBe('tmux')
+  })
+})
+
+const TMUX = '/opt/homebrew/bin/tmux'
+
 describe('attachCommand', () => {
-  test('attaches and selects the pane for every clause', () => {
-    expect(attachCommand('%1')).toBe("tmux attach -t '%1' \\; select-window -t '%1' \\; select-pane -t '%1'")
+  test('attaches and selects the pane for every clause, with tmux by its absolute path', () => {
+    expect(attachCommand('%1', TMUX)).toBe(
+      "'/opt/homebrew/bin/tmux' attach -t '%1' \\; select-window -t '%1' \\; select-pane -t '%1'",
+    )
   })
 
   test('selects the Remote Harness server and its config when given one', () => {
     const server = { socket: 'remote-harness', conf: "/Users/it's/.remote-harness/tmux.conf" }
-    expect(attachCommand('%1', server)).toBe(
-      `tmux -L 'remote-harness' -f '/Users/it'\\''s/.remote-harness/tmux.conf' attach -t '%1' \\; select-window -t '%1' \\; select-pane -t '%1'`,
+    expect(attachCommand('%1', TMUX, server)).toBe(
+      `'/opt/homebrew/bin/tmux' -L 'remote-harness' -f '/Users/it'\\''s/.remote-harness/tmux.conf' attach -t '%1' \\; select-window -t '%1' \\; select-pane -t '%1'`,
     )
   })
 })
@@ -66,13 +138,13 @@ describe('planShowInTerminal', () => {
     runningProcessNames: [] as string[],
     terminalEnv: null,
     paneId: '%1',
+    tmuxBin: TMUX,
   }
+  const cmd = attachCommand('%1', TMUX)
 
   test('darwin, no attached client: opens the detected app with the attach command', () => {
     const steps = planShowInTerminal({ ...base, platform: 'darwin', runningProcessNames: ['Ghostty'] })
-    expect(steps).toEqual([
-      { file: 'open', args: ['-na', 'Ghostty', '--args', '-e', 'sh', '-c', attachCommand('%1')] },
-    ])
+    expect(steps).toEqual([{ file: 'open', args: ['-na', 'Ghostty', '--args', '-e', '/bin/sh', '-c', cmd] }])
   })
 
   test('darwin, attached client: activates the detected app instead of opening a window', () => {
@@ -87,9 +159,7 @@ describe('planShowInTerminal', () => {
 
   test('linux, no attached client, $TERMINAL set: uses it over x-terminal-emulator', () => {
     const steps = planShowInTerminal({ ...base, platform: 'linux', terminalEnv: 'alacritty' })
-    expect(steps).toEqual([
-      { file: 'alacritty', args: ['-e', 'sh', '-c', `${attachCommand('%1')}; exec "$SHELL"`] },
-    ])
+    expect(steps).toEqual([{ file: 'alacritty', args: ['-e', '/bin/sh', '-c', `${cmd}; exec "$SHELL"`] }])
   })
 
   test('linux, no $TERMINAL: falls back to x-terminal-emulator', () => {
@@ -100,9 +170,9 @@ describe('planShowInTerminal', () => {
   test('the new terminal attaches to the Remote Harness server when the client uses one', () => {
     const tmuxServer = { socket: 'remote-harness', conf: '/h/.remote-harness/tmux.conf' }
     const steps = planShowInTerminal({ ...base, platform: 'linux', tmuxServer })
-    expect(steps[0]?.args.at(-1)).toBe(`${attachCommand('%1', tmuxServer)}; exec "$SHELL"`)
+    expect(steps[0]?.args.at(-1)).toBe(`${attachCommand('%1', TMUX, tmuxServer)}; exec "$SHELL"`)
     expect(steps[0]?.args.at(-1)).toContain(
-      "tmux -L 'remote-harness' -f '/h/.remote-harness/tmux.conf' attach",
+      "'/opt/homebrew/bin/tmux' -L 'remote-harness' -f '/h/.remote-harness/tmux.conf' attach",
     )
   })
 
@@ -112,7 +182,37 @@ describe('planShowInTerminal', () => {
 
   test('wsl, no attached client: opens Windows Terminal over wsl.exe', () => {
     const steps = planShowInTerminal({ ...base, platform: 'linux', wsl: true })
-    expect(steps).toEqual([{ file: 'wt.exe', args: ['wsl.exe', 'sh', '-c', attachCommand('%1')] }])
+    expect(steps).toEqual([{ file: 'wt.exe', args: ['wsl.exe', '/bin/sh', '-c', cmd] }])
+  })
+
+  test('darwin, iTerm2: runs the command through /bin/sh -c, quoted for the shell (#612)', () => {
+    const steps = planShowInTerminal({ ...base, platform: 'darwin', runningProcessNames: ['iTerm2'] })
+    const shell = `/bin/sh -c ${shellQuote(cmd)}`
+    const script = `tell application id "com.googlecode.iterm2" to create window with default profile command "${shell.replaceAll('\\', '\\\\')}"`
+    expect(steps).toEqual([{ file: 'osascript', args: ['-e', script] }])
+    expect(script).toContain(`command "/bin/sh -c ''\\\\''/opt/homebrew/bin/tmux'\\\\'' attach`)
+  })
+
+  test('darwin, Terminal.app: do script runs /bin/sh -c', () => {
+    const steps = planShowInTerminal({ ...base, platform: 'darwin' })
+    expect(steps[0]?.args[1]).toBe(
+      `tell application id "com.apple.Terminal" to do script "/bin/sh -c ${shellQuote(cmd).replaceAll('\\', '\\\\')}"`,
+    )
+  })
+
+  test('every app and platform opens with /bin/sh -c and the absolute tmux path', () => {
+    const apps = ['iTerm2', 'Ghostty', 'wezterm-gui', 'kitty', 'Alacritty', 'Terminal']
+    const plans = [
+      ...apps.map((app) => planShowInTerminal({ ...base, platform: 'darwin', runningProcessNames: [app] })),
+      planShowInTerminal({ ...base, platform: 'linux' }),
+      planShowInTerminal({ ...base, platform: 'linux', wsl: true }),
+    ]
+    for (const [step] of plans) {
+      const line = step?.args.join(' ') ?? ''
+      expect(line).toContain('/bin/sh -c')
+      expect(line).toContain('/opt/homebrew/bin/tmux')
+      expect(line).not.toMatch(/(^|[\s'"])tmux attach/)
+    }
   })
 
   test('wsl, attached client: nothing to run', () => {
@@ -124,6 +224,7 @@ describe('showInTerminal (orchestration)', () => {
   test('switches every attached client, focuses the pane, then activates the running app', async () => {
     const exec = fakeExecutor((call) => {
       if (call.args[0] === 'list-clients') return { stdout: '/dev/ttys001\n/dev/ttys002\n' }
+      if (call.file === 'which') return { stdout: `${TMUX}\n` }
       if (call.file === 'osascript' && call.args.some((a) => a.includes('System Events')))
         return { stdout: 'Finder, iTerm2, Safari' }
       return undefined
@@ -138,13 +239,15 @@ describe('showInTerminal (orchestration)', () => {
       ['select-window', '-t', '%1'],
       ['select-pane', '-t', '%1'],
       ['-e', 'tell application "System Events" to get name of every process whose background only is false'],
-      ['-e', 'tell application "iTerm2" to activate'],
+      ['tmux'],
+      ['-e', 'tell application id "com.googlecode.iterm2" to activate'],
     ])
   })
 
   test('opens a new window when nothing is attached, without switching any client', async () => {
     const exec = fakeExecutor((call) => {
       if (call.args[0] === 'list-clients') return { stdout: '' }
+      if (call.file === 'which') return { stdout: `${TMUX}\n` }
       if (call.file === 'osascript' && call.args.some((a) => a.includes('System Events')))
         return { stdout: '' }
       return undefined
@@ -156,7 +259,8 @@ describe('showInTerminal (orchestration)', () => {
     expect(fileCalls).not.toContain('switch-client')
     const last = exec.calls[exec.calls.length - 1]
     expect(last?.file).toBe('osascript')
-    expect(last?.args[1]).toContain('tell application "Terminal" to do script')
+    expect(last?.args[1]).toContain('tell application id "com.apple.Terminal" to do script "/bin/sh -c')
+    expect(last?.args[1]).toContain(TMUX)
   })
 
   test('propagates a failure instead of swallowing it', async () => {
