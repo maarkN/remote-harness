@@ -12,7 +12,7 @@ const PATH_BLOCK_END = '# <<< remote-harness <<<'
 /** Markers written before the rename; such a block is replaced by the new one (#85). */
 const LEGACY_PATH_BLOCK = ['# >>> claude-remote >>>', '# <<< claude-remote <<<'] as const
 
-function zshQuote(value: string): string {
+export function zshQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`
 }
 

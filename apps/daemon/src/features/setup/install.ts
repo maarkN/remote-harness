@@ -15,6 +15,7 @@ import { ensureHookSecretFiles } from '../hooks/hook-secret.ts'
 import {
   installHooks,
   installLaunchers,
+  installProfilePicker,
   installShellPath,
   installStatusLine,
   installStatusLineScript,
@@ -22,8 +23,10 @@ import {
   shellRcFiles,
   uninstallHooks,
   uninstallLaunchers,
+  uninstallProfilePicker,
   uninstallStatusLine,
 } from '../hooks/installer.ts'
+import { PROFILE_PICKER } from '../hooks/profile-picker.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
 import {
   ensureTmuxConf,
@@ -60,6 +63,26 @@ export function displayPaths(files: readonly string[], home = homedir()): string
   return files.map((f) => (f.startsWith(`${home}/`) ? `~/${f.slice(home.length + 1)}` : f)).join(', ')
 }
 
+/**
+ * Writes the profile picker (`rhnss`) with the current profiles when `profilePicker` is on, and
+ * removes one left from before when it is off. A profile that took the name itself keeps its launcher.
+ */
+export async function applyProfilePicker(
+  config: Pick<Config, 'profilePicker'>,
+  profiles: readonly Profile[],
+  m: Messages['install'],
+): Promise<InstallLine[]> {
+  if (profiles.some((p) => p.id === PROFILE_PICKER)) return []
+  if (config.profilePicker) {
+    const path = await installProfilePicker(profiles, { binDir: paths.bin(), labels: m.profilePicker })
+    return [{ status: 'done', text: m.profilePickerIn(path) }]
+  }
+  const path = join(paths.bin(), PROFILE_PICKER)
+  return (await uninstallProfilePicker(paths.bin()))
+    ? [{ status: 'done', text: m.profilePickerRemoved(path) }]
+    : []
+}
+
 /** CLI shortcut names; `claude-remote` is the alias kept from before the rename. */
 export const CLI_NAMES = ['remote-harness', 'claude-remote'] as const
 
@@ -92,6 +115,7 @@ export async function installAll(
     missingKey: m.missingProviderKey,
   })
   for (const path of launchers) lines.push({ status: 'done', text: `launcher ${path}` })
+  lines.push(...(await applyProfilePicker(config, profiles, m)))
   if (o.cliPath) {
     const script = `#!/bin/sh\nexec "${o.nodePath}" "${o.cliPath}" "$@"\n`
     for (const name of CLI_NAMES) await writeFile(join(paths.bin(), name), script, { mode: 0o755 })

@@ -298,6 +298,13 @@ export const esES = {
     hookSecretRotated: (path: string) =>
       `secreto de los hooks renovado (las versiones antiguas lo ponían en la línea de comandos de curl); curl ahora lo lee de ${path} — un daemon en ejecución y las sesiones abiertas lo usan cuando se reinicien`,
     tmuxConf: (path: string) => `configuración del servidor tmux en ${path}`,
+    profilePickerIn: (path: string) => `selector de perfiles ${path}`,
+    profilePickerRemoved: (path: string) => `selector de perfiles ${path} eliminado`,
+    profilePicker: {
+      question: '¿Qué perfil quieres iniciar?',
+      answer: (count: number) => `Número (1-${count}): `,
+      invalid: (count: number) => `Escribe un número del 1 al ${count}, o pulsa Enter para cancelar.`,
+    },
     tmuxSessionRenamed: (from: string, to: string) =>
       `sesión tmux ${from} renombrada a ${to} (sus ventanas no cambian)`,
     secretsMigrated: (count: number) =>
@@ -350,11 +357,13 @@ export const esES = {
     phoneHint:
       '  En el móvil: instala la app Remote Harness y toca "Código QR". Alcanza este ordenador desde cualquier sitio.',
     showQr: '¿Mostrar ahora el código QR de emparejamiento?',
+    profilePicker: '¿Añadir el comando rhnss, que pregunta qué perfil iniciar?',
     done: {
       installed: 'Remote Harness instalado.',
       openTerminal: (command: string) => `1. Abre un terminal nuevo (o ${command})`,
       useAliases: (aliases: string, claude: string) =>
         `2. Usa ${aliases} en lugar de ${claude}, con los mismos argumentos`,
+      usePicker: (command: string) => `   o ${command}, que pregunta qué perfil iniciar`,
       pairIfNeeded: (command: string) => `3. Empareja con ${command} si aún no lo has hecho`,
       footer: 'remote-harness doctor revisa todo · remote-harness setup cambia cuentas',
     },

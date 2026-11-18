@@ -67,6 +67,7 @@ El comando antiguo `claude-remote` y las variables `CLAUDE_REMOTE_*` siguen func
 - `tmuxSession`: la sesión de tmux que usan los lanzadores.
 - `tmuxSocket`: el servidor tmux (`tmux -L <nombre>`) que usan los lanzadores y el daemon, `remote-harness` por defecto, separado de tu tmux y de tu `tmux.conf`; `null` usa tu servidor por defecto y tu configuración.
 - `tmuxConfig`: `minimal` (por defecto) inicia ese servidor solo con los pocos ajustes de Remote Harness (Esc entregado al instante, eventos de foco, más historial); `user` carga además tu `~/.tmux.conf` (o `~/.config/tmux/tmux.conf`) encima, para que tus atajos valgan dentro de las ventanas del agente.
+- `profilePicker`: `true` escribe el comando `rhnss` junto a los lanzadores, que pregunta qué perfil iniciar (ver abajo); `false` por defecto. `remote-harness setup` lo pregunta al final.
 - `language`: `pt-BR`, `en-US` o `es-ES` para la CLI, la instalación y los textos de push; el idioma del sistema cuando falta.
 - `push`: `auto` (tu cuenta de servicio de Firebase cuando existe, si no el relay) u `off`.
 - `update`: el canal que siguen `update` y la comprobación, y si las actualizaciones se aplican solas.
@@ -153,6 +154,8 @@ Lo que funciona como en Claude Code: la lista de sesiones (transcripts recientes
 ## Lanzadores y alias
 
 Cada perfil recibe un pequeño lanzador en zsh en `~/.remote-harness/bin/<alias>` (añadido al `PATH` en `~/.zshrc` y `~/.bashrc`). Ejecuta el alias en vez de `claude`, con los mismos argumentos: abre Claude Code en una ventana de la sesión `claude-remote` en el servidor tmux propio de Remote Harness (`tmux -L remote-harness`, iniciado con `~/.remote-harness/tmux.conf` en lugar de tu `tmux.conf`, así que tu configuración, tus plugins y tu `tmux ls` quedan intactos) con el `CLAUDE_CONFIG_DIR` correcto y conecta tu terminal a ella. Ejecuta el alias dentro de tu propio tmux y la sesión aparece anidada en ese panel, sin apropiarse de tu cliente (pulsa tu prefijo dos veces para hablar con el tmux interior). `remote-harness tmux` se adjunta a ese servidor desde cualquier terminal y `remote-harness tmux ls` lista sus sesiones; las sesiones iniciadas antes de que existiera ese servidor siguen en tu tmux por defecto hasta que terminen. El comando `claude` a secas nunca se modifica.
+
+`rhnss` (opcional, ofrecido al final de `remote-harness setup`, o `"profilePicker": true` en `config.json`) es una entrada única para todos los perfiles: en cualquier carpeta los lista como agente · nombre · carpeta de configuración, pregunta el número y ejecuta el lanzador de ese perfil con los mismos argumentos (`rhnss --resume <id>` funciona como el lanzador). `rhnss <alias>` se salta la pregunta y, con un solo perfil, inicia directamente. Se reescribe con los lanzadores, así que los perfiles que añadas después aparecen solos.
 
 ## Servicio en segundo plano
 
