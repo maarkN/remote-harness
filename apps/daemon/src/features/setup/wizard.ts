@@ -11,7 +11,7 @@ import {
   type Profile,
   type ProviderKind,
 } from '@remote-harness/protocol'
-import { ConfigSchema } from '../../core/config.ts'
+import { ConfigSchema, effectiveTerminal, type TerminalChoice } from '../../core/config.ts'
 import { type Messages, messagesFor, systemLocale } from '../../core/i18n/index.ts'
 import { expandHome, paths } from '../../core/paths.ts'
 import type { SecretStore } from '../../core/secrets.ts'
@@ -19,6 +19,7 @@ import type { Executor } from '../../infra/exec.ts'
 import { isDirectory, readJsonFile, writeJsonAtomic } from '../../infra/fs.ts'
 import { BACKUP_SUFFIX } from '../hooks/installer.ts'
 import { PROFILE_PICKER } from '../hooks/profile-picker.ts'
+import { installedTerminalAppsHere } from '../pane/show-in-terminal.ts'
 import { checkProviderKey } from '../providers/key-check.ts'
 import type { ProviderFetch } from '../providers/service.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
@@ -46,7 +47,9 @@ import {
   validateAlias,
   validateNewConfigDir,
   withProfilePicker,
+  withTerminal,
 } from './profiles.ts'
+import { terminalSetupOptions } from './terminal-question.ts'
 
 export type WizardOptions = InstallOptions & {
   paint: Paint
@@ -574,6 +577,38 @@ async function askProfilePicker(o: Ctx, current: boolean, profiles: readonly Pro
   return enabled
 }
 
+/**
+ * End of an interactive setup: where a session clicked in the tray opens (#615). An answer that
+ * keeps the setting as it applies writes nothing; WSL always opens Windows Terminal, so it is not asked.
+ */
+async function askTerminal(o: Ctx, current: TerminalChoice | undefined): Promise<void> {
+  if (!o.interactive || o.wsl) return
+  const t = o.m.terminals
+  const installed = await installedTerminalAppsHere(o.exec, o.platform, false)
+  const { choices, preselected } = terminalSetupOptions({
+    platform: o.platform,
+    installed,
+    env: process.env,
+    current,
+  })
+  const answer = await select({
+    message: t.question,
+    choices: choices.map(({ value, here }) => ({
+      value,
+      name: here ? t.thisTerminal(t.choices[value]) : t.choices[value],
+    })),
+    default: preselected,
+    theme: themeFor(o.paint, o.m),
+  })
+  if (answer === effectiveTerminal(current, o.platform)) return
+  const raw = await readRawConfig()
+  const next = withTerminal(raw, answer)
+  ConfigSchema.parse(next)
+  if (raw !== undefined) await copyFile(paths.config(), `${paths.config()}${BACKUP_SUFFIX}`)
+  await writeJsonAtomic(paths.config(), next)
+  printLines(o.paint, [{ status: 'done', text: `${t.openIn}: ${t.choices[answer]}` }], o.home)
+}
+
 const SERVICE_LABELS = { launchd: 'LaunchAgent', systemd: 'systemd' } as const
 
 /** Step 3: background service and, on systemd, lingering (only with the user's consent). */
@@ -749,6 +784,7 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
     await o.pair()
   }
   const picker = await askProfilePicker(o, config.profilePicker, resolved)
+  await askTerminal(o, config.terminal)
 
   const aliases = profiles.map((p) => paint('accent', p.id)).join(', ')
   console.log(

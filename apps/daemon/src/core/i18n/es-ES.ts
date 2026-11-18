@@ -63,6 +63,17 @@ export const esES = {
       applied: 'aplicado al daemon en ejecución',
       notRunning: 'el daemon no está en ejecución; se aplica en el próximo inicio',
     },
+    terminal: {
+      description: 'muestra o define dónde abre el tray las sesiones: window, auto o una app de terminal',
+      current: (label: string, isDefault: boolean) =>
+        `las sesiones se abren en: ${label}${isDefault ? ' (predeterminado)' : ''}`,
+      choices: (list: string) => `opciones (✓ instalada): ${list}`,
+      invalid: (value: string, valid: string) => `"${value}" no está disponible aquí; usa una de: ${valid}`,
+      notInstalled: (label: string) =>
+        `${label} no está instalada: hasta que lo esté, las sesiones se abren en la app de terminal que esté abierta`,
+      applied: 'aplicado al daemon en ejecución',
+      notRunning: 'el daemon no está en ejecución; se aplica en el próximo inicio',
+    },
     keepAwake: {
       description: 'muestra o define cuándo el ordenador se mantiene despierto: off, sessions o always',
       modes: {
@@ -523,6 +534,24 @@ export const esES = {
       'Remote Harness ejecuta las sesiones de tu agente de código en esta carpeta y necesita leer y escribir sus archivos.',
   },
   machine: { darwin: 'Mac', linux: 'ordenador' },
+  terminals: {
+    choices: {
+      window: 'Ventana de terminal de Remote Harness',
+      auto: 'Automático (la app de terminal que esté abierta)',
+      ghostty: 'Ghostty',
+      iterm2: 'iTerm2',
+      wezterm: 'WezTerm',
+      kitty: 'kitty',
+      alacritty: 'Alacritty',
+      terminal: 'Terminal',
+    },
+    thisTerminal: (label: string) => `${label} (esta terminal)`,
+    question: '¿Dónde debe abrirse una sesión al hacer clic en ella en el icono de Remote Harness?',
+    openIn: 'Abrir sesiones en',
+    missingTitle: (app: string) => `No se encontró ${app}`,
+    missingBody: (used: string) =>
+      `La sesión se abrió en ${used}. Elige otra terminal en Preferencias o con remote-harness terminal.`,
+  },
   profiles: {
     defaultName: 'Personal',
     newDirName: (index: number) => (index === 0 ? 'trabajo' : index === 1 ? 'personal' : `cuenta-${index}`),

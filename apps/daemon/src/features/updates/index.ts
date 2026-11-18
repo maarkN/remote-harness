@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import type { DaemonUpdateBlocker, PermissionRequestInfo, Profile } from '@remote-harness/protocol'
 import {
   effectiveLocale,
+  effectiveTerminal,
   isKeepAwakeMode,
+  isTerminalChoice,
   type KeepAwakeMode,
   loadConfig,
   renameProfileInConfig,
@@ -18,8 +20,9 @@ import { currentWsl, resolvePlatform } from '../../infra/platform.ts'
 import { readXtermAssets, spawnJsonLines, trayAssetsDir, trayCommand } from '../../infra/tray-helper.ts'
 import type { DaemonContext } from '../../main.ts'
 import { agentFor } from '../agents/index.ts'
-import { showInTerminal } from '../pane/show-in-terminal.ts'
+import { installedTerminalAppsHere, showInTerminal } from '../pane/show-in-terminal.ts'
 import type { PaneViewer } from '../pane/streamer.ts'
+import type { TerminalAppId } from '../pane/terminal-focus.ts'
 import type { PushSetting } from '../push/mode.ts'
 import { LaunchdService } from '../service/launchd.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
@@ -34,6 +37,7 @@ import {
   buildTrayMenu,
   CHANNEL_ACTION_PREFIX,
   KEEP_AWAKE_ACTION_PREFIX,
+  OPEN_IN_ACTION_PREFIX,
   pendingSummary,
   TRAY_ACTIONS,
   TRAY_PREFIXES,
@@ -43,6 +47,7 @@ import {
   type TrayPending,
   type TrayProfile,
   type TraySession,
+  trayTerminalOptions,
 } from './menu.ts'
 import { buildTrayPopover } from './popover.ts'
 import { RemoteUpdates } from './remote.ts'
@@ -115,13 +120,17 @@ export async function registerUpdatesFeature(
   })
   const locale = effectiveLocale(ctx.config)
   const m = messagesFor(locale).updates
+  const mt = messagesFor(locale).terminals
   const source = updateSource(deps.options.cliPath, installerSourceDir())
   let settings = {
     update: ctx.config.update,
     tray: ctx.config.tray,
     trayPermissions: ctx.config.trayPermissions,
     machineName: ctx.config.machineName,
+    terminal: ctx.config.terminal,
   }
+  /** The terminal apps installed, for "Open sessions in" (looked up when the helper starts and on reload). */
+  let installedApps: TerminalAppId[] = []
   /** Commit whose update failed: automatic updates do not retry it (the menu still can). */
   let failedCommit: string | null = null
   const startedAt = new Date()
@@ -151,6 +160,11 @@ export async function registerUpdatesFeature(
   const refreshStartAtLogin = async () => {
     const manager = startAtLoginManager()
     startAtLoginState = manager ? (await manager.status()).loaded : null
+    refreshMenu()
+  }
+
+  const refreshInstalledApps = async () => {
+    installedApps = await installedTerminalAppsHere(ctx.exec, platform, wsl).catch(() => [])
     refreshMenu()
   }
 
@@ -223,6 +237,7 @@ export async function registerUpdatesFeature(
           helperTerminals = canOpenTerminals
           // A new helper process has no terminal windows open.
           terminals?.reset()
+          void refreshInstalledApps()
           if (windows) void refreshStartAtLogin()
           refreshMenu()
         },
@@ -318,6 +333,16 @@ export async function registerUpdatesFeature(
       windows: helperWindows,
       popover: helperPopover,
       terminals: helperTerminals && terminals !== null,
+      terminal: {
+        label: mt.openIn,
+        choice: effectiveTerminal(settings.terminal, platform),
+        options: trayTerminalOptions({
+          platform,
+          windows: helperTerminals && terminals !== null,
+          installed: installedApps,
+          current: settings.terminal,
+        }).map((id) => ({ id, label: mt.choices[id] })),
+      },
       prefs: {
         permissions: settings.trayPermissions,
         keepAwake: shell.keepAwake.mode(),
@@ -399,7 +424,9 @@ export async function registerUpdatesFeature(
       tray: config.tray,
       trayPermissions: config.trayPermissions,
       machineName: config.machineName,
+      terminal: config.terminal,
     }
+    void refreshInstalledApps()
     refreshMenu()
     remote.broadcast()
     if (channelChanged) await check(true)
@@ -442,9 +469,25 @@ export async function registerUpdatesFeature(
   await remote.load()
   remote.register()
 
+  /** The `terminal` setting as it is in config.json now: a change applies to the next click (#615). */
+  const currentTerminal = async () =>
+    effectiveTerminal((await loadConfig(ctx.logger).catch(() => settings)).terminal, platform)
+
+  /** "Open in terminal (tmux)": the chosen app, or `auto`; says so when the chosen one is missing. */
   const focusSession = async (sessionId: string) => {
     const session = deps.store.get(sessionId)
-    if (session?.paneId) await showInTerminal(ctx.tmux, desktop, platform, wsl, session.paneId)
+    if (!session?.paneId) return
+    const fallback = await showInTerminal(ctx.tmux, desktop, platform, wsl, session.paneId, {
+      choice: await currentTerminal(),
+      installed: () => installedTerminalAppsHere(ctx.exec, platform, wsl),
+    })
+    if (fallback) await desktop.notify(mt.missingTitle(fallback.missing), mt.missingBody(fallback.used))
+  }
+
+  /** A click on a session: its terminal window, unless the setting now names an app or `auto`. */
+  const openSession = async (sessionId: string) => {
+    if ((await currentTerminal()) === 'window' && terminals) await terminals.show(sessionId)
+    else await focusSession(sessionId)
   }
 
   const quote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
@@ -491,9 +534,14 @@ export async function registerUpdatesFeature(
       else if (id.startsWith(TRAY_PREFIXES.deny))
         shell?.respond(id.slice(TRAY_PREFIXES.deny.length), 'deny', false)
       else if (id.startsWith(TRAY_PREFIXES.focus)) await focusSession(id.slice(TRAY_PREFIXES.focus.length))
-      else if (id.startsWith(TRAY_PREFIXES.window))
-        await terminals?.show(id.slice(TRAY_PREFIXES.window.length))
-      else if (id.startsWith(TRAY_PREFIXES.close))
+      else if (id.startsWith(TRAY_PREFIXES.window)) await openSession(id.slice(TRAY_PREFIXES.window.length))
+      else if (id.startsWith(OPEN_IN_ACTION_PREFIX)) {
+        const choice = id.slice(OPEN_IN_ACTION_PREFIX.length)
+        if (isTerminalChoice(choice)) {
+          await updateConfigFile({ terminal: choice })
+          await reload()
+        }
+      } else if (id.startsWith(TRAY_PREFIXES.close))
         await shell?.closeSession(id.slice(TRAY_PREFIXES.close.length))
       else if (id.startsWith(TRAY_PREFIXES.rename) && shell) {
         const sessionId = id.slice(TRAY_PREFIXES.rename.length)

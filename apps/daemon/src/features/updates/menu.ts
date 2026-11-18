@@ -3,9 +3,16 @@ import {
   type PermissionRequestInfo,
   type SessionState,
 } from '@remote-harness/protocol'
-import { KEEP_AWAKE_MODES, type KeepAwakeMode } from '../../core/config.ts'
+import {
+  KEEP_AWAKE_MODES,
+  type KeepAwakeMode,
+  type TerminalChoice,
+  terminalChoicesFor,
+} from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
+import type { Platform } from '../../infra/platform.ts'
 import type { ConnectionPath } from '../../transport/connection.ts'
+import type { TerminalAppId } from '../pane/terminal-focus.ts'
 import type { UpdateChannel } from './channel.ts'
 import type { TrayPopover } from './popover.ts'
 
@@ -193,6 +200,11 @@ export type TrayMenuState = {
   popover?: boolean
   /** The helper opens a session's terminal window (macOS, #614). */
   terminals?: boolean
+  /**
+   * Where a click opens a session (#615): the setting as it applies here and the choices offered in
+   * Preferences, translated.
+   */
+  terminal?: { label: string; choice: TerminalChoice; options: { id: TerminalChoice; label: string }[] }
   profiles?: TrayProfile[]
 }
 
@@ -220,6 +232,8 @@ export const TRAY_ACTIONS = {
 export const CHANNEL_ACTION_PREFIX = 'channel:'
 /** `awake:<mode>` sets the keep-awake mode. */
 export const KEEP_AWAKE_ACTION_PREFIX = 'awake:'
+/** `open-in:<choice>`: the `terminal` setting picked in Preferences (#615). */
+export const OPEN_IN_ACTION_PREFIX = 'open-in:'
 /** Prefixed ids: `allow:<requestId>`, `always:<requestId>`, `deny:<requestId>`, `focus:<sessionId>`, `window:<sessionId>`, `close:<sessionId>`, `rename:<sessionId>`. */
 export const TRAY_PREFIXES = {
   allow: 'allow:',
@@ -332,6 +346,25 @@ export function deviceDetail(
 export function statusLine(s: TrayMenuState, t: TrayStrings): string | null {
   if (!s.machine || !s.since) return null
   return t.status(s.machine, s.version, s.since, s.network ? pathsLabel(s.network, t) : undefined)
+}
+
+/**
+ * The choices "Open sessions in" offers: the terminal window where the helper opens it, Automatic,
+ * the installed apps, and the current choice even when it is not installed (it stays checked).
+ */
+export function trayTerminalOptions(o: {
+  platform: Platform
+  windows: boolean
+  installed: readonly TerminalAppId[]
+  current: TerminalChoice | undefined
+}): TerminalChoice[] {
+  return terminalChoicesFor(o.platform).filter(
+    (choice) =>
+      (choice === 'window' && o.windows) ||
+      choice === 'auto' ||
+      (choice !== 'window' && (o.installed as readonly string[]).includes(choice)) ||
+      choice === o.current,
+  )
 }
 
 /**
@@ -544,6 +577,16 @@ function buildPrefsWindow(s: TrayMenuState, t: TrayStrings): TrayPrefsWindow {
         checked: prefs.keepAwake === mode,
       })),
     },
+    ...(s.terminal
+      ? [
+          {
+            kind: 'picker',
+            id: OPEN_IN_ACTION_PREFIX,
+            label: s.terminal.label,
+            options: openInOptions(s.terminal),
+          } as const,
+        ]
+      : []),
   ]
   const updates: PrefRow[] = s.canUpdate
     ? [
@@ -726,6 +769,15 @@ function pairItem(s: TrayMenuState, t: TrayStrings): TrayItem {
   }
 }
 
+/** "Open sessions in" as checked `open-in:<choice>` items (a picker in the window, a submenu in the menu). */
+function openInOptions(terminal: NonNullable<TrayMenuState['terminal']>) {
+  return terminal.options.map((option) => ({
+    id: `${OPEN_IN_ACTION_PREFIX}${option.id}`,
+    label: option.label,
+    checked: option.id === terminal.choice,
+  }))
+}
+
 /**
  * Preferences: a helper that can open windows gets a single item opening the Preferences window
  * (built from `prefsWindow`/`profiles` on the outgoing menu); otherwise the submenu of quick
@@ -748,6 +800,9 @@ function prefsItem(s: TrayMenuState, t: TrayStrings): TrayItem {
           checked: prefs.keepAwake === mode,
         })),
       },
+      ...(s.terminal
+        ? [{ type: 'submenu', label: s.terminal.label, items: openInOptions(s.terminal) } as const]
+        : []),
       { id: TRAY_ACTIONS.prefPush, label: t.prefPush, checked: prefs.push },
       { type: 'separator' },
       { id: TRAY_ACTIONS.prefs, label: t.openConfig },

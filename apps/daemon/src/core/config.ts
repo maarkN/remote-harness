@@ -11,9 +11,42 @@ import { z } from 'zod'
 import { agentFor, hasAgentAdapter, profileAgentId } from '../features/agents/index.ts'
 import type { Executor } from '../infra/exec.ts'
 import { isDirectory, readJsonFile, writeJsonAtomic } from '../infra/fs.ts'
+import type { Platform } from '../infra/platform.ts'
 import { messagesFor, systemLocale } from './i18n/index.ts'
 import type { Logger } from './logger.ts'
 import { expandHome, paths } from './paths.ts'
+
+/**
+ * Where the tray opens a session (#615): its terminal window (macOS), the first running terminal app
+ * (`auto`, the fixed order), or one app.
+ */
+export const TERMINAL_CHOICES = [
+  'window',
+  'auto',
+  'ghostty',
+  'iterm2',
+  'wezterm',
+  'kitty',
+  'alacritty',
+  'terminal',
+] as const
+export const TerminalChoiceSchema = z.enum(TERMINAL_CHOICES)
+export type TerminalChoice = z.infer<typeof TerminalChoiceSchema>
+export const isTerminalChoice = (value: string): value is TerminalChoice =>
+  (TERMINAL_CHOICES as readonly string[]).includes(value)
+/** Choices that only exist on macOS: the tray's terminal window, iTerm2 and Terminal.app. */
+const DARWIN_ONLY_TERMINALS: readonly TerminalChoice[] = ['window', 'iterm2', 'terminal']
+
+/** The choices available on `platform`, in `TERMINAL_CHOICES` order. */
+export function terminalChoicesFor(platform: Platform): TerminalChoice[] {
+  return TERMINAL_CHOICES.filter((choice) => platform === 'darwin' || !DARWIN_ONLY_TERMINALS.includes(choice))
+}
+
+/** The setting as it applies here: absent is the terminal window on macOS, `auto` elsewhere. */
+export function effectiveTerminal(choice: TerminalChoice | undefined, platform: Platform): TerminalChoice {
+  const value = choice ?? (platform === 'darwin' ? 'window' : 'auto')
+  return terminalChoicesFor(platform).includes(value) ? value : 'auto'
+}
 
 export const KEEP_AWAKE_MODES = ['off', 'sessions', 'always'] as const
 export const KeepAwakeModeSchema = z.enum(KEEP_AWAKE_MODES)
@@ -79,6 +112,8 @@ export const ConfigSchema = z
     trayPermissions: z.boolean().default(true),
     /** When the service daemon prevents idle sleep: never, while sessions are active, or always. */
     keepAwake: KeepAwakeModeSchema.default('sessions'),
+    /** Where the tray opens a session; absent = the terminal window on macOS, `auto` elsewhere. */
+    terminal: TerminalChoiceSchema.optional(),
     /** Overrides the OS host name shown in the app and the live status; unset = the host name. */
     machineName: z.string().trim().min(1).max(60).optional(),
     /**

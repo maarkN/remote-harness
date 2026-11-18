@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { type Locale, PROVIDER_NAMES, type Profile, type ProviderKind } from '@remote-harness/protocol'
+import type { TerminalChoice } from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
 import { expandHome } from '../../core/paths.ts'
 import { isDirectory } from '../../infra/fs.ts'
@@ -215,6 +216,12 @@ export function mergeConfig(
 export function withProfilePicker(raw: unknown, enabled: boolean): Record<string, unknown> {
   const base = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
   return { ...base, profilePicker: enabled }
+}
+
+/** Sets `terminal` (where the tray opens sessions, #615) in the raw config, keeping every other key. */
+export function withTerminal(raw: unknown, choice: TerminalChoice): Record<string, unknown> {
+  const base = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  return { ...base, terminal: choice }
 }
 
 /** What must be cleaned up when `next` replaces `previous`. */

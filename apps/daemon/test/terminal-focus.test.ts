@@ -2,9 +2,11 @@ import { describe, expect, test } from 'vitest'
 import { showInTerminal } from '../src/features/pane/show-in-terminal.ts'
 import {
   attachCommand,
+  installedTerminalApps,
   pickTerminalApp,
   planShowInTerminal,
   shellQuote,
+  terminalFallback,
 } from '../src/features/pane/terminal-focus.ts'
 import { createDesktop } from '../src/infra/desktop.ts'
 import { resolveTmuxBin, TMUX_LOCATIONS, TmuxClient } from '../src/infra/tmux.ts'
@@ -220,6 +222,127 @@ describe('planShowInTerminal', () => {
   })
 })
 
+describe('the chosen terminal (#615)', () => {
+  const base = {
+    wsl: false,
+    hasAttachedClient: false,
+    terminalEnv: null,
+    paneId: '%1',
+    tmuxBin: TMUX,
+  }
+  const cmd = attachCommand('%1', TMUX)
+  const ghostty = { file: 'open', args: ['-na', 'Ghostty', '--args', '-e', '/bin/sh', '-c', cmd] }
+
+  test('a chosen app that is installed opens the session even while another app comes first', () => {
+    const steps = planShowInTerminal({
+      ...base,
+      platform: 'darwin',
+      runningProcessNames: ['iTerm2', 'Ghostty'],
+      choice: 'ghostty',
+      installed: ['iterm2', 'ghostty', 'terminal'],
+    })
+    expect(steps).toEqual([ghostty])
+    // Not even running: it is started.
+    expect(
+      planShowInTerminal({
+        ...base,
+        platform: 'darwin',
+        runningProcessNames: ['iTerm2'],
+        choice: 'ghostty',
+        installed: ['ghostty'],
+      }),
+    ).toEqual([ghostty])
+  })
+
+  test('with a client attached, the chosen app comes to the front when it runs, else the first running one', () => {
+    const attached = {
+      ...base,
+      platform: 'darwin' as const,
+      hasAttachedClient: true,
+      choice: 'ghostty' as const,
+      installed: ['ghostty' as const],
+    }
+    expect(planShowInTerminal({ ...attached, runningProcessNames: ['iTerm2', 'Ghostty'] })).toEqual([
+      { file: 'open', args: ['-a', 'Ghostty'] },
+    ])
+    expect(planShowInTerminal({ ...attached, runningProcessNames: ['iTerm2'] })[0]?.args[1]).toContain(
+      'iterm2',
+    )
+  })
+
+  test('a chosen app that is not installed falls back to auto, and the fallback names both', () => {
+    const missing = {
+      ...base,
+      platform: 'darwin' as const,
+      runningProcessNames: ['iTerm2'],
+      choice: 'alacritty' as const,
+      installed: ['iterm2' as const, 'terminal' as const],
+    }
+    expect(planShowInTerminal(missing)).toEqual(planShowInTerminal({ ...missing, choice: 'auto' }))
+    expect(terminalFallback(missing)).toEqual({ missing: 'Alacritty', used: 'iTerm2' })
+    expect(terminalFallback({ ...missing, runningProcessNames: [] })).toEqual({
+      missing: 'Alacritty',
+      used: 'Terminal',
+    })
+    // Nothing to report when the app is there, nothing is chosen, or nothing opens.
+    expect(terminalFallback({ ...missing, installed: ['alacritty'] })).toBeNull()
+    expect(terminalFallback({ ...missing, choice: 'auto' })).toBeNull()
+    expect(terminalFallback({ ...missing, hasAttachedClient: true })).toBeNull()
+  })
+
+  test('auto, window and no choice behave as before', () => {
+    const running = ['Finder', 'Ghostty', 'iTerm2']
+    const before = planShowInTerminal({ ...base, platform: 'darwin', runningProcessNames: running })
+    for (const choice of ['auto', 'window', undefined] as const)
+      expect(
+        planShowInTerminal({
+          ...base,
+          platform: 'darwin',
+          runningProcessNames: running,
+          choice,
+          installed: [],
+        }),
+      ).toEqual(before)
+  })
+
+  test('linux: a chosen app replaces $TERMINAL, each with its own way of taking a command', () => {
+    const line = `${cmd}; exec "$SHELL"`
+    const linux = { ...base, platform: 'linux' as const, runningProcessNames: [], terminalEnv: 'xterm' }
+    expect(planShowInTerminal({ ...linux, choice: 'kitty', installed: ['kitty'] })).toEqual([
+      { file: 'kitty', args: ['/bin/sh', '-c', line] },
+    ])
+    expect(planShowInTerminal({ ...linux, choice: 'ghostty', installed: ['ghostty'] })).toEqual([
+      { file: 'ghostty', args: ['-e', '/bin/sh', '-c', line] },
+    ])
+    expect(planShowInTerminal({ ...linux, choice: 'alacritty', installed: ['alacritty'] })).toEqual([
+      { file: 'alacritty', args: ['-e', '/bin/sh', '-c', line] },
+    ])
+    expect(planShowInTerminal({ ...linux, choice: 'wezterm', installed: ['wezterm'] })).toEqual([
+      { file: 'wezterm', args: ['start', '--', '/bin/sh', '-c', line] },
+    ])
+    // Not installed: $TERMINAL as before, and the fallback says so.
+    expect(planShowInTerminal({ ...linux, choice: 'kitty', installed: [] })).toEqual([
+      { file: 'xterm', args: ['-e', '/bin/sh', '-c', line] },
+    ])
+    expect(terminalFallback({ ...linux, choice: 'kitty', installed: [] })).toEqual({
+      missing: 'kitty',
+      used: 'xterm',
+    })
+    expect(terminalFallback({ ...linux, terminalEnv: null, choice: 'kitty', installed: [] })).toEqual({
+      missing: 'kitty',
+      used: 'x-terminal-emulator',
+    })
+  })
+
+  test('wsl keeps Windows Terminal whatever is chosen', () => {
+    const wsl = { ...base, platform: 'linux' as const, wsl: true, runningProcessNames: [] }
+    expect(planShowInTerminal({ ...wsl, choice: 'kitty', installed: ['kitty'] })).toEqual(
+      planShowInTerminal(wsl),
+    )
+    expect(terminalFallback({ ...wsl, choice: 'kitty', installed: [] })).toBeNull()
+  })
+})
+
 describe('showInTerminal (orchestration)', () => {
   test('switches every attached client, focuses the pane, then activates the running app', async () => {
     const exec = fakeExecutor((call) => {
@@ -274,5 +397,68 @@ describe('showInTerminal (orchestration)', () => {
     const tmux = new TmuxClient(exec)
     const desktop = createDesktop(exec, 'darwin', { wsl: false })
     await expect(showInTerminal(tmux, desktop, 'darwin', false, '%1')).rejects.toThrow('not authorized')
+  })
+
+  test('the chosen app opens even while another runs, and a missing one is reported (#615)', async () => {
+    const respond = (call: { file: string; args: readonly string[] }) => {
+      if (call.args[0] === 'list-clients') return { stdout: '' }
+      if (call.file === 'which') return { stdout: `${TMUX}\n` }
+      if (call.file === 'osascript' && call.args.some((a) => a.includes('System Events')))
+        return { stdout: 'Finder, iTerm2' }
+      return undefined
+    }
+    const exec = fakeExecutor(respond)
+    const desktop = createDesktop(exec, 'darwin', { wsl: false })
+    const chosen = await showInTerminal(new TmuxClient(exec), desktop, 'darwin', false, '%1', {
+      choice: 'ghostty',
+      installed: async () => ['ghostty', 'iterm2', 'terminal'],
+    })
+    expect(chosen).toBeNull()
+    expect(exec.calls.at(-1)?.file).toBe('open')
+    expect(exec.calls.at(-1)?.args.slice(0, 6)).toEqual(['-na', 'Ghostty', '--args', '-e', '/bin/sh', '-c'])
+
+    const other = fakeExecutor(respond)
+    const missing = await showInTerminal(
+      new TmuxClient(other),
+      createDesktop(other, 'darwin', { wsl: false }),
+      'darwin',
+      false,
+      '%1',
+      {
+        choice: 'alacritty',
+        installed: async () => ['iterm2', 'terminal'],
+      },
+    )
+    expect(missing).toEqual({ missing: 'Alacritty', used: 'iTerm2' })
+    expect(other.calls.at(-1)?.args[1]).toContain('com.googlecode.iterm2')
+  })
+})
+
+describe('installedTerminalApps (#615)', () => {
+  test("macOS: the bundles in /Applications, ~/Applications and Terminal.app's system folder", async () => {
+    const present = new Set([
+      '/Applications/Ghostty.app',
+      '/Users/me/Applications/kitty.app',
+      '/System/Applications/Utilities/Terminal.app',
+    ])
+    const found = await installedTerminalApps({
+      platform: 'darwin',
+      wsl: false,
+      home: '/Users/me',
+      exists: async (path) => present.has(path),
+      which: async () => false,
+    })
+    expect(found).toEqual(['ghostty', 'kitty', 'terminal'])
+  })
+
+  test('Linux: the binaries on PATH; nothing under WSL', async () => {
+    const which = async (bin: string) => bin === 'kitty' || bin === 'wezterm'
+    const exists = async () => true
+    expect(await installedTerminalApps({ platform: 'linux', wsl: false, home: '/h', exists, which })).toEqual(
+      ['wezterm', 'kitty'],
+    )
+    expect(await installedTerminalApps({ platform: 'linux', wsl: true, home: '/h', exists, which })).toEqual(
+      [],
+    )
   })
 })
