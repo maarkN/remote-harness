@@ -50,6 +50,7 @@ import {
   settingsPath,
   uninstallHooks,
   uninstallLaunchers,
+  uninstallProfilePicker,
   uninstallShellPath,
   uninstallStatusLine,
 } from './features/hooks/installer.ts'
@@ -666,6 +667,7 @@ program
     const config = await loadConfig(logger)
     const profiles = await resolveProfiles(config, logger)
     await uninstallLaunchers(config.profiles, paths.bin())
+    await uninstallProfilePicker(paths.bin())
     const rcFiles = existingRcFiles(homedir(), existsSync)
     const removed = await uninstallShellPath(rcFiles)
     console.log(

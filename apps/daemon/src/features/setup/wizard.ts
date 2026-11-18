@@ -18,12 +18,20 @@ import type { SecretStore } from '../../core/secrets.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { isDirectory, readJsonFile, writeJsonAtomic } from '../../infra/fs.ts'
 import { BACKUP_SUFFIX } from '../hooks/installer.ts'
+import { PROFILE_PICKER } from '../hooks/profile-picker.ts'
 import { checkProviderKey } from '../providers/key-check.ts'
 import type { ProviderFetch } from '../providers/service.ts'
 import type { ServiceManager } from '../service/service-manager.ts'
 import type { WslHost } from '../wsl/host.ts'
 import { box, type Paint, renderLogo, renderWelcome } from './banner.ts'
-import { displayPaths, type InstallLine, type InstallOptions, installAll, removeProfiles } from './install.ts'
+import {
+  applyProfilePicker,
+  displayPaths,
+  type InstallLine,
+  type InstallOptions,
+  installAll,
+  removeProfiles,
+} from './install.ts'
 import { COPY_ITEMS, type CopyItem, type CopyOutcome, copyMainProfile } from './profile-copy.ts'
 import {
   detectConfigDirs,
@@ -37,6 +45,7 @@ import {
   tildify,
   validateAlias,
   validateNewConfigDir,
+  withProfilePicker,
 } from './profiles.ts'
 
 export type WizardOptions = InstallOptions & {
@@ -544,6 +553,27 @@ async function writeConfig(raw: unknown, profiles: readonly Profile[], language:
   await writeJsonAtomic(paths.config(), next)
 }
 
+/**
+ * End of an interactive setup: offers the profile picker (`rhnss`, #617), defaulting to the current
+ * setting. A changed answer is saved to config.json and the command is written or removed at once.
+ */
+async function askProfilePicker(o: Ctx, current: boolean, profiles: readonly Profile[]): Promise<boolean> {
+  if (!o.interactive) return current
+  const enabled = await confirm({
+    message: o.m.setup.profilePicker,
+    default: current,
+    theme: yesNoTheme(o.paint, o.m),
+  })
+  if (enabled === current) return current
+  const raw = await readRawConfig()
+  const next = withProfilePicker(raw, enabled)
+  ConfigSchema.parse(next)
+  if (raw !== undefined) await copyFile(paths.config(), `${paths.config()}${BACKUP_SUFFIX}`)
+  await writeJsonAtomic(paths.config(), next)
+  printLines(o.paint, await applyProfilePicker({ profilePicker: enabled }, profiles, o.m.install), o.home)
+  return enabled
+}
+
 const SERVICE_LABELS = { launchd: 'LaunchAgent', systemd: 'systemd' } as const
 
 /** Step 3: background service and, on systemd, lingering (only with the user's consent). */
@@ -718,6 +748,7 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
   if (o.interactive && (await confirm({ message: s.showQr, default: true, theme: yesNo }))) {
     await o.pair()
   }
+  const picker = await askProfilePicker(o, config.profilePicker, resolved)
 
   const aliases = profiles.map((p) => paint('accent', p.id)).join(', ')
   console.log(
@@ -727,6 +758,7 @@ export async function runSetupWizard(options: WizardOptions): Promise<void> {
         '',
         s.done.openTerminal(paint('bold', `source ${displayPaths(o.rcFiles.slice(0, 1), o.home)}`)),
         s.done.useAliases(aliases, paint('muted', 'claude')),
+        ...(picker ? [s.done.usePicker(paint('accent', PROFILE_PICKER))] : []),
         s.done.pairIfNeeded(paint('bold', 'remote-harness pair')),
         '',
         paint('dim', s.done.footer),

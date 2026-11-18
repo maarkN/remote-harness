@@ -60,6 +60,8 @@ export const ConfigSchema = z
     tmuxSocket: z.string().min(1).nullable().default(DEFAULT_TMUX_SOCKET),
     /** Config of that server: Remote Harness's few settings, or those plus the user's own tmux.conf on top. */
     tmuxConfig: z.enum(['minimal', 'user']).default('minimal'),
+    /** The `rhnss` command next to the launchers, which asks which profile to start (opt-in in setup). */
+    profilePicker: z.boolean().default(false),
     /** Language of the CLI, setup and push texts; absent = the system language. */
     language: LocaleSchema.optional(),
     /** `off` sends no push nor live status; `auto` = Firebase service account if present, else the relay. */

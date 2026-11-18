@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { chmod, copyFile, mkdir, readFile, realpath, rm, stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { Profile } from '@remote-harness/protocol'
@@ -11,6 +12,7 @@ import {
 } from '../status-line/wrapper.ts'
 import { installedKimiEvents, KIMI_HOOK_EVENTS, mergeKimiHooks, removeKimiHooks } from './kimi-hooks.ts'
 import { removePathBlock, renderLauncher, upsertPathBlock } from './launcher.ts'
+import { PROFILE_PICKER, type ProfilePickerOptions, renderProfilePicker } from './profile-picker.ts'
 import {
   type HookInstallOptions,
   hookEventsFor,
@@ -124,6 +126,26 @@ export async function installLaunchers(
 
 export async function uninstallLaunchers(profiles: readonly Profile[], binDir: string): Promise<void> {
   for (const profile of profiles) await rm(join(binDir, profile.id), { force: true })
+}
+
+/** Writes the profile picker (`rhnss`) next to the launchers; returns its path. */
+export async function installProfilePicker(
+  profiles: readonly Profile[],
+  options: { binDir: string } & ProfilePickerOptions,
+): Promise<string> {
+  await mkdir(options.binDir, { recursive: true })
+  const path = join(options.binDir, PROFILE_PICKER)
+  await writeFileAtomic(path, renderProfilePicker(profiles, options))
+  await chmod(path, 0o755)
+  return path
+}
+
+/** Removes the profile picker; true when there was one. */
+export async function uninstallProfilePicker(binDir: string): Promise<boolean> {
+  const path = join(binDir, PROFILE_PICKER)
+  if (!existsSync(path)) return false
+  await rm(path, { force: true })
+  return true
 }
 
 const RC_FILES: Record<string, string> = { zsh: '.zshrc', bash: '.bashrc' }

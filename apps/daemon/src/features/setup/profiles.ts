@@ -6,6 +6,7 @@ import { type Locale, PROVIDER_NAMES, type Profile, type ProviderKind } from '@r
 import type { Messages } from '../../core/i18n/index.ts'
 import { expandHome } from '../../core/paths.ts'
 import { isDirectory } from '../../infra/fs.ts'
+import { PROFILE_PICKER } from '../hooks/profile-picker.ts'
 
 /** `~/.claude` and `~/.claude-<name>`. */
 const CONFIG_DIR = /^\.claude(-[\w.-]+)?$/
@@ -40,6 +41,7 @@ const RESERVED_ALIASES = new Set([
   'claude-remote',
   'remote-harness',
   'tmux',
+  PROFILE_PICKER,
 ])
 export const PROFILE_COLORS = ['#D97757', '#61AFEF', '#98C379', '#C678DD', '#E5C07B', '#56B6C2']
 
@@ -207,6 +209,12 @@ export function mergeConfig(
 ): Record<string, unknown> {
   const base = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
   return { ...base, profiles, ...(language ? { language } : {}) }
+}
+
+/** Sets `profilePicker` (the `rhnss` command) in the raw config, keeping every other key. */
+export function withProfilePicker(raw: unknown, enabled: boolean): Record<string, unknown> {
+  const base = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  return { ...base, profilePicker: enabled }
 }
 
 /** What must be cleaned up when `next` replaces `previous`. */
