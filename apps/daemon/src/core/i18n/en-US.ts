@@ -611,6 +611,8 @@ export const enUS = {
       rename: 'Rename…',
       close: 'Close session',
       seeAllSessions: 'See all sessions…',
+      seeAllDevices: (count: number) => `See all devices (${count})…`,
+      allDevices: (count: number) => `See all devices (${count})`,
       sessionsWindowTitle: 'Sessions',
       searchSessions: 'Search sessions',
       copyPath: 'Copy path',

@@ -615,6 +615,8 @@ export const esES = {
       rename: 'Renombrar…',
       close: 'Cerrar sesión',
       seeAllSessions: 'Ver todas las sesiones…',
+      seeAllDevices: (count: number) => `Ver todos los dispositivos (${count})…`,
+      allDevices: (count: number) => `Ver todos los dispositivos (${count})`,
       sessionsWindowTitle: 'Sesiones',
       searchSessions: 'Buscar sesiones',
       copyPath: 'Copiar ruta',
