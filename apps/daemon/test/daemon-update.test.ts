@@ -27,6 +27,31 @@ import { execaExecutor } from '../src/infra/exec.ts'
 import { MessageRouter } from '../src/transport/router.ts'
 import { fakeConnection, useTempHome } from './helpers.ts'
 
+/**
+ * Lets a test hold the next JSON read once it read the file, and resolve it later: a run poll in
+ * flight. With nothing held, reads go straight through.
+ */
+const readGate = vi.hoisted(() => ({
+  hold: null as Promise<void> | null,
+  onHeld: null as (() => void) | null,
+}))
+vi.mock('../src/infra/fs.ts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/infra/fs.ts')>()
+  return {
+    ...original,
+    readJsonFile: async (path: string) => {
+      const data = await original.readJsonFile(path)
+      const hold = readGate.hold
+      if (hold) {
+        readGate.hold = null
+        readGate.onHeld?.()
+        await hold
+      }
+      return data
+    },
+  }
+})
+
 const home = useTempHome()
 const logger = createLogger({ level: 'silent' })
 const t0 = new Date('2026-10-19T10:00:00.000Z')
@@ -225,10 +250,35 @@ describe('RemoteUpdates', () => {
     const { send, fail, runPath, broadcasts, remote } = setup()
     await send({ type: 'daemon.update.start', id: '1', channel: 'main' })
     fail(1)
-    await vi.waitFor(async () =>
-      expect(await readRun(runPath)).toMatchObject({ step: 'failed', error: 'updater exited (1)' }),
-    )
-    expect(broadcasts.at(-1)).toMatchObject({ info: { run: { step: 'failed' } } })
+    await vi.waitFor(async () => {
+      expect(await readRun(runPath)).toMatchObject({ step: 'failed', error: 'updater exited (1)' })
+      expect(broadcasts.at(-1)).toMatchObject({ info: { run: { step: 'failed' } } })
+    })
+    remote.stop()
+  })
+
+  test('a poll read in flight when the updater dies does not bring the run back (#609)', async () => {
+    const { send, fail, runPath, broadcasts, remote } = setup()
+    await send({ type: 'daemon.update.start', id: '1', channel: 'main' })
+    // The next poll reads the record at `fetching` and is held before it applies what it read.
+    let release = () => {}
+    readGate.hold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await new Promise<void>((resolve) => {
+      readGate.onHeld = resolve
+    })
+    fail(1)
+    await vi.waitFor(async () => {
+      expect(await readRun(runPath)).toMatchObject({ step: 'failed', error: 'updater exited (1)' })
+      expect(broadcasts.at(-1)).toMatchObject({ info: { run: { step: 'failed' } } })
+    })
+    const sent = broadcasts.length
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    expect(broadcasts).toHaveLength(sent)
+    expect(remote.running()).toBe(false)
+    expect(await readRun(runPath)).toMatchObject({ step: 'failed' })
     remote.stop()
   })
 

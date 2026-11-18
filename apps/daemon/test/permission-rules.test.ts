@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ApprovalEntry, Profile } from '@remote-harness/protocol'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
 import { paths } from '../src/core/paths.ts'
 import { FileTokenStore } from '../src/core/secrets.ts'
@@ -272,7 +272,17 @@ describe('integration: rules and approvals over the protocol', () => {
     client.send({ type: 'rules.delete', id: 'd2', file: settings, rule: 'Read' })
     expect(await client.until('ack')).toMatchObject({ replyTo: 'd2' })
     expect(JSON.parse(await readFile(settings, 'utf8'))).toEqual({ permissions: { allow: [] } })
-    expect((await approvals('a-last')).map((e) => e.action)).toEqual(['delete', 'undo', 'allow'])
+    // The log is written in the background: the `ack` may arrive before the entry is on disk (#609).
+    let read = 0
+    await vi.waitFor(
+      async () =>
+        expect((await approvals(`a-last-${read++}`)).map((e) => e.action)).toEqual([
+          'delete',
+          'undo',
+          'allow',
+        ]),
+      { timeout: 5000 },
+    )
     client.close()
   })
 })

@@ -136,6 +136,9 @@ describe('settings hooks merge', () => {
           (error, stdout) =>
             resolve({ event, code: error ? ((error as { code?: number }).code ?? 1) : 0, stdout }),
         )
+        // Here curl exits without reading its input (the test's curl config does not exist): on a loaded
+        // machine the hook can be gone before this write, which then fails with EPIPE (#609).
+        child.stdin?.on('error', () => undefined)
         child.stdin?.end(JSON.stringify({ session_id: 'abc', hook_event_name: event }))
       })
     const results = await Promise.all(HOOK_EVENTS.map(run))
