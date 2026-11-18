@@ -252,8 +252,14 @@ export const esES = {
       list: 'lista los dispositivos emparejados (ID, nombre, plataforma, emparejado, visto por última vez, versión de la app)',
       revoke: 'desempareja un dispositivo: se desconecta y debe volver a emparejarse',
       empty: 'No hay dispositivos emparejados. Ejecuta `remote-harness pair` para emparejar uno.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
-        `${id}  ${name}  ${platform}  emparejado ${paired}  visto por última vez ${seen}  app ${app}`,
+      columns: {
+        id: 'ID',
+        name: 'Nombre',
+        platform: 'Plataforma',
+        paired: 'Emparejado',
+        seen: 'Visto por última vez',
+        app: 'App',
+      },
       never: 'nunca',
       revoked: (id: string) => `Dispositivo ${id} revocado.`,
       notFound: (id: string) => `No hay ningún dispositivo emparejado ${id}.`,

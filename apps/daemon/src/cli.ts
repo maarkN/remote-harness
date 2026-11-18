@@ -55,6 +55,7 @@ import {
 } from './features/hooks/installer.ts'
 import { isDefaultConfigDir } from './features/hooks/launcher.ts'
 import { deviceInfoOf, PairedDevices } from './features/pairing/devices.ts'
+import { devicesTable } from './features/pairing/devices-table.ts'
 import { ApprovalLog } from './features/permissions/approval-log.ts'
 import { RulesLog } from './features/permissions/rules-log.ts'
 import type { PowerState } from './features/power/index.ts'
@@ -1107,8 +1108,6 @@ async function pairedDevices(): Promise<z.infer<typeof DevicesReplySchema>['devi
   return store.devices().map((d) => deviceInfoOf(d))
 }
 
-const shortTime = (iso: string) => iso.slice(0, 16).replace('T', ' ')
-
 const devicesCommand = program.command('devices').description(m.cli.devices.description)
 devicesCommand
   .command('list')
@@ -1116,17 +1115,7 @@ devicesCommand
   .action(async () => {
     const list = await pairedDevices()
     if (list.length === 0) console.log(m.cli.devices.empty)
-    for (const d of list)
-      console.log(
-        m.cli.devices.row(
-          d.id,
-          d.name || '—',
-          d.platform || '—',
-          shortTime(d.pairedAt),
-          d.lastSeen ? shortTime(d.lastSeen) : m.cli.devices.never,
-          d.app?.version ?? '?',
-        ),
-      )
+    else for (const line of devicesTable(list, m.cli.devices)) console.log(line)
   })
 devicesCommand
   .command('revoke <id>')

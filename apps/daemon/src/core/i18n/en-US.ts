@@ -245,8 +245,14 @@ export const enUS = {
       list: 'list the paired devices (ID, name, platform, paired, last seen, app version)',
       revoke: 'unpair a device: it is disconnected and must pair again',
       empty: 'No paired devices. Run `remote-harness pair` to pair one.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
-        `${id}  ${name}  ${platform}  paired ${paired}  last seen ${seen}  app ${app}`,
+      columns: {
+        id: 'ID',
+        name: 'Name',
+        platform: 'Platform',
+        paired: 'Paired',
+        seen: 'Last seen',
+        app: 'App',
+      },
       never: 'never',
       revoked: (id: string) => `Device ${id} revoked.`,
       notFound: (id: string) => `No paired device ${id}.`,
