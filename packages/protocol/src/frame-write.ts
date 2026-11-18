@@ -1,7 +1,10 @@
-/** A pane screen as the daemon sends it (`capture-pane -p -e`: text with SGR escapes, one line per row). */
-export type PaneFrame = { text: string; cols: number; rows: number }
+import type { PaneFrame } from './deltas.ts'
 
-/** What the terminal page writes for a frame: everything again, or only the rows that changed. */
+/**
+ * What an xterm.js page writes for a pane frame (`pane.frame`, kept up to date with `pane.diff`):
+ * everything again, or only the rows that changed. Shared by the app's Terminal tab and the
+ * computer's terminal window, so both draw a pane the same way.
+ */
 export type FrameWrite = { full: boolean; cols: number; rows: number; data: string }
 
 const ESC = '\x1b'

@@ -3,6 +3,7 @@
 import AppKit
 import CoreImage
 import SwiftUI
+import WebKit
 
 struct TrayItem: Decodable {
   let id: String?
@@ -165,8 +166,21 @@ struct TrayPopoverWire: Decodable {
   let actions: [[PopoverActionWire]]
 }
 
+/// What a terminal window's page writes for a frame (the daemon's `frameWrite`), passed to it as is.
+struct TerminalWriteWire: Codable {
+  let full: Bool
+  let cols: Int
+  let rows: Int
+  let data: String
+}
+
 struct TrayMessage: Decodable {
   let type: String
+  /// `terminal.*` messages: the session, its title, the page to load and a frame to write.
+  let sessionId: String?
+  let title: String?
+  let page: String?
+  let write: TerminalWriteWire?
   let tooltip: String?
   /// Glyph state: `idle`, `working`, `waiting` or `offline` (absent = idle).
   let icon: String?
@@ -196,6 +210,9 @@ final class Tray: NSObject {
   let data = TrayState()
   private var prefsWindow: NSWindow?
   private var sessionsWindow: NSWindow?
+  /// The open terminal windows, by session id (#614).
+  private var terminals: [String: TerminalWindow] = [:]
+  private var lastTerminalOrigin = NSPoint.zero
   /// The cards popover, shown instead of the menu once the daemon sends `popover`.
   private let popover = NSPopover()
   private lazy var popoverHost = NSHostingController(rootView: PopoverView(state: data, tray: self))
@@ -289,7 +306,36 @@ final class Tray: NSObject {
   static func markImage() -> NSImage { glyph("idle") }
 
   func apply(_ message: TrayMessage) {
-    guard message.type == "menu" else { return }
+    switch message.type {
+    case "menu": applyMenu(message)
+    case "terminal.open":
+      if let id = message.sessionId, let page = message.page { openTerminal(id, title: message.title ?? "", page: page) }
+    case "terminal.frame":
+      if let id = message.sessionId, let write = message.write { terminals[id]?.write(write) }
+    case "terminal.title":
+      if let id = message.sessionId, let title = message.title { terminals[id]?.window.title = title }
+    case "terminal.close":
+      if let id = message.sessionId { terminals[id]?.window.close() }
+    default: break
+    }
+  }
+
+  /// Opens the session's terminal window, or brings the open one to the front.
+  private func openTerminal(_ sessionId: String, title: String, page: String) {
+    if let open = terminals[sessionId] {
+      open.window.title = title
+      open.show()
+      return
+    }
+    let terminal = TerminalWindow(sessionId: sessionId, title: title, page: page) { [weak self] id in
+      self?.terminals[id] = nil
+    }
+    lastTerminalOrigin = terminal.window.cascadeTopLeft(from: lastTerminalOrigin)
+    terminals[sessionId] = terminal
+    terminal.show()
+  }
+
+  private func applyMenu(_ message: TrayMessage) {
     let next = message.icon ?? "idle"
     if next != state, let button = statusItem.button {
       state = next
@@ -639,6 +685,66 @@ struct SessionsView: View {
   }
 }
 
+// MARK: - Terminal window
+
+/// A session's terminal window (#614): its tmux pane mirrored by xterm.js in a web view, like the
+/// app's Terminal tab. The daemon writes the frames (stdin); what is typed goes back to it (stdout).
+final class TerminalWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler {
+  let sessionId: String
+  let window: NSWindow
+  private let web: WKWebView
+  private let onClosed: (String) -> Void
+
+  init(sessionId: String, title: String, page: String, onClosed: @escaping (String) -> Void) {
+    self.sessionId = sessionId
+    self.onClosed = onClosed
+    let frame = NSRect(x: 0, y: 0, width: 860, height: 540)
+    web = WKWebView(frame: frame, configuration: WKWebViewConfiguration())
+    window = NSWindow(
+      contentRect: frame, styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered,
+      defer: false)
+    super.init()
+    // Removed when the window closes: the controller keeps its handler alive.
+    web.configuration.userContentController.add(self, name: "terminal")
+    if #available(macOS 12.0, *) { web.underPageBackgroundColor = .windowBackgroundColor }
+    window.title = title
+    window.contentView = web
+    window.minSize = NSSize(width: 320, height: 200)
+    window.isReleasedWhenClosed = false
+    window.delegate = self
+    window.center()
+    let url = URL(fileURLWithPath: page)
+    web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+  }
+
+  func show() {
+    NSApp.activate(ignoringOtherApps: true)
+    window.makeKeyAndOrderFront(nil)
+  }
+
+  func write(_ write: TerminalWriteWire) {
+    guard let data = try? JSONEncoder().encode(write), let json = String(data: data, encoding: .utf8) else { return }
+    web.evaluateJavaScript("window.writeFrame && window.writeFrame(\(json))", completionHandler: nil)
+  }
+
+  /// `{type:'ready'}` once the page loaded (the daemon then streams a full frame), `{type:'input', data}`.
+  func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+    guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+    if type == "ready" {
+      emit(["type": "terminal.ready", "sessionId": sessionId])
+    } else if type == "input", let data = body["data"] as? String {
+      emit(["type": "terminal.input", "sessionId": sessionId, "data": data])
+    }
+  }
+
+  /// The session keeps running: the daemon only stops streaming to this window.
+  func windowWillClose(_ notification: Notification) {
+    web.configuration.userContentController.removeScriptMessageHandler(forName: "terminal")
+    emit(["type": "terminal.closed", "sessionId": sessionId])
+    onClosed(sessionId)
+  }
+}
+
 struct SessionRowView: View {
   let session: TraySessionWire
   let actions: TraySessionsActionsWire?
@@ -661,6 +767,13 @@ struct SessionRowView: View {
         if let outside { Tag(label: outside.tag) }
       }
       .help(outside?.hint ?? "")
+      // A double-click opens the session's terminal window (#614).
+      .contentShape(Rectangle())
+      .onTapGesture(count: 2) {
+        if outside == nil, session.controllable, session.state != "ended" {
+          tray.sendAction("window:\(session.id)", nil)
+        }
+      }
       Spacer()
       Button(actions?.focus ?? "Focus") { tray.sendAction("focus:\(session.id)", nil) }
         .disabled(!session.controllable)
@@ -1116,6 +1229,21 @@ func emit(_ object: [String: Any]) {
 let app = NSApplication.shared
 // Menu bar only: no Dock icon, no main window.
 app.setActivationPolicy(.accessory)
+// An accessory app shows no menu bar, but its main menu still maps the usual keys. Without these,
+// ⌘C / ⌘V / ⌘A / ⌘W do nothing in the terminal window and the Preferences fields. Never displayed,
+// so the titles are not translated.
+app.mainMenu = {
+  let main = NSMenu()
+  let item = NSMenuItem()
+  main.addItem(item)
+  let edit = NSMenu(title: "Edit")
+  edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+  edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+  edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+  edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+  item.submenu = edit
+  return main
+}()
 let tray = Tray()
 
 Thread.detachNewThread {
@@ -1128,5 +1256,5 @@ Thread.detachNewThread {
   DispatchQueue.main.async { exit(0) }
 }
 
-emit(["type": "ready", "windows": true, "popover": true])
+emit(["type": "ready", "windows": true, "popover": true, "terminals": true])
 app.run()

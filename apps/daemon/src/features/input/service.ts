@@ -86,6 +86,17 @@ export class InputService {
     return this.attachments.resolve(sessionId, ids)
   }
 
+  /**
+   * What is typed in the computer's terminal window (#614), as the terminal's bytes: typed into the
+   * pane as is, after any input already queued for the session. Never logged.
+   */
+  async typeRaw(sessionId: string, data: string): Promise<void> {
+    assertWithinLimit(data)
+    const { paneId } = requireControllable(this.store, sessionId)
+    if (!data) return
+    await this.lock.run(sessionId, () => this.tmux.sendRaw(paneId, data))
+  }
+
   async sendKey(sessionId: string, key: string): Promise<void> {
     const parsed = KeySchema.safeParse(key)
     if (!parsed.success) throw new DaemonError('invalid_key', `key not allowed: ${key}`)

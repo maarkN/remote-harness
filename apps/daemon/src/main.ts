@@ -368,7 +368,7 @@ async function registerFeatures(
   registerVoicePolishFeature(ctx, sessions.store)
   const shell = registerShellFeature(ctx, sessions.store)
   registerDiagnosticsFeature(ctx)
-  registerPaneFeature(ctx, sessions.store)
+  const pane = registerPaneFeature(ctx, sessions.store)
   registerProvidersFeature(ctx, { key: ctx.providerKey })
   const checkout = registerCheckoutFeature(ctx, sessions.store)
   registerChangesFeature(ctx, sessions.store)
@@ -442,6 +442,11 @@ async function registerFeatures(
         devices: () => ({ push: push.mode() !== 'off', items: tray.pairedDevices() }),
         closeSession: (id) => lifecycle.closer.close(id),
         renameSession: (id, name) => input.service.sendText(id, `/rename ${name}`),
+        terminal: {
+          subscribe: (sessionId, paneId, viewer) => pane.streamer.subscribe(sessionId, paneId, viewer),
+          type: (sessionId, data) => input.service.typeRaw(sessionId, data),
+          refresh: (sessionId) => pane.streamer.refresh(sessionId),
+        },
         pairing: tray.pairing,
         revokeDevice: tray.revokeDevice,
         network: tray.network,

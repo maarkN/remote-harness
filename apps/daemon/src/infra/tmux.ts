@@ -187,6 +187,17 @@ export class TmuxClient {
     await this.run(['send-keys', '-t', paneId, '-l', '--', text])
   }
 
+  /**
+   * Types what a terminal sends for keys (`\r`, `\x7f`, `\x1b[A`, `\x03`…) as is: every character
+   * as a key (`-l`), and NUL, which cannot travel as an argument, as `-H 00`.
+   */
+  async sendRaw(paneId: string, data: string): Promise<void> {
+    for (const [index, part] of data.split('\0').entries()) {
+      if (index > 0) await this.run(['send-keys', '-t', paneId, '-H', '00'])
+      if (part) await this.sendLiteral(paneId, part)
+    }
+  }
+
   /** Pastes text as one bracketed paste through a named buffer (deleted after use). */
   async pasteText(paneId: string, text: string, bufferName: string): Promise<void> {
     await this.run(['load-buffer', '-b', bufferName, '-'], text)

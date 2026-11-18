@@ -2,6 +2,7 @@ import type { ServerMessage } from '@remote-harness/protocol'
 import { afterEach, describe, expect, test } from 'vitest'
 import { silentLogger } from '../src/core/logger.ts'
 import { PaneStreamer } from '../src/features/pane/streamer.ts'
+import type { Executor } from '../src/infra/exec.ts'
 import { TmuxClient } from '../src/infra/tmux.ts'
 import { fakeConnection, fakeExecutor } from './helpers.ts'
 
@@ -70,5 +71,53 @@ describe('PaneStreamer', () => {
     await wait(50)
     expect(second.sent).toEqual([expect.objectContaining({ type: 'pane.frame', text: lines.join('\n') })])
     expect(first.sent).toHaveLength(2)
+  })
+
+  test('streams to any viewer, and refresh captures right away (#614)', async () => {
+    let content = 'a'
+    const exec = fakeExecutor(() => ({ stdout: `80 24\n${content}` }))
+    // A long interval: only `refresh` can bring the second frame within the test.
+    streamer = new PaneStreamer(new TmuxClient(exec), silentLogger, 60_000)
+    const sent: ServerMessage[] = []
+    const closers: Array<() => void> = []
+    const viewer = {
+      send: (message: ServerMessage) => sent.push(message),
+      onClose: (fn: () => void) => closers.push(fn),
+    }
+    streamer.subscribe('s', '%1', viewer)
+    await wait(20)
+    expect(sent).toEqual([expect.objectContaining({ type: 'pane.frame', text: 'a' })])
+    content = 'b'
+    streamer.refresh('s')
+    await wait(20)
+    expect(sent.map((m) => m.type)).toEqual(['pane.frame', 'pane.frame'])
+    // Nothing subscribed: nothing captured.
+    const calls = exec.calls.length
+    streamer.refresh('other')
+    for (const close of closers) close()
+    expect(streamer.activeStreams).toBe(0)
+    streamer.refresh('s')
+    await wait(20)
+    expect(exec.calls.length).toBe(calls)
+  })
+
+  test('a refresh during a capture captures again right after it', async () => {
+    let content = 'a'
+    let release = () => {}
+    let captures = 0
+    const exec: Executor = async () => {
+      captures += 1
+      if (captures === 1) await new Promise<void>((resolve) => (release = resolve))
+      return { stdout: `80 24\n${content}`, stderr: '', exitCode: 0 }
+    }
+    streamer = new PaneStreamer(new TmuxClient(exec), silentLogger, 60_000)
+    const sent: ServerMessage[] = []
+    streamer.subscribe('s', '%1', { send: (message) => sent.push(message), onClose: () => undefined })
+    content = 'b'
+    streamer.refresh('s')
+    release()
+    await wait(20)
+    expect(captures).toBe(2)
+    expect(sent.at(-1)).toMatchObject({ type: 'pane.frame', text: 'b' })
   })
 })

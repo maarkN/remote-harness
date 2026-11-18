@@ -191,6 +191,8 @@ export type TrayMenuState = {
   windows?: boolean
   /** The helper shows the popover instead of the menu (macOS). */
   popover?: boolean
+  /** The helper opens a session's terminal window (macOS, #614). */
+  terminals?: boolean
   profiles?: TrayProfile[]
 }
 
@@ -218,12 +220,14 @@ export const TRAY_ACTIONS = {
 export const CHANNEL_ACTION_PREFIX = 'channel:'
 /** `awake:<mode>` sets the keep-awake mode. */
 export const KEEP_AWAKE_ACTION_PREFIX = 'awake:'
-/** Prefixed ids: `allow:<requestId>`, `always:<requestId>`, `deny:<requestId>`, `focus:<sessionId>`, `close:<sessionId>`, `rename:<sessionId>`. */
+/** Prefixed ids: `allow:<requestId>`, `always:<requestId>`, `deny:<requestId>`, `focus:<sessionId>`, `window:<sessionId>`, `close:<sessionId>`, `rename:<sessionId>`. */
 export const TRAY_PREFIXES = {
   allow: 'allow:',
   always: 'always:',
   deny: 'deny:',
   focus: 'focus:',
+  /** The session's terminal window (#614), on a helper that opens them. */
+  window: 'window:',
   close: 'close:',
   rename: 'rename:',
   revoke: 'revoke:',

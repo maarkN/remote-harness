@@ -189,6 +189,9 @@ importers:
       '@remote-harness/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@xterm/xterm':
+        specifier: ^6.0.0
+        version: 6.0.0
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0

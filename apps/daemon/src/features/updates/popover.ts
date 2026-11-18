@@ -37,7 +37,7 @@ export type PopoverSession = {
   /** `folder · profile · worktree`. */
   detail: string
   pill: TrayPill
-  /** What a click does (open in terminal); null when the session has no pane. */
+  /** What a click does: its terminal window, or an external terminal; null when the session has no pane. */
   action: string | null
   /** A live session outside the Remote Harness tmux server: the row's tag and its tooltip (#613). */
   outsideTmux: { tag: string; hint: string } | null
@@ -112,7 +112,9 @@ export function buildTrayPopover(s: TrayMenuState, t: TrayStrings): TrayPopover 
           .filter(Boolean)
           .join(' · '),
         pill: { label: t.states[session.state], tone: session.state },
-        action: session.controllable ? `${TRAY_PREFIXES.focus}${session.id}` : null,
+        action: session.controllable
+          ? `${s.terminals ? TRAY_PREFIXES.window : TRAY_PREFIXES.focus}${session.id}`
+          : null,
         outsideTmux: isOutsideTmux(session) ? { tag: t.outsideTmux, hint: t.outsideTmuxHint } : null,
         menu: [
           { id: `${TRAY_PREFIXES.focus}${session.id}`, label: t.focus, enabled: session.controllable },
