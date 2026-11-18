@@ -25,6 +25,7 @@ export async function showInTerminal(
     runningProcessNames,
     terminalEnv: process.env.TERMINAL ?? null,
     paneId,
+    tmuxBin: await tmux.absoluteBin(),
     tmuxServer: tmux.server,
   })
   await desktop.runSteps(steps)

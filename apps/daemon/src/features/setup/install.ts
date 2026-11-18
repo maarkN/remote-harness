@@ -10,6 +10,7 @@ import { expandHome, paths } from '../../core/paths.ts'
 import type { Executor } from '../../infra/exec.ts'
 import { isDirectory } from '../../infra/fs.ts'
 import type { Platform } from '../../infra/platform.ts'
+import { resolveTmuxBin } from '../../infra/tmux.ts'
 import { agentFor, hasAgentAdapter, profileAgentId } from '../agents/index.ts'
 import { ensureHookSecretFiles } from '../hooks/hook-secret.ts'
 import {
@@ -94,8 +95,8 @@ export async function installAll(
   m: Messages['install'],
 ): Promise<InstallLine[]> {
   const lines: InstallLine[] = []
-  const which = await o.exec('which', ['tmux'])
-  const tmuxBin = which.exitCode === 0 ? which.stdout.trim() : 'tmux'
+  // The attach command of "Open in terminal (tmux)" looks tmux up the same way (#612).
+  const tmuxBin = (await resolveTmuxBin(o.exec)) ?? 'tmux'
   // The Remote Harness tmux server's config, from config.json (nothing to write for the default server).
   const tmuxServer = tmuxServerOf(config)
   const tmuxConf = await ensureTmuxConf(config)
