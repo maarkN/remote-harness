@@ -3,9 +3,16 @@ import {
   type PermissionRequestInfo,
   type SessionState,
 } from '@remote-harness/protocol'
-import { KEEP_AWAKE_MODES, type KeepAwakeMode } from '../../core/config.ts'
+import {
+  KEEP_AWAKE_MODES,
+  type KeepAwakeMode,
+  type TerminalChoice,
+  terminalChoicesFor,
+} from '../../core/config.ts'
 import type { Messages } from '../../core/i18n/index.ts'
+import type { Platform } from '../../infra/platform.ts'
 import type { ConnectionPath } from '../../transport/connection.ts'
+import type { TerminalAppId } from '../pane/terminal-focus.ts'
 import type { UpdateChannel } from './channel.ts'
 import type { TrayPopover } from './popover.ts'
 
@@ -121,6 +128,8 @@ export type TraySessionsWindow = {
   actions: { focus: string; rename: string; close: string; copyPath: string }
   /** The helper's native rename prompt (a text field is not expressible as a `PrefRow`). */
   renamePrompt: { title: string; confirm: string; cancel: string }
+  /** Tag and tooltip of a live session outside tmux (`controllable` false, not ended) (#613). */
+  outsideTmux: { tag: string; hint: string }
 }
 
 /** The oldest pending tool permission, answerable from the menu. */
@@ -189,6 +198,13 @@ export type TrayMenuState = {
   windows?: boolean
   /** The helper shows the popover instead of the menu (macOS). */
   popover?: boolean
+  /** The helper opens a session's terminal window (macOS, #614). */
+  terminals?: boolean
+  /**
+   * Where a click opens a session (#615): the setting as it applies here and the choices offered in
+   * Preferences, translated.
+   */
+  terminal?: { label: string; choice: TerminalChoice; options: { id: TerminalChoice; label: string }[] }
   profiles?: TrayProfile[]
 }
 
@@ -216,12 +232,16 @@ export const TRAY_ACTIONS = {
 export const CHANNEL_ACTION_PREFIX = 'channel:'
 /** `awake:<mode>` sets the keep-awake mode. */
 export const KEEP_AWAKE_ACTION_PREFIX = 'awake:'
-/** Prefixed ids: `allow:<requestId>`, `always:<requestId>`, `deny:<requestId>`, `focus:<sessionId>`, `close:<sessionId>`, `rename:<sessionId>`. */
+/** `open-in:<choice>`: the `terminal` setting picked in Preferences (#615). */
+export const OPEN_IN_ACTION_PREFIX = 'open-in:'
+/** Prefixed ids: `allow:<requestId>`, `always:<requestId>`, `deny:<requestId>`, `focus:<sessionId>`, `window:<sessionId>`, `close:<sessionId>`, `rename:<sessionId>`. */
 export const TRAY_PREFIXES = {
   allow: 'allow:',
   always: 'always:',
   deny: 'deny:',
   focus: 'focus:',
+  /** The session's terminal window (#614), on a helper that opens them. */
+  window: 'window:',
   close: 'close:',
   rename: 'rename:',
   revoke: 'revoke:',
@@ -233,6 +253,8 @@ export const PREFS_TAB_PREFIX = 'prefs:'
 export const MAX_TRAY_SESSIONS = 8
 /** Same, on a helper that can open the Sessions window for the rest ("See all sessions…"). */
 export const MAX_TRAY_SESSIONS_WINDOW = 5
+/** Paired devices listed in the menu and the popover; the rest behind "See all devices (N)" (#619). */
+export const MAX_TRAY_DEVICES = 3
 const SUMMARY_MAX = 48
 
 /** `Bash · gh pr create --fill` for the pending item; the detail is cut, never the whole input. */
@@ -270,6 +292,16 @@ export function pathsLabel(network: TrayNetwork, t: TrayStrings): string {
 }
 
 /** `online · relay`, `online · direct + relay` or `offline`. */
+/** Devices online now first, then the most recently seen; never seen last, the newest pairing first. */
+export function recentDevices(devices: readonly TrayDevice[]): TrayDevice[] {
+  return [...devices].sort(
+    (a, b) =>
+      Number(b.paths.length > 0) - Number(a.paths.length > 0) ||
+      (b.lastSeen ?? -1) - (a.lastSeen ?? -1) ||
+      b.pairedAt - a.pairedAt,
+  )
+}
+
 export function deviceStateLabel(device: Pick<TrayDevice, 'paths'>, t: TrayStrings): string {
   const [first] = device.paths
   if (!first) return t.offline
@@ -316,6 +348,33 @@ export function statusLine(s: TrayMenuState, t: TrayStrings): string | null {
   return t.status(s.machine, s.version, s.since, s.network ? pathsLabel(s.network, t) : undefined)
 }
 
+/**
+ * The choices "Open sessions in" offers: the terminal window where the helper opens it, Automatic,
+ * the installed apps, and the current choice even when it is not installed (it stays checked).
+ */
+export function trayTerminalOptions(o: {
+  platform: Platform
+  windows: boolean
+  installed: readonly TerminalAppId[]
+  current: TerminalChoice | undefined
+}): TerminalChoice[] {
+  return terminalChoicesFor(o.platform).filter(
+    (choice) =>
+      (choice === 'window' && o.windows) ||
+      choice === 'auto' ||
+      (choice !== 'window' && (o.installed as readonly string[]).includes(choice)) ||
+      choice === o.current,
+  )
+}
+
+/**
+ * A live session with no pane on the Remote Harness tmux server (started outside it): nothing to
+ * open, focus or close from the tray, which says so instead of ignoring clicks (#613).
+ */
+export function isOutsideTmux(session: Pick<TraySession, 'state' | 'controllable'>): boolean {
+  return !session.controllable && session.state !== 'ended'
+}
+
 export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
   const separator = { type: 'separator' } as const
   const status = s.updating
@@ -355,10 +414,15 @@ export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
     items.push({ id: 'sessions', label: t.sessions(s.sessions.length, running), enabled: false })
     for (const session of live.slice(0, cap)) {
       const meta = [session.folder, session.profile, session.worktree ? t.worktree : null].filter(Boolean)
+      const outside = isOutsideTmux(session)
       items.push({
         type: 'submenu',
-        label: `${session.title} · ${t.states[session.state]}`,
+        label: [session.title, t.states[session.state], outside ? t.outsideTmux : null]
+          .filter(Boolean)
+          .join(' · '),
         items: [
+          // Why Open in terminal and Close are disabled: there is no pane to reach (#613).
+          ...(outside ? [{ id: `outside:${session.id}`, label: t.outsideTmuxHint, enabled: false }] : []),
           { id: `info:${session.id}`, label: meta.join(' · '), enabled: false },
           { id: `${TRAY_PREFIXES.focus}${session.id}`, label: t.focus, enabled: session.controllable },
           { id: `${TRAY_PREFIXES.rename}${session.id}`, label: t.rename },
@@ -383,22 +447,21 @@ export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
   }
 
   if (s.devices) {
-    const devices = s.devices.items
+    const devices = recentDevices(s.devices.items)
     items.push({ id: 'devices', label: t.devices(devices.length, s.devices.push), enabled: false })
-    for (const device of devices) {
-      items.push({
-        type: 'submenu',
-        label: `${device.name} · ${deviceStateLabel(device, t)}`,
-        items: [
-          { id: `info:device:${device.id}`, label: deviceDetail(device, s, t), enabled: false },
-          separator,
-          {
-            type: 'submenu',
-            label: t.revoke,
-            items: [{ id: `${TRAY_PREFIXES.revoke}${device.id}`, label: t.revokeConfirm }],
-          },
-        ],
-      })
+    for (const device of devices.slice(0, MAX_TRAY_DEVICES)) items.push(deviceItem(device, s, t))
+    // The rest: the Devices tab where windows open, else every device in a submenu, so each one can
+    // still be revoked from the tray.
+    if (devices.length > MAX_TRAY_DEVICES) {
+      items.push(
+        s.windows
+          ? { id: `${PREFS_TAB_PREFIX}devices`, label: t.seeAllDevices(devices.length) }
+          : {
+              type: 'submenu',
+              label: t.allDevices(devices.length),
+              items: devices.map((device) => deviceItem(device, s, t)),
+            },
+      )
     }
     if (devices.length === 0) items.push({ id: 'no-devices', label: t.noDevices, enabled: false })
     items.push(separator)
@@ -469,6 +532,7 @@ export function buildTrayMenu(s: TrayMenuState, t: TrayStrings): TrayMenu {
             searchPlaceholder: t.searchSessions,
             actions: { focus: t.focus, rename: t.rename, close: t.close, copyPath: t.copyPath },
             renamePrompt: { title: t.renamePromptTitle, confirm: t.renameConfirm, cancel: t.cancel },
+            outsideTmux: { tag: t.outsideTmux, hint: t.outsideTmuxHint },
           },
         }
       : {}),
@@ -513,6 +577,16 @@ function buildPrefsWindow(s: TrayMenuState, t: TrayStrings): TrayPrefsWindow {
         checked: prefs.keepAwake === mode,
       })),
     },
+    ...(s.terminal
+      ? [
+          {
+            kind: 'picker',
+            id: OPEN_IN_ACTION_PREFIX,
+            label: s.terminal.label,
+            options: openInOptions(s.terminal),
+          } as const,
+        ]
+      : []),
   ]
   const updates: PrefRow[] = s.canUpdate
     ? [
@@ -654,6 +728,23 @@ function deviceRows(s: TrayMenuState, t: TrayStrings): PrefRow[] {
 }
 
 /** Pair a phone: the QR (macOS, a single-use code), the address and the terminal fallback. */
+/** A device as `name · state`, with when it paired and a confirmed Revoke… */
+function deviceItem(device: TrayDevice, s: TrayMenuState, t: TrayStrings): TrayItem {
+  return {
+    type: 'submenu',
+    label: `${device.name} · ${deviceStateLabel(device, t)}`,
+    items: [
+      { id: `info:device:${device.id}`, label: deviceDetail(device, s, t), enabled: false },
+      { type: 'separator' },
+      {
+        type: 'submenu',
+        label: t.revoke,
+        items: [{ id: `${TRAY_PREFIXES.revoke}${device.id}`, label: t.revokeConfirm }],
+      },
+    ],
+  }
+}
+
 function pairItem(s: TrayMenuState, t: TrayStrings): TrayItem {
   if (!s.pairing) return { id: TRAY_ACTIONS.pair, label: t.pair }
   return {
@@ -678,6 +769,15 @@ function pairItem(s: TrayMenuState, t: TrayStrings): TrayItem {
   }
 }
 
+/** "Open sessions in" as checked `open-in:<choice>` items (a picker in the window, a submenu in the menu). */
+function openInOptions(terminal: NonNullable<TrayMenuState['terminal']>) {
+  return terminal.options.map((option) => ({
+    id: `${OPEN_IN_ACTION_PREFIX}${option.id}`,
+    label: option.label,
+    checked: option.id === terminal.choice,
+  }))
+}
+
 /**
  * Preferences: a helper that can open windows gets a single item opening the Preferences window
  * (built from `prefsWindow`/`profiles` on the outgoing menu); otherwise the submenu of quick
@@ -700,6 +800,9 @@ function prefsItem(s: TrayMenuState, t: TrayStrings): TrayItem {
           checked: prefs.keepAwake === mode,
         })),
       },
+      ...(s.terminal
+        ? [{ type: 'submenu', label: s.terminal.label, items: openInOptions(s.terminal) } as const]
+        : []),
       { id: TRAY_ACTIONS.prefPush, label: t.prefPush, checked: prefs.push },
       { type: 'separator' },
       { id: TRAY_ACTIONS.prefs, label: t.openConfig },

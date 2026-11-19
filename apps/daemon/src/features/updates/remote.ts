@@ -104,6 +104,8 @@ export function runInProgress(run: DaemonUpdateRun | null, now: Date): boolean {
 export class RemoteUpdates {
   private run: DaemonUpdateRun | null = null
   private poll: NodeJS.Timeout | undefined
+  /** Bumped when polling stops: a poll read that began before it is stale once it resolves (#609). */
+  private polling = 0
 
   constructor(private readonly deps: RemoteUpdatesDeps) {}
 
@@ -191,6 +193,7 @@ export class RemoteUpdates {
   stop(): void {
     clearInterval(this.poll)
     this.poll = undefined
+    this.polling++
   }
 
   /** The updater exited with an error; the record is completed when the CLI did not do it. */
@@ -214,7 +217,11 @@ export class RemoteUpdates {
   }
 
   private async refresh(): Promise<void> {
+    const polling = this.polling
     const run = await readRun(this.deps.runPath)
+    // The run finished meanwhile (the updater died and `failed` recorded it): what this read saw is
+    // an earlier step, and applying it would show the run as still going.
+    if (polling !== this.polling) return
     if (!run || JSON.stringify(run) === JSON.stringify(this.run)) return
     this.run = run
     this.broadcast()

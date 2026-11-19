@@ -1,3 +1,6 @@
+import { constants } from 'node:fs'
+import { access } from 'node:fs/promises'
+import { isAbsolute } from 'node:path'
 import type { Executor } from './exec.ts'
 
 export type PaneInfo = { paneId: string; pid: number; sessionName: string; windowName: string; cwd: string }
@@ -19,14 +22,59 @@ export function tmuxServerArgs(server: TmuxServer | null): string[] {
   return server ? ['-L', server.socket, '-f', server.conf] : []
 }
 
+/** Where tmux is usually installed, in the order they are tried when `which tmux` finds nothing. */
+export const TMUX_LOCATIONS = [
+  '/opt/homebrew/bin/tmux',
+  '/usr/local/bin/tmux',
+  '/usr/bin/tmux',
+  '/home/linuxbrew/.linuxbrew/bin/tmux',
+  '/snap/bin/tmux',
+] as const
+
+async function isExecutable(path: string): Promise<boolean> {
+  return access(path, constants.X_OK).then(
+    () => true,
+    () => false,
+  )
+}
+
+/**
+ * The tmux binary's absolute path: `which tmux` on this process's PATH, else the first of
+ * `TMUX_LOCATIONS` that exists (a service PATH without Homebrew); null when neither finds one.
+ */
+export async function resolveTmuxBin(
+  exec: Executor,
+  exists: (path: string) => Promise<boolean> = isExecutable,
+): Promise<string | null> {
+  const which = await exec('which', ['tmux']).catch(() => null)
+  const found = which?.exitCode === 0 ? which.stdout.trim() : ''
+  if (isAbsolute(found)) return found
+  for (const path of TMUX_LOCATIONS) if (await exists(path)) return path
+  return null
+}
+
 /** Single place that knows the tmux CLI. Every call goes through the injected executor. */
 export class TmuxClient {
+  private absolute: Promise<string> | null = null
+
   constructor(
     private readonly exec: Executor,
     private readonly bin = 'tmux',
     /** `null`: the user's default server. */
     readonly server: TmuxServer | null = null,
+    private readonly exists?: (path: string) => Promise<boolean>,
   ) {}
+
+  /**
+   * The tmux binary as an absolute path, for commands another program runs (a terminal app started
+   * by LaunchServices has no Homebrew on its PATH): looked up once; `bin` when nothing finds it.
+   */
+  absoluteBin(): Promise<string> {
+    this.absolute ??= isAbsolute(this.bin)
+      ? Promise.resolve(this.bin)
+      : resolveTmuxBin(this.exec, this.exists).then((path) => path ?? this.bin)
+    return this.absolute
+  }
 
   private async run(args: string[], input?: string): Promise<string> {
     // Without a UTF-8 locale (e.g. under launchd) tmux replaces the tabs in -F output with "_";
@@ -137,6 +185,17 @@ export class TmuxClient {
   /** Types text literally, key by key. */
   async sendLiteral(paneId: string, text: string): Promise<void> {
     await this.run(['send-keys', '-t', paneId, '-l', '--', text])
+  }
+
+  /**
+   * Types what a terminal sends for keys (`\r`, `\x7f`, `\x1b[A`, `\x03`…) as is: every character
+   * as a key (`-l`), and NUL, which cannot travel as an argument, as `-H 00`.
+   */
+  async sendRaw(paneId: string, data: string): Promise<void> {
+    for (const [index, part] of data.split('\0').entries()) {
+      if (index > 0) await this.run(['send-keys', '-t', paneId, '-H', '00'])
+      if (part) await this.sendLiteral(paneId, part)
+    }
   }
 
   /** Pastes text as one bracketed paste through a named buffer (deleted after use). */

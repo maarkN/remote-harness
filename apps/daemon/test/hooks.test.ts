@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { lstat, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Profile } from '@remote-harness/protocol'
@@ -136,6 +136,9 @@ describe('settings hooks merge', () => {
           (error, stdout) =>
             resolve({ event, code: error ? ((error as { code?: number }).code ?? 1) : 0, stdout }),
         )
+        // Here curl exits without reading its input (the test's curl config does not exist): on a loaded
+        // machine the hook can be gone before this write, which then fails with EPIPE (#609).
+        child.stdin?.on('error', () => undefined)
         child.stdin?.end(JSON.stringify({ session_id: 'abc', hook_event_name: event }))
       })
     const results = await Promise.all(HOOK_EVENTS.map(run))
@@ -311,6 +314,15 @@ describe('launcher script quoting', () => {
   })
 })
 
+/**
+ * The view a launcher attaches through, as the fake tmux logs it: its own session (not grouped with
+ * `s`) with a placeholder window, the new window `@1` linked in and selected, every other window
+ * killed, and destroyed once its client goes away (#616).
+ */
+const VIEW_OF_WINDOW =
+  '-s s-view-\\d+ sleep 1 ; link-window -s @1 -t =s-view-\\d+: ; select-window -t =s-view-\\d+:@1 ; kill-window -a -t =s-view-\\d+:@1 ; set-option -t s-view-\\d+ destroy-unattached on'
+const VIEW_OPT = 'set-option -t s-view-\\d+'
+
 describe('launcher on the Remote Harness tmux server', () => {
   const server = { socket: 'remote-harness', conf: '/Users/u/.remote-harness/tmux.conf' }
   const options = { tmuxSession: 's', tmuxBin: 'tmux', tmuxServer: server, home: '/Users/u' }
@@ -358,10 +370,29 @@ exit 0
     })
     const log = await fake.log()
     expect(log).toContain('-L remote-harness -f /Users/u/.remote-harness/tmux.conf has-session -t =s')
-    // One client creates the view, attaches to it and turns its status line off, with TMUX unset.
+    // One client creates the view, attaches to it and turns its status line off, with TMUX unset. The
+    // view holds only the new window, so the nested client detaches when that window closes (#616).
     expect(log).toMatch(
-      /new-session -t =s -s s-view-\d+ ; set-option -t s-view-\d+ destroy-unattached on ; select-window -t =s-view-\d+:@1 ; set-option -t s-view-\d+ status off \| TMUX=unset/,
+      new RegExp(
+        `new-session ${VIEW_OF_WINDOW} ; ${VIEW_OPT} detach-on-destroy on ; ${VIEW_OPT} status off \\| TMUX=unset`,
+      ),
     )
+    expect(log).not.toContain('new-session -t')
+    expect(log).not.toContain('switch-client')
+  })
+
+  test('in a plain terminal: attaches a view that holds only the new window and detaches when it closes (#616)', async () => {
+    const fake = await fakeTmux()
+    const script = renderLauncher(profile, { ...options, tmuxBin: fake.bin })
+    const { TMUX: _, ...env } = process.env
+    execFileSync('zsh', ['-c', script], { env, cwd: home.dir() })
+    const log = await fake.log()
+    // Not grouped with the launchers' session (no `-t =s`): no other window of it can show here.
+    expect(log).toMatch(
+      new RegExp(`new-session ${VIEW_OF_WINDOW} ; ${VIEW_OPT} detach-on-destroy on \\| TMUX=unset\\n$`),
+    )
+    expect(log).not.toContain('new-session -t')
+    expect(log).not.toContain('status off')
     expect(log).not.toContain('switch-client')
   })
 
@@ -403,10 +434,14 @@ exit 0
       cwd: home.dir(),
     })
     const log = await fake.log()
-    // The view is created detached and the current client switched to it in the same command.
+    // The view is created detached and the current client switched to it in the same command; when
+    // the window closes, the client goes back to the session it was on instead of detaching (#616).
     expect(log).toMatch(
-      /new-session -d -t =s -s s-view-\d+ ; .* ; switch-client -t =s-view-\d+ \| TMUX=\/tmp\/tmux-501\/remote-harness,123,0/,
+      new RegExp(
+        `new-session -d ${VIEW_OF_WINDOW} ; ${VIEW_OPT} detach-on-destroy off ; switch-client -t =s-view-\\d+ \\| TMUX=/tmp/tmux-501/remote-harness,123,0`,
+      ),
     )
+    expect(log).not.toContain('new-session -d -t')
     expect(log).not.toContain('status off')
     expect(log).not.toContain('TMUX=unset')
   })
@@ -495,6 +530,68 @@ exit 0
         }
         expect(folder?.trim()).toBe(project)
       } finally {
+        tmux('kill-server')
+      }
+    },
+  )
+
+  test.skipIf(!hasTmux)(
+    'the view holds only its window: closing it ends the view, not the other sessions; detaching keeps it (#616)',
+    async () => {
+      const socket = `rh-test-616-${process.pid}-${Date.now()}`
+      const tmux = (...args: string[]) =>
+        execFileSync('tmux', ['-L', socket, '-f', '/dev/null', ...args], { encoding: 'utf8' }).trim()
+      const until = async (check: () => boolean) => {
+        for (let i = 0; i < 50 && !check(); i++) await new Promise((resolve) => setTimeout(resolve, 100))
+        expect(check()).toBe(true)
+      }
+      const sessions = () => tmux('list-sessions', '-F', '#{session_name}').split('\n')
+      const windows = (session: string) =>
+        tmux('list-windows', '-t', `=${session}`, '-F', '#{window_name}').split('\n')
+      const clientSession = () => tmux('list-clients', '-F', '#{client_session}')
+      // The launchers' session with two other agents running.
+      tmux('new-session', '-d', '-s', 's', '-n', 'one', 'sleep 600')
+      tmux('new-window', '-d', '-t', '=s:', '-n', 'two', 'sleep 600')
+      const script = renderLauncher(profile, { ...options, tmuxServer: { socket, conf: '/dev/null' } })
+      const { TMUX: _, ...env } = process.env
+      // A control-mode client (no terminal needed) attached to the launchers' session plays a terminal
+      // inside the Remote Harness server: the launcher switches it to the view.
+      const attach = () =>
+        spawn('tmux', ['-L', socket, '-f', '/dev/null', '-C', 'attach', '-t', '=s'], {
+          stdio: ['pipe', 'ignore', 'ignore'],
+        })
+      const launch = () => {
+        const socketPath = tmux('display-message', '-p', '-t', '=s', '#{socket_path}')
+        execFileSync('zsh', ['-c', script, 'p', '600'], {
+          env: { ...env, TMUX: `${socketPath},1,0`, REMOTE_HARNESS_CLAUDE_BIN: 'sleep' },
+          cwd: home.dir(),
+        })
+        const view = sessions().find((name) => name.startsWith('s-view-'))
+        expect(view).toBeDefined()
+        return view as string
+      }
+      const client = attach()
+      try {
+        await until(() => clientSession() === 's')
+        const view = launch()
+        const agent = windows(view)
+        expect(clientSession()).toBe(view)
+        // Only the new window is in the view; the launchers' session has all three.
+        expect(agent).toHaveLength(1)
+        expect(windows('s')).toEqual(['one', 'two', agent[0]])
+        // The agent exits: the view is gone, the client is back on the session it was on, and the
+        // other agents keep running (before, the view showed `one` or `two` in its place).
+        tmux('kill-window', '-t', `=${view}:${agent[0]}`)
+        await until(() => !sessions().includes(view))
+        expect(clientSession()).toBe('s')
+        expect(windows('s')).toEqual(['one', 'two'])
+        // Detaching (or closing the terminal) destroys the view and keeps the window running.
+        const second = launch()
+        tmux('detach-client', '-s', second)
+        await until(() => !sessions().includes(second))
+        expect(windows('s')).toHaveLength(3)
+      } finally {
+        client.kill()
         tmux('kill-server')
       }
     },

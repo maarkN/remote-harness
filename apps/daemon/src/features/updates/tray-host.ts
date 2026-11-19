@@ -3,7 +3,12 @@ import type { TrayProcess } from '../../infra/tray-helper.ts'
 import type { TrayMenu } from './menu.ts'
 
 /** What the running helper can draw besides the menu. */
-export type HelperSupport = { windows: boolean; popover: boolean }
+export type HelperSupport = {
+  windows: boolean
+  popover: boolean
+  /** It opens a session's terminal window (#614). */
+  terminals: boolean
+}
 
 const MAX_RESTARTS = 3
 const RESTART_DELAY_MS = 30_000
@@ -29,6 +34,8 @@ export class TrayHost {
      * windows and whether it shows the popover instead of the menu.
      */
     private readonly onReady: (support: HelperSupport) => void = () => {},
+    /** `terminal.ready` / `terminal.input` / `terminal.closed` from a session's terminal window. */
+    private readonly onTerminal: (message: Record<string, unknown>) => void = () => {},
   ) {}
 
   get running(): boolean {
@@ -49,16 +56,20 @@ export class TrayHost {
     this.process = process
     process.onMessage((message) => {
       if (!message || typeof message !== 'object') return
-      const { type, id, value, windows, popover } = message as {
+      const { type, id, value, windows, popover, terminals } = message as {
         type?: unknown
         id?: unknown
         value?: unknown
         windows?: unknown
         popover?: unknown
+        terminals?: unknown
       }
       if (type === 'click' && typeof id === 'string')
         this.onClick(id, typeof value === 'string' ? value : undefined)
-      else if (type === 'ready') this.onReady({ windows: windows === true, popover: popover === true })
+      else if (type === 'ready')
+        this.onReady({ windows: windows === true, popover: popover === true, terminals: terminals === true })
+      else if (typeof type === 'string' && type.startsWith('terminal.'))
+        this.onTerminal(message as Record<string, unknown>)
     })
     process.onExit((code, early) => {
       this.process = null
@@ -79,6 +90,11 @@ export class TrayHost {
   update(menu: TrayMenu): void {
     this.menu = menu
     this.process?.send(menu)
+  }
+
+  /** A message to the running helper (a terminal window's); dropped while none runs. */
+  send(message: object): void {
+    this.process?.send(message)
   }
 
   /** A desktop notification shown by the helper (the Windows one); dropped while none runs. */

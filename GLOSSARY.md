@@ -60,9 +60,17 @@ _Avoid_: relay (alone, when the connection relay could be meant)
 One way of running an agent on a computer: its config folder (for Claude Code, its own `CLAUDE_CONFIG_DIR`, with its own login, settings, skills and history), the alias that launches it inside tmux and, optionally, a model provider. A computer has one or more; every session belongs to one.
 _Avoid_: account (when the folder is meant, not the login), instance
 
+**Profile picker**:
+The optional `rhnss` command, next to the launchers, that lists the profiles, asks which one to start and runs its launcher with the same arguments: one entry point when a computer has several profiles.
+_Avoid_: menu, profile selector
+
 **Remote Harness tmux server**:
 The tmux server of its own (`tmux -L remote-harness`, started with a generated config) where the launchers open agent sessions and the daemon drives them, apart from the user's default tmux server and their `tmux.conf`. `remote-harness tmux` reaches it.
 _Avoid_: shared tmux session, default server (for ours), the user's tmux (for ours)
+
+**Terminal window**:
+A window on the computer, opened from the macOS tray, that shows one session's tmux pane live like the app's Terminal tab and types into the session what is typed in it; one per session.
+_Avoid_: tmux window (that is tmux's own), session window, external terminal (the terminal app "Open in terminal (tmux)" uses)
 
 ### Permissions
 

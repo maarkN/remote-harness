@@ -1,9 +1,8 @@
-import type { ServerMessageOf } from '@remote-harness/protocol'
+import { frameWrite, type PaneFrame, type ServerMessageOf } from '@remote-harness/protocol'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { StyleSheet } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { useTheme } from '@/core/theme'
-import { frameWrite, type PaneFrame } from './frame-write'
 import { XTERM_HTML } from './xterm-html.generated'
 import { xtermTheme } from './xterm-theme'
 

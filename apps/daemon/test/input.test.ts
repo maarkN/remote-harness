@@ -115,6 +115,35 @@ describe('InputService', () => {
     await expect(service.sendKey('abcdef123456', 'C-z')).rejects.toMatchObject({ code: 'invalid_key' })
   })
 
+  test('types what a terminal window sends as keys, NUL as hex, in the session lock (#614)', async () => {
+    const { exec, service } = setup()
+    await service.typeRaw('abcdef123456', '/help\r')
+    expect(exec.calls.map((c) => c.args)).toEqual([['send-keys', '-t', '%7', '-l', '--', '/help\r']])
+    exec.calls.length = 0
+    await service.typeRaw('abcdef123456', 'a\u0000b')
+    expect(exec.calls.map((c) => c.args)).toEqual([
+      ['send-keys', '-t', '%7', '-l', '--', 'a'],
+      ['send-keys', '-t', '%7', '-H', '00'],
+      ['send-keys', '-t', '%7', '-l', '--', 'b'],
+    ])
+    exec.calls.length = 0
+    await service.typeRaw('abcdef123456', '')
+    expect(exec.calls).toEqual([])
+    // A prompt being pasted finishes (Enter) before the typed keys reach the pane.
+    await Promise.all([service.sendText('abcdef123456', 'um'), service.typeRaw('abcdef123456', '\u001b[A')])
+    expect(exec.calls.map((c) => c.args.at(-1))).toEqual(['-', '%7', 'Enter', '\u001b[A'])
+  })
+
+  test('refuses raw input for read-only sessions and over 100 KB', async () => {
+    const { service } = setup('paste', session({ controllable: false, paneId: null }))
+    await expect(service.typeRaw('abcdef123456', 'x')).rejects.toMatchObject({ code: 'not_controllable' })
+    const big = setup()
+    await expect(big.service.typeRaw('abcdef123456', 'x'.repeat(200 * 1024))).rejects.toMatchObject({
+      code: 'too_large',
+    })
+    expect(big.exec.calls).toEqual([])
+  })
+
   test('refuses read-only sessions, unknown sessions and huge prompts', async () => {
     const { service } = setup('paste', session({ controllable: false, paneId: null }))
     await expect(service.sendText('abcdef123456', 'oi')).rejects.toMatchObject({ code: 'not_controllable' })

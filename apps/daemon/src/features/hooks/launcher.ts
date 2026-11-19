@@ -12,7 +12,7 @@ const PATH_BLOCK_END = '# <<< remote-harness <<<'
 /** Markers written before the rename; such a block is replaced by the new one (#85). */
 const LEGACY_PATH_BLOCK = ['# >>> claude-remote >>>', '# <<< claude-remote <<<'] as const
 
-function zshQuote(value: string): string {
+export function zshQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`
 }
 
@@ -86,10 +86,10 @@ fi
 /**
  * Generates the zsh launcher for a profile. It opens `claude` (with all args) in a new window of
  * the shared tmux session, on the Remote Harness tmux server (its own socket and config, so the
- * user's tmux.conf never applies), and attaches through a grouped session, so several terminals can
- * each look at a different window. Inside tmux already, a client of our server switches to the
- * window; a client of another server (the user's own tmux) gets the session nested in its pane and
- * is never switched. zsh is found through PATH (/bin/zsh on macOS, /usr/bin/zsh on Linux). With a
+ * user's tmux.conf never applies), and attaches through a view session that holds only that window,
+ * so several terminals can each look at a different window and exiting the agent gives the terminal
+ * back (#616). Inside tmux already, a client of our server switches to the view; a client of another
+ * server (the user's own tmux) gets the view nested in its pane and is never switched. zsh is found through PATH (/bin/zsh on macOS, /usr/bin/zsh on Linux). With a
  * provider, the window runs this launcher again (`REMOTE_HARNESS_EXEC=1`) so the key is read from
  * the OS secret store inside the window and never crosses a command line.
  */
@@ -163,26 +163,32 @@ if [[ -n "$REMOTE_HARNESS_NO_ATTACH$CLAUDE_REMOTE_NO_ATTACH" ]]; then
   exit 0
 fi
 
-# A grouped session shares the windows but keeps its own current window. The client that creates the
-# view attaches to it (or switches to it) in the same command: with destroy-unattached on, tmux
-# destroys an unattached view the moment the client that created it disconnects.
+# The terminal shows the window through a view: a session of its own holding only that window, linked
+# from the launchers' session. It is not grouped with it: a grouped view shares every window, so when
+# the agent exits tmux would show another running session here, and the next Ctrl+C would end it
+# (#616). The view starts with a placeholder (killed at once) and is destroyed when its window closes
+# (no windows left) or when its client goes away (destroy-unattached); the window keeps running in
+# the launchers' session either way. The client that creates the view attaches to it (or switches to
+# it) in the same command: tmux destroys an unattached view the moment that client disconnects.
 view="$SESSION-view-$$"
-view_cmd=(-t "=$SESSION" -s "$view" \\; set-option -t "$view" destroy-unattached on \\; select-window -t "=$view:$window")
+view_cmd=(-s "$view" 'sleep 1' \\; link-window -s "$window" -t "=$view:" \\; select-window -t "=$view:$window" \\; kill-window -a -t "=$view:$window" \\; set-option -t "$view" destroy-unattached on)
 if [[ -n "$TMUX" ]]; then
-  # Already inside tmux. A client of this same server switches to the view. A client of another
-  # server (your own tmux) is never switched: the view shows nested in the current pane, with its
-  # status line off, and your sessions, windows and client stay as they are.
+  # Already inside tmux. A client of this same server switches to the view, and back to the session it
+  # was on (the most recently active one) when the window closes. A client of another server (your
+  # own tmux) is never switched: the view shows nested in the current pane, with its status line off,
+  # and your sessions, windows and client stay as they are; it detaches when the window closes.
   if [[ "\${TMUX%%,*}" == "$("\${TMUX_CMD[@]}" display-message -p -t "=$SESSION" '#{socket_path}')" ]]; then
-    exec "\${TMUX_CMD[@]}" new-session -d "\${view_cmd[@]}" \\; switch-client -t "=$view"
+    exec "\${TMUX_CMD[@]}" new-session -d "\${view_cmd[@]}" \\; set-option -t "$view" detach-on-destroy off \\; switch-client -t "=$view"
   fi
-  exec env -u TMUX "\${TMUX_CMD[@]}" new-session "\${view_cmd[@]}" \\; set-option -t "$view" status off
+  exec env -u TMUX "\${TMUX_CMD[@]}" new-session "\${view_cmd[@]}" \\; set-option -t "$view" detach-on-destroy on \\; set-option -t "$view" status off
 fi
 # tmux refuses to attach to a terminal this computer has no terminfo entry for ("missing or
 # unsuitable terminal"), e.g. Ghostty or kitty over SSH: fall back to an entry every system has.
 if (( $+commands[infocmp] )) && ! infocmp -- "$TERM" >/dev/null 2>&1; then
   export TERM=xterm-256color
 fi
-exec "\${TMUX_CMD[@]}" new-session "\${view_cmd[@]}"
+# The client detaches when the window closes, so the terminal is back at its shell prompt.
+exec "\${TMUX_CMD[@]}" new-session "\${view_cmd[@]}" \\; set-option -t "$view" detach-on-destroy on
 `
 }
 

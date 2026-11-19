@@ -43,7 +43,7 @@ With `update.auto` on, the daemon SHALL apply an available update when no sessio
 - **THEN** the update waits until it is idle
 
 ### Requirement: Tray icon
-When a supported helper is available (macOS menu bar; Linux AppIndicator), the service daemon SHALL show a tray icon whose glyph encodes only the state: the mark as a template image when idle, the ring filled while any session works, an amber dot (the only color) while a permission waits, and 40 % opacity when the daemon is gone. A helper that shows menus (Linux, and macOS only if the popover is unavailable) SHALL show, top to bottom: the status (`machine name · paths · version · since HH:MM`, where the paths say whether devices reach the computer by the direct path, the relay path, both or neither — never an address); **Waiting for you** with the oldest pending tool permission (`session title · Tool · detail`) and Allow, Always allow (when the daemon suggested a rule, saved like the app does), Deny and Open in terminal (tmux); **Sessions** by recency, each as `title · state` with its folder, profile and worktree, Open in terminal (tmux), Rename… and Close session (the graceful close), the ended ones collapsed in one submenu; **Devices** with whether push is on and each paired device as `name · online (path)` or `name · offline`, whose submenu shows when it paired and "Revoke…", a nested confirmation that revokes the device like `remote-harness devices revoke`; New session…, Pair a phone…, Open the docs and Preferences…; then "Check for updates", "Update now" (when an update is available), the automatic updates toggle, the channel choice, "Open logs", "Restart daemon" (under a service manager), "Run doctor" and "Quit tray". The menu SHALL refresh on session, permission and device changes (a device connecting, disconnecting, pairing or being revoked). A helper that reports it can open windows (macOS) SHALL list at most 5 live sessions before a trailing "See all sessions…" item; a helper without window support (Linux; Windows) keeps listing up to 8. Without a helper the daemon MUST keep working headless. `tray: false` in the config SHALL disable it. All labels MUST be translated. The popover has its own requirement, as do Pair a phone, Preferences, the Sessions window and rename.
+When a supported helper is available (macOS menu bar; Linux AppIndicator), the service daemon SHALL show a tray icon whose glyph encodes only the state (on macOS a 22-point glyph, the tallest that fits the menu bar): the mark as a template image when idle, the ring filled while any session works, an amber dot (the only color) while a permission waits, and 40 % opacity when the daemon is gone. A helper that shows menus (Linux, and macOS only if the popover is unavailable) SHALL show, top to bottom: the status (`machine name · paths · version · since HH:MM`, where the paths say whether devices reach the computer by the direct path, the relay path, both or neither — never an address); **Waiting for you** with the oldest pending tool permission (`session title · Tool · detail`) and Allow, Always allow (when the daemon suggested a rule, saved like the app does), Deny and Open in terminal (tmux); **Sessions** by recency, each as `title · state` with its folder, profile and worktree, Open in terminal (tmux), Rename… and Close session (the graceful close), the ended ones collapsed in one submenu; **Devices** with whether push is on and at most 3 paired devices (online first, then the most recently seen), each as `name · online (path)` or `name · offline`, whose submenu shows when it paired and "Revoke…", a nested confirmation that revokes the device like `remote-harness devices revoke`; when more are paired, the section ends with "See all devices (N)…" opening the Devices tab of the Preferences window on a helper that can open windows, or with a "See all devices (N)" submenu holding every device (each with the same submenu) on a helper without window support; New session…, Pair a phone…, Open the docs and Preferences…; then "Check for updates", "Update now" (when an update is available), the automatic updates toggle, the channel choice, "Open logs", "Restart daemon" (under a service manager), "Run doctor" and "Quit tray". The menu SHALL refresh on session, permission and device changes (a device connecting, disconnecting, pairing or being revoked). A helper that reports it can open windows (macOS) SHALL list at most 5 live sessions before a trailing "See all sessions…" item; a helper without window support (Linux; Windows) keeps listing up to 8. Without a helper the daemon MUST keep working headless. `tray: false` in the config SHALL disable it. All labels MUST be translated. The popover has its own requirement, as do Pair a phone, Preferences, the Sessions window and rename.
 
 #### Scenario: Update from the menu bar
 - **WHEN** an update is available and the user chooses "Update now"
@@ -89,8 +89,12 @@ When a supported helper is available (macOS menu bar; Linux AppIndicator), the s
 - **WHEN** the daemon listens on the direct path and is connected to its home relay
 - **THEN** the status line reads `<machine name> · direct + relay paths · <version> · since <HH:MM>`, with no IP address
 
+#### Scenario: More devices than fit in the menu
+- **WHEN** six devices are paired and the helper has no window support (Linux; Windows)
+- **THEN** the Devices section lists the three online or most recently seen and a "See all devices (6)" submenu with all six, each still offering Revoke…
+
 ### Requirement: Update from the app
-The daemon SHALL answer `daemon.update.check` with its update info (running version, channel, last check, the available update and whether it is a downgrade, what blocks updating, whether sessions are busy, and the last or current run), saving a given channel to the config first. It SHALL answer `daemon.update.start` by running the `remote-harness update` flow for the channel in a process that survives the service restart, and broadcast `daemon.update.info` whenever the run changes. It MUST refuse to start when it does not run from the installer's checkout, when it runs from sources, when it is not under a service manager, when a run is in progress or when no update is available, saying why. The refusal MUST be checked before a run is recorded, so a refused start leaves no failed run, and the reply SHALL say "an update is already running", "cannot update: <blocker>" or "already up to date". The run recorded for a start MUST NOT count as an update in progress when that same start spawns the updater; a start refused after its run was recorded (the offer went away meanwhile) SHALL reply with the same specific reason, never a generic one, and put the run record back as it was. The tray's "Update now" and automatic updates SHALL start the same way. The daemon MUST be able to start a later update after the updater exited without restarting it (for example "Already up to date"), and it SHALL check the channel again right away in that case. A failure to start the updater SHALL be recorded as a failed run with its error. The app SHALL show these reasons translated, and an update that keeps the version but has a newer commit as "<version> · new commits (<commit>)".
+The daemon SHALL answer `daemon.update.check` with its update info (running version, channel, last check, the available update and whether it is a downgrade, what blocks updating, whether sessions are busy, and the last or current run), saving a given channel to the config first. It SHALL answer `daemon.update.start` by running the `remote-harness update` flow for the channel in a process that survives the service restart, and broadcast `daemon.update.info` whenever the run changes. It MUST refuse to start when it does not run from the installer's checkout, when it runs from sources, when it is not under a service manager, when a run is in progress or when no update is available, saying why. The refusal MUST be checked before a run is recorded, so a refused start leaves no failed run, and the reply SHALL say "an update is already running", "cannot update: <blocker>" or "already up to date". The run recorded for a start MUST NOT count as an update in progress when that same start spawns the updater; a start refused after its run was recorded (the offer went away meanwhile) SHALL reply with the same specific reason, never a generic one, and put the run record back as it was. The tray's "Update now" and automatic updates SHALL start the same way. The daemon MUST be able to start a later update after the updater exited without restarting it (for example "Already up to date"), and it SHALL check the channel again right away in that case. A failure to start the updater SHALL be recorded as a failed run with its error, and so SHALL an updater that exits with an error without finishing the record ("updater exited (<code>)"). A finished run MUST NOT go back to an earlier step: a progress read of the record that began before the run finished SHALL be discarded, so the last broadcast is the finished run and a later start is not refused as "an update is already running". The app SHALL show these reasons translated, and an update that keeps the version but has a newer commit as "<version> · new commits (<commit>)".
 
 #### Scenario: Update from the phone
 - **WHEN** the app sends `daemon.update.start` for `main` and 0.13.0 is available
@@ -127,6 +131,10 @@ The daemon SHALL answer `daemon.update.check` with its update info (running vers
 #### Scenario: Offer gone before the spawn
 - **WHEN** the start passed the first check but the available update was cleared before the updater was spawned
 - **THEN** the reply says "already up to date" and the run record is the one from before the start
+
+#### Scenario: Updater dies while its progress is read
+- **WHEN** the updater exits with code 1 without recording a step, while a read of the run record that began earlier (still at `fetching`) is in flight
+- **THEN** the run is recorded and broadcast as `failed` with "updater exited (1)", the late read changes nothing, and the next `daemon.update.start` is not refused as "an update is already running"
 
 ### Requirement: Update run record
 `remote-harness update` SHALL record each step of the run (`fetching`, `building`, `restarting`, `done` or `failed`) with the versions, the commit, the error and whether it rolled back, wherever it was started. When building the new version fails, it SHALL check out and rebuild the previous commit before reporting the failure, so the service never restarts into a broken build. The daemon SHALL mark a run left at `restarting` as `done` when it starts.
@@ -203,7 +211,7 @@ Under a service manager, the tray's Quit SHALL be a submenu with "Hide the icon 
 - **THEN** the icon disappears, the LaunchAgent is booted out and the daemon stops; it starts again at the next login
 
 ### Requirement: Sessions window
-On a helper that reports it can open windows (macOS), "See all sessions…" SHALL open a native **Sessions window**: a searchable table of every session (not only the ones shown in the menu) with its name, folder, agent, state and start time, updated live as the daemon's session list changes. Each row SHALL offer Focus (open in terminal/tmux), Rename…, Close session and Copy path; Copy path MUST work without a round trip to the daemon. The window SHALL filter as the user types, matching the name or the folder.
+On a helper that reports it can open windows (macOS), "See all sessions…" SHALL open a native **Sessions window**: a searchable table of every session (not only the ones shown in the menu) with its name, folder, agent, state and start time, updated live as the daemon's session list changes. Each row SHALL offer Focus (open in terminal/tmux), Rename…, Close session and Copy path; Copy path MUST work without a round trip to the daemon. A double-click on a session that runs in a tmux pane SHALL open its terminal window. The window SHALL filter as the user types, matching the name or the folder.
 
 #### Scenario: Open from the menu
 - **WHEN** the user picks "See all sessions…"
@@ -216,6 +224,10 @@ On a helper that reports it can open windows (macOS), "See all sessions…" SHAL
 #### Scenario: Copy path
 - **WHEN** the user picks "Copy path" on a row
 - **THEN** the folder path is on the clipboard, with no daemon round trip
+
+#### Scenario: Double-click a row
+- **WHEN** the user double-clicks a tmux session in the Sessions window
+- **THEN** its terminal window opens or comes to the front
 
 ### Requirement: Session rename from the tray
 On a helper that reports it can open windows (macOS), each session SHALL offer a "Rename…" quick action in the tray menu and the Sessions window: a small prompt, pre-filled with the current title, asking for a new name. For a controllable session (a live tmux pane), the daemon SHALL deliver `/rename <name>` to the pane the same way it delivers any other text, so the agent (Claude Code or Codex, each handling its own `/rename`) records the name itself; the daemon's existing transcript-derived title keeps tracking it afterward, with no separate rename storage for controllable sessions. For a session with no live pane, the daemon SHALL keep the given name as an alias shown instead of the title until the session is resumed and controllable again, at which point the alias is sent as `/rename` and cleared.
@@ -236,8 +248,8 @@ On a helper that reports it can open windows (macOS), each session SHALL offer a
 A helper that reports popover support (macOS) SHALL show, when the menu bar icon is clicked, a popover with cards instead of the menu, following the system appearance (dark or light), with top to bottom:
 - a header with the product mark, "Remote Harness", `machine name · paths · version · since HH:MM` (the paths as in the menu's status line, never an address) and a state pill (running, updating or update available);
 - **Waiting for you**, only while a tool permission waits: a card with the agent's badge, the session title, the profile, `Tool · detail` and how long it has waited, and the answers Deny, Always (when the daemon suggested a rule) and Allow, or only Open in terminal (tmux) when "Show permission requests here" is off;
-- **Sessions** with the total and running counts: at most 5 live sessions as rows (agent badge, title, `folder · profile · worktree`, a state pill), a click opening the session in the terminal (tmux) when it is controllable and a context menu with Open in terminal (tmux), Rename… and Close session; "See all sessions…" when more are live and a row with the ended count, both opening the Sessions window; "No sessions" when there are none;
-- **Devices** with whether push is on: each paired device with when it paired and whether it is online now (and by which path) or offline, a click opening the Devices tab of the Preferences window; a hint to pair one when there are none;
+- **Sessions** with the total and running counts: at most 5 live sessions as rows (agent badge, title, `folder · profile · worktree`, a state pill), a click opening the session where the `terminal` setting says (its terminal window by default, see "Session terminal window" and "Terminal choice") when it is controllable and a context menu with Open in terminal (tmux), which still opens an external terminal, Rename… and Close session; "See all sessions…" when more are live and a row with the ended count, both opening the Sessions window; "No sessions" when there are none;
+- **Devices** with whether push is on: at most 3 paired devices, online first and then the most recently seen, each with when it paired and whether it is online now (and by which path) or offline, a click opening the Devices tab of the Preferences window; "See all devices (N)…" when more are paired, opening the same tab with every device; a hint to pair one when there are none;
 - the quick actions: New session…, Pair a phone… (the Pairing tab of the Preferences window once the daemon listens, else the pairing in the terminal), Open the docs, Preferences…, the update action (Check for updates with the channel, Update now with the version when an update is available, disabled while checking or updating) and Quit (with the hide-icon and stop-service choices under a service manager).
 
 Every label, count and time in the popover MUST come translated from the daemon; the helper only lays it out. The popover SHALL refresh live like the menu, and clicking an action SHALL close it.
@@ -257,6 +269,26 @@ Every label, count and time in the popover MUST come translated from the daemon;
 #### Scenario: Light appearance
 - **WHEN** macOS uses the light appearance
 - **THEN** the popover uses light backgrounds and dark text, keeping the amber accent and the state colors
+
+#### Scenario: More devices than fit in the popover
+- **WHEN** six devices are paired, one of them online
+- **THEN** the popover lists the online one and the two most recently seen, and "See all devices (6)…" opens the Devices tab of the Preferences window with all six
+
+#### Scenario: Three devices or fewer
+- **WHEN** three devices are paired
+- **THEN** the popover lists the three and shows no "See all devices" link
+
+#### Scenario: Click a tmux session
+- **WHEN** the user clicks a session that runs in a tmux pane and `terminal` is unset or `window`
+- **THEN** its terminal window opens, or comes to the front when already open, and the popover closes
+
+#### Scenario: Click with a terminal app chosen
+- **WHEN** `terminal` is `ghostty` and the user clicks a session that runs in a tmux pane
+- **THEN** the session opens in Ghostty, attached to its pane
+
+#### Scenario: Open in terminal from the context menu
+- **WHEN** the user picks Open in terminal (tmux) in a session row's context menu
+- **THEN** the session opens in an external terminal app attached to its pane, as before
 
 ### Requirement: Windows tray
 When the service daemon runs in WSL with Windows interop and Windows PowerShell available, it SHALL start a tray helper on the Windows host that shows an icon in the notification area for as long as the daemon runs, and the icon SHALL disappear when the daemon stops. The helper MUST be compiled from the source shipped with the daemon when it starts, and MUST NOT require installing anything on the Windows side: it starts at Windows logon through the existing "Remote Harness" logon task (which boots the distribution and with it the daemon) and is removed together with the daemon. It SHALL speak the same menu protocol as the other helpers and show the menu of a helper without window support (the Linux one: status, Waiting for you with the answers, sessions capped at 8, phones, actions, updates and Quit) on both right and left click, with every label translated by the daemon. The icon SHALL be the product mark drawn for the taskbar's light or dark theme, with the ring filled while a session works and the amber dot while a permission waits; its tooltip SHALL be the daemon's tooltip. `tray: false` SHALL disable it, and without interop or PowerShell the daemon MUST keep running headless.
@@ -282,3 +314,117 @@ While the Windows tray runs, the daemon's desktop actions in WSL SHALL reach Win
 #### Scenario: Update notification
 - **WHEN** an update becomes available on the daemon's channel while the Windows tray runs
 - **THEN** a Windows notification from the Remote Harness icon says so
+
+### Requirement: Terminal attach command
+When the daemon opens a new terminal window attached to a session (the tray's "Open in terminal (tmux)", or `pane.focus` with no tmux client attached), the command that window runs SHALL name tmux by its absolute path, never a bare `tmux` looked up on the terminal's `PATH`. The daemon SHALL find that path the way `install` finds it for the launchers: `which tmux` on its own `PATH`, then the usual install locations (`/opt/homebrew/bin/tmux`, `/usr/local/bin/tmux`, `/usr/bin/tmux`, `/home/linuxbrew/.linuxbrew/bin/tmux`, `/snap/bin/tmux`) when `which` finds nothing; it MAY keep the result for its lifetime. Every terminal application SHALL run the command through `/bin/sh -c`, iTerm2 included, so the quoting and the `\;` between the tmux commands behave the same in all of them. The AppleScript that drives iTerm2 and Terminal.app SHALL address them by bundle id (`com.googlecode.iterm2`, `com.apple.Terminal`), never by name, so another item registered under the same name cannot take their place.
+
+#### Scenario: iTerm2 started by LaunchServices
+- **WHEN** the user picks "Open in terminal (tmux)" on a session, no tmux client is attached, iTerm2 is the terminal used and `tmux` lives in `/opt/homebrew/bin`, which is not on iTerm2's `PATH`
+- **THEN** iTerm2 opens a window running `/bin/sh -c '/opt/homebrew/bin/tmux -L remote-harness -f … attach -t %20 \; select-window -t %20 \; select-pane -t %20'`, attached to that session's pane, instead of failing with "execvp failed"
+
+#### Scenario: Same path as the launchers
+- **WHEN** `which tmux` finds `/opt/homebrew/bin/tmux` on the daemon's `PATH`
+- **THEN** the attach command and the launchers written by `install` both use `/opt/homebrew/bin/tmux`
+
+#### Scenario: Service PATH without Homebrew
+- **WHEN** `which tmux` finds nothing on the daemon's `PATH` and `/opt/homebrew/bin/tmux` exists
+- **THEN** the attach command uses `/opt/homebrew/bin/tmux`
+
+#### Scenario: Every terminal gets the absolute path
+- **WHEN** a new window is opened in Ghostty, WezTerm, kitty, Alacritty, Terminal.app, a Linux terminal or Windows Terminal over WSL
+- **THEN** the command it runs is `/bin/sh -c '<absolute tmux path> … attach …'`
+
+#### Scenario: iTerm2 named by another registered item
+- **WHEN** iTerm2 is the terminal used, it is not running, and LaunchServices also knows a terminfo entry registered as `iTerm2.app`
+- **THEN** the script that opens the window still compiles and starts iTerm2, because it names `application id "com.googlecode.iterm2"`
+
+### Requirement: Sessions outside tmux in the tray
+A live session that has no tmux pane on the Remote Harness tmux server (it was started outside it, for example with the agent's own command in a terminal) cannot be opened, focused or closed from the tray, and the tray SHALL say so instead of ignoring the user. In the macOS popover its row SHALL show the title in the secondary color, an "outside tmux" tag next to its state pill and a tooltip explaining that it was started outside Remote Harness's tmux, so there is no terminal to open from here, and that sessions started with a profile's command can be opened; clicking it SHALL do nothing, and its context menu SHALL keep Open in terminal (tmux) and Close session disabled and Rename… available. The Sessions window SHALL show the same tag and tooltip on such a row, with Focus and Close disabled. A helper that shows menus SHALL label such a session `title · state · outside tmux` and start its submenu with the explanation as a disabled line. Sessions in tmux MUST keep opening as before, and ended sessions MUST NOT be tagged. The tag and the explanation MUST be translated.
+
+#### Scenario: Session started with plain claude
+- **WHEN** a session started with `claude` in Ghostty, outside the Remote Harness tmux server, is the most recent live session
+- **THEN** the popover's first row shows it with a muted title, the "outside tmux" tag and the explaining tooltip, and clicking it does nothing
+
+#### Scenario: Session in tmux
+- **WHEN** a session started with a profile's launcher is listed next to one outside tmux
+- **THEN** its row has no tag, and clicking it opens the session as before
+
+#### Scenario: Plain menu
+- **WHEN** the helper shows menus (Linux) and a live session is outside tmux
+- **THEN** its item reads `<title> · running · outside tmux` and its submenu starts with the disabled explanation, with Open in terminal (tmux) and Close session disabled
+
+#### Scenario: Ended session
+- **WHEN** a session ended (its pane closed)
+- **THEN** it is not tagged "outside tmux"
+
+#### Scenario: Translated
+- **WHEN** the daemon's language is pt-BR
+- **THEN** the tag reads "fora do tmux"
+
+### Requirement: Session terminal window
+On macOS, the tray helper SHALL open a **terminal window** for a session that runs in a tmux pane of the Remote Harness tmux server: a window of its own, titled with the session title, that mirrors the pane with the same xterm.js view and frame drawing as the app's Terminal tab, and sends what is typed in it to the session as keys. There SHALL be one window per session: opening it again brings the open one to the front. The daemon SHALL feed the window the same pane stream the app gets (a full frame first, then the changed lines) through the helper's standard input, and receive what is typed through the helper's standard output, typing it into the pane through its input feature with the session's input lock; it MUST NOT open a port, socket or any other channel for it, and MUST NOT log what is typed. The echo of a key SHALL not wait for the next periodic capture. The window SHALL follow the system appearance (the app's dark and light terminal palettes), fit the pane's columns and rows to its size, keep its title in sync with the session title, and support copy, paste and select all with the usual keys. Closing the window MUST leave the session running and stop its stream; the window SHALL close when the session ends or loses its pane. It MUST work with no terminal application open.
+
+#### Scenario: Open and type
+- **WHEN** the user clicks a tmux session in the popover and types `/help` and Return in the window that opens
+- **THEN** the window shows the session's pane live, titled with the session title, and the session receives `/help` and Return
+
+#### Scenario: Reuse the window
+- **WHEN** the window of a session is open behind other windows and the user clicks the session again
+- **THEN** the same window comes to the front and no second window opens
+
+#### Scenario: Close the window
+- **WHEN** the user closes a session's terminal window
+- **THEN** the session keeps running, its pane stream stops if no device watches it, and a later click opens a new window
+
+#### Scenario: No terminal app
+- **WHEN** no terminal application is running or installed besides Terminal.app, and the user clicks a tmux session
+- **THEN** the terminal window opens and works; no terminal application is started
+
+#### Scenario: Session ends
+- **WHEN** the session in an open terminal window ends
+- **THEN** the window closes
+
+#### Scenario: Rename
+- **WHEN** a session with an open terminal window is renamed
+- **THEN** the window title becomes the new name
+
+#### Scenario: Light appearance
+- **WHEN** macOS uses the light appearance
+- **THEN** the terminal window uses the app's light terminal palette, and switches to the dark one when the appearance changes
+
+### Requirement: Terminal choice
+The `terminal` setting in `config.json` SHALL choose where the tray opens a session: `window` (its terminal window, macOS only), `auto` (the first running terminal app in the fixed order iTerm2, Ghostty, WezTerm, kitty, Alacritty, else Terminal.app, as before this requirement), or one app: `ghostty`, `iterm2` (macOS), `wezterm`, `kitty`, `alacritty` or `terminal` (Terminal.app, macOS). Absent, it SHALL mean `window` on macOS and `auto` elsewhere; a macOS-only choice SHALL count as `auto` elsewhere. A click on a tmux session in the macOS popover SHALL open it where the setting says. "Open in terminal (tmux)" (context menus, the waiting card, the Sessions window's Focus, the app's `pane.focus`) SHALL open an external terminal: the chosen app, or `auto` when the setting is `window`. With no tmux client attached, the chosen app SHALL open the session even while other terminal apps run; with a client attached, the chosen app SHALL be brought to the front when it runs, else the first running app as before. A chosen app that is not installed (macOS: its bundle in `/Applications`, `~/Applications` or, for Terminal.app, `/System/Applications/Utilities`; Linux: its binary on `PATH`) SHALL fall back to `auto`, and the computer SHALL show a notification naming the missing app and the one used. On Linux, `ghostty`, `kitty`, `alacritty` and `wezterm` SHALL replace `$TERMINAL` / `x-terminal-emulator`. Every click SHALL read the setting again, so a change applies to the next click without restarting the daemon.
+
+`remote-harness setup` SHALL ask for it on its last step with a single choice of the terminal window (macOS), Automatic and the installed apps, marking the terminal running the setup (`$TERM_PROGRAM` / `$TERM`) "(this terminal)" and preselecting the current setting, else the terminal window on macOS, else that running terminal when installed, else Automatic; an unchanged answer MUST NOT write the config, and `--yes` MUST keep the current setting. The tray SHALL offer the same choices as "Open sessions in": a picker in the General tab of the Preferences window, and a submenu of the Preferences submenu on a helper that shows menus. `remote-harness terminal` SHALL print the setting and the choices, and `remote-harness terminal <choice>` SHALL save it and ask the running daemon to reload; it MUST refuse an unknown choice or one not available on the system, and warn when the chosen app is not installed. Every label and message MUST be translated.
+
+#### Scenario: Ghostty chosen while iTerm2 runs
+- **WHEN** Ghostty was chosen in setup, iTerm2 and Ghostty are both running, no tmux client is attached, and the user clicks a tmux session in the popover
+- **THEN** the session opens in a new Ghostty window, not in iTerm2
+
+#### Scenario: Existing install
+- **WHEN** an install made before this requirement has no `terminal` setting, on macOS
+- **THEN** a click on a tmux session opens its terminal window, and "Open in terminal (tmux)" opens the first running terminal app as before
+
+#### Scenario: Change from the CLI
+- **WHEN** the daemon runs and the user runs `remote-harness terminal kitty`
+- **THEN** the config says `kitty`, the daemon reloads it, and the next click opens the session in kitty without restarting the daemon
+
+#### Scenario: Change in Preferences
+- **WHEN** the user picks iTerm2 under "Open sessions in" in the Preferences window
+- **THEN** the config says `iterm2` and the next click opens the session in iTerm2
+
+#### Scenario: Chosen app not installed
+- **WHEN** the setting is `alacritty`, Alacritty is not installed and the user picks Open in terminal (tmux)
+- **THEN** the session opens in the first running terminal app (else Terminal.app), and a notification says Alacritty was not found and which app was used
+
+#### Scenario: Linux
+- **WHEN** the setting is `kitty` on Linux with `$TERMINAL` set to `xterm`
+- **THEN** a new kitty window attaches to the session's pane
+
+#### Scenario: Setup
+- **WHEN** `remote-harness setup` runs in Ghostty on macOS with Ghostty and iTerm2 installed and no `terminal` setting
+- **THEN** it offers the terminal window (preselected), Automatic, Ghostty (this terminal) and iTerm2; `--yes` writes no `terminal` setting
+
+#### Scenario: Refused choice
+- **WHEN** the user runs `remote-harness terminal iterm2` on Linux, or `remote-harness terminal foo`
+- **THEN** the command fails naming the choices available on the system and the config is unchanged

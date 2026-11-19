@@ -259,7 +259,9 @@ function fakeProcess() {
   return {
     process,
     click: (id: string, value?: string) => message({ type: 'click', id, ...(value ? { value } : {}) }),
-    ready: (windows: boolean, popover?: boolean) => message({ type: 'ready', windows, popover }),
+    ready: (windows: boolean, popover?: boolean, terminals?: boolean) =>
+      message({ type: 'ready', windows, popover, terminals }),
+    message: (m: unknown) => message(m),
     exit: (early: boolean) => exit(1, early),
   }
 }
@@ -298,9 +300,11 @@ describe('TrayHost', () => {
     await host.launch()
     fake.ready(true)
     fake.ready(true, true)
+    fake.ready(true, true, true)
     expect(ready).toEqual([
-      { windows: true, popover: false },
-      { windows: true, popover: true },
+      { windows: true, popover: false, terminals: false },
+      { windows: true, popover: true, terminals: false },
+      { windows: true, popover: true, terminals: true },
     ])
     fake.click('rename:a', 'New name')
     fake.click('check')
@@ -308,6 +312,32 @@ describe('TrayHost', () => {
       ['rename:a', 'New name'],
       ['check', undefined],
     ])
+  })
+
+  test("routes the terminal windows' messages and sends theirs to a running helper (#614)", async () => {
+    const fake = fakeProcess()
+    const terminal: unknown[] = []
+    const clicks: string[] = []
+    const host = new TrayHost(
+      async () => fake.process,
+      (id) => clicks.push(id),
+      silentLogger,
+      undefined,
+      undefined,
+      (message) => terminal.push(message),
+    )
+    host.send({ type: 'terminal.close', sessionId: 'dropped' })
+    await host.launch()
+    fake.message({ type: 'terminal.input', sessionId: 's1', data: 'x' })
+    fake.message({ type: 'terminal.ready', sessionId: 's1' })
+    fake.message({ type: 'other' })
+    host.send({ type: 'terminal.open', sessionId: 's1', title: 'T', page: '/p' })
+    expect(terminal).toEqual([
+      { type: 'terminal.input', sessionId: 's1', data: 'x' },
+      { type: 'terminal.ready', sessionId: 's1' },
+    ])
+    expect(clicks).toEqual([])
+    expect(fake.process.sent).toEqual([{ type: 'terminal.open', sessionId: 's1', title: 'T', page: '/p' }])
   })
 
   test('passes notifications to a running helper and drops them otherwise', async () => {

@@ -4,17 +4,22 @@ import type { Logger } from '../../core/logger.ts'
 import type { TmuxClient } from '../../infra/tmux.ts'
 import type { Connection } from '../../transport/connection.ts'
 
+/** Who watches a pane: a device's connection, or the computer's terminal window (#614). */
+export type PaneViewer = Pick<Connection, 'send' | 'onClose'>
+
 export const FRAME_INTERVAL_MS = 250
 
 type Stream = {
   paneId: string
-  subscribers: Set<Connection>
+  subscribers: Set<PaneViewer>
   /** Viewers that must get a full frame next (new ones): the others get diffs. */
-  needsFull: Set<Connection>
+  needsFull: Set<PaneViewer>
   timer: NodeJS.Timeout
   lastHash: string
   lastFrame: PaneFrame | null
   busy: boolean
+  /** A refresh came while capturing: capture again right after. */
+  again: boolean
 }
 
 /**
@@ -31,7 +36,7 @@ export class PaneStreamer {
     private readonly intervalMs = FRAME_INTERVAL_MS,
   ) {}
 
-  subscribe(sessionId: string, paneId: string, connection: Connection): void {
+  subscribe(sessionId: string, paneId: string, connection: PaneViewer): void {
     let stream = this.streams.get(sessionId)
     if (!stream) {
       const created: Stream = {
@@ -41,6 +46,7 @@ export class PaneStreamer {
         lastHash: '',
         lastFrame: null,
         busy: false,
+        again: false,
         timer: setInterval(() => void this.tick(sessionId, created), this.intervalMs),
       }
       stream = created
@@ -55,7 +61,7 @@ export class PaneStreamer {
     void this.tick(sessionId, stream)
   }
 
-  unsubscribe(sessionId: string, connection: Connection): void {
+  unsubscribe(sessionId: string, connection: PaneViewer): void {
     const stream = this.streams.get(sessionId)
     if (!stream) return
     stream.subscribers.delete(connection)
@@ -64,6 +70,14 @@ export class PaneStreamer {
       clearInterval(stream.timer)
       this.streams.delete(sessionId)
     }
+  }
+
+  /** Captures a subscribed pane now instead of at the next tick: the echo of a key typed in it. */
+  refresh(sessionId: string): void {
+    const stream = this.streams.get(sessionId)
+    if (!stream) return
+    if (stream.busy) stream.again = true
+    else void this.tick(sessionId, stream)
   }
 
   get activeStreams(): number {
@@ -91,6 +105,10 @@ export class PaneStreamer {
       this.logger.debug({ err: error, sessionId }, 'capture-pane failed')
     } finally {
       stream.busy = false
+      if (stream.again && this.streams.get(sessionId) === stream) {
+        stream.again = false
+        void this.tick(sessionId, stream)
+      }
     }
   }
 

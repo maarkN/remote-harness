@@ -21,10 +21,13 @@ import qrcode from 'qrcode-terminal'
 import { z } from 'zod'
 import {
   configuredLocaleSync,
+  effectiveTerminal,
+  isTerminalChoice,
   KEEP_AWAKE_MODES,
   KeepAwakeModeSchema,
   loadConfig,
   resolveProfiles,
+  terminalChoicesFor,
   updateConfigFile,
 } from './core/config.ts'
 import { envVar } from './core/env.ts'
@@ -50,11 +53,14 @@ import {
   settingsPath,
   uninstallHooks,
   uninstallLaunchers,
+  uninstallProfilePicker,
   uninstallShellPath,
   uninstallStatusLine,
 } from './features/hooks/installer.ts'
 import { isDefaultConfigDir } from './features/hooks/launcher.ts'
 import { deviceInfoOf, PairedDevices } from './features/pairing/devices.ts'
+import { devicesTable } from './features/pairing/devices-table.ts'
+import { installedTerminalAppsHere } from './features/pane/show-in-terminal.ts'
 import { ApprovalLog } from './features/permissions/approval-log.ts'
 import { RulesLog } from './features/permissions/rules-log.ts'
 import type { PowerState } from './features/power/index.ts'
@@ -666,6 +672,7 @@ program
     const config = await loadConfig(logger)
     const profiles = await resolveProfiles(config, logger)
     await uninstallLaunchers(config.profiles, paths.bin())
+    await uninstallProfilePicker(paths.bin())
     const rcFiles = existingRcFiles(homedir(), existsSync)
     const removed = await uninstallShellPath(rcFiles)
     console.log(
@@ -904,6 +911,37 @@ program
   })
 
 program
+  .command('terminal [choice]')
+  .description(m.cli.terminal.description)
+  .action(async (value: string | undefined) => {
+    const c = m.cli.terminal
+    const labels = m.terminals.choices
+    const config = await loadConfig(createLogger({ level: 'silent' }))
+    const installed: readonly string[] = await installedTerminalAppsHere(
+      execaExecutor,
+      platform,
+      wsl !== null,
+    )
+    const available = terminalChoicesFor(platform)
+    if (value === undefined) {
+      const choice = effectiveTerminal(config.terminal, platform)
+      console.log(c.current(labels[choice], config.terminal === undefined))
+      console.log(`  ${c.choices(available.map((v) => (installed.includes(v) ? `${v} ✓` : v)).join(', '))}`)
+      return
+    }
+    if (!isTerminalChoice(value) || !available.includes(value)) {
+      console.error(`✗ ${c.invalid(value, available.join(', '))}`)
+      process.exit(1)
+    }
+    await updateConfigFile({ terminal: value })
+    const reply = await adminRequest('/admin/updates-reload')
+    console.log(`✓ ${c.current(labels[value], false)}`)
+    if (value !== 'window' && value !== 'auto' && !installed.includes(value))
+      console.log(`  ⚠ ${c.notInstalled(labels[value])}`)
+    console.log(`  ${reply ? c.applied : c.notRunning}`)
+  })
+
+program
   .command('commands [state]')
   .description(m.cli.commands.description)
   .action(async (state: string | undefined) => {
@@ -1107,8 +1145,6 @@ async function pairedDevices(): Promise<z.infer<typeof DevicesReplySchema>['devi
   return store.devices().map((d) => deviceInfoOf(d))
 }
 
-const shortTime = (iso: string) => iso.slice(0, 16).replace('T', ' ')
-
 const devicesCommand = program.command('devices').description(m.cli.devices.description)
 devicesCommand
   .command('list')
@@ -1116,17 +1152,7 @@ devicesCommand
   .action(async () => {
     const list = await pairedDevices()
     if (list.length === 0) console.log(m.cli.devices.empty)
-    for (const d of list)
-      console.log(
-        m.cli.devices.row(
-          d.id,
-          d.name || '—',
-          d.platform || '—',
-          shortTime(d.pairedAt),
-          d.lastSeen ? shortTime(d.lastSeen) : m.cli.devices.never,
-          d.app?.version ?? '?',
-        ),
-      )
+    else for (const line of devicesTable(list, m.cli.devices)) console.log(line)
   })
 devicesCommand
   .command('revoke <id>')

@@ -63,6 +63,17 @@ export const enUS = {
       applied: 'applied to the running daemon',
       notRunning: 'the daemon is not running; it applies at the next start',
     },
+    terminal: {
+      description: 'show or set where the tray opens sessions: window, auto or a terminal app',
+      current: (label: string, isDefault: boolean) =>
+        `sessions open in: ${label}${isDefault ? ' (default)' : ''}`,
+      choices: (list: string) => `choices (✓ installed): ${list}`,
+      invalid: (value: string, valid: string) => `"${value}" is not available here; use one of: ${valid}`,
+      notInstalled: (label: string) =>
+        `${label} is not installed: until it is, sessions open in the terminal app that is open`,
+      applied: 'applied to the running daemon',
+      notRunning: 'the daemon is not running; it applies at the next start',
+    },
     keepAwake: {
       description: 'show or set when the computer is kept awake: off, sessions or always',
       modes: {
@@ -245,8 +256,14 @@ export const enUS = {
       list: 'list the paired devices (ID, name, platform, paired, last seen, app version)',
       revoke: 'unpair a device: it is disconnected and must pair again',
       empty: 'No paired devices. Run `remote-harness pair` to pair one.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
-        `${id}  ${name}  ${platform}  paired ${paired}  last seen ${seen}  app ${app}`,
+      columns: {
+        id: 'ID',
+        name: 'Name',
+        platform: 'Platform',
+        paired: 'Paired',
+        seen: 'Last seen',
+        app: 'App',
+      },
       never: 'never',
       revoked: (id: string) => `Device ${id} revoked.`,
       notFound: (id: string) => `No paired device ${id}.`,
@@ -291,6 +308,14 @@ export const enUS = {
     hookSecretRotated: (path: string) =>
       `hooks secret replaced (older versions put it on curl's command line); curl now reads it from ${path} — a running daemon and the open sessions use it once restarted`,
     tmuxConf: (path: string) => `tmux server config ${path}`,
+    profilePickerIn: (path: string) => `profile picker ${path}`,
+    profilePickerRemoved: (path: string) => `profile picker ${path} removed`,
+    /** Texts of the generated `rhnss` script, in the language it is written in. */
+    profilePicker: {
+      question: 'Which profile do you want to start?',
+      answer: (count: number) => `Number (1-${count}): `,
+      invalid: (count: number) => `Type a number from 1 to ${count}, or press Enter to cancel.`,
+    },
     tmuxSessionRenamed: (from: string, to: string) =>
       `tmux session ${from} renamed to ${to} (its windows are untouched)`,
     secretsMigrated: (count: number) =>
@@ -342,11 +367,13 @@ export const enUS = {
     phoneHint:
       '  On the phone: install the Remote Harness app and tap "QR code". It reaches this computer from anywhere.',
     showQr: 'Show the pairing QR code now?',
+    profilePicker: 'Add the rhnss command, which asks which profile to start?',
     done: {
       installed: 'Remote Harness installed.',
       openTerminal: (command: string) => `1. Open a new terminal (or ${command})`,
       useAliases: (aliases: string, claude: string) =>
         `2. Use ${aliases} instead of ${claude}, with the same arguments`,
+      usePicker: (command: string) => `   or ${command}, which asks which profile to start`,
       pairIfNeeded: (command: string) => `3. Pair with ${command} if you haven't yet`,
       footer: 'remote-harness doctor checks it all · remote-harness setup edits accounts',
     },
@@ -499,6 +526,25 @@ export const enUS = {
       'Remote Harness runs your coding agent sessions in this folder and needs to read and write its files.',
   },
   machine: { darwin: 'Mac', linux: 'computer' },
+  /** Where the tray opens a session (`terminal` in config.json, #615). */
+  terminals: {
+    choices: {
+      window: 'Remote Harness terminal window',
+      auto: 'Automatic (the terminal app that is open)',
+      ghostty: 'Ghostty',
+      iterm2: 'iTerm2',
+      wezterm: 'WezTerm',
+      kitty: 'kitty',
+      alacritty: 'Alacritty',
+      terminal: 'Terminal',
+    },
+    thisTerminal: (label: string) => `${label} (this terminal)`,
+    question: 'Where should a session open when you click it in the Remote Harness icon?',
+    openIn: 'Open sessions in',
+    missingTitle: (app: string) => `${app} was not found`,
+    missingBody: (used: string) =>
+      `The session opened in ${used} instead. Choose another terminal in Preferences or with remote-harness terminal.`,
+  },
   profiles: {
     defaultName: 'Personal',
     /** Suffix of a suggested `~/.claude-<name>` folder: 0 and 1 are words, the rest numbered. */
@@ -611,9 +657,15 @@ export const enUS = {
       rename: 'Rename…',
       close: 'Close session',
       seeAllSessions: 'See all sessions…',
+      seeAllDevices: (count: number) => `See all devices (${count})…`,
+      allDevices: (count: number) => `See all devices (${count})`,
       sessionsWindowTitle: 'Sessions',
       searchSessions: 'Search sessions',
       copyPath: 'Copy path',
+      /** A live session with no pane on the Remote Harness tmux server (#613). */
+      outsideTmux: 'outside tmux',
+      outsideTmuxHint:
+        "Started outside Remote Harness's tmux, so there is no terminal to open from here. Sessions started with a profile's command can be opened here.",
       renamePromptTitle: 'Rename session',
       renameConfirm: 'Rename',
       cancel: 'Cancel',

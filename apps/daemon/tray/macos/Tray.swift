@@ -3,6 +3,7 @@
 import AppKit
 import CoreImage
 import SwiftUI
+import WebKit
 
 struct TrayItem: Decodable {
   let id: String?
@@ -80,11 +81,17 @@ struct TrayRenamePromptWire: Decodable {
   let confirm: String
   let cancel: String
 }
+/// Tag and tooltip of a live session outside the Remote Harness tmux server (no pane to open).
+struct OutsideTmuxWire: Decodable {
+  let tag: String
+  let hint: String
+}
 struct TraySessionsWindowWire: Decodable {
   let title: String
   let searchPlaceholder: String
   let actions: TraySessionsActionsWire
   let renamePrompt: TrayRenamePromptWire
+  let outsideTmux: OutsideTmuxWire?
 }
 
 // MARK: - Popover wire (mirrors the daemon's `TrayPopover`; every string already translated)
@@ -123,6 +130,8 @@ struct PopoverSessionWire: Decodable, Identifiable {
   let detail: String
   let pill: TrayPillWire
   let action: String?
+  /// Set for a live session outside tmux: the row is muted, tagged and explains why it does not open.
+  let outsideTmux: OutsideTmuxWire?
   let menu: [PopoverActionWire]
 }
 struct PopoverSessionsWire: Decodable {
@@ -144,6 +153,8 @@ struct PopoverDevicesWire: Decodable {
   let label: String
   let detail: String
   let rows: [PopoverDeviceWire]
+  /// "See all devices (N)…", when more are paired than listed.
+  let more: PopoverActionWire?
   let empty: String?
   let action: String
 }
@@ -155,8 +166,21 @@ struct TrayPopoverWire: Decodable {
   let actions: [[PopoverActionWire]]
 }
 
+/// What a terminal window's page writes for a frame (the daemon's `frameWrite`), passed to it as is.
+struct TerminalWriteWire: Codable {
+  let full: Bool
+  let cols: Int
+  let rows: Int
+  let data: String
+}
+
 struct TrayMessage: Decodable {
   let type: String
+  /// `terminal.*` messages: the session, its title, the page to load and a frame to write.
+  let sessionId: String?
+  let title: String?
+  let page: String?
+  let write: TerminalWriteWire?
   let tooltip: String?
   /// Glyph state: `idle`, `working`, `waiting` or `offline` (absent = idle).
   let icon: String?
@@ -186,6 +210,9 @@ final class Tray: NSObject {
   let data = TrayState()
   private var prefsWindow: NSWindow?
   private var sessionsWindow: NSWindow?
+  /// The open terminal windows, by session id (#614).
+  private var terminals: [String: TerminalWindow] = [:]
+  private var lastTerminalOrigin = NSPoint.zero
   /// The cards popover, shown instead of the menu once the daemon sends `popover`.
   private let popover = NSPopover()
   private lazy var popoverHost = NSHostingController(rootView: PopoverView(state: data, tray: self))
@@ -221,6 +248,10 @@ final class Tray: NSObject {
     dispatch(id)
   }
 
+  /// Side of the menu bar glyph in points: the tallest that still fits a 22–24 pt menu bar (it was 18,
+  /// which read small next to the system icons).
+  static let glyphSide: CGFloat = 22
+
   /// The Remote Harness mark in its bold weight ("Cursor Signal": a terminal cursor block with the `>`
   /// prompt cut out of it and three signal arcs leaving it to the right), drawn from the same geometry
   /// as the app icon (256-unit box). The state shows as shape and opacity, never as color but the amber
@@ -229,7 +260,7 @@ final class Tray: NSObject {
   /// color allowed in the menu bar) over label-colored strokes, `offline` draws the template at 40 %.
   private static func glyph(_ state: String) -> NSImage {
     let colored = state == "waiting"
-    let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
+    let image = NSImage(size: NSSize(width: glyphSide, height: glyphSide), flipped: true) { rect in
       let s = rect.width / 256
       let p = { (x: CGFloat, y: CGFloat) in NSPoint(x: x * s, y: y * s) }
       let ink = (colored ? NSColor.labelColor : NSColor.black)
@@ -275,7 +306,36 @@ final class Tray: NSObject {
   static func markImage() -> NSImage { glyph("idle") }
 
   func apply(_ message: TrayMessage) {
-    guard message.type == "menu" else { return }
+    switch message.type {
+    case "menu": applyMenu(message)
+    case "terminal.open":
+      if let id = message.sessionId, let page = message.page { openTerminal(id, title: message.title ?? "", page: page) }
+    case "terminal.frame":
+      if let id = message.sessionId, let write = message.write { terminals[id]?.write(write) }
+    case "terminal.title":
+      if let id = message.sessionId, let title = message.title { terminals[id]?.window.title = title }
+    case "terminal.close":
+      if let id = message.sessionId { terminals[id]?.window.close() }
+    default: break
+    }
+  }
+
+  /// Opens the session's terminal window, or brings the open one to the front.
+  private func openTerminal(_ sessionId: String, title: String, page: String) {
+    if let open = terminals[sessionId] {
+      open.window.title = title
+      open.show()
+      return
+    }
+    let terminal = TerminalWindow(sessionId: sessionId, title: title, page: page) { [weak self] id in
+      self?.terminals[id] = nil
+    }
+    lastTerminalOrigin = terminal.window.cascadeTopLeft(from: lastTerminalOrigin)
+    terminals[sessionId] = terminal
+    terminal.show()
+  }
+
+  private func applyMenu(_ message: TrayMessage) {
     let next = message.icon ?? "idle"
     if next != state, let button = statusItem.button {
       state = next
@@ -616,25 +676,103 @@ struct SessionsView: View {
         .textFieldStyle(.roundedBorder)
         .padding(10)
       List(filtered) { session in
-        SessionRowView(session: session, actions: state.sessionsWindow?.actions, tray: tray)
+        SessionRowView(
+          session: session, actions: state.sessionsWindow?.actions,
+          outsideTmux: state.sessionsWindow?.outsideTmux, tray: tray)
       }
     }
     .frame(minWidth: 480, idealWidth: 560, minHeight: 320, idealHeight: 440)
   }
 }
 
+// MARK: - Terminal window
+
+/// A session's terminal window (#614): its tmux pane mirrored by xterm.js in a web view, like the
+/// app's Terminal tab. The daemon writes the frames (stdin); what is typed goes back to it (stdout).
+final class TerminalWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler {
+  let sessionId: String
+  let window: NSWindow
+  private let web: WKWebView
+  private let onClosed: (String) -> Void
+
+  init(sessionId: String, title: String, page: String, onClosed: @escaping (String) -> Void) {
+    self.sessionId = sessionId
+    self.onClosed = onClosed
+    let frame = NSRect(x: 0, y: 0, width: 860, height: 540)
+    web = WKWebView(frame: frame, configuration: WKWebViewConfiguration())
+    window = NSWindow(
+      contentRect: frame, styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered,
+      defer: false)
+    super.init()
+    // Removed when the window closes: the controller keeps its handler alive.
+    web.configuration.userContentController.add(self, name: "terminal")
+    if #available(macOS 12.0, *) { web.underPageBackgroundColor = .windowBackgroundColor }
+    window.title = title
+    window.contentView = web
+    window.minSize = NSSize(width: 320, height: 200)
+    window.isReleasedWhenClosed = false
+    window.delegate = self
+    window.center()
+    let url = URL(fileURLWithPath: page)
+    web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+  }
+
+  func show() {
+    NSApp.activate(ignoringOtherApps: true)
+    window.makeKeyAndOrderFront(nil)
+  }
+
+  func write(_ write: TerminalWriteWire) {
+    guard let data = try? JSONEncoder().encode(write), let json = String(data: data, encoding: .utf8) else { return }
+    web.evaluateJavaScript("window.writeFrame && window.writeFrame(\(json))", completionHandler: nil)
+  }
+
+  /// `{type:'ready'}` once the page loaded (the daemon then streams a full frame), `{type:'input', data}`.
+  func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+    guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+    if type == "ready" {
+      emit(["type": "terminal.ready", "sessionId": sessionId])
+    } else if type == "input", let data = body["data"] as? String {
+      emit(["type": "terminal.input", "sessionId": sessionId, "data": data])
+    }
+  }
+
+  /// The session keeps running: the daemon only stops streaming to this window.
+  func windowWillClose(_ notification: Notification) {
+    web.configuration.userContentController.removeScriptMessageHandler(forName: "terminal")
+    emit(["type": "terminal.closed", "sessionId": sessionId])
+    onClosed(sessionId)
+  }
+}
+
 struct SessionRowView: View {
   let session: TraySessionWire
   let actions: TraySessionsActionsWire?
+  let outsideTmux: OutsideTmuxWire?
   let tray: Tray
+
+  /// The tag and tooltip, only for a live session without a pane (an ended one is just ended).
+  private var outside: OutsideTmuxWire? {
+    session.controllable || session.state == "ended" ? nil : outsideTmux
+  }
 
   var body: some View {
     HStack {
       VStack(alignment: .leading, spacing: 2) {
-        Text(session.title).bold()
+        Text(session.title).bold().foregroundStyle(outside == nil ? .primary : .secondary)
         Text("\(session.folder) · \(session.agent) · \(session.state)")
           .font(.caption)
           .foregroundStyle(.secondary)
+        // Its own line: the buttons leave this column little width.
+        if let outside { Tag(label: outside.tag) }
+      }
+      .help(outside?.hint ?? "")
+      // A double-click opens the session's terminal window (#614).
+      .contentShape(Rectangle())
+      .onTapGesture(count: 2) {
+        if outside == nil, session.controllable, session.state != "ended" {
+          tray.sendAction("window:\(session.id)", nil)
+        }
       }
       Spacer()
       Button(actions?.focus ?? "Focus") { tray.sendAction("focus:\(session.id)", nil) }
@@ -723,6 +861,7 @@ struct PopoverView: View {
         ForEach(cards.devices.rows) { row in
           DeviceRow(row: row) { tray.popoverAction(cards.devices.action) }
         }
+        if let more = cards.devices.more { LinkRow(action: more, tray: tray) }
         if let empty = cards.devices.empty { MutedRow(text: empty) }
         Divider().padding(.top, 6)
         VStack(alignment: .leading, spacing: 0) {
@@ -925,18 +1064,41 @@ struct SessionRow: View {
         AgentBadge(agent: row.agent)
         VStack(alignment: .leading, spacing: 1) {
           Text(row.title).lineLimit(1).truncationMode(.tail)
-          Text(row.detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
-            .lineLimit(1).truncationMode(.middle)
+            .foregroundColor(row.outsideTmux == nil ? .primary : .secondary)
+          HStack(spacing: 6) {
+            // On the detail line, so the title keeps its width.
+            if let outside = row.outsideTmux { Tag(label: outside.tag) }
+            Text(row.detail).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+              .lineLimit(1).truncationMode(.middle)
+          }
         }
         Spacer(minLength: 4)
         Pill(pill: row.pill)
       }
     }
+    // No click action for a session outside tmux: the tooltip says why (#613).
+    .help(row.outsideTmux?.hint ?? "")
     .contextMenu {
       ForEach(row.menu) { item in
         Button(item.label) { tray.popoverAction(item.id) }.disabled(item.enabled == false)
       }
     }
+  }
+}
+
+/// A muted outlined label next to a pill ("outside tmux").
+struct Tag: View {
+  let label: String
+
+  var body: some View {
+    Text(label)
+      .font(.system(size: 10, design: .monospaced))
+      .lineLimit(1)
+      .foregroundColor(.secondary)
+      .padding(.horizontal, 5)
+      .padding(.vertical, 0.5)
+      .overlay(Capsule().stroke(Color.secondary.opacity(0.45), lineWidth: 1))
+      .fixedSize()
   }
 }
 
@@ -1067,6 +1229,21 @@ func emit(_ object: [String: Any]) {
 let app = NSApplication.shared
 // Menu bar only: no Dock icon, no main window.
 app.setActivationPolicy(.accessory)
+// An accessory app shows no menu bar, but its main menu still maps the usual keys. Without these,
+// ⌘C / ⌘V / ⌘A / ⌘W do nothing in the terminal window and the Preferences fields. Never displayed,
+// so the titles are not translated.
+app.mainMenu = {
+  let main = NSMenu()
+  let item = NSMenuItem()
+  main.addItem(item)
+  let edit = NSMenu(title: "Edit")
+  edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+  edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+  edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+  edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+  item.submenu = edit
+  return main
+}()
 let tray = Tray()
 
 Thread.detachNewThread {
@@ -1079,5 +1256,5 @@ Thread.detachNewThread {
   DispatchQueue.main.async { exit(0) }
 }
 
-emit(["type": "ready", "windows": true, "popover": true])
+emit(["type": "ready", "windows": true, "popover": true, "terminals": true])
 app.run()

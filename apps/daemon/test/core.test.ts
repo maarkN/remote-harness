@@ -1,7 +1,16 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
-import { ConfigError, loadConfig, profilesWithResolvableAgent, resolveProfiles } from '../src/core/config.ts'
+import {
+  ConfigError,
+  ConfigSchema,
+  effectiveTerminal,
+  loadConfig,
+  profilesWithResolvableAgent,
+  resolveProfiles,
+  TERMINAL_CHOICES,
+  terminalChoicesFor,
+} from '../src/core/config.ts'
 import { EventBus } from '../src/core/event-bus.ts'
 import {
   daemonIdOf,
@@ -21,6 +30,7 @@ import {
   selectTokenStore,
   TOKEN_STORE_KINDS,
 } from '../src/core/secrets.ts'
+import { withTerminal } from '../src/features/setup/profiles.ts'
 import { fakeExecutor, useTempHome } from './helpers.ts'
 
 const home = useTempHome()
@@ -75,6 +85,37 @@ describe('config', () => {
     )
     expect(profiles.map((p) => p.id)).toEqual(['a'])
     expect(warn).toHaveBeenCalled()
+  })
+})
+
+describe('terminal setting (#615)', () => {
+  const profiles = [{ id: 'a', name: 'A', configDir: '/a', color: '#fff' }]
+
+  test('every choice is accepted, anything else refused, and it stays absent by default', () => {
+    for (const terminal of TERMINAL_CHOICES)
+      expect(ConfigSchema.parse({ profiles, terminal }).terminal).toBe(terminal)
+    expect(ConfigSchema.safeParse({ profiles, terminal: 'hyper' }).success).toBe(false)
+    expect(ConfigSchema.parse({ profiles }).terminal).toBeUndefined()
+  })
+
+  test('absent means the terminal window on macOS and auto elsewhere; macOS-only choices are auto elsewhere', () => {
+    expect(effectiveTerminal(undefined, 'darwin')).toBe('window')
+    expect(effectiveTerminal(undefined, 'linux')).toBe('auto')
+    expect(effectiveTerminal('ghostty', 'darwin')).toBe('ghostty')
+    expect(effectiveTerminal('kitty', 'linux')).toBe('kitty')
+    for (const choice of ['window', 'iterm2', 'terminal'] as const)
+      expect(effectiveTerminal(choice, 'linux')).toBe('auto')
+    expect(terminalChoicesFor('darwin')).toEqual([...TERMINAL_CHOICES])
+    expect(terminalChoicesFor('linux')).toEqual(['auto', 'ghostty', 'wezterm', 'kitty', 'alacritty'])
+  })
+
+  test('setup writes it keeping every other key', () => {
+    expect(withTerminal({ profiles, keepAwake: 'off' }, 'ghostty')).toEqual({
+      profiles,
+      keepAwake: 'off',
+      terminal: 'ghostty',
+    })
+    expect(withTerminal(undefined, 'auto')).toEqual({ terminal: 'auto' })
   })
 })
 

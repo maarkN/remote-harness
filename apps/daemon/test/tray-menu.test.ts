@@ -7,17 +7,39 @@ import {
   pendingSummary,
   relativeTime,
   TRAY_ACTIONS,
+  type TrayDevice,
   type TrayItem,
   type TrayMenuState,
   type TrayNetwork,
   type TraySession,
   trayIcon,
+  trayTerminalOptions,
 } from '../src/features/updates/menu.ts'
 
 const en = messagesFor('en-US').updates.tray
 const pt = messagesFor('pt-BR').updates.tray
 
 const NOW = Date.parse('2026-10-18T09:41:00Z')
+
+const DAY = 86_400_000
+const device = (id: string, patch: Partial<TrayDevice> = {}): TrayDevice => ({
+  id,
+  name: id,
+  platform: 'ios',
+  pairedAt: NOW - 60 * DAY,
+  lastSeen: null,
+  paths: [],
+  ...patch,
+})
+/** Six paired devices: `iphone` online, then `pixel`, `ipad`, `mac` and `old` by last seen, `never` never seen. */
+const sixDevices: TrayDevice[] = [
+  device('old', { lastSeen: NOW - 30 * DAY }),
+  device('ipad', { lastSeen: NOW - 2 * DAY }),
+  device('never', { pairedAt: NOW - DAY }),
+  device('pixel', { lastSeen: NOW - 3_600_000 }),
+  device('iphone', { lastSeen: NOW - 9 * DAY, paths: ['relay'] }),
+  device('mac', { lastSeen: NOW - 5 * DAY }),
+]
 
 const base: TrayMenuState = {
   version: '0.11.0',
@@ -129,9 +151,34 @@ describe('tray shell menu', () => {
         copyPath: 'Copy path',
       },
       renamePrompt: { title: 'Rename session', confirm: 'Rename', cancel: 'Cancel' },
+      outsideTmux: { tag: 'outside tmux', hint: en.outsideTmuxHint },
     })
     const few = buildTrayMenu({ ...base, sessions: sessions.slice(0, 2), windows: true }, en)
     expect(ids(few.items)).not.toContain(TRAY_ACTIONS.seeAll)
+  })
+
+  test('a session outside tmux says so in its label and starts its submenu with why (#613)', () => {
+    const sessions = [
+      session('o', 'running', { controllable: false }),
+      session('t', 'idle'),
+      session('z', 'ended', { controllable: false }),
+    ]
+    const menu = buildTrayMenu({ ...base, sessions }, en)
+    const submenu = (title: string) =>
+      menu.items.find((i) => 'type' in i && i.type === 'submenu' && i.label.startsWith(title))
+    const outside = submenu('Session o')
+    expect(outside).toMatchObject({ type: 'submenu', label: 'Session o · running · outside tmux' })
+    const items = outside && 'items' in outside ? outside.items : []
+    expect(items[0]).toEqual({ id: 'outside:o', label: en.outsideTmuxHint, enabled: false })
+    expect(items).toContainEqual({ id: 'focus:o', label: 'Open in terminal (tmux)', enabled: false })
+    expect(items).toContainEqual({ id: 'close:o', label: 'Close session', enabled: false })
+    expect(submenu('Session t')).toMatchObject({ label: 'Session t · idle' })
+    expect(labels(menu.items).filter((label) => label.includes('outside tmux'))).toEqual([
+      'Session o · running · outside tmux',
+    ])
+    expect(labels(buildTrayMenu({ ...base, sessions }, pt).items)).toContain(
+      `Session o · ${pt.states.running} · fora do tmux`,
+    )
   })
 
   test('the oldest pending permission goes first with Allow / Always / Deny / Focus', () => {
@@ -407,11 +454,103 @@ describe('tray shell menu', () => {
     )
   })
 
+  test('at most three devices; the rest behind "See all devices", a window or a submenu (#619)', () => {
+    const state = { ...base, devices: { push: true, items: sixDevices } }
+    const deviceRows = (items: TrayItem[]) =>
+      items.flatMap((i) =>
+        'type' in i && i.type === 'submenu' && / · (online|offline)/.test(i.label) ? [i.label] : [],
+      )
+    // A helper with windows: three devices and an item opening the Devices tab.
+    const windowed = buildTrayMenu({ ...state, windows: true }, en).items
+    expect(deviceRows(windowed)).toEqual(['iphone · online · relay', 'pixel · offline', 'ipad · offline'])
+    expect(windowed).toContainEqual({ id: 'prefs:devices', label: 'See all devices (6)…' })
+    // Without windows (Linux, Windows): every device in a submenu, each still with Revoke….
+    const plain = buildTrayMenu({ ...state, windows: false }, en).items
+    expect(deviceRows(plain)).toEqual(['iphone · online · relay', 'pixel · offline', 'ipad · offline'])
+    const all = plain.find((i) => 'type' in i && i.type === 'submenu' && i.label === 'See all devices (6)')
+    expect(all && 'type' in all && all.type === 'submenu' && deviceRows(all.items)).toEqual([
+      'iphone · online · relay',
+      'pixel · offline',
+      'ipad · offline',
+      'mac · offline',
+      'old · offline',
+      'never · offline',
+    ])
+    expect(labels(all ? [all] : [])).toContain('Revoke…')
+    expect(labels(buildTrayMenu({ ...state, windows: false }, pt).items)).toContain(
+      'Ver todos os dispositivos (6)',
+    )
+    // Three or fewer: no link.
+    const few = buildTrayMenu(
+      { ...base, devices: { push: true, items: sixDevices.slice(0, 3) }, windows: true },
+      en,
+    )
+    expect(labels(few.items).some((label) => label.startsWith('See all devices'))).toBe(false)
+  })
+
   test('relative times follow the locale', () => {
     const es = messagesFor('es-ES').updates.tray
     expect(relativeTime(NOW - 3 * 86_400_000, NOW, 'pt-BR', pt)).toBe('há 3 dias')
     expect(relativeTime(NOW - 2 * 3_600_000, NOW, 'es-ES', es)).toBe('hace 2 horas')
     expect(relativeTime(NOW - 10_000, NOW, 'en-US', en)).toBe('just now')
+  })
+
+  test('"Open sessions in": the choices offered and the picker / submenu (#615)', () => {
+    const labels = messagesFor('en-US').terminals.choices
+    // macOS with terminal windows: the window, Automatic, the installed apps, and the current choice.
+    expect(
+      trayTerminalOptions({
+        platform: 'darwin',
+        windows: true,
+        installed: ['ghostty', 'terminal'],
+        current: 'kitty',
+      }),
+    ).toEqual(['window', 'auto', 'ghostty', 'kitty', 'terminal'])
+    expect(
+      trayTerminalOptions({ platform: 'linux', windows: false, installed: ['kitty'], current: undefined }),
+    ).toEqual(['auto', 'kitty'])
+    const terminal = {
+      label: 'Open sessions in',
+      choice: 'ghostty' as const,
+      options: (['window', 'auto', 'ghostty'] as const).map((id) => ({ id, label: labels[id] })),
+    }
+    const prefs = {
+      permissions: true,
+      keepAwake: 'sessions' as const,
+      push: true,
+      machineName: 'MacBook Pro',
+      showInMenuBar: true,
+      startAtLogin: null,
+    }
+    const windowed = buildTrayMenu({ ...base, prefs, terminal, windows: true }, en)
+    const general = windowed.prefsWindow?.tabs
+      .find((tab) => tab.id === 'general')
+      ?.sections.flatMap((x) => x.rows)
+    expect(general).toContainEqual({
+      kind: 'picker',
+      id: 'open-in:',
+      label: 'Open sessions in',
+      options: [
+        { id: 'open-in:window', label: 'Remote Harness terminal window', checked: false },
+        { id: 'open-in:auto', label: 'Automatic (the terminal app that is open)', checked: false },
+        { id: 'open-in:ghostty', label: 'Ghostty', checked: true },
+      ],
+    })
+    const plain = buildTrayMenu({ ...base, prefs, terminal }, en)
+    const sub = plain.items.find(
+      (i): i is Extract<TrayItem, { type: 'submenu' }> => 'items' in i && i.label === 'Preferences',
+    )
+    expect(sub?.items).toContainEqual({
+      type: 'submenu',
+      label: 'Open sessions in',
+      items: [
+        { id: 'open-in:window', label: 'Remote Harness terminal window', checked: false },
+        { id: 'open-in:auto', label: 'Automatic (the terminal app that is open)', checked: false },
+        { id: 'open-in:ghostty', label: 'Ghostty', checked: true },
+      ],
+    })
+    // No shell state: no picker.
+    expect(JSON.stringify(buildTrayMenu({ ...base, prefs, windows: true }, en))).not.toContain('open-in:')
   })
 
   test('Preferences tabs in the prototype order, with Network and Devices', () => {

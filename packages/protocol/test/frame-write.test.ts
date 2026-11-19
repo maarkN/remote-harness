@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { carriedStyles, frameLines, frameWrite, GLYPH_SUBSTITUTES } from './frame-write'
+import { carriedStyles, frameLines, frameWrite, GLYPH_SUBSTITUTES } from '../src/frame-write.ts'
 
 const frame = (lines: string[], cols = 20, rows = 4) => ({ text: `${lines.join('\n')}\n`, cols, rows })
 const ESC = '\x1b'

@@ -67,6 +67,7 @@ The old `claude-remote` command and `CLAUDE_REMOTE_*` variables keep working for
 - `tmuxSession`: the tmux session the launchers use.
 - `tmuxSocket`: the tmux server (`tmux -L <name>`) the launchers and the daemon use, `remote-harness` by default, apart from your own tmux and its `tmux.conf`; `null` uses your default server and config instead.
 - `tmuxConfig`: `minimal` (default) starts that server with Remote Harness's few settings only (Esc delivered at once, focus events, a larger history); `user` also loads your `~/.tmux.conf` (or `~/.config/tmux/tmux.conf`) on top, so your bindings apply inside the agent's windows.
+- `profilePicker`: `true` writes the `rhnss` command next to the launchers, which asks which profile to start (see below); `false` by default. `remote-harness setup` asks at the end.
 - `language`: `pt-BR`, `en-US` or `es-ES` for the CLI, the setup and the push texts; the system language when absent.
 - `push`: `auto` (your Firebase service account when present, else the relay) or `off`.
 - `update`: the channel `update` and the background check follow, and whether updates apply by themselves.
@@ -153,6 +154,8 @@ What works like Claude Code: the session list (recent transcripts under `project
 ## Launchers and aliases
 
 Each profile gets a small zsh launcher in `~/.remote-harness/bin/<alias>` (added to the `PATH` of `~/.zshrc` and `~/.bashrc`). Run the alias instead of `claude`, with the same arguments: it opens Claude Code in a window of the `claude-remote` session on Remote Harness's own tmux server (`tmux -L remote-harness`, started with `~/.remote-harness/tmux.conf` instead of your `tmux.conf`, so your settings, plugins and `tmux ls` are left alone) with the right `CLAUDE_CONFIG_DIR`, and attaches your terminal to it. Run the alias inside your own tmux and the session shows nested in that pane, without taking over your client (press your prefix twice to reach the inner tmux). `remote-harness tmux` attaches to that server from any terminal and `remote-harness tmux ls` lists its sessions; sessions started before this server existed stay on your default tmux server until they end. The plain `claude` command is never changed.
+
+`rhnss` (optional, offered at the end of `remote-harness setup`, or `"profilePicker": true` in `config.json`) is a single entry point for every profile: in any folder it lists them as agent · name · config folder, asks for a number and runs that profile's launcher with the same arguments (`rhnss --resume <id>` works like the launcher). `rhnss <alias>` skips the question, and with a single profile it starts at once. It is rewritten with the launchers, so profiles you add later show up by themselves.
 
 ## Background service
 

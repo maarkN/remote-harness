@@ -25,7 +25,7 @@ Installs and configures Remote Harness on the Mac with a single command and a gu
 - **THEN** Node 24 is downloaded into `~/.remote-harness/node` after its checksum is verified, and the daemon, the `claude-remote` shortcut and the service use it
 
 ### Requirement: Profile wizard
-`remote-harness setup` SHALL show the logo, detect the Claude Code configuration directories, let the user choose the profiles and set the alias and name of each, and only write after confirmation. The alias MUST be valid, unique and different from `claude` and `claude-remote`.
+`remote-harness setup` SHALL show the logo, detect the Claude Code configuration directories, let the user choose the profiles and set the alias and name of each, and only write after confirmation. The alias MUST be valid, unique and different from `claude`, `claude-remote` and `rhnss` (the profile picker). At the end of an interactive run, before the closing summary, the wizard SHALL ask whether to add the profile picker command `rhnss` (see the launchers' "Profile picker"), defaulting to the current `profilePicker` setting, save the answer to `config.json` and write or remove the command at once; the closing summary SHALL mention `rhnss` when it is on. A non-interactive run (`--yes`) SHALL keep the current setting.
 
 #### Scenario: Two accounts
 - **WHEN** `~/.claude` and `~/.claude-work` exist and the user chooses the aliases `personal` and `work`
@@ -50,6 +50,10 @@ Installs and configures Remote Harness on the Mac with a single command and a gu
 #### Scenario: Profile removed
 - **WHEN** a configured profile is unselected
 - **THEN** its launcher and hooks are removed
+
+#### Scenario: Profile picker offered at the end
+- **WHEN** the user finishes an interactive `remote-harness setup` and answers yes to adding the `rhnss` command
+- **THEN** `config.json` has `profilePicker: true`, `~/.remote-harness/bin/rhnss` exists and the closing summary mentions `rhnss`; answering no later removes the command and sets `profilePicker` to `false`
 
 ### Requirement: Installer redirect
 `https://remoteharness.app/install` SHALL deliver `install.sh` to curl and wget (macOS, Linux, WSL), and `install.sh` started from Git Bash, MSYS or Cygwin on Windows MUST stop with a message that shows `irm https://remoteharness.app/install | iex`.

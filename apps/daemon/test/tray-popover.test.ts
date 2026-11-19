@@ -1,11 +1,31 @@
 import { describe, expect, test } from 'vitest'
 import { messagesFor } from '../src/core/i18n/index.ts'
-import type { TrayMenuState, TrayPending, TraySession } from '../src/features/updates/menu.ts'
+import type { TrayDevice, TrayMenuState, TrayPending, TraySession } from '../src/features/updates/menu.ts'
 import { buildTrayPopover } from '../src/features/updates/popover.ts'
 
 const en = messagesFor('en-US').updates.tray
 const pt = messagesFor('pt-BR').updates.tray
 const NOW = Date.parse('2026-10-18T09:41:00Z')
+
+const DAY = 86_400_000
+const device = (id: string, patch: Partial<TrayDevice> = {}): TrayDevice => ({
+  id,
+  name: id,
+  platform: 'ios',
+  pairedAt: NOW - 60 * DAY,
+  lastSeen: null,
+  paths: [],
+  ...patch,
+})
+/** Six paired devices: `iphone` online, then `pixel`, `ipad`, `mac` and `old` by last seen, `never` never seen. */
+const sixDevices: TrayDevice[] = [
+  device('old', { lastSeen: NOW - 30 * DAY }),
+  device('ipad', { lastSeen: NOW - 2 * DAY }),
+  device('never', { pairedAt: NOW - DAY }),
+  device('pixel', { lastSeen: NOW - 3_600_000 }),
+  device('iphone', { lastSeen: NOW - 9 * DAY, paths: ['relay'] }),
+  device('mac', { lastSeen: NOW - 5 * DAY }),
+]
 
 const session = (id: string, state: TraySession['state'], patch: Partial<TraySession> = {}): TraySession => ({
   id,
@@ -127,6 +147,7 @@ describe('tray popover', () => {
       detail: '~/projects/acme-api · Work · worktree',
       pill: { label: 'waiting', tone: 'waiting' },
       action: 'focus:a',
+      outsideTmux: null,
       menu: [
         { id: 'focus:a', label: 'Open in terminal (tmux)', enabled: true },
         { id: 'rename:a', label: 'Rename…' },
@@ -143,6 +164,58 @@ describe('tray popover', () => {
     expect(buildTrayPopover({ ...base, sessions: [] }, en).sessions.empty).toBe('No sessions')
   })
 
+  test("a click opens the session's terminal window when the helper has them (#614)", () => {
+    const sessions = [session('a', 'running'), session('o', 'idle', { controllable: false })]
+    const { rows } = buildTrayPopover({ ...base, sessions, terminals: true }, en).sessions
+    expect(rows[0]?.action).toBe('window:a')
+    // Open in terminal (tmux) stays in the context menu.
+    expect(rows[0]?.menu[0]).toEqual({ id: 'focus:a', label: 'Open in terminal (tmux)', enabled: true })
+    expect(rows[1]?.action).toBeNull()
+    expect(buildTrayPopover({ ...base, sessions }, en).sessions.rows[0]?.action).toBe('focus:a')
+  })
+
+  test('the click follows the terminal setting: the window, or the chosen app (#615)', () => {
+    const sessions = [session('a', 'running')]
+    const terminal = (choice: 'window' | 'ghostty' | 'auto') => ({
+      label: 'Open sessions in',
+      choice,
+      options: [],
+    })
+    const action = (choice: 'window' | 'ghostty' | 'auto') =>
+      buildTrayPopover({ ...base, sessions, terminals: true, terminal: terminal(choice) }, en).sessions
+        .rows[0]?.action
+    expect(action('window')).toBe('window:a')
+    expect(action('ghostty')).toBe('focus:a')
+    expect(action('auto')).toBe('focus:a')
+  })
+
+  test('a session outside tmux is muted, tagged and explained, and a click does nothing (#613)', () => {
+    const sessions = [
+      session('o', 'running', { controllable: false }),
+      session('t', 'idle'),
+      session('z', 'ended'),
+    ]
+    const { rows } = buildTrayPopover({ ...base, sessions }, en).sessions
+    expect(rows[0]).toMatchObject({
+      id: 'o',
+      action: null,
+      outsideTmux: {
+        tag: 'outside tmux',
+        hint: "Started outside Remote Harness's tmux, so there is no terminal to open from here. Sessions started with a profile's command can be opened here.",
+      },
+    })
+    expect(rows[0]?.menu).toEqual([
+      { id: 'focus:o', label: 'Open in terminal (tmux)', enabled: false },
+      { id: 'rename:o', label: 'Rename…' },
+      { id: 'close:o', label: 'Close session', enabled: false },
+    ])
+    expect(rows[1]).toMatchObject({ id: 't', action: 'focus:t', outsideTmux: null })
+    expect(rows.map((row) => row.id)).toEqual(['o', 't'])
+    expect(buildTrayPopover({ ...base, sessions }, pt).sessions.rows[0]?.outsideTmux?.tag).toBe(
+      'fora do tmux',
+    )
+  })
+
   test('devices with their state, opening the Devices tab', () => {
     const { devices } = buildTrayPopover(base, en)
     expect(devices).toEqual({
@@ -157,12 +230,26 @@ describe('tray popover', () => {
           pill: { label: 'online · direct', tone: 'online' },
         },
       ],
+      more: null,
       empty: null,
       action: 'prefs:devices',
     })
     const none = buildTrayPopover({ ...base, devices: { push: false, items: [] } }, pt).devices
     expect(none.empty).toBe('Pareie um celular para acompanhar suas sessões por ele')
     expect(none.detail).toBe('push desligado')
+  })
+
+  test('at most three devices, online first then the most recently seen, and "See all devices (N)…" (#619)', () => {
+    const { devices } = buildTrayPopover({ ...base, devices: { push: true, items: sixDevices } }, en)
+    expect(devices.rows.map((row) => row.id)).toEqual(['iphone', 'pixel', 'ipad'])
+    expect(devices.more).toEqual({ id: 'prefs:devices', label: 'See all devices (6)…' })
+    const three = { push: true, items: sixDevices.slice(0, 3) }
+    const few = buildTrayPopover({ ...base, devices: three }, pt).devices
+    // Never seen goes last.
+    expect(few.rows.map((row) => row.id)).toEqual(['ipad', 'old', 'never'])
+    expect(few.more).toBeNull()
+    const ptMore = buildTrayPopover({ ...base, devices: { push: true, items: sixDevices } }, pt).devices.more
+    expect(ptMore?.label).toBe('Ver todos os dispositivos (6)…')
   })
 
   test('quick actions: pairing tab once listening, the update state and Quit', () => {

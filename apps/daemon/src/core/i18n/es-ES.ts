@@ -63,6 +63,17 @@ export const esES = {
       applied: 'aplicado al daemon en ejecución',
       notRunning: 'el daemon no está en ejecución; se aplica en el próximo inicio',
     },
+    terminal: {
+      description: 'muestra o define dónde abre el tray las sesiones: window, auto o una app de terminal',
+      current: (label: string, isDefault: boolean) =>
+        `las sesiones se abren en: ${label}${isDefault ? ' (predeterminado)' : ''}`,
+      choices: (list: string) => `opciones (✓ instalada): ${list}`,
+      invalid: (value: string, valid: string) => `"${value}" no está disponible aquí; usa una de: ${valid}`,
+      notInstalled: (label: string) =>
+        `${label} no está instalada: hasta que lo esté, las sesiones se abren en la app de terminal que esté abierta`,
+      applied: 'aplicado al daemon en ejecución',
+      notRunning: 'el daemon no está en ejecución; se aplica en el próximo inicio',
+    },
     keepAwake: {
       description: 'muestra o define cuándo el ordenador se mantiene despierto: off, sessions o always',
       modes: {
@@ -252,8 +263,14 @@ export const esES = {
       list: 'lista los dispositivos emparejados (ID, nombre, plataforma, emparejado, visto por última vez, versión de la app)',
       revoke: 'desempareja un dispositivo: se desconecta y debe volver a emparejarse',
       empty: 'No hay dispositivos emparejados. Ejecuta `remote-harness pair` para emparejar uno.',
-      row: (id: string, name: string, platform: string, paired: string, seen: string, app: string) =>
-        `${id}  ${name}  ${platform}  emparejado ${paired}  visto por última vez ${seen}  app ${app}`,
+      columns: {
+        id: 'ID',
+        name: 'Nombre',
+        platform: 'Plataforma',
+        paired: 'Emparejado',
+        seen: 'Visto por última vez',
+        app: 'App',
+      },
       never: 'nunca',
       revoked: (id: string) => `Dispositivo ${id} revocado.`,
       notFound: (id: string) => `No hay ningún dispositivo emparejado ${id}.`,
@@ -298,6 +315,13 @@ export const esES = {
     hookSecretRotated: (path: string) =>
       `secreto de los hooks renovado (las versiones antiguas lo ponían en la línea de comandos de curl); curl ahora lo lee de ${path} — un daemon en ejecución y las sesiones abiertas lo usan cuando se reinicien`,
     tmuxConf: (path: string) => `configuración del servidor tmux en ${path}`,
+    profilePickerIn: (path: string) => `selector de perfiles ${path}`,
+    profilePickerRemoved: (path: string) => `selector de perfiles ${path} eliminado`,
+    profilePicker: {
+      question: '¿Qué perfil quieres iniciar?',
+      answer: (count: number) => `Número (1-${count}): `,
+      invalid: (count: number) => `Escribe un número del 1 al ${count}, o pulsa Enter para cancelar.`,
+    },
     tmuxSessionRenamed: (from: string, to: string) =>
       `sesión tmux ${from} renombrada a ${to} (sus ventanas no cambian)`,
     secretsMigrated: (count: number) =>
@@ -350,11 +374,13 @@ export const esES = {
     phoneHint:
       '  En el móvil: instala la app Remote Harness y toca "Código QR". Alcanza este ordenador desde cualquier sitio.',
     showQr: '¿Mostrar ahora el código QR de emparejamiento?',
+    profilePicker: '¿Añadir el comando rhnss, que pregunta qué perfil iniciar?',
     done: {
       installed: 'Remote Harness instalado.',
       openTerminal: (command: string) => `1. Abre un terminal nuevo (o ${command})`,
       useAliases: (aliases: string, claude: string) =>
         `2. Usa ${aliases} en lugar de ${claude}, con los mismos argumentos`,
+      usePicker: (command: string) => `   o ${command}, que pregunta qué perfil iniciar`,
       pairIfNeeded: (command: string) => `3. Empareja con ${command} si aún no lo has hecho`,
       footer: 'remote-harness doctor revisa todo · remote-harness setup cambia cuentas',
     },
@@ -508,6 +534,24 @@ export const esES = {
       'Remote Harness ejecuta las sesiones de tu agente de código en esta carpeta y necesita leer y escribir sus archivos.',
   },
   machine: { darwin: 'Mac', linux: 'ordenador' },
+  terminals: {
+    choices: {
+      window: 'Ventana de terminal de Remote Harness',
+      auto: 'Automático (la app de terminal que esté abierta)',
+      ghostty: 'Ghostty',
+      iterm2: 'iTerm2',
+      wezterm: 'WezTerm',
+      kitty: 'kitty',
+      alacritty: 'Alacritty',
+      terminal: 'Terminal',
+    },
+    thisTerminal: (label: string) => `${label} (esta terminal)`,
+    question: '¿Dónde debe abrirse una sesión al hacer clic en ella en el icono de Remote Harness?',
+    openIn: 'Abrir sesiones en',
+    missingTitle: (app: string) => `No se encontró ${app}`,
+    missingBody: (used: string) =>
+      `La sesión se abrió en ${used}. Elige otra terminal en Preferencias o con remote-harness terminal.`,
+  },
   profiles: {
     defaultName: 'Personal',
     newDirName: (index: number) => (index === 0 ? 'trabajo' : index === 1 ? 'personal' : `cuenta-${index}`),
@@ -615,9 +659,14 @@ export const esES = {
       rename: 'Renombrar…',
       close: 'Cerrar sesión',
       seeAllSessions: 'Ver todas las sesiones…',
+      seeAllDevices: (count: number) => `Ver todos los dispositivos (${count})…`,
+      allDevices: (count: number) => `Ver todos los dispositivos (${count})`,
       sessionsWindowTitle: 'Sesiones',
       searchSessions: 'Buscar sesiones',
       copyPath: 'Copiar ruta',
+      outsideTmux: 'fuera de tmux',
+      outsideTmuxHint:
+        'Iniciada fuera del tmux de Remote Harness, así que no hay terminal que abrir desde aquí. Las sesiones iniciadas con el comando de un perfil sí se pueden abrir aquí.',
       renamePromptTitle: 'Renombrar sesión',
       renameConfirm: 'Renombrar',
       cancel: 'Cancelar',
